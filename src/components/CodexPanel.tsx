@@ -1,11 +1,13 @@
 import { useEffect, useState, useCallback } from 'react';
 import { backend } from '../services/backend';
-import type { CodexData, CodexRateLimits, CodexSnapshot, CodexStats } from '../types/models';
+import type { CodexData, CodexRateLimits, CodexStats } from '../types/models';
 
 interface CodexPanelProps {
+  onConnectionChange?: (connected: boolean) => void;
+  onUsageChange?: (usedPercent: number | null) => void;
   autoRefreshIntervalMs?: number;
   manualRefreshNonce?: number;
-  onSnapshotChange?: (snapshot: CodexSnapshot) => void;
+  onLoadingChange?: (loading: boolean) => void;
 }
 
 function formatPlanType(planType?: string): string {
@@ -34,14 +36,18 @@ function formatWindowLabel(minutes?: number): string {
     return days === 7 ? 'Weekly' : `${days}d`;
   }
   if (minutes >= 60) {
-    return `${Math.round(minutes / 60)}h`;
+    const hours = Math.round(minutes / 60);
+    return `${hours}h`;
   }
   return `${minutes}m`;
 }
 
 function formatResetTime(resetAt?: number): string {
   if (!resetAt) return '';
-  const diffMs = resetAt * 1000 - Date.now();
+  const date = new Date(resetAt * 1000);
+  const now = new Date();
+  const diffMs = date.getTime() - now.getTime();
+
   if (diffMs <= 0) return 'now';
 
   const diffMinutes = Math.round(diffMs / 60000);
@@ -50,7 +56,8 @@ function formatResetTime(resetAt?: number): string {
   const diffHours = Math.round(diffMinutes / 60);
   if (diffHours < 24) return `${diffHours}h`;
 
-  return `${Math.round(diffHours / 24)}d`;
+  const diffDays = Math.round(diffHours / 24);
+  return `${diffDays}d`;
 }
 
 function getProgressColor(usedPercent: number): string {
@@ -59,10 +66,22 @@ function getProgressColor(usedPercent: number): string {
   return '#22c55e';
 }
 
+function getTrayUsedPercent(limits: CodexRateLimits): number | null {
+  if (limits.secondary?.usedPercent != null) {
+    return limits.secondary.usedPercent;
+  }
+  if (limits.primary?.usedPercent != null) {
+    return limits.primary.usedPercent;
+  }
+  return null;
+}
+
 export default function CodexPanel({
+  onConnectionChange,
+  onUsageChange,
   autoRefreshIntervalMs = 60 * 1000,
   manualRefreshNonce = 0,
-  onSnapshotChange,
+  onLoadingChange,
 }: CodexPanelProps) {
   const [codexData, setCodexData] = useState<CodexData | null>(null);
   const [codexStats, setCodexStats] = useState<CodexStats | null>(null);
@@ -84,35 +103,44 @@ export default function CodexPanel({
       setCodexData(info);
       setCodexStats(stats);
       setRateLimits(limits);
-      setError(limits.error || info.error || null);
+
+      if (limits.error) {
+        setError(limits.error);
+      } else if (info.error) {
+        setError(info.error);
+      }
+
+      // Notify parent about connection status change
+      const isConnected = limits.connected || info.connected;
+      onConnectionChange?.(isConnected);
+
+      // Use weekly usage for tray when available (secondary window).
+      onUsageChange?.(getTrayUsedPercent(limits));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch Codex data');
+      onConnectionChange?.(false);
+      onUsageChange?.(null);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [onConnectionChange, onUsageChange]);
 
   useEffect(() => {
     fetchData();
+    // Refresh in background at configured interval.
     const interval = setInterval(fetchData, autoRefreshIntervalMs);
     return () => clearInterval(interval);
   }, [fetchData, autoRefreshIntervalMs]);
+
+  useEffect(() => {
+    onLoadingChange?.(loading);
+  }, [loading, onLoadingChange]);
 
   useEffect(() => {
     if (manualRefreshNonce > 0) {
       fetchData();
     }
   }, [manualRefreshNonce, fetchData]);
-
-  useEffect(() => {
-    onSnapshotChange?.({
-      info: codexData,
-      stats: codexStats,
-      rateLimits,
-      loading,
-      error,
-    });
-  }, [codexData, codexStats, rateLimits, loading, error, onSnapshotChange]);
 
   const handleOpenDashboard = async () => {
     try {
@@ -131,7 +159,7 @@ export default function CodexPanel({
   }
 
   const hasRateLimits = rateLimits?.primary || rateLimits?.secondary;
-  const connected = Boolean(rateLimits?.connected) || Boolean(codexData?.connected);
+  const connected = rateLimits?.connected || codexData?.connected;
   const planType = rateLimits?.planType || codexData?.planType;
 
   return (
@@ -145,6 +173,7 @@ export default function CodexPanel({
 
       {connected && (
         <div className="codex-content">
+          {/* Rate Limits Section */}
           {hasRateLimits && (
             <div className="section">
               <div className="section-title">
@@ -221,13 +250,16 @@ export default function CodexPanel({
             </div>
           )}
 
+          {/* Subscription Section (only if no rate limits) */}
           {!hasRateLimits && codexData && (
             <div className="section">
               <div className="section-title">SUBSCRIPTION</div>
               <div className="codex-card">
                 <div className="codex-row">
                   <span className="codex-label">Plan</span>
-                  <span className="codex-value plan-badge">{formatPlanType(planType)}</span>
+                  <span className="codex-value plan-badge">
+                    {formatPlanType(planType)}
+                  </span>
                 </div>
                 <div className="codex-row">
                   <span className="codex-label">Valid Until</span>
@@ -245,6 +277,7 @@ export default function CodexPanel({
             </div>
           )}
 
+          {/* Local Stats Section */}
           {codexStats && (codexStats.totalSessions > 0 || codexStats.todaySessions > 0) && (
             <div className="section">
               <div className="section-title">LOCAL STATS</div>
@@ -261,6 +294,7 @@ export default function CodexPanel({
             </div>
           )}
 
+          {/* ChatGPT Link */}
           <button className="open-dashboard-btn" onClick={handleOpenDashboard}>
             Open Dashboard
           </button>

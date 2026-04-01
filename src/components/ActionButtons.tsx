@@ -3,7 +3,6 @@ interface ActionButtonsProps {
   onDashboard: () => void;
   onQuit: () => void;
   loading: boolean;
-  dashboardLabel?: string;
 }
 
 export default function ActionButtons({
@@ -11,7 +10,6 @@ export default function ActionButtons({
   onDashboard,
   onQuit,
   loading,
-  dashboardLabel = 'Dashboard',
 }: ActionButtonsProps) {
   return (
     <div className="action-buttons">
@@ -26,7 +24,7 @@ export default function ActionButtons({
 
       <button className="action-btn dashboard-btn" onClick={onDashboard}>
         <span className="btn-icon">⊞</span>
-        <span className="btn-text">{dashboardLabel}</span>
+        <span className="btn-text">Dashboard</span>
       </button>
 
       <button className="action-btn quit-btn" onClick={onQuit}>

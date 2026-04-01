@@ -138,12 +138,3 @@ impl CodexRateLimits {
         }
     }
 }
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct TrayDisplayData {
-    pub claude_connected: bool,
-    pub claude_percentage: Option<u8>,
-    pub codex_connected: bool,
-    pub codex_percentage: Option<u8>,
-}

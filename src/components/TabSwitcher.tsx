@@ -1,4 +1,4 @@
-export type TabName = 'overview' | 'claude' | 'codex';
+export type TabName = 'claude' | 'codex';
 
 interface TabSwitcherProps {
   activeTab: TabName;
@@ -15,16 +15,6 @@ export default function TabSwitcher({
 }: TabSwitcherProps) {
   return (
     <div className="tab-switcher">
-      <button
-        className={`tab-button ${activeTab === 'overview' ? 'active' : ''}`}
-        onClick={() => onTabChange('overview')}
-      >
-        <span className="status-pair" aria-hidden="true">
-          <span className={`status-dot ${claudeConnected ? 'connected' : 'disconnected'}`} />
-          <span className={`status-dot ${codexConnected ? 'connected' : 'disconnected'}`} />
-        </span>
-        Overview
-      </button>
       <button
         className={`tab-button ${activeTab === 'claude' ? 'active' : ''}`}
         onClick={() => onTabChange('claude')}

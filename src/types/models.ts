@@ -49,18 +49,3 @@ export interface CodexRateLimits {
   credits?: CodexCredits;
   error?: string;
 }
-
-export interface CodexSnapshot {
-  info: CodexData | null;
-  stats: CodexStats | null;
-  rateLimits: CodexRateLimits | null;
-  loading: boolean;
-  error: string | null;
-}
-
-export interface TrayDisplayData {
-  claudeConnected: boolean;
-  claudePercentage: number | null;
-  codexConnected: boolean;
-  codexPercentage: number | null;
-}

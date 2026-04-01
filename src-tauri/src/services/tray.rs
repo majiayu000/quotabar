@@ -1,42 +1,22 @@
 use std::sync::{mpsc, Mutex};
 
-use super::{link, tray_icon};
-use crate::domain::models::TrayDisplayData;
+use super::tray_icon;
 use chrono::Local;
 use tauri::{
     image::Image,
-    menu::{MenuBuilder, MenuItem, MenuItemBuilder, PredefinedMenuItem},
+    menu::{MenuBuilder, MenuItemBuilder},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent, TrayIconId},
-    AppHandle, Emitter, Manager, Position, State, Wry,
+    AppHandle, Manager, Position, State,
 };
-
-const TRAY_SHOW_OVERVIEW_EVENT: &str = "tray://show-overview";
-const TRAY_REFRESH_ALL_EVENT: &str = "tray://refresh-all";
-
-const MENU_ID_STATUS_CLAUDE: &str = "status_claude";
-const MENU_ID_STATUS_CODEX: &str = "status_codex";
-const MENU_ID_OPEN_OVERVIEW: &str = "open_overview";
-const MENU_ID_REFRESH_ALL: &str = "refresh_all";
-const MENU_ID_OPEN_CLAUDE_DASHBOARD: &str = "open_claude_dashboard";
-const MENU_ID_OPEN_CODEX_DASHBOARD: &str = "open_codex_dashboard";
-const MENU_ID_QUIT: &str = "quit";
-
-#[derive(Clone)]
-struct TrayMenuHandles {
-    claude_status: MenuItem<Wry>,
-    codex_status: MenuItem<Wry>,
-}
 
 pub struct TrayState {
     pub tray_id: Mutex<Option<TrayIconId>>,
-    menu_handles: Mutex<Option<TrayMenuHandles>>,
 }
 
 impl Default for TrayState {
     fn default() -> Self {
         Self {
             tray_id: Mutex::new(None),
-            menu_handles: Mutex::new(None),
         }
     }
 }
@@ -110,127 +90,34 @@ fn position_window_near_tray(app: &AppHandle, tray: &tauri::tray::TrayIcon) {
     let _ = window.set_position(tauri::Position::Physical(tauri::PhysicalPosition { x, y }));
 }
 
-fn emit_overview_event(app: &AppHandle) {
-    let _ = app.emit(TRAY_SHOW_OVERVIEW_EVENT, ());
-}
-
-fn emit_refresh_event(app: &AppHandle) {
-    let _ = app.emit(TRAY_REFRESH_ALL_EVENT, ());
-}
-
-fn show_overview_window(app: &AppHandle) {
+pub fn toggle_main_window(app: &AppHandle) {
     if let Some(window) = app.get_webview_window("main") {
-        emit_overview_event(app);
-        let _ = window.show();
-        let _ = window.set_focus();
+        if window.is_visible().unwrap_or(false) {
+            let _ = window.hide();
+        } else {
+            let _ = window.show();
+            let _ = window.set_focus();
+        }
     }
-}
-
-fn compact_value(connected: bool, percentage: Option<u8>) -> String {
-    if connected {
-        percentage
-            .map(|value| value.min(100).to_string())
-            .unwrap_or_else(|| "--".to_string())
-    } else {
-        "--".to_string()
-    }
-}
-
-fn format_tray_title(payload: &TrayDisplayData) -> String {
-    let claude = compact_value(payload.claude_connected, payload.claude_percentage);
-    let codex = compact_value(payload.codex_connected, payload.codex_percentage);
-
-    if claude == "--" && codex == "--" {
-        "--".to_string()
-    } else {
-        format!("{claude}/{codex}")
-    }
-}
-
-fn format_service_line(label: &str, connected: bool, percentage: Option<u8>) -> String {
-    if !connected {
-        return format!("{label}: unavailable");
-    }
-
-    if let Some(percentage) = percentage {
-        format!("{label}: {}% used", percentage.min(100))
-    } else {
-        format!("{label}: connected")
-    }
-}
-
-fn format_tooltip(payload: &TrayDisplayData, updated_at: &str) -> String {
-    let claude = format_service_line(
-        "Claude Code",
-        payload.claude_connected,
-        payload.claude_percentage,
-    );
-    let codex = format_service_line("Codex", payload.codex_connected, payload.codex_percentage);
-
-    format!("Quota Menubar\n{claude}\n{codex}\nUpdated: {updated_at}\nClick to open overview")
 }
 
 pub fn setup_tray(app: &AppHandle) -> tauri::Result<()> {
-    let claude_status_item = MenuItemBuilder::with_id(
-        MENU_ID_STATUS_CLAUDE,
-        "Claude Code: unavailable",
-    )
-    .enabled(false)
-    .build(app)?;
-    let codex_status_item =
-        MenuItemBuilder::with_id(MENU_ID_STATUS_CODEX, "Codex: unavailable")
-            .enabled(false)
-            .build(app)?;
-    let open_overview_item =
-        MenuItemBuilder::with_id(MENU_ID_OPEN_OVERVIEW, "Open Overview").build(app)?;
-    let refresh_all_item =
-        MenuItemBuilder::with_id(MENU_ID_REFRESH_ALL, "Refresh All").build(app)?;
-    let open_claude_dashboard_item = MenuItemBuilder::with_id(
-        MENU_ID_OPEN_CLAUDE_DASHBOARD,
-        "Open Claude Dashboard",
-    )
-    .build(app)?;
-    let open_codex_dashboard_item = MenuItemBuilder::with_id(
-        MENU_ID_OPEN_CODEX_DASHBOARD,
-        "Open Codex Dashboard",
-    )
-    .build(app)?;
-    let quit_item = MenuItemBuilder::with_id(MENU_ID_QUIT, "Quit").build(app)?;
+    let show_item = MenuItemBuilder::with_id("show", "Show / Hide Window").build(app)?;
+    let quit_item = MenuItemBuilder::with_id("quit", "Quit").build(app)?;
+    let menu = MenuBuilder::new(app).items(&[&show_item, &quit_item]).build()?;
 
-    let menu = MenuBuilder::new(app)
-        .items(&[
-            &claude_status_item,
-            &codex_status_item,
-            &PredefinedMenuItem::separator(app)?,
-            &open_overview_item,
-            &refresh_all_item,
-            &open_claude_dashboard_item,
-            &open_codex_dashboard_item,
-            &PredefinedMenuItem::separator(app)?,
-            &quit_item,
-        ])
-        .build()?;
-
-    let initial_icon_bytes = tray_icon::generate_tray_icon(None, None, 44);
+    let initial_icon_bytes = tray_icon::generate_tray_icon(0, 44);
     let initial_icon = Image::from_bytes(&initial_icon_bytes)?;
 
     let tray = TrayIconBuilder::with_id("quota-tray")
         .icon(initial_icon)
         .icon_as_template(false)
-        .title("--")
         .tooltip("Quota Menubar")
         .menu(&menu)
         .show_menu_on_left_click(false)
         .on_menu_event(|app, event| match event.id().as_ref() {
-            MENU_ID_OPEN_OVERVIEW => show_overview_window(app),
-            MENU_ID_REFRESH_ALL => emit_refresh_event(app),
-            MENU_ID_OPEN_CLAUDE_DASHBOARD => {
-                let _ = link::open_claude_dashboard();
-            }
-            MENU_ID_OPEN_CODEX_DASHBOARD => {
-                let _ = link::open_codex_dashboard();
-            }
-            MENU_ID_QUIT => app.exit(0),
+            "show" => toggle_main_window(app),
+            "quit" => app.exit(0),
             _ => {}
         })
         .on_tray_icon_event(|tray, event| {
@@ -245,7 +132,6 @@ pub fn setup_tray(app: &AppHandle) -> tauri::Result<()> {
                     if window.is_visible().unwrap_or(false) {
                         let _ = window.hide();
                     } else {
-                        emit_overview_event(app);
                         position_window_near_tray(app, tray);
                         let _ = window.show();
                         let _ = window.set_focus();
@@ -256,17 +142,11 @@ pub fn setup_tray(app: &AppHandle) -> tauri::Result<()> {
         .build(app)?;
 
     let _ = tray.set_visible(true);
+    let _ = tray.set_icon_as_template(false);
 
     if let Some(state) = app.try_state::<TrayState>() {
         if let Ok(mut guard) = state.tray_id.lock() {
             *guard = Some(tray.id().clone());
-        }
-
-        if let Ok(mut guard) = state.menu_handles.lock() {
-            *guard = Some(TrayMenuHandles {
-                claude_status: claude_status_item.clone(),
-                codex_status: codex_status_item.clone(),
-            });
         }
     }
 
@@ -286,15 +166,10 @@ pub fn setup_tray(app: &AppHandle) -> tauri::Result<()> {
 pub async fn update_tray_tooltip(
     app: AppHandle,
     tray_state: State<'_, TrayState>,
-    payload: TrayDisplayData,
+    percentage: u8,
 ) -> Result<(), String> {
     let tray_id = {
         let guard = tray_state.tray_id.lock().map_err(|e| e.to_string())?;
-        guard.clone()
-    };
-
-    let menu_handles = {
-        let guard = tray_state.menu_handles.lock().map_err(|e| e.to_string())?;
         guard.clone()
     };
 
@@ -302,8 +177,9 @@ pub async fn update_tray_tooltip(
         return Ok(());
     };
 
-    let app_handle = app.clone();
+    let pct = percentage.min(100);
     let (tx, rx) = mpsc::channel();
+    let app_handle = app.clone();
 
     app.run_on_main_thread(move || {
         let result = (|| -> Result<(), String> {
@@ -311,49 +187,19 @@ pub async fn update_tray_tooltip(
                 return Ok(());
             };
 
-            let icon_bytes = tray_icon::generate_tray_icon(
-                if payload.claude_connected {
-                    payload.claude_percentage
-                } else {
-                    None
-                },
-                if payload.codex_connected {
-                    payload.codex_percentage
-                } else {
-                    None
-                },
-                44,
-            );
+            let icon_bytes = tray_icon::generate_tray_icon(pct, 44);
             let icon = Image::from_bytes(&icon_bytes).map_err(|e| e.to_string())?;
-            let updated_at = Local::now().format("%H:%M:%S").to_string();
 
             tray.set_icon(Some(icon)).map_err(|e| e.to_string())?;
             tray.set_icon_as_template(false).map_err(|e| e.to_string())?;
-            tray.set_title(Some(&format_tray_title(&payload)))
-                .map_err(|e| e.to_string())?;
-            tray.set_tooltip(Some(format_tooltip(&payload, &updated_at)))
+
+            let updated_at = Local::now().format("%H:%M:%S").to_string();
+            tray
+                .set_tooltip(Some(format!(
+                    "Quota Menubar ({pct}% used, updated {updated_at})"
+                )))
                 .map_err(|e| e.to_string())?;
             tray.set_visible(true).map_err(|e| e.to_string())?;
-
-            if let Some(menu_handles) = menu_handles {
-                menu_handles
-                    .claude_status
-                    .set_text(format_service_line(
-                        "Claude Code",
-                        payload.claude_connected,
-                        payload.claude_percentage,
-                    ))
-                    .map_err(|e| e.to_string())?;
-                menu_handles
-                    .codex_status
-                    .set_text(format_service_line(
-                        "Codex",
-                        payload.codex_connected,
-                        payload.codex_percentage,
-                    ))
-                    .map_err(|e| e.to_string())?;
-            }
-
             Ok(())
         })();
 
