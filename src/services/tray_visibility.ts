@@ -19,6 +19,6 @@ export function saveTrayEnabled(service: TrayServiceName, enabled: boolean): voi
   } catch {}
 }
 
-export function shouldShowTray(enabled: boolean, connected: boolean): boolean {
-  return enabled && connected;
+export function shouldShowTray(enabled: boolean, _connected: boolean): boolean {
+  return enabled;
 }

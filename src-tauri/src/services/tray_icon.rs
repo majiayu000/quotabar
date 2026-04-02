@@ -1,7 +1,32 @@
-use image::{ImageBuffer, ImageEncoder, Rgba, RgbaImage};
+use std::sync::OnceLock;
 
-const DIGIT_WIDTH: u32 = 3;
-const DIGIT_HEIGHT: u32 = 5;
+use image::{
+    imageops::{resize, FilterType},
+    load_from_memory_with_format, ImageBuffer, ImageEncoder, ImageFormat, Rgba, RgbaImage,
+};
+
+const GLYPH_WIDTH: u32 = 3;
+const GLYPH_HEIGHT: u32 = 5;
+const BADGE_BORDER: Rgba<u8> = Rgba([255, 255, 255, 235]);
+const BADGE_TEXT: Rgba<u8> = Rgba([255, 255, 255, 255]);
+const CLAUDE_BADGE_BYTES: &[u8] = include_bytes!("../../icons/tray-badges/claude.png");
+const CODEX_BADGE_BYTES: &[u8] = include_bytes!("../../icons/tray-badges/codex.png");
+const LARGE_BADGE_OUTER_RADIUS: f32 = 11.2;
+const SMALL_BADGE_OUTER_RADIUS: f32 = 6.4;
+const LARGE_BADGE_BORDER_WIDTH: f32 = 1.2;
+const SMALL_BADGE_BORDER_WIDTH: f32 = 1.0;
+const LARGE_BADGE_ICON_SIZE: u32 = 17;
+const SMALL_BADGE_ICON_SIZE: u32 = 8;
+const LARGE_BADGE_INSET: f32 = 0.0;
+const SMALL_BADGE_INSET: f32 = 0.4;
+const LARGE_RING_WIDTH: f32 = 5.8;
+const SMALL_RING_WIDTH: f32 = 3.2;
+const LARGE_RING_OUTER_INSET: f32 = 1.2;
+const SMALL_RING_OUTER_INSET: f32 = 0.6;
+const LARGE_DIGIT_OFFSET_X: i32 = -1;
+const LARGE_DIGIT_OFFSET_Y: i32 = -1;
+const SMALL_DIGIT_OFFSET_X: i32 = 0;
+const SMALL_DIGIT_OFFSET_Y: i32 = 0;
 
 const DIGITS: [[u8; 5]; 10] = [
     [0b111, 0b101, 0b101, 0b101, 0b111],
@@ -16,15 +41,16 @@ const DIGITS: [[u8; 5]; 10] = [
     [0b111, 0b101, 0b111, 0b001, 0b111],
 ];
 
-fn draw_digit(img: &mut RgbaImage, digit: u8, x: i32, y: i32, scale: u32, color: Rgba<u8>) {
-    if digit > 9 {
-        return;
-    }
+#[derive(Clone, Copy)]
+pub enum TrayIconIdentity {
+    Claude,
+    Codex,
+}
 
-    let pattern = &DIGITS[digit as usize];
+fn draw_glyph(img: &mut RgbaImage, pattern: &[u8; 5], x: i32, y: i32, scale: u32, color: Rgba<u8>) {
     for (row, bits) in pattern.iter().enumerate() {
-        for col in 0..DIGIT_WIDTH {
-            if (bits >> (DIGIT_WIDTH - 1 - col)) & 1 == 1 {
+        for col in 0..GLYPH_WIDTH {
+            if (bits >> (GLYPH_WIDTH - 1 - col)) & 1 == 1 {
                 for sy in 0..scale {
                     for sx in 0..scale {
                         let px = x + (col * scale) as i32 + sx as i32;
@@ -43,13 +69,18 @@ fn draw_digit(img: &mut RgbaImage, digit: u8, x: i32, y: i32, scale: u32, color:
     }
 }
 
+fn draw_digit(img: &mut RgbaImage, digit: u8, x: i32, y: i32, scale: u32, color: Rgba<u8>) {
+    if digit <= 9 {
+        draw_glyph(img, &DIGITS[digit as usize], x, y, scale, color);
+    }
+}
+
 fn smooth_step(edge0: f32, edge1: f32, x: f32) -> f32 {
     let t = ((x - edge0) / (edge1 - edge0)).clamp(0.0, 1.0);
     t * t * (3.0 - 2.0 * t)
 }
 
 fn usage_color(used_percent: u8) -> (u8, u8, u8) {
-    // Keep tray color thresholds aligned with frontend quota cards.
     if used_percent >= 80 {
         (239, 68, 68)
     } else if used_percent >= 50 {
@@ -63,6 +94,142 @@ fn neutral_color() -> (u8, u8, u8) {
     (148, 163, 184)
 }
 
+fn badge_background(identity: TrayIconIdentity) -> Rgba<u8> {
+    match identity {
+        TrayIconIdentity::Claude => Rgba([217, 119, 87, 255]),
+        TrayIconIdentity::Codex => Rgba([17, 24, 39, 255]),
+    }
+}
+
+fn decode_badge(bytes: &[u8]) -> RgbaImage {
+    load_from_memory_with_format(bytes, ImageFormat::Png)
+        .expect("failed to decode tray badge png")
+        .into_rgba8()
+}
+
+fn badge_source(identity: TrayIconIdentity) -> &'static RgbaImage {
+    static CLAUDE_BADGE: OnceLock<RgbaImage> = OnceLock::new();
+    static CODEX_BADGE: OnceLock<RgbaImage> = OnceLock::new();
+
+    match identity {
+        TrayIconIdentity::Claude => CLAUDE_BADGE.get_or_init(|| decode_badge(CLAUDE_BADGE_BYTES)),
+        TrayIconIdentity::Codex => CODEX_BADGE.get_or_init(|| decode_badge(CODEX_BADGE_BYTES)),
+    }
+}
+
+fn blend_pixel(bottom: Rgba<u8>, top: Rgba<u8>) -> Rgba<u8> {
+    let top_alpha = top[3] as f32 / 255.0;
+    let bottom_alpha = bottom[3] as f32 / 255.0;
+    let out_alpha = top_alpha + bottom_alpha * (1.0 - top_alpha);
+
+    if out_alpha <= 0.0 {
+        return Rgba([0, 0, 0, 0]);
+    }
+
+    let blend_channel = |bottom: u8, top: u8| -> u8 {
+        let bottom = bottom as f32 / 255.0;
+        let top = top as f32 / 255.0;
+        (((top * top_alpha) + (bottom * bottom_alpha * (1.0 - top_alpha))) / out_alpha * 255.0)
+            .round()
+            .clamp(0.0, 255.0) as u8
+    };
+
+    Rgba([
+        blend_channel(bottom[0], top[0]),
+        blend_channel(bottom[1], top[1]),
+        blend_channel(bottom[2], top[2]),
+        (out_alpha * 255.0).round().clamp(0.0, 255.0) as u8,
+    ])
+}
+
+fn draw_badge(img: &mut RgbaImage, identity: TrayIconIdentity) {
+    let size = img.width() as f32;
+    let is_large = size >= 44.0;
+    let outer_radius = if is_large {
+        LARGE_BADGE_OUTER_RADIUS
+    } else {
+        SMALL_BADGE_OUTER_RADIUS
+    };
+    let border_width = if is_large {
+        LARGE_BADGE_BORDER_WIDTH
+    } else {
+        SMALL_BADGE_BORDER_WIDTH
+    };
+    let inner_radius = outer_radius - border_width;
+    let inset = if is_large {
+        LARGE_BADGE_INSET
+    } else {
+        SMALL_BADGE_INSET
+    };
+    let center_x = size - outer_radius - inset;
+    let center_y = size - outer_radius - inset;
+    let fill = badge_background(identity);
+
+    for y in 0..img.height() {
+        for x in 0..img.width() {
+            let dx = x as f32 - center_x + 0.5;
+            let dy = y as f32 - center_y + 0.5;
+            let dist = (dx * dx + dy * dy).sqrt();
+            let outer_mask = smooth_step(outer_radius + 0.5, outer_radius - 0.5, dist);
+            let inner_mask = smooth_step(inner_radius + 0.5, inner_radius - 0.5, dist);
+
+            if outer_mask > 0.01 {
+                img.put_pixel(
+                    x,
+                    y,
+                    blend_pixel(
+                        *img.get_pixel(x, y),
+                        Rgba([
+                            BADGE_BORDER[0],
+                            BADGE_BORDER[1],
+                            BADGE_BORDER[2],
+                            (BADGE_BORDER[3] as f32 * outer_mask) as u8,
+                        ]),
+                    ),
+                );
+            }
+
+            if inner_mask > 0.01 {
+                img.put_pixel(
+                    x,
+                    y,
+                    blend_pixel(
+                        *img.get_pixel(x, y),
+                        Rgba([fill[0], fill[1], fill[2], (fill[3] as f32 * inner_mask) as u8]),
+                    ),
+                );
+            }
+        }
+    }
+
+    let icon_size = if is_large {
+        LARGE_BADGE_ICON_SIZE
+    } else {
+        SMALL_BADGE_ICON_SIZE
+    };
+    let resized = resize(badge_source(identity), icon_size, icon_size, FilterType::Triangle);
+    let start_x = (center_x.round() as i32 - icon_size as i32 / 2).max(0);
+    let start_y = (center_y.round() as i32 - icon_size as i32 / 2).max(0);
+
+    for y in 0..resized.height() {
+        for x in 0..resized.width() {
+            let px = start_x + x as i32;
+            let py = start_y + y as i32;
+            if px < 0 || py < 0 || px as u32 >= img.width() || py as u32 >= img.height() {
+                continue;
+            }
+
+            let top = *resized.get_pixel(x, y);
+            if top[3] == 0 {
+                continue;
+            }
+
+            let current = *img.get_pixel(px as u32, py as u32);
+            img.put_pixel(px as u32, py as u32, blend_pixel(current, top));
+        }
+    }
+}
+
 fn encode_png(img: &RgbaImage, size: u32) -> Vec<u8> {
     let mut png_bytes = Vec::new();
     let encoder = image::codecs::png::PngEncoder::new(&mut png_bytes);
@@ -72,14 +239,27 @@ fn encode_png(img: &RgbaImage, size: u32) -> Vec<u8> {
     png_bytes
 }
 
-pub fn generate_tray_icon(used_percent: Option<u8>, size: u32) -> Vec<u8> {
+pub fn generate_tray_icon(
+    identity: TrayIconIdentity,
+    used_percent: Option<u8>,
+    size: u32,
+) -> Vec<u8> {
     let mut img: RgbaImage = ImageBuffer::new(size, size);
     let center = size as f32 / 2.0;
+    let is_large = size >= 44;
     let pct = used_percent.map(|value| value.min(99));
     let (pr, pg, pb) = pct.map(usage_color).unwrap_or_else(neutral_color);
-
-    let ring_width = if size >= 44 { 7.0 } else { 3.5 };
-    let outer_radius = center;
+    let ring_width = if is_large {
+        LARGE_RING_WIDTH
+    } else {
+        SMALL_RING_WIDTH
+    };
+    let outer_radius = center
+        - if is_large {
+            LARGE_RING_OUTER_INSET
+        } else {
+            SMALL_RING_OUTER_INSET
+        };
     let inner_radius = outer_radius - ring_width;
     let start_angle = -std::f32::consts::FRAC_PI_2;
     let progress_angle = pct.map(|value| {
@@ -91,7 +271,6 @@ pub fn generate_tray_icon(used_percent: Option<u8>, size: u32) -> Vec<u8> {
             let dx = x as f32 - center + 0.5;
             let dy = y as f32 - center + 0.5;
             let dist = (dx * dx + dy * dy).sqrt();
-
             let inner_edge = smooth_step(inner_radius - 0.5, inner_radius + 0.5, dist);
             let outer_edge = smooth_step(outer_radius + 0.5, outer_radius - 0.5, dist);
             let ring_mask = inner_edge * outer_edge;
@@ -107,8 +286,8 @@ pub fn generate_tray_icon(used_percent: Option<u8>, size: u32) -> Vec<u8> {
             };
 
             let alpha = (255.0 * ring_mask) as u8;
-            if let Some(progress_angle) = progress_angle {
-                if normalized <= progress_angle {
+            if let Some(progress) = progress_angle {
+                if normalized <= progress {
                     img.put_pixel(x, y, Rgba([pr, pg, pb, alpha]));
                 } else {
                     img.put_pixel(x, y, Rgba([130, 130, 130, (100.0 * ring_mask) as u8]));
@@ -120,38 +299,59 @@ pub fn generate_tray_icon(used_percent: Option<u8>, size: u32) -> Vec<u8> {
     }
 
     if let Some(pct) = pct {
-        let scale = if size >= 44 { 3 } else { 1 };
-        let digit_w = DIGIT_WIDTH * scale;
-        let digit_h = DIGIT_HEIGHT * scale;
-        let spacing = if size >= 44 { 2 } else { 1 };
-        let d1 = pct / 10;
-        let d2 = pct % 10;
+        let scale = if is_large { 3 } else { 1 };
+        let digit_w = GLYPH_WIDTH * scale;
+        let digit_h = GLYPH_HEIGHT * scale;
+        let spacing = if is_large { 2 } else { 1 };
         let total_width = 2 * digit_w + spacing;
-        let start_x = ((size as i32 - total_width as i32) / 2).max(0);
-        let start_y = ((size as i32 - digit_h as i32) / 2).max(0);
-        let text = Rgba([255, 255, 255, 255]);
-
-        draw_digit(&mut img, d1, start_x, start_y, scale, text);
-        draw_digit(&mut img, d2, start_x + (digit_w + spacing) as i32, start_y, scale, text);
+        let digit_offset_x = if is_large {
+            LARGE_DIGIT_OFFSET_X
+        } else {
+            SMALL_DIGIT_OFFSET_X
+        };
+        let digit_offset_y = if is_large {
+            LARGE_DIGIT_OFFSET_Y
+        } else {
+            SMALL_DIGIT_OFFSET_Y
+        };
+        let start_x = (((size as i32 - total_width as i32) / 2) + digit_offset_x).max(0);
+        let start_y = (((size as i32 - digit_h as i32) / 2) + digit_offset_y).max(0);
+        draw_digit(&mut img, pct / 10, start_x, start_y, scale, BADGE_TEXT);
+        draw_digit(
+            &mut img,
+            pct % 10,
+            start_x + (digit_w + spacing) as i32,
+            start_y,
+            scale,
+            BADGE_TEXT,
+        );
     }
 
+    draw_badge(&mut img, identity);
     encode_png(&img, size)
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{generate_tray_icon, usage_color};
+    use super::{generate_tray_icon, usage_color, TrayIconIdentity};
 
     #[test]
     fn generate_icon_returns_png_bytes() {
-        let bytes = generate_tray_icon(Some(73), 44);
+        let bytes = generate_tray_icon(TrayIconIdentity::Claude, Some(73), 44);
         assert!(!bytes.is_empty());
     }
 
     #[test]
     fn generate_placeholder_icon_returns_png_bytes() {
-        let bytes = generate_tray_icon(None, 44);
+        let bytes = generate_tray_icon(TrayIconIdentity::Claude, None, 44);
         assert!(!bytes.is_empty());
+    }
+
+    #[test]
+    fn service_badges_produce_distinct_icons() {
+        let claude = generate_tray_icon(TrayIconIdentity::Claude, Some(42), 44);
+        let codex = generate_tray_icon(TrayIconIdentity::Codex, Some(42), 44);
+        assert_ne!(claude, codex);
     }
 
     #[test]

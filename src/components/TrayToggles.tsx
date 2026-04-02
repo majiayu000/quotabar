@@ -20,7 +20,7 @@ function renderToggle(
       <span className="tray-toggle-copy">
         <span className="toggle-label">{label}</span>
         <span className={`tray-toggle-status ${connected ? 'connected' : 'disconnected'}`}>
-          {connected ? 'Connected' : 'Hidden until login'}
+          {connected ? 'Connected' : 'Placeholder until login'}
         </span>
       </span>
       <input

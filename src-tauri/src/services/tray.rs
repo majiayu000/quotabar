@@ -50,6 +50,13 @@ impl TrayService {
             Self::Codex => "codex-quit",
         }
     }
+
+    fn icon_identity(self) -> tray_icon::TrayIconIdentity {
+        match self {
+            Self::Claude => tray_icon::TrayIconIdentity::Claude,
+            Self::Codex => tray_icon::TrayIconIdentity::Codex,
+        }
+    }
 }
 
 fn find_monitor_at_point(app: &AppHandle, x: i32, y: i32) -> Option<tauri::Monitor> {
@@ -134,7 +141,11 @@ fn build_service_tray(app: &AppHandle, service: TrayService) -> tauri::Result<()
         MenuItemBuilder::with_id(service.show_menu_id(), "Show / Hide Window").build(app)?;
     let quit_item = MenuItemBuilder::with_id(service.quit_menu_id(), "Quit").build(app)?;
     let menu = MenuBuilder::new(app).items(&[&show_item, &quit_item]).build()?;
-    let icon = Image::from_bytes(&tray_icon::generate_tray_icon(None, ICON_SIZE))?;
+    let icon = Image::from_bytes(&tray_icon::generate_tray_icon(
+        service.icon_identity(),
+        None,
+        ICON_SIZE,
+    ))?;
 
     let tray = TrayIconBuilder::with_id(service.tray_id())
         .icon(icon)
@@ -212,8 +223,12 @@ pub async fn update_tray_icon(
                 return Ok(());
             }
 
-            let icon = Image::from_bytes(&tray_icon::generate_tray_icon(percentage, ICON_SIZE))
-                .map_err(|e| e.to_string())?;
+            let icon = Image::from_bytes(&tray_icon::generate_tray_icon(
+                service.icon_identity(),
+                percentage,
+                ICON_SIZE,
+            ))
+            .map_err(|e| e.to_string())?;
             let updated_at = Local::now().format("%H:%M:%S").to_string();
 
             tray.set_icon(Some(icon)).map_err(|e| e.to_string())?;
