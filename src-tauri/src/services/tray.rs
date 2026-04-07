@@ -191,13 +191,9 @@ fn build_service_tray(app: &AppHandle, service: TrayService) -> tauri::Result<()
                 let app = tray.app_handle();
                 emit_tray_service_activated(app, click_service);
                 if let Some(window) = app.get_webview_window("main") {
-                    if window.is_visible().unwrap_or(false) {
-                        let _ = window.hide();
-                    } else {
-                        position_window_near_tray(app, tray);
-                        let _ = window.show();
-                        let _ = window.set_focus();
-                    }
+                    position_window_near_tray(app, tray);
+                    let _ = window.show();
+                    let _ = window.set_focus();
                 }
             }
         })
