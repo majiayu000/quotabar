@@ -2,15 +2,16 @@ use std::sync::mpsc;
 
 use super::tray_icon;
 use chrono::Local;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use tauri::{
     image::Image,
     menu::{MenuBuilder, MenuItemBuilder},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    AppHandle, Manager, Position, State,
+    AppHandle, Emitter, Manager, Position, State,
 };
 
 const ICON_SIZE: u32 = 44;
+const TRAY_SERVICE_ACTIVATED_EVENT: &str = "tray-service-activated";
 
 #[derive(Default)]
 pub struct TrayState;
@@ -44,6 +45,13 @@ impl TrayService {
         }
     }
 
+    fn tab_name(self) -> &'static str {
+        match self {
+            Self::Claude => "claude",
+            Self::Codex => "codex",
+        }
+    }
+
     fn quit_menu_id(self) -> &'static str {
         match self {
             Self::Claude => "claude-quit",
@@ -59,14 +67,25 @@ impl TrayService {
     }
 }
 
+#[derive(Clone, Serialize)]
+struct TrayServiceActivatedPayload {
+    service: &'static str,
+}
+
+fn emit_tray_service_activated(app: &AppHandle, service: TrayService) {
+    let _ = app.emit(
+        TRAY_SERVICE_ACTIVATED_EVENT,
+        TrayServiceActivatedPayload {
+            service: service.tab_name(),
+        },
+    );
+}
+
 fn find_monitor_at_point(app: &AppHandle, x: i32, y: i32) -> Option<tauri::Monitor> {
     app.available_monitors().ok()?.into_iter().find(|monitor| {
         let pos = monitor.position();
         let size = monitor.size();
-        x >= pos.x
-            && x < pos.x + size.width as i32
-            && y >= pos.y
-            && y < pos.y + size.height as i32
+        x >= pos.x && x < pos.x + size.width as i32 && y >= pos.y && y < pos.y + size.height as i32
     })
 }
 
@@ -127,11 +146,7 @@ fn toggle_main_window(app: &AppHandle) {
 
 fn format_tooltip(service: TrayService, percentage: Option<u8>) -> String {
     match percentage {
-        Some(value) => format!(
-            "{}: {}% used",
-            service.label(),
-            value.min(100)
-        ),
+        Some(value) => format!("{}: {}% used", service.label(), value.min(100)),
         None => format!("{}: unavailable", service.label()),
     }
 }
@@ -140,12 +155,17 @@ fn build_service_tray(app: &AppHandle, service: TrayService) -> tauri::Result<()
     let show_item =
         MenuItemBuilder::with_id(service.show_menu_id(), "Show / Hide Window").build(app)?;
     let quit_item = MenuItemBuilder::with_id(service.quit_menu_id(), "Quit").build(app)?;
-    let menu = MenuBuilder::new(app).items(&[&show_item, &quit_item]).build()?;
+    let menu = MenuBuilder::new(app)
+        .items(&[&show_item, &quit_item])
+        .build()?;
     let icon = Image::from_bytes(&tray_icon::generate_tray_icon(
         service.icon_identity(),
         None,
         ICON_SIZE,
     ))?;
+
+    let menu_service = service;
+    let click_service = service;
 
     let tray = TrayIconBuilder::with_id(service.tray_id())
         .icon(icon)
@@ -154,11 +174,14 @@ fn build_service_tray(app: &AppHandle, service: TrayService) -> tauri::Result<()
         .menu(&menu)
         .show_menu_on_left_click(false)
         .on_menu_event(move |app, event| match event.id().as_ref() {
-            id if id == service.show_menu_id() => toggle_main_window(app),
-            id if id == service.quit_menu_id() => app.exit(0),
+            id if id == menu_service.show_menu_id() => {
+                emit_tray_service_activated(app, menu_service);
+                toggle_main_window(app);
+            }
+            id if id == menu_service.quit_menu_id() => app.exit(0),
             _ => {}
         })
-        .on_tray_icon_event(|tray, event| {
+        .on_tray_icon_event(move |tray, event| {
             if let TrayIconEvent::Click {
                 button: MouseButton::Left,
                 button_state: MouseButtonState::Up,
@@ -166,6 +189,7 @@ fn build_service_tray(app: &AppHandle, service: TrayService) -> tauri::Result<()
             } = event
             {
                 let app = tray.app_handle();
+                emit_tray_service_activated(app, click_service);
                 if let Some(window) = app.get_webview_window("main") {
                     if window.is_visible().unwrap_or(false) {
                         let _ = window.hide();
@@ -232,10 +256,14 @@ pub async fn update_tray_icon(
             let updated_at = Local::now().format("%H:%M:%S").to_string();
 
             tray.set_icon(Some(icon)).map_err(|e| e.to_string())?;
-            tray.set_icon_as_template(false).map_err(|e| e.to_string())?;
-            tray
-                .set_tooltip(Some(format!("{}\nUpdated: {}", format_tooltip(service, percentage), updated_at)))
+            tray.set_icon_as_template(false)
                 .map_err(|e| e.to_string())?;
+            tray.set_tooltip(Some(format!(
+                "{}\nUpdated: {}",
+                format_tooltip(service, percentage),
+                updated_at
+            )))
+            .map_err(|e| e.to_string())?;
             tray.set_visible(true).map_err(|e| e.to_string())?;
             Ok(())
         })();
@@ -254,11 +282,17 @@ mod tests {
 
     #[test]
     fn tooltip_marks_unavailable() {
-        assert_eq!(format_tooltip(TrayService::Claude, None), "Claude Code: unavailable");
+        assert_eq!(
+            format_tooltip(TrayService::Claude, None),
+            "Claude Code: unavailable"
+        );
     }
 
     #[test]
     fn tooltip_clamps_usage() {
-        assert_eq!(format_tooltip(TrayService::Codex, Some(130)), "Codex: 100% used");
+        assert_eq!(
+            format_tooltip(TrayService::Codex, Some(130)),
+            "Codex: 100% used"
+        );
     }
 }

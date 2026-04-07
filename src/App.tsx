@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
+import { listen } from '@tauri-apps/api/event';
 import QuotaCard from './components/QuotaCard';
 import ActionButtons from './components/ActionButtons';
 import ThemeSelector, { ThemeName } from './components/ThemeSelector';
@@ -20,6 +21,11 @@ const DOCK_HIDDEN_KEY = 'claude-quota-dock-hidden';
 const TAB_STORAGE_KEY = 'claude-quota-tab';
 const AUTO_REFRESH_INTERVAL_MS = 60 * 1000;
 const BACKOFF_REFRESH_INTERVAL_MS = 5 * 60 * 1000;
+const TRAY_SERVICE_ACTIVATED_EVENT = 'tray-service-activated';
+
+interface TrayServiceActivatedPayload {
+  service: TrayServiceName;
+}
 
 function isMacOSPlatform(): boolean {
   if (typeof navigator === 'undefined') return false;
@@ -119,6 +125,13 @@ export default function App() {
   const [toast, setToast] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabName>(getSavedTab);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  const setAndPersistTab = useCallback((tab: TabName) => {
+    setActiveTab(tab);
+    try {
+      localStorage.setItem(TAB_STORAGE_KEY, tab);
+    } catch {}
+  }, []);
 
   // Auto-resize window
   useEffect(() => {
@@ -268,11 +281,37 @@ export default function App() {
   }, []);
 
   const handleTabChange = useCallback((tab: TabName) => {
-    setActiveTab(tab);
-    try {
-      localStorage.setItem(TAB_STORAGE_KEY, tab);
-    } catch {}
-  }, []);
+    setAndPersistTab(tab);
+  }, [setAndPersistTab]);
+
+  useEffect(() => {
+    let unlisten: (() => void) | null = null;
+    let mounted = true;
+
+    listen<TrayServiceActivatedPayload>(TRAY_SERVICE_ACTIVATED_EVENT, (event) => {
+      const service = event.payload?.service;
+      if (service === 'claude' || service === 'codex') {
+        setAndPersistTab(service);
+      }
+    })
+      .then((stopListening) => {
+        if (mounted) {
+          unlisten = stopListening;
+          return;
+        }
+        stopListening();
+      })
+      .catch((error) => {
+        console.error('Failed to subscribe tray activation event:', error);
+      });
+
+    return () => {
+      mounted = false;
+      if (unlisten) {
+        unlisten();
+      }
+    };
+  }, [setAndPersistTab]);
 
   const handleRefresh = useCallback(() => {
     if (activeTab === 'claude') {
