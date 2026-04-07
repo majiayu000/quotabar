@@ -223,21 +223,29 @@ export default function App() {
     return () => clearTimeout(timer);
   }, [fetchClaudeQuota]);
 
-  useEffect(() => {
+  const syncTrayIcons = useCallback(() => {
     updateTrayIcon(
       'claude',
       getClaudeTrayUsedPercent(quota),
       shouldShowTray(claudeTrayEnabled, quota?.connected ?? false),
     );
-  }, [quota, claudeTrayEnabled, updateTrayIcon]);
-
-  useEffect(() => {
     updateTrayIcon(
       'codex',
       codexUsedPercent,
       shouldShowTray(codexTrayEnabled, codexConnected),
     );
-  }, [codexUsedPercent, codexConnected, codexTrayEnabled, updateTrayIcon]);
+  }, [
+    quota,
+    claudeTrayEnabled,
+    codexUsedPercent,
+    codexConnected,
+    codexTrayEnabled,
+    updateTrayIcon,
+  ]);
+
+  useEffect(() => {
+    syncTrayIcons();
+  }, [syncTrayIcons]);
 
   const handleThemeChange = useCallback((newTheme: ThemeName) => {
     setTheme(newTheme);
