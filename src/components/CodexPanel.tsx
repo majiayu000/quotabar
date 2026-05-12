@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { backend } from '../services/backend';
+import CostSummarySection from './CostSummarySection';
 import type { CodexData, CodexRateLimits, CodexStats } from '../types/models';
 
 interface CodexPanelProps {
@@ -293,6 +294,8 @@ export default function CodexPanel({
               </div>
             </div>
           )}
+
+          <CostSummarySection source="codex" refreshKey={manualRefreshNonce} />
 
           {/* ChatGPT Link */}
           <button className="open-dashboard-btn" onClick={handleOpenDashboard}>

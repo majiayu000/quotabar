@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-pkill -f "/Applications/Quota Menubar Tauri.app/Contents/MacOS/quota-menubar-tauri" || true
-pkill -f "quota-menubar-tauri/src-tauri/target/release/quota-menubar-tauri" || true
+pkill -f "/Applications/QuotaBar.app/Contents/MacOS/quotabar" || true
+pkill -f "/src-tauri/target/release/quotabar" || true
 
-echo "Stopped Quota Menubar Tauri (if running)."
+echo "Stopped QuotaBar (if running)."

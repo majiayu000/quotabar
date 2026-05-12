@@ -1,5 +1,12 @@
 import { invoke } from '@tauri-apps/api/core';
-import type { CodexData, CodexRateLimits, CodexStats, QuotaData } from '../types/models';
+import type {
+  CodexData,
+  CodexRateLimits,
+  CodexStats,
+  CostOverview,
+  CostSource,
+  QuotaData,
+} from '../types/models';
 
 type TrayService = 'claude' | 'codex';
 
@@ -18,6 +25,15 @@ export const backend = {
 
   getCodexRateLimits() {
     return invoke<CodexRateLimits>('get_codex_rate_limits');
+  },
+
+  getCostOverview(source: CostSource, force = false) {
+    return invoke<CostOverview>('get_cost_overview', {
+      source,
+      currency: 'USD',
+      timezone: null,
+      force,
+    });
   },
 
   openClaudeDashboard() {

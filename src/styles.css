@@ -1,4 +1,4 @@
-/* Claude Quota Monitor - Tauri Version */
+/* QuotaBar */
 
 /* Theme: Light (Default) */
 .theme-light {
@@ -731,6 +731,146 @@ html, body, #root {
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+.cost-section {
+  margin-bottom: 4px;
+}
+
+.cost-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--card-border-radius);
+  padding: 12px;
+  box-shadow: var(--shadow-sm);
+}
+
+.cost-range-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.cost-range {
+  min-width: 0;
+  padding: 8px 6px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--bg-secondary);
+}
+
+.cost-range.active {
+  border-color: var(--accent-color);
+  background: var(--accent-light);
+}
+
+.cost-range-label,
+.cost-detail-label {
+  display: block;
+  color: var(--text-secondary);
+  font-size: 10px;
+  line-height: 1.2;
+}
+
+.cost-range-value {
+  display: block;
+  margin-top: 3px;
+  color: var(--text-primary);
+  font-size: 12px;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.cost-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.cost-detail {
+  min-width: 0;
+  padding: 7px 8px;
+  border-radius: 8px;
+  background: var(--bg-secondary);
+}
+
+.cost-detail-value {
+  display: block;
+  margin-top: 2px;
+  color: var(--text-primary);
+  font-size: 12px;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.cost-models {
+  margin-top: 10px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border-color);
+}
+
+.cost-model-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 8px;
+  align-items: center;
+  padding: 5px 0;
+}
+
+.cost-model-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-primary);
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.cost-model-tokens {
+  color: var(--text-muted);
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.cost-model-cost {
+  color: var(--text-primary);
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.cost-footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 8px;
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+.cost-loading,
+.cost-inline-error {
+  padding: 12px;
+  border-radius: 8px;
+  background: var(--bg-secondary);
+  color: var(--text-muted);
+  font-size: 12px;
+  text-align: center;
+}
+
+.cost-inline-error {
+  color: var(--color-critical);
+  background: var(--color-critical-bg);
+  overflow-wrap: anywhere;
+}
+
+.cost-inline-error.compact {
+  margin-top: 8px;
+  padding: 6px 8px;
+  font-size: 10px;
+  text-align: left;
 }
 
 /* Toast */

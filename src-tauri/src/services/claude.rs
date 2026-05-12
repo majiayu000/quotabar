@@ -37,7 +37,7 @@ fn log_msg(msg: &str) {
 
     let log_dir = dirs::home_dir()
         .unwrap_or_default()
-        .join("Library/Logs/quota-menubar-tauri");
+        .join("Library/Logs/quotabar");
     if let Err(e) = std::fs::create_dir_all(&log_dir) {
         eprintln!("[log] failed to create log dir: {e}");
         return;

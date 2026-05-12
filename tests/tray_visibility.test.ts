@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test';
+import { describe, expect, test } from 'vitest';
 import { shouldShowTray } from '../src/services/tray_visibility';
 
 describe('shouldShowTray', () => {

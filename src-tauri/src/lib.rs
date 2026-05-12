@@ -14,6 +14,7 @@ pub fn run() {
             commands::get_codex_info,
             commands::get_codex_stats,
             commands::get_codex_rate_limits,
+            commands::get_cost_overview,
             commands::open_claude_dashboard,
             commands::open_codex_dashboard,
             commands::resize_window,

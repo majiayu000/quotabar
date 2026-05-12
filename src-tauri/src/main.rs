@@ -2,5 +2,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    quota_menubar_tauri_lib::run()
+    quotabar_lib::run()
 }

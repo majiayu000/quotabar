@@ -6,6 +6,7 @@ import ThemeSelector, { ThemeName } from './components/ThemeSelector';
 import TabSwitcher, { TabName } from './components/TabSwitcher';
 import CodexPanel from './components/CodexPanel';
 import TrayToggles from './components/TrayToggles';
+import CostSummarySection from './components/CostSummarySection';
 import { backend } from './services/backend';
 import {
   getSavedTrayEnabled,
@@ -126,6 +127,7 @@ export default function App() {
   const [quota, setQuota] = useState<QuotaData | null>(null);
   const [claudeLoading, setClaudeLoading] = useState(false);
   const [claudeError, setClaudeError] = useState<string | null>(null);
+  const [claudeCostRefreshNonce, setClaudeCostRefreshNonce] = useState(0);
   const claudeIntervalRef = useRef(AUTO_REFRESH_INTERVAL_MS);
 
   // Codex state
@@ -361,6 +363,7 @@ export default function App() {
   const handleRefresh = useCallback(() => {
     if (activeTab === 'claude') {
       fetchClaudeQuota();
+      setClaudeCostRefreshNonce((value) => value + 1);
       return;
     }
     setCodexManualRefreshNonce((value) => value + 1);
@@ -489,6 +492,8 @@ export default function App() {
                     <div className="no-data">No weekly data</div>
                   )}
                 </div>
+
+                <CostSummarySection source="claude" refreshKey={claudeCostRefreshNonce} />
               </div>
             )}
 

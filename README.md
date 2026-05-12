@@ -1,72 +1,76 @@
-# Quota Menubar Tauri
+# QuotaBar
 
 <p align="center">
-  <img src="src-tauri/icons/app-icon.svg" alt="Quota Menubar Tauri logo" width="128" />
+  <img src="src-tauri/icons/app-icon.svg" alt="QuotaBar logo" width="128" />
 </p>
 
-Tauri v2 menubar/tray app for monitoring Claude and Codex quota usage on macOS and Windows.
+QuotaBar is a Tauri v2 menubar app for monitoring Claude Code and Codex usage. It shows live quota windows, dual tray indicators, and local cost estimates from on-device logs.
 
-## Core Behavior
+## Features
 
-- Menubar tray icon is created at startup and stays resident.
-- Left click tray icon toggles the quota panel.
-- Right click menu provides `Show / Hide Window` and `Quit`.
-- Claude and Codex are separated into independent tabs and polling flows.
-- Quota polling runs every 60 seconds in the background, with adaptive backoff to 5 minutes on 429.
-- OAuth token is proactively refreshed before expiry (30-minute buffer) using the keychain `expiresAt` field.
-- macOS tray mode disables webview background throttling so hidden windows keep polling.
-- Tray percentage now represents **used quota** (not remaining quota).
+- Claude Code quota: 5-hour, 7-day, Opus, and Sonnet windows.
+- Codex quota: short and weekly ChatGPT usage windows.
+- Local cost tracking: today, week, and month estimates for Claude Code and Codex.
+- Dual tray icons: independent Claude and Codex menu bar indicators.
+- Tray controls: enable or hide each tray while keeping at least one entry point.
+- Background polling: refreshes every 60 seconds and backs off to 5 minutes on 429.
+- OAuth recovery: refreshes Claude tokens before expiry when keychain credentials allow it.
+- Hidden-window polling: disables macOS webview throttling so menubar mode keeps working.
 
 ## Quota Semantics
 
 - Claude tray value:
-  - prefers weekly window (`weeklyTotal`)
+  - prefers `weeklyTotal`
   - falls back to max of `weeklyOpus` and `weeklySonnet`
   - falls back to current session usage
 - Codex tray value:
-  - prefers weekly window (`secondary_window.used_percent`)
-  - falls back to short window (`primary_window.used_percent`)
+  - prefers `secondary_window.used_percent`
+  - falls back to `primary_window.used_percent`
+- Tray percentages represent used quota, not remaining quota.
 
 ## Project Layout
 
 - Frontend:
   - `src/App.tsx`
   - `src/components/*`
-  - `src/services/backend.ts` (single Tauri invoke gateway)
-  - `src/types/models.ts` (shared frontend contracts)
-- Backend (Rust):
-  - `src-tauri/src/commands.rs` (thin command boundary)
-  - `src-tauri/src/domain/models.rs` (serialized contracts)
+  - `src/services/backend.ts`
+  - `src/types/models.ts`
+- Backend:
+  - `src-tauri/src/commands.rs`
+  - `src-tauri/src/domain/models.rs`
   - `src-tauri/src/services/claude.rs`
   - `src-tauri/src/services/codex.rs`
+  - `src-tauri/src/services/cost.rs`
   - `src-tauri/src/services/tray.rs`
   - `src-tauri/src/services/tray_icon.rs`
   - `src-tauri/src/services/window.rs`
-  - `src-tauri/src/services/link.rs`
 
 ## Requirements
 
 - macOS or Windows
-- Bun (recommended package manager/runtime)
+- Node.js with npm
 - Rust toolchain
 - Tauri prerequisites installed
+- Claude Code login for Claude quota and cost data
+- Codex login for Codex quota and cost data
 
 ## Development
 
 ```bash
-bun install
-bun run tauri dev
+npm install
+npm run tauri dev
 ```
 
 ## Build
 
 ```bash
-bun run tauri build --bundles app
+npm install
+npm run tauri build -- --bundles app
 ```
 
 macOS app bundle output:
 
-`src-tauri/target/release/bundle/macos/Quota Menubar Tauri.app`
+`src-tauri/target/release/bundle/macos/QuotaBar.app`
 
 Windows installer output:
 
@@ -91,13 +95,14 @@ Or one-shot restart after rebuild:
 
 Windows:
 
-- Build installer: `bun run tauri build --bundles msi,nsis`
-- Install from generated `.msi` or `.exe`
+- Build installer: `npm run tauri build -- --bundles msi,nsis`
+- Install from the generated `.msi` or `.exe`
 
-## Verification Commands
+## Verification
 
 ```bash
-bun run build
+npm run build
+npm test
 cd src-tauri && cargo check
 cd src-tauri && cargo test
 ```
@@ -105,21 +110,31 @@ cd src-tauri && cargo test
 ## Troubleshooting
 
 - Tray icon flashes then disappears:
-  - check menu bar manager hidden area (Ice/Bartender)
-  - ensure app is not auto-grouped into hidden extras
-- No quota data:
-  - Claude on macOS: ensure Claude Code login exists in macOS Keychain (`claude login`)
-  - Claude on Windows/Linux: set `CLAUDE_CODE_OAUTH_TOKEN` environment variable
-  - Codex: ensure `~/.codex/auth.json` is valid and not expired
-- Token expired after long idle (24h+):
-  - App auto-refreshes using the keychain refresh token — no manual action needed
-  - If refresh fails, run `claude login` in terminal
+  - check menu bar manager hidden area, such as Ice or Bartender
+  - ensure the app is not auto-grouped into hidden extras
+- No Claude quota data:
+  - macOS: ensure Claude Code login exists in Keychain with `claude login`
+  - Windows/Linux: set `CLAUDE_CODE_OAUTH_TOKEN`
+- No Codex quota data:
+  - ensure `~/.codex/auth.json` is valid
+  - run the `codex` login flow again if the token expired
 - Persistent 429 rate limiting:
-  - App uses `User-Agent: claude-code/*` header to avoid strict rate limit buckets
-  - On 429, app serves stale cached data and backs off polling to 5 minutes
-- Codex token expired:
-  - run `codex` login flow again
+  - QuotaBar uses a Claude Code user agent and serves stale cached data when available
+  - polling backs off to 5 minutes after 429 responses
+- Cost data is empty:
+  - local logs may not exist yet
+  - costs are estimated offline from local Claude/Codex logs via `ccstats`
+
+## Repository Rename
+
+Recommended GitHub repository name: `quotabar`.
+
+After the repository is renamed on GitHub, update local remotes with:
+
+```bash
+git remote set-url origin https://github.com/majiayu000/quotabar.git
+```
 
 ## License
 
-Private/internal project (update as needed before open-source release).
+MIT

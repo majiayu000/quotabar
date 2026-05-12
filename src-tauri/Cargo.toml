@@ -1,8 +1,8 @@
 [package]
-name = "quota-menubar-tauri"
-version = "0.1.0"
-description = "A Tauri App"
-authors = ["you"]
+name = "quotabar"
+version = "0.2.0"
+description = "Quota and cost monitor for Claude Code and Codex"
+authors = ["QuotaBar Contributors"]
 edition = "2021"
 license = "MIT"
 
@@ -12,7 +12,7 @@ license = "MIT"
 # The `_lib` suffix may seem redundant but it is necessary
 # to make the lib name unique and wouldn't conflict with the bin name.
 # This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
-name = "quota_menubar_tauri_lib"
+name = "quotabar_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
@@ -28,3 +28,5 @@ chrono = { version = "0.4", features = ["serde"] }
 base64 = "0.22"
 dirs = "5"
 image = { version = "0.25", default-features = false, features = ["png"] }
+once_cell = "1.19"
+ccstats = { git = "https://github.com/majiayu000/ccstats.git", rev = "64e8c65b1aca1ba327be98be7e3bdfc312e268f4" }
