@@ -1,3 +1,5 @@
+import type { CSSProperties } from 'react';
+
 interface QuotaCardProps {
   label: string;
   percentage: number;
@@ -14,6 +16,13 @@ function getStatusLabel(percentage: number): string {
   if (percentage >= 80) return 'Critical';
   if (percentage >= 50) return 'Warning';
   return 'Good';
+}
+
+function getProgressStyle(percentage: number): CSSProperties {
+  const clamped = Math.min(Math.max(percentage, 0), 100);
+  return {
+    '--progress-scale': String(clamped / 100),
+  } as CSSProperties;
 }
 
 export default function QuotaCard({ label, percentage, resetsIn }: QuotaCardProps) {
@@ -33,7 +42,7 @@ export default function QuotaCard({ label, percentage, resetsIn }: QuotaCardProp
       <div className="progress-bar">
         <div
           className={`progress-fill ${status}`}
-          style={{ width: `${Math.min(percentage, 100)}%` }}
+          style={getProgressStyle(percentage)}
         />
       </div>
 

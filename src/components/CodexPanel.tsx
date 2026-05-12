@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, type CSSProperties } from 'react';
 import { backend } from '../services/backend';
 import CostSummarySection from './CostSummarySection';
 import type { CodexData, CodexRateLimits, CodexStats } from '../types/models';
@@ -65,6 +65,14 @@ function getProgressColor(usedPercent: number): string {
   if (usedPercent >= 90) return '#ef4444';
   if (usedPercent >= 75) return '#f59e0b';
   return '#22c55e';
+}
+
+function getProgressStyle(usedPercent: number): CSSProperties {
+  const clamped = Math.min(Math.max(usedPercent, 0), 100);
+  return {
+    '--progress-color': getProgressColor(usedPercent),
+    '--progress-scale': String(clamped / 100),
+  } as CSSProperties;
 }
 
 function getTrayUsedPercent(limits: CodexRateLimits): number | null {
@@ -195,10 +203,7 @@ export default function CodexPanel({
                   <div className="progress-bar">
                     <div
                       className="progress-fill"
-                      style={{
-                        width: `${Math.min(Math.max(rateLimits.primary.usedPercent, 0), 100)}%`,
-                        backgroundColor: getProgressColor(rateLimits.primary.usedPercent),
-                      }}
+                      style={getProgressStyle(rateLimits.primary.usedPercent)}
                     />
                   </div>
                   {rateLimits.primary.resetsAt && (
@@ -222,10 +227,7 @@ export default function CodexPanel({
                   <div className="progress-bar">
                     <div
                       className="progress-fill"
-                      style={{
-                        width: `${Math.min(Math.max(rateLimits.secondary.usedPercent, 0), 100)}%`,
-                        backgroundColor: getProgressColor(rateLimits.secondary.usedPercent),
-                      }}
+                      style={getProgressStyle(rateLimits.secondary.usedPercent)}
                     />
                   </div>
                   {rateLimits.secondary.resetsAt && (
