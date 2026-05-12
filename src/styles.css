@@ -571,7 +571,6 @@ html, body, #root {
 
 /* Quota Card */
 .quota-card {
-  position: relative;
   width: 100%;
   min-width: 0;
   overflow: hidden;
@@ -582,15 +581,6 @@ html, body, #root {
   margin-bottom: 8px;
   box-shadow: var(--shadow-sm), inset 0 1px 0 color-mix(in srgb, white 18%, transparent);
   transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
-}
-
-.quota-card::before {
-  content: '';
-  position: absolute;
-  inset: 0 auto 0 0;
-  width: 3px;
-  background: var(--accent-color);
-  opacity: 0.72;
 }
 
 .quota-card:hover {
@@ -792,7 +782,6 @@ html, body, #root {
 }
 
 .cost-card {
-  position: relative;
   width: 100%;
   min-width: 0;
   overflow: hidden;
@@ -801,15 +790,6 @@ html, body, #root {
   border-radius: var(--card-border-radius);
   padding: 12px;
   box-shadow: var(--shadow-sm), inset 0 1px 0 color-mix(in srgb, white 18%, transparent);
-}
-
-.cost-card::before {
-  content: '';
-  position: absolute;
-  inset: 0 auto 0 0;
-  width: 3px;
-  background: var(--accent-color);
-  opacity: 0.72;
 }
 
 .cost-range-grid {
@@ -1070,7 +1050,6 @@ html, body, #root {
 }
 
 .codex-card {
-  position: relative;
   width: 100%;
   min-width: 0;
   overflow: hidden;
@@ -1079,15 +1058,6 @@ html, body, #root {
   border-radius: var(--card-border-radius);
   padding: 12px;
   box-shadow: var(--shadow-sm), inset 0 1px 0 color-mix(in srgb, white 18%, transparent);
-}
-
-.codex-card::before {
-  content: '';
-  position: absolute;
-  inset: 0 auto 0 0;
-  width: 3px;
-  background: var(--accent-color);
-  opacity: 0.72;
 }
 
 .codex-row {
