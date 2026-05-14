@@ -11,6 +11,7 @@ export interface QuotaData {
   weeklyTotal?: UsageInfo;
   weeklyOpus?: UsageInfo;
   weeklySonnet?: UsageInfo;
+  weeklyDesign?: UsageInfo;
   error?: string;
 }
 

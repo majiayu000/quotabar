@@ -488,7 +488,15 @@ export default function App() {
                     />
                   )}
 
-                  {!quota.weeklyTotal && !quota.weeklyOpus && !quota.weeklySonnet && (
+                  {quota.weeklyDesign && (
+                    <QuotaCard
+                      label="Claude Design (7-Day)"
+                      percentage={Math.round(quota.weeklyDesign.percentage)}
+                      resetsIn={formatResetTime(quota.weeklyDesign.resetTime)}
+                    />
+                  )}
+
+                  {!quota.weeklyTotal && !quota.weeklyOpus && !quota.weeklySonnet && !quota.weeklyDesign && (
                     <div className="no-data">No weekly data</div>
                   )}
                 </div>

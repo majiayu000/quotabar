@@ -740,8 +740,9 @@ pub async fn fetch_quota() -> QuotaData {
 
     let five_hour = data["five_hour"]["utilization"].as_f64();
     let seven_day = data["seven_day"]["utilization"].as_f64();
+    let seven_day_design = data["seven_day_omelette"]["utilization"].as_f64();
     log_msg(&format!(
-        "[Quota] SUCCESS: five_hour={five_hour:?}%, seven_day={seven_day:?}%"
+        "[Quota] SUCCESS: five_hour={five_hour:?}%, seven_day={seven_day:?}%, seven_day_omelette={seven_day_design:?}%"
     ));
 
     let result = QuotaData::connected(
@@ -749,6 +750,7 @@ pub async fn fetch_quota() -> QuotaData {
         parse_quota_window(&data["seven_day"]),
         parse_quota_window(&data["seven_day_opus"]),
         parse_quota_window(&data["seven_day_sonnet"]),
+        parse_quota_window(&data["seven_day_omelette"]),
     );
 
     save_quota_cache(&result);
