@@ -20,8 +20,9 @@ import './styles.css';
 const THEME_STORAGE_KEY = 'claude-quota-theme';
 const DOCK_HIDDEN_KEY = 'claude-quota-dock-hidden';
 const TAB_STORAGE_KEY = 'claude-quota-tab';
-const AUTO_REFRESH_INTERVAL_MS = 60 * 1000;
-const BACKOFF_REFRESH_INTERVAL_MS = 5 * 60 * 1000;
+export const AUTO_REFRESH_INTERVAL_MS = 60 * 1000;
+export const BACKOFF_REFRESH_INTERVAL_MS = 5 * 60 * 1000;
+export const AUTH_REFRESH_INTERVAL_MS = 60 * 60 * 1000;
 const TRAY_SERVICE_ACTIVATED_EVENT = 'tray-service-activated';
 const TRAY_GUARD_TOAST_MS = 2000;
 const TRAY_GUARD_MESSAGE = 'At least one tray must remain enabled';
@@ -124,6 +125,37 @@ export function getClaudeTrayUsedPercent(quota: QuotaData | null): number | null
   return null;
 }
 
+function isClaudeAuthError(error: string): boolean {
+  const normalized = error.toLowerCase();
+  return (
+    normalized.includes('oauth token') ||
+    normalized.includes('re-login') ||
+    normalized.includes('login to claude code') ||
+    normalized.includes('token expired') ||
+    normalized.includes('expired or invalid') ||
+    normalized.includes('401') ||
+    normalized.includes('403') ||
+    normalized.includes('unauthorized') ||
+    normalized.includes('forbidden')
+  );
+}
+
+export function getClaudeRefreshIntervalMs(error?: string | null): number {
+  if (!error) {
+    return AUTO_REFRESH_INTERVAL_MS;
+  }
+
+  if (error.includes('429')) {
+    return BACKOFF_REFRESH_INTERVAL_MS;
+  }
+
+  if (isClaudeAuthError(error)) {
+    return AUTH_REFRESH_INTERVAL_MS;
+  }
+
+  return AUTO_REFRESH_INTERVAL_MS;
+}
+
 export default function App() {
   const isMacOS = isMacOSPlatform();
 
@@ -213,10 +245,7 @@ export default function App() {
         if (!data.error.includes('429')) {
           setQuota(null);
         }
-        // Back off polling on 429
-        if (data.error.includes('429')) {
-          claudeIntervalRef.current = BACKOFF_REFRESH_INTERVAL_MS;
-        }
+        claudeIntervalRef.current = getClaudeRefreshIntervalMs(data.error);
       } else {
         setQuota(data);
         setClaudeError(null);
@@ -224,27 +253,33 @@ export default function App() {
         claudeIntervalRef.current = AUTO_REFRESH_INTERVAL_MS;
       }
     } catch (err) {
-      setClaudeError(err instanceof Error ? err.message : 'Unknown error');
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      setClaudeError(message);
+      claudeIntervalRef.current = getClaudeRefreshIntervalMs(message);
     } finally {
       setClaudeLoading(false);
     }
   }, []);
 
-  // Load Claude data on startup.
-  useEffect(() => {
-    fetchClaudeQuota();
-  }, [fetchClaudeQuota]);
-
   // Auto-refresh Claude data in background with adaptive interval.
   useEffect(() => {
-    let timer: ReturnType<typeof setTimeout>;
-    const schedule = () => {
-      timer = setTimeout(() => {
-        fetchClaudeQuota().then(schedule);
-      }, claudeIntervalRef.current);
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    let cancelled = false;
+
+    const run = async () => {
+      await fetchClaudeQuota();
+      if (!cancelled) {
+        timer = setTimeout(run, claudeIntervalRef.current);
+      }
     };
-    schedule();
-    return () => clearTimeout(timer);
+
+    run();
+    return () => {
+      cancelled = true;
+      if (timer) {
+        clearTimeout(timer);
+      }
+    };
   }, [fetchClaudeQuota]);
 
   const syncTrayIcons = useCallback(() => {

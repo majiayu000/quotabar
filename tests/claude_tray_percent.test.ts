@@ -1,5 +1,11 @@
 import { describe, expect, test } from 'vitest';
-import { getClaudeTrayUsedPercent } from '../src/App';
+import {
+  AUTH_REFRESH_INTERVAL_MS,
+  AUTO_REFRESH_INTERVAL_MS,
+  BACKOFF_REFRESH_INTERVAL_MS,
+  getClaudeRefreshIntervalMs,
+  getClaudeTrayUsedPercent,
+} from '../src/App';
 import type { QuotaData, UsageInfo } from '../src/types/models';
 
 const usage = (percentage: number): UsageInfo => ({
@@ -38,5 +44,24 @@ describe('getClaudeTrayUsedPercent', () => {
 
     expect(getClaudeTrayUsedPercent(null)).toBeNull();
     expect(getClaudeTrayUsedPercent(quota)).toBeNull();
+  });
+});
+
+describe('getClaudeRefreshIntervalMs', () => {
+  test('uses normal polling when Claude quota succeeds', () => {
+    expect(getClaudeRefreshIntervalMs(null)).toBe(AUTO_REFRESH_INTERVAL_MS);
+  });
+
+  test('backs off briefly for rate limits', () => {
+    expect(getClaudeRefreshIntervalMs('API error: 429 Too Many Requests')).toBe(
+      BACKOFF_REFRESH_INTERVAL_MS,
+    );
+  });
+
+  test('backs off to hourly polling for Claude auth failures', () => {
+    expect(getClaudeRefreshIntervalMs(
+      'Claude OAuth token expired or invalid. Please re-login to Claude Code, then click Refresh.',
+    )).toBe(AUTH_REFRESH_INTERVAL_MS);
+    expect(getClaudeRefreshIntervalMs('API error: 401 Unauthorized')).toBe(AUTH_REFRESH_INTERVAL_MS);
   });
 });

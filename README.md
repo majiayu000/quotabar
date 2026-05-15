@@ -13,15 +13,15 @@ QuotaBar is a Tauri v2 menubar app for monitoring Claude Code and Codex usage. I
 - Local cost tracking: today, week, and month estimates for Claude Code and Codex.
 - Dual tray icons: independent Claude and Codex menu bar indicators.
 - Tray controls: enable or hide each tray while keeping at least one entry point.
-- Background polling: refreshes every 60 seconds and backs off to 5 minutes on 429.
-- OAuth recovery: refreshes Claude tokens before expiry when keychain credentials allow it.
+- Background polling: refreshes every 60 seconds, backs off to 5 minutes on 429, and backs off to 1 hour on Claude auth failures.
+- Read-only Claude OAuth: reads Claude Code credentials from the correct source, but never refreshes or writes OAuth tokens.
 - Hidden-window polling: disables macOS webview throttling so menubar mode keeps working.
 
 ## Quota Semantics
 
 - Claude tray value:
   - prefers `weeklyTotal`
-  - falls back to max of `weeklyOpus` and `weeklySonnet`
+  - falls back to max of `weeklyOpus`, `weeklySonnet`, and `weeklyDesign`
   - falls back to current session usage
 - Codex tray value:
   - prefers `secondary_window.used_percent`
@@ -115,6 +115,7 @@ cd src-tauri && cargo test
 - No Claude quota data:
   - macOS: ensure Claude Code login exists in Keychain with `claude login`
   - Windows/Linux: set `CLAUDE_CODE_OAUTH_TOKEN`
+  - if Claude auth fails, re-login with Claude Code and click Refresh
 - No Codex quota data:
   - ensure `~/.codex/auth.json` is valid
   - run the `codex` login flow again if the token expired
