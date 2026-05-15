@@ -8,7 +8,7 @@ QuotaBar is a Tauri v2 menubar app for monitoring Claude Code and Codex usage. I
 
 ## Features
 
-- Claude Code quota: 5-hour, 7-day, Opus, and Sonnet windows.
+- Claude quota: 5-hour, 7-day, Opus, Sonnet, and Claude Design windows.
 - Codex quota: short and weekly ChatGPT usage windows.
 - Local cost tracking: today, week, and month estimates for Claude Code and Codex.
 - Dual tray icons: independent Claude and Codex menu bar indicators.

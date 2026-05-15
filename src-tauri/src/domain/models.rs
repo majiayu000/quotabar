@@ -19,6 +19,8 @@ pub struct QuotaData {
     pub weekly_opus: Option<UsageInfo>,
     #[serde(rename = "weeklySonnet")]
     pub weekly_sonnet: Option<UsageInfo>,
+    #[serde(rename = "weeklyDesign")]
+    pub weekly_design: Option<UsageInfo>,
     pub error: Option<String>,
 }
 
@@ -30,6 +32,7 @@ impl QuotaData {
             weekly_total: None,
             weekly_opus: None,
             weekly_sonnet: None,
+            weekly_design: None,
             error: Some(error.into()),
         }
     }
@@ -39,6 +42,7 @@ impl QuotaData {
         weekly_total: Option<UsageInfo>,
         weekly_opus: Option<UsageInfo>,
         weekly_sonnet: Option<UsageInfo>,
+        weekly_design: Option<UsageInfo>,
     ) -> Self {
         Self {
             connected: true,
@@ -46,6 +50,7 @@ impl QuotaData {
             weekly_total,
             weekly_opus,
             weekly_sonnet,
+            weekly_design,
             error: None,
         }
     }

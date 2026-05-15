@@ -100,14 +100,18 @@ function formatResetTime(resetTime?: string): string {
   }
 }
 
-function getClaudeTrayUsedPercent(quota: QuotaData | null): number | null {
+export function getClaudeTrayUsedPercent(quota: QuotaData | null): number | null {
   if (!quota) return null;
 
   if (quota.weeklyTotal) {
     return quota.weeklyTotal.percentage;
   }
 
-  const weeklyUsedCandidates = [quota.weeklyOpus?.percentage, quota.weeklySonnet?.percentage]
+  const weeklyUsedCandidates = [
+    quota.weeklyOpus?.percentage,
+    quota.weeklySonnet?.percentage,
+    quota.weeklyDesign?.percentage,
+  ]
     .filter((value): value is number => typeof value === 'number');
   if (weeklyUsedCandidates.length > 0) {
     return Math.max(...weeklyUsedCandidates);
@@ -488,7 +492,15 @@ export default function App() {
                     />
                   )}
 
-                  {!quota.weeklyTotal && !quota.weeklyOpus && !quota.weeklySonnet && (
+                  {quota.weeklyDesign && (
+                    <QuotaCard
+                      label="Claude Design (7-Day)"
+                      percentage={Math.round(quota.weeklyDesign.percentage)}
+                      resetsIn={formatResetTime(quota.weeklyDesign.resetTime)}
+                    />
+                  )}
+
+                  {!quota.weeklyTotal && !quota.weeklyOpus && !quota.weeklySonnet && !quota.weeklyDesign && (
                     <div className="no-data">No weekly data</div>
                   )}
                 </div>
