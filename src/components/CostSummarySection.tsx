@@ -80,11 +80,9 @@ export default function CostSummarySection({ source, refreshKey = 0 }: CostSumma
     };
 
     loadCost(refreshKey > 0);
-    const interval = setInterval(() => loadCost(false), 300_000);
 
     return () => {
       cancelled = true;
-      clearInterval(interval);
     };
   }, [source, refreshKey]);
 

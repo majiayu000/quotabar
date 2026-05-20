@@ -10,6 +10,7 @@ interface CodexPanelProps {
   autoRefreshIntervalMs?: number;
   manualRefreshNonce?: number;
   onLoadingChange?: (loading: boolean) => void;
+  showCostSummary?: boolean;
 }
 
 function formatSubscriptionDate(dateStr?: string): string {
@@ -77,6 +78,7 @@ export default function CodexPanel({
   autoRefreshIntervalMs = 60 * 1000,
   manualRefreshNonce = 0,
   onLoadingChange,
+  showCostSummary = true,
 }: CodexPanelProps) {
   const [codexData, setCodexData] = useState<CodexData | null>(null);
   const [codexStats, setCodexStats] = useState<CodexStats | null>(null);
@@ -266,7 +268,9 @@ export default function CodexPanel({
             </div>
           )}
 
-          <CostSummarySection source="codex" refreshKey={manualRefreshNonce} />
+          {showCostSummary && (
+            <CostSummarySection source="codex" refreshKey={manualRefreshNonce} />
+          )}
 
           {/* ChatGPT Link */}
           <button className="open-dashboard-btn" onClick={handleOpenDashboard}>

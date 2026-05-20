@@ -10,6 +10,7 @@ interface CursorPanelProps {
   autoRefreshIntervalMs?: number;
   manualRefreshNonce?: number;
   onLoadingChange?: (loading: boolean) => void;
+  showCostSummary?: boolean;
 }
 
 function formatResetDate(resetAt?: string): string {
@@ -35,6 +36,7 @@ export default function CursorPanel({
   autoRefreshIntervalMs = 60 * 1000,
   manualRefreshNonce = 0,
   onLoadingChange,
+  showCostSummary = true,
 }: CursorPanelProps) {
   const [cursorData, setCursorData] = useState<CursorData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -151,7 +153,9 @@ export default function CursorPanel({
             )}
           </div>
 
-          <CostSummarySection source="cursor" refreshKey={manualRefreshNonce} />
+          {showCostSummary && (
+            <CostSummarySection source="cursor" refreshKey={manualRefreshNonce} />
+          )}
 
           <button className="open-dashboard-btn" onClick={handleOpenDashboard}>
             Open Dashboard

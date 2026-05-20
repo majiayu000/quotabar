@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { listen } from '@tauri-apps/api/event';
+import { getCurrentWindow } from '@tauri-apps/api/window';
 import QuotaCard from './components/QuotaCard';
 import ActionButtons from './components/ActionButtons';
 import ThemeSelector, { ThemeName } from './components/ThemeSelector';
@@ -27,6 +28,7 @@ const SETTINGS_EXPANDED_KEY = 'claude-quota-settings-expanded';
 export const AUTO_REFRESH_INTERVAL_MS = 60 * 1000;
 export const BACKOFF_REFRESH_INTERVAL_MS = 5 * 60 * 1000;
 export const AUTH_REFRESH_INTERVAL_MS = 60 * 60 * 1000;
+export const BACKGROUND_REFRESH_INTERVAL_MS = 5 * 60 * 1000;
 const TRAY_SERVICE_ACTIVATED_EVENT = 'tray-service-activated';
 const TRAY_GUARD_TOAST_MS = 2000;
 const TRAY_GUARD_MESSAGE = 'At least one tray must remain enabled';
@@ -216,6 +218,7 @@ export default function App() {
   const [trayEnabled, setTrayEnabled] = useState<TrayEnabledState>(getInitialTrayEnabledState);
   const [toast, setToast] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabName>(getSavedTab);
+  const [windowVisible, setWindowVisible] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const lastTrayIconRequestRef = useRef<Partial<Record<TrayServiceName, TrayIconRequest>>>({});
 
@@ -264,6 +267,10 @@ export default function App() {
 
   // Auto-resize window
   useEffect(() => {
+    if (!windowVisible) {
+      return;
+    }
+
     const updateHeight = async () => {
       if (containerRef.current) {
         const height = containerRef.current.scrollHeight + 24;
@@ -291,7 +298,53 @@ export default function App() {
       clearTimeout(timer2);
       observer.disconnect();
     };
-  }, [activeTab, quota, connected]);
+  }, [activeTab, quota, connected, windowVisible]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !('__TAURI_INTERNALS__' in window)) {
+      setWindowVisible(true);
+      return;
+    }
+
+    const appWindow = getCurrentWindow();
+    let mounted = true;
+    let unlisten: (() => void) | null = null;
+
+    appWindow.isVisible()
+      .then((visible) => {
+        if (mounted) {
+          setWindowVisible(visible);
+        }
+      })
+      .catch(() => {
+        if (mounted) {
+          setWindowVisible(true);
+        }
+      });
+
+    appWindow.onFocusChanged(({ payload: focused }) => {
+      setWindowVisible(focused);
+    })
+      .then((stopListening) => {
+        if (mounted) {
+          unlisten = stopListening;
+          return;
+        }
+        stopListening();
+      })
+      .catch(() => {
+        if (mounted) {
+          setWindowVisible(true);
+        }
+      });
+
+    return () => {
+      mounted = false;
+      if (unlisten) {
+        unlisten();
+      }
+    };
+  }, []);
 
   const updateTrayIcon = useCallback(async (
     service: TrayServiceName,
@@ -541,6 +594,9 @@ export default function App() {
     ...panelLoading,
     claude: claudeLoading,
   };
+  const nonClaudeRefreshIntervalMs = windowVisible
+    ? AUTO_REFRESH_INTERVAL_MS
+    : BACKGROUND_REFRESH_INTERVAL_MS;
   const enabledTrayCount = SERVICES.filter((svc) => trayEnabled[svc]).length;
   const connectedTrayCount = trayEntries.filter((entry) => entry.connected).length;
   const settingsSummary = `${THEME_LABELS[theme]} / ${enabledTrayCount} tray on / ${connectedTrayCount} connected`;
@@ -623,7 +679,9 @@ export default function App() {
                     )}
                   </div>
 
-                  <CostSummarySection source="claude" refreshKey={claudeCostRefreshNonce} />
+                  {windowVisible && (
+                    <CostSummarySection source="claude" refreshKey={claudeCostRefreshNonce} />
+                  )}
                 </div>
               )}
 
@@ -644,7 +702,8 @@ export default function App() {
               onUsageChange={usageSetters.codex}
               onLoadingChange={loadingSetters.codex}
               manualRefreshNonce={refreshNonces.codex}
-              autoRefreshIntervalMs={AUTO_REFRESH_INTERVAL_MS}
+              autoRefreshIntervalMs={nonClaudeRefreshIntervalMs}
+              showCostSummary={windowVisible && activeTab === 'codex'}
             />
           </div>
 
@@ -654,7 +713,8 @@ export default function App() {
               onUsageChange={usageSetters.cursor}
               onLoadingChange={loadingSetters.cursor}
               manualRefreshNonce={refreshNonces.cursor}
-              autoRefreshIntervalMs={AUTO_REFRESH_INTERVAL_MS}
+              autoRefreshIntervalMs={nonClaudeRefreshIntervalMs}
+              showCostSummary={windowVisible && activeTab === 'cursor'}
             />
           </div>
 

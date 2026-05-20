@@ -80,11 +80,30 @@ pub async fn get_cost_overview(
     force: Option<bool>,
 ) -> Result<CostOverview, String> {
     tauri::async_runtime::spawn_blocking(move || {
-        build_cost_overview(source, currency, timezone, force.unwrap_or(false))
+        let overview = build_cost_overview(source, currency, timezone, force.unwrap_or(false));
+        relieve_allocator_pressure();
+        overview
     })
     .await
     .map_err(|err| format!("Cost summary task failed: {err}"))?
 }
+
+#[cfg(target_os = "macos")]
+fn relieve_allocator_pressure() {
+    unsafe extern "C" {
+        fn malloc_zone_pressure_relief(zone: *mut std::ffi::c_void, goal: usize) -> usize;
+    }
+
+    unsafe {
+        let released = malloc_zone_pressure_relief(std::ptr::null_mut(), 0);
+        if released > 0 {
+            eprintln!("[Cost] malloc pressure relief released {released} bytes");
+        }
+    }
+}
+
+#[cfg(not(target_os = "macos"))]
+fn relieve_allocator_pressure() {}
 
 fn build_cost_overview(
     source: String,
@@ -193,7 +212,11 @@ impl CostRangeSummary {
             cost: summary.cost,
             cost_usd: summary.cost_usd,
             tokens: CostTokenBreakdown::from(summary.tokens),
-            models: summary.models.into_iter().map(CostModelSummary::from).collect(),
+            models: summary
+                .models
+                .into_iter()
+                .map(CostModelSummary::from)
+                .collect(),
             valid_entries: summary.valid_entries,
             skipped_entries: summary.skipped_entries,
             elapsed_ms: summary.elapsed_ms,
