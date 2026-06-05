@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security or secret exposure
+    url: https://github.com/majiayu000/quotabar/security/advisories/new
+    about: Report token, credential, or security-sensitive issues privately.
