@@ -296,7 +296,7 @@ fn parse_quota_window(value: &serde_json::Value) -> Option<UsageInfo> {
         return None;
     }
 
-    let utilization = value["utilization"].as_f64().unwrap_or(0.0);
+    let utilization = value.get("utilization")?.as_f64()?;
     let resets_at = value["resets_at"].as_str().map(ToString::to_string);
 
     Some(UsageInfo {
@@ -475,14 +475,61 @@ pub async fn fetch_quota() -> QuotaData {
         "[Quota] SUCCESS: five_hour={five_hour:?}%, seven_day={seven_day:?}%, seven_day_omelette={seven_day_design:?}%"
     ));
 
+    let session = parse_quota_window(&data["five_hour"]);
+    let weekly_total = parse_quota_window(&data["seven_day"]);
+    let weekly_opus = parse_quota_window(&data["seven_day_opus"]);
+    let weekly_sonnet = parse_quota_window(&data["seven_day_sonnet"]);
+    let weekly_design = parse_quota_window(&data["seven_day_omelette"]);
+
+    if session.is_none()
+        && weekly_total.is_none()
+        && weekly_opus.is_none()
+        && weekly_sonnet.is_none()
+        && weekly_design.is_none()
+    {
+        log_msg("[Quota] parse error: no numeric quota utilization fields");
+        return QuotaData::disconnected(
+            "Failed to parse response: no numeric quota utilization fields",
+        );
+    }
+
     let result = QuotaData::connected(
-        parse_quota_window(&data["five_hour"]),
-        parse_quota_window(&data["seven_day"]),
-        parse_quota_window(&data["seven_day_opus"]),
-        parse_quota_window(&data["seven_day_sonnet"]),
-        parse_quota_window(&data["seven_day_omelette"]),
+        session,
+        weekly_total,
+        weekly_opus,
+        weekly_sonnet,
+        weekly_design,
     );
 
     save_quota_cache(&result);
     result
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse_quota_window;
+    use serde_json::json;
+
+    #[test]
+    fn parse_quota_window_requires_numeric_utilization() {
+        assert!(parse_quota_window(&json!({ "resets_at": "2026-06-06T00:00:00Z" })).is_none());
+        assert!(parse_quota_window(&json!({ "utilization": "0" })).is_none());
+    }
+
+    #[test]
+    fn parse_quota_window_maps_numeric_utilization() {
+        let parsed = parse_quota_window(&json!({
+            "utilization": 42.5,
+            "resets_at": "2026-06-06T00:00:00Z"
+        }));
+        let window = match parsed {
+            Some(window) => window,
+            None => panic!("numeric utilization should parse"),
+        };
+
+        assert_eq!(window.used, 42.5);
+        assert_eq!(window.limit, 100.0);
+        assert_eq!(window.percentage, 42.5);
+        assert_eq!(window.reset_time.as_deref(), Some("2026-06-06T00:00:00Z"));
+    }
 }

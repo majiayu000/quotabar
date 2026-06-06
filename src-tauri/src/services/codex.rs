@@ -82,12 +82,11 @@ fn read_auth_json() -> Result<serde_json::Value, String> {
     serde_json::from_str(&content).map_err(|e| format!("Failed to parse auth.json: {e}"))
 }
 
-fn parse_used_percent(window: &serde_json::Value) -> f64 {
-    let value = window["used_percent"]
-        .as_f64()
-        .or_else(|| window["used_percent"].as_i64().map(|v| v as f64))
-        .unwrap_or(0.0);
-    value.clamp(0.0, 100.0)
+fn parse_used_percent(window: &serde_json::Value) -> Option<f64> {
+    window
+        .get("used_percent")
+        .and_then(|value| value.as_f64().or_else(|| value.as_i64().map(|v| v as f64)))
+        .map(|value| value.clamp(0.0, 100.0))
 }
 
 fn parse_rate_limit_window(window: &serde_json::Value) -> Option<CodexRateLimitWindow> {
@@ -96,7 +95,7 @@ fn parse_rate_limit_window(window: &serde_json::Value) -> Option<CodexRateLimitW
     }
 
     Some(CodexRateLimitWindow {
-        used_percent: parse_used_percent(window),
+        used_percent: parse_used_percent(window)?,
         window_minutes: window["limit_window_seconds"]
             .as_i64()
             .map(|s| (s + 59) / 60),
@@ -364,6 +363,12 @@ pub async fn fetch_codex_rate_limits() -> CodexRateLimits {
         .get("secondary_window")
         .and_then(parse_rate_limit_window);
 
+    if primary.is_none() && secondary.is_none() {
+        return CodexRateLimits::disconnected(
+            "Failed to parse response: no numeric Codex rate limit usage fields",
+        );
+    }
+
     let credits = data["credits"].as_object().map(|credits| CodexCredits {
         has_credits: credits
             .get("has_credits")
@@ -392,4 +397,48 @@ pub async fn fetch_codex_rate_limits() -> CodexRateLimits {
         *guard = Some(limits.clone());
     }
     limits
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse_rate_limit_window;
+    use serde_json::json;
+
+    #[test]
+    fn parse_rate_limit_window_requires_numeric_used_percent() {
+        assert!(parse_rate_limit_window(&json!({ "limit_window_seconds": 18_000 })).is_none());
+        assert!(parse_rate_limit_window(&json!({ "used_percent": "0" })).is_none());
+    }
+
+    #[test]
+    fn parse_rate_limit_window_maps_numeric_used_percent() {
+        let parsed = parse_rate_limit_window(&json!({
+            "used_percent": 61.8,
+            "limit_window_seconds": 18_000,
+            "reset_at": 1_781_000_000
+        }));
+        let window = match parsed {
+            Some(window) => window,
+            None => panic!("numeric used_percent should parse"),
+        };
+
+        assert_eq!(window.used_percent, 61.8);
+        assert_eq!(window.window_minutes, Some(300));
+        assert_eq!(window.resets_at, Some(1_781_000_000));
+    }
+
+    #[test]
+    fn parse_rate_limit_window_clamps_numeric_used_percent() {
+        let high = match parse_rate_limit_window(&json!({ "used_percent": 120 })) {
+            Some(window) => window,
+            None => panic!("numeric used_percent should parse"),
+        };
+        let low = match parse_rate_limit_window(&json!({ "used_percent": -5 })) {
+            Some(window) => window,
+            None => panic!("numeric used_percent should parse"),
+        };
+
+        assert_eq!(high.used_percent, 100.0);
+        assert_eq!(low.used_percent, 0.0);
+    }
 }
