@@ -58,6 +58,9 @@ QuotaBar is a Tauri v2 menubar app for monitoring Claude Code, Codex, Cursor, an
   - `src-tauri/src/services/tray.rs`
   - `src-tauri/src/services/tray_icon.rs`
   - `src-tauri/src/services/window.rs`
+- Release notes:
+  - `CHANGELOG.md`
+  - `docs/release.md`
 
 ## Requirements
 
@@ -93,6 +96,10 @@ Windows installer output:
 `src-tauri/target/release/bundle/msi/`
 `src-tauri/target/release/bundle/nsis/`
 
+## Release Artifacts
+
+There is no published GitHub release yet. When a release is cut, build from a clean checkout and attach the generated platform artifact from the paths above to the matching GitHub release tag. See `docs/release.md` for the release checklist.
+
 ## Install / Run
 
 macOS:
@@ -122,6 +129,15 @@ npm test
 cd src-tauri && cargo check
 cd src-tauri && cargo test
 ```
+
+## Limitations
+
+- QuotaBar reads local provider auth state; it does not manage provider login flows.
+- Claude quota depends on Claude Code OAuth credentials and Anthropic's current usage response shape.
+- Codex quota depends on `~/.codex/auth.json` and ChatGPT usage windows returned by the current backend API.
+- Cursor quota requires Cursor sign-in or `CURSOR_SESSION_TOKEN`.
+- Antigravity support currently reports provider availability only; quota windows are not exposed yet.
+- Cost estimates are derived from local logs and may be empty until provider tools have written usage history.
 
 ## Troubleshooting
 
