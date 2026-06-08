@@ -21,6 +21,12 @@ QuotaBar is a Tauri v2 menubar app for monitoring Claude Code, Codex, Cursor, an
 - Read-only Claude OAuth: reads Claude Code credentials from the correct source, but never refreshes or writes OAuth tokens.
 - Hidden-window polling: disables macOS webview throttling so menubar mode keeps working.
 
+## Demo Proof
+
+![QuotaBar browser preview without provider credentials](docs/assets/quotabar-no-provider-preview.png)
+
+This screenshot is captured from the production React UI in browser preview without a Tauri desktop backend. It intentionally includes no provider quota values, account identifiers, tokens, cookies, or sessions. See `docs/demo-proof.md` for the capture scope and refresh steps.
+
 ## Quota Semantics
 
 - Claude tray value:
