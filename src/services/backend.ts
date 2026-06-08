@@ -12,33 +12,47 @@ import type {
 
 type TrayService = 'claude' | 'codex' | 'cursor' | 'antigravity';
 
+export const BACKEND_UNAVAILABLE_MESSAGE =
+  'QuotaBar desktop backend is unavailable in browser preview';
+
+function hasTauriBackend(): boolean {
+  return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
+}
+
+function invokeBackend<T>(command: string, args?: Record<string, unknown>): Promise<T> {
+  if (!hasTauriBackend()) {
+    return Promise.reject(new Error(BACKEND_UNAVAILABLE_MESSAGE));
+  }
+  return invoke<T>(command, args);
+}
+
 export const backend = {
   getQuota() {
-    return invoke<QuotaData>('get_quota');
+    return invokeBackend<QuotaData>('get_quota');
   },
 
   getCodexInfo() {
-    return invoke<CodexData>('get_codex_info');
+    return invokeBackend<CodexData>('get_codex_info');
   },
 
   getCodexStats() {
-    return invoke<CodexStats>('get_codex_stats');
+    return invokeBackend<CodexStats>('get_codex_stats');
   },
 
   getCodexRateLimits() {
-    return invoke<CodexRateLimits>('get_codex_rate_limits');
+    return invokeBackend<CodexRateLimits>('get_codex_rate_limits');
   },
 
   getCursorInfo() {
-    return invoke<CursorData>('get_cursor_info');
+    return invokeBackend<CursorData>('get_cursor_info');
   },
 
   getAntigravityInfo() {
-    return invoke<AntigravityData>('get_antigravity_info');
+    return invokeBackend<AntigravityData>('get_antigravity_info');
   },
 
   getCostOverview(source: CostSource, force = false) {
-    return invoke<CostOverview>('get_cost_overview', {
+    return invokeBackend<CostOverview>('get_cost_overview', {
       source,
       currency: 'USD',
       timezone: null,
@@ -47,23 +61,23 @@ export const backend = {
   },
 
   openClaudeDashboard() {
-    return invoke<void>('open_claude_dashboard');
+    return invokeBackend<void>('open_claude_dashboard');
   },
 
   openCodexDashboard() {
-    return invoke<void>('open_codex_dashboard');
+    return invokeBackend<void>('open_codex_dashboard');
   },
 
   openCursorDashboard() {
-    return invoke<void>('open_cursor_dashboard');
+    return invokeBackend<void>('open_cursor_dashboard');
   },
 
   openAntigravityDashboard() {
-    return invoke<void>('open_antigravity_dashboard');
+    return invokeBackend<void>('open_antigravity_dashboard');
   },
 
   updateTrayIcon(service: TrayService, percentage: number | null, visible: boolean) {
-    return invoke<void>('update_tray_icon', {
+    return invokeBackend<void>('update_tray_icon', {
       service,
       percentage: percentage == null ? null : Math.round(percentage),
       visible,
@@ -71,14 +85,14 @@ export const backend = {
   },
 
   resizeWindow(height: number) {
-    return invoke<void>('resize_window', { height });
+    return invokeBackend<void>('resize_window', { height });
   },
 
   setDockVisibility(visible: boolean) {
-    return invoke<void>('set_dock_visibility', { visible });
+    return invokeBackend<void>('set_dock_visibility', { visible });
   },
 
   quitApp() {
-    return invoke<void>('quit_app');
+    return invokeBackend<void>('quit_app');
   },
 };
