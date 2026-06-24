@@ -10,7 +10,7 @@ import CursorPanel from './components/CursorPanel';
 import AntigravityPanel from './components/AntigravityPanel';
 import TrayToggles, { type TrayToggleEntry } from './components/TrayToggles';
 import CostSummarySection from './components/CostSummarySection';
-import { backend } from './services/backend';
+import { backend, hasTauriBackend } from './services/backend';
 import { SERVICE_META, SERVICES } from './services/service_meta';
 import {
   getSavedTrayEnabled,
@@ -32,7 +32,6 @@ export const BACKGROUND_REFRESH_INTERVAL_MS = 5 * 60 * 1000;
 const TRAY_SERVICE_ACTIVATED_EVENT = 'tray-service-activated';
 const TRAY_GUARD_TOAST_MS = 2000;
 const TRAY_GUARD_MESSAGE = 'At least one tray must remain enabled';
-
 const VALID_TABS = new Set<string>(SERVICES);
 
 const THEME_LABELS: Record<ThemeName, string> = {
@@ -493,6 +492,7 @@ export default function App() {
   }, [setAndPersistTab]);
 
   useEffect(() => {
+    if (!hasTauriBackend()) return;
     let unlisten: (() => void) | null = null;
     let mounted = true;
 

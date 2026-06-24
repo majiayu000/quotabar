@@ -15,7 +15,7 @@ type TrayService = 'claude' | 'codex' | 'cursor' | 'antigravity';
 export const BACKEND_UNAVAILABLE_MESSAGE =
   'QuotaBar desktop backend is unavailable in browser preview';
 
-function hasTauriBackend(): boolean {
+export function hasTauriBackend(): boolean {
   return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
 }
 
