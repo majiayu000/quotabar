@@ -1,10 +1,9 @@
 //! Local cost summaries powered by the `ccstats` SDK.
 
 use ccstats::{
-    summarize_cost, CostSummary, ModelCostSummary, SummaryOptions, TokenBreakdown, UsageRange,
-    UsageSource,
+    summarize_cost_ranges, CostSummary, ModelCostSummary, MultiSummaryOptions, TokenBreakdown,
+    UsageRange, UsageSource,
 };
-use chrono::Utc;
 use once_cell::sync::Lazy;
 use serde::Serialize;
 use std::{
@@ -127,46 +126,87 @@ fn build_cost_overview(
         }
     }
 
-    let range_specs = [
-        ("today", "Today", UsageRange::Today),
-        ("week", "This Week", UsageRange::ThisWeek),
-        ("month", "This Month", UsageRange::ThisMonth),
-    ];
-
-    let mut ranges = Vec::with_capacity(range_specs.len());
-    for (range_key, label, range) in range_specs {
-        let summary = summarize_cost(SummaryOptions {
-            source,
-            range,
-            timezone: timezone.clone(),
-            offline: true,
-            strict_pricing: false,
-            currency: currency.clone(),
-        })
-        .map_err(|err| err.to_string())?;
-        ranges.push(CostRangeSummary::from_summary(range_key, label, summary));
-    }
-
-    let display_name = match source {
-        UsageSource::Claude => "Claude Code".to_string(),
-        UsageSource::Codex => "Codex".to_string(),
-        UsageSource::Cursor => "Cursor".to_string(),
-    };
-    let currency = ranges
-        .first()
-        .map(|range| range.currency.clone())
-        .unwrap_or_else(|| currency.unwrap_or_else(|| "USD".to_string()));
+    let range_specs = cost_range_specs();
+    let batch = summarize_cost_ranges(MultiSummaryOptions {
+        source,
+        ranges: range_specs.iter().map(|spec| spec.range.clone()).collect(),
+        timezone,
+        offline: true,
+        strict_pricing: false,
+        currency,
+    })
+    .map_err(|err| err.to_string())?;
+    let source_name = batch.source.as_str().to_string();
+    let display_name = batch.display_name;
+    let currency = batch.currency;
+    let generated_at = batch.generated_at;
+    let ranges = map_batch_ranges(&range_specs, batch.summaries)?;
     let overview = CostOverview {
-        source: source.as_str().to_string(),
+        source: source_name,
         display_name,
         currency,
-        generated_at: Utc::now().to_rfc3339(),
+        generated_at,
         cached: false,
         ranges,
     };
 
     set_cached_overview(cache_key, overview.clone())?;
     Ok(overview)
+}
+
+#[derive(Clone)]
+struct CostRangeSpec {
+    key: &'static str,
+    label: &'static str,
+    range: UsageRange,
+}
+
+fn cost_range_specs() -> [CostRangeSpec; 3] {
+    [
+        CostRangeSpec {
+            key: "today",
+            label: "Today",
+            range: UsageRange::Today,
+        },
+        CostRangeSpec {
+            key: "week",
+            label: "This Week",
+            range: UsageRange::ThisWeek,
+        },
+        CostRangeSpec {
+            key: "month",
+            label: "This Month",
+            range: UsageRange::ThisMonth,
+        },
+    ]
+}
+
+fn map_batch_ranges(
+    range_specs: &[CostRangeSpec],
+    summaries: Vec<CostSummary>,
+) -> Result<Vec<CostRangeSummary>, String> {
+    if summaries.len() != range_specs.len() {
+        return Err(format!(
+            "ccstats returned {} cost ranges, expected {}",
+            summaries.len(),
+            range_specs.len()
+        ));
+    }
+
+    let mut ranges = Vec::with_capacity(range_specs.len());
+    for (spec, summary) in range_specs.iter().zip(summaries) {
+        if summary.range != spec.range {
+            return Err(format!(
+                "ccstats returned {:?} for {} cost range, expected {:?}",
+                summary.range, spec.key, spec.range
+            ));
+        }
+        ranges.push(CostRangeSummary::from_summary(
+            spec.key, spec.label, summary,
+        ));
+    }
+
+    Ok(ranges)
 }
 
 fn normalize_optional(value: Option<String>) -> Option<String> {
@@ -245,5 +285,83 @@ impl From<ModelCostSummary> for CostModelSummary {
             cost_usd: model.cost_usd,
             tokens: CostTokenBreakdown::from(model.tokens),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn summary(range: UsageRange, valid_entries: i64) -> CostSummary {
+        CostSummary {
+            source: UsageSource::Codex,
+            source_name: "codex".to_string(),
+            display_name: "Codex".to_string(),
+            range,
+            since: None,
+            until: None,
+            currency: "USD".to_string(),
+            cost: None,
+            cost_usd: None,
+            tokens: TokenBreakdown::default(),
+            models: Vec::new(),
+            valid_entries,
+            skipped_entries: 0,
+            elapsed_ms: 12.0,
+        }
+    }
+
+    #[test]
+    fn maps_batch_summaries_to_ui_ranges_in_order() {
+        let specs = cost_range_specs();
+        let ranges = match map_batch_ranges(
+            &specs,
+            vec![
+                summary(UsageRange::Today, 1),
+                summary(UsageRange::ThisWeek, 2),
+                summary(UsageRange::ThisMonth, 3),
+            ],
+        ) {
+            Ok(ranges) => ranges,
+            Err(err) => panic!("failed to map summaries: {err}"),
+        };
+
+        let keys: Vec<_> = ranges.iter().map(|range| range.range.as_str()).collect();
+        let labels: Vec<_> = ranges.iter().map(|range| range.label.as_str()).collect();
+
+        assert_eq!(keys, ["today", "week", "month"]);
+        assert_eq!(labels, ["Today", "This Week", "This Month"]);
+        assert_eq!(ranges[0].valid_entries, 1);
+        assert_eq!(ranges[1].valid_entries, 2);
+        assert_eq!(ranges[2].valid_entries, 3);
+    }
+
+    #[test]
+    fn rejects_unexpected_batch_summary_count() {
+        let specs = cost_range_specs();
+        let err = match map_batch_ranges(&specs, vec![summary(UsageRange::Today, 1)]) {
+            Ok(_) => panic!("summary count mismatch should fail"),
+            Err(err) => err,
+        };
+
+        assert!(err.contains("ccstats returned 1 cost ranges, expected 3"));
+    }
+
+    #[test]
+    fn rejects_unexpected_batch_summary_order() {
+        let specs = cost_range_specs();
+        let err = match map_batch_ranges(
+            &specs,
+            vec![
+                summary(UsageRange::Today, 1),
+                summary(UsageRange::ThisMonth, 2),
+                summary(UsageRange::ThisWeek, 3),
+            ],
+        ) {
+            Ok(_) => panic!("summary range mismatch should fail"),
+            Err(err) => err,
+        };
+
+        assert!(err.contains("ccstats returned ThisMonth for week cost range"));
     }
 }
