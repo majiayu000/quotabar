@@ -29,7 +29,7 @@ base64 = "0.22"
 dirs = "5"
 image = { version = "0.25", default-features = false, features = ["png"] }
 once_cell = "1.19"
-ccstats = { git = "https://github.com/majiayu000/ccstats.git", rev = "64e8c65b1aca1ba327be98be7e3bdfc312e268f4" }
+ccstats = { git = "https://github.com/majiayu000/ccstats.git", rev = "7dbfad0ffc29277da22cd095db067e88982f3f12" }
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
