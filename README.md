@@ -31,7 +31,7 @@ This screenshot is captured from the production React UI in browser preview with
 
 - Claude tray value:
   - prefers `weeklyTotal`
-  - falls back to max of `weeklyOpus`, `weeklySonnet`, and `weeklyDesign`
+  - falls back to max of `weeklyOpus`, `weeklySonnet`, `weeklyDesign`, and `weeklyFable5`
   - falls back to current session usage
 - Codex tray value:
   - prefers `secondary_window.used_percent`

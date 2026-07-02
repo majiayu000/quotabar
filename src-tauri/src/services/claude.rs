@@ -524,8 +524,8 @@ pub async fn fetch_quota() -> QuotaData {
 
 #[cfg(test)]
 mod tests {
-    use super::{parse_first_quota_window, parse_quota_window};
-    use serde_json::json;
+    use super::{parse_first_quota_window, parse_quota_window, FABLE5_QUOTA_KEYS};
+    use serde_json::{json, Value};
 
     #[test]
     fn parse_quota_window_requires_numeric_utilization() {
@@ -552,21 +552,25 @@ mod tests {
 
     #[test]
     fn parse_first_quota_window_accepts_fable5_aliases() {
-        let parsed = parse_first_quota_window(
-            &json!({
-                "seven_day_fable_5": {
-                    "utilization": 63.0,
+        for (index, key) in FABLE5_QUOTA_KEYS.iter().enumerate() {
+            let utilization = 60.0 + index as f64;
+            let mut data = serde_json::Map::new();
+            data.insert(
+                (*key).to_string(),
+                json!({
+                    "utilization": utilization,
                     "resets_at": "2026-07-09T00:00:00Z"
-                }
-            }),
-            &["seven_day_fable5", "seven_day_fable_5", "seven_day_fable"],
-        );
-        let window = match parsed {
-            Some(window) => window,
-            None => panic!("fable5 alias should parse"),
-        };
+                }),
+            );
 
-        assert_eq!(window.percentage, 63.0);
-        assert_eq!(window.reset_time.as_deref(), Some("2026-07-09T00:00:00Z"));
+            let parsed = parse_first_quota_window(&Value::Object(data), &FABLE5_QUOTA_KEYS);
+            let window = match parsed {
+                Some(window) => window,
+                None => panic!("{key} should parse as Fable 5 usage"),
+            };
+
+            assert_eq!(window.percentage, utilization);
+            assert_eq!(window.reset_time.as_deref(), Some("2026-07-09T00:00:00Z"));
+        }
     }
 }
