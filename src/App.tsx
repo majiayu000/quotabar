@@ -328,14 +328,15 @@ export default function App() {
     service: TrayServiceName,
     percentage: number | null,
     visible: boolean,
+    force = false,
   ) => {
     const previous = lastTrayIconRequestRef.current[service];
-    if (previous?.percentage === percentage && previous.visible === visible) {
+    if (!force && previous?.percentage === percentage && previous.visible === visible) {
       return;
     }
 
     try {
-      await backend.updateTrayIcon(service, percentage, visible);
+      await backend.updateTrayIcon(service, percentage, visible, force);
       lastTrayIconRequestRef.current[service] = { percentage, visible };
     } catch (err) {
       console.error(`Failed to update ${service} tray icon:`, err);
@@ -395,11 +396,11 @@ export default function App() {
     setServiceUsedPercent('claude', getClaudeTrayUsedPercent(quota));
   }, [quota, setServiceUsedPercent]);
 
-  const syncTrayIcons = useCallback(() => {
+  const syncTrayIcons = useCallback((force = false) => {
     for (const svc of SERVICES) {
       const pct = svc === 'claude' ? getClaudeTrayUsedPercent(quota) : usedPercent[svc];
       const isConnected = svc === 'claude' ? quota?.connected ?? false : connected[svc];
-      updateTrayIcon(svc, pct, shouldShowTray(trayEnabled[svc], isConnected));
+      updateTrayIcon(svc, pct, shouldShowTray(trayEnabled[svc], isConnected), force);
     }
   }, [quota, connected, usedPercent, trayEnabled, updateTrayIcon]);
 
@@ -409,7 +410,7 @@ export default function App() {
 
   useEffect(() => {
     const interval = setInterval(() => {
-      syncTrayIcons();
+      syncTrayIcons(true);
     }, 5000);
     return () => clearInterval(interval);
   }, [syncTrayIcons]);

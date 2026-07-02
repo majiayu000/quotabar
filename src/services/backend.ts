@@ -76,11 +76,17 @@ export const backend = {
     return invokeBackend<void>('open_antigravity_dashboard');
   },
 
-  updateTrayIcon(service: TrayService, percentage: number | null, visible: boolean) {
+  updateTrayIcon(
+    service: TrayService,
+    percentage: number | null,
+    visible: boolean,
+    force = false,
+  ) {
     return invokeBackend<void>('update_tray_icon', {
       service,
       percentage: percentage == null ? null : Math.round(percentage),
       visible,
+      force,
     });
   },
 

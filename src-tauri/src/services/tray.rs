@@ -73,6 +73,15 @@ impl TrayRuntimeState {
         }
     }
 
+    fn should_skip_update(
+        &self,
+        service: TrayService,
+        snapshot: TraySnapshot,
+        force: bool,
+    ) -> bool {
+        !force && self.snapshot(service) == Some(snapshot)
+    }
+
     fn set_snapshot(&mut self, service: TrayService, snapshot: TraySnapshot) {
         match service {
             TrayService::Claude => self.claude_snapshot = Some(snapshot),
@@ -316,6 +325,7 @@ pub async fn update_tray_icon(
     service: TrayService,
     percentage: Option<u8>,
     visible: bool,
+    force: bool,
 ) -> Result<(), String> {
     let runtime = tray_state.runtime.clone();
     let snapshot = TraySnapshot {
@@ -326,7 +336,7 @@ pub async fn update_tray_icon(
         let mut state = runtime
             .lock()
             .map_err(|_| "failed to lock tray runtime state".to_string())?;
-        if state.snapshot(service) == Some(snapshot) {
+        if state.should_skip_update(service, snapshot, force) {
             return Ok(());
         }
         let generation = state.bump_generation(service);
@@ -449,5 +459,19 @@ mod tests {
 
         assert_eq!(state.snapshot(TrayService::Claude), Some(snapshot));
         assert_eq!(state.snapshot(TrayService::Codex), None);
+    }
+
+    #[test]
+    fn runtime_snapshot_skip_respects_forced_resync() {
+        let mut state = TrayRuntimeState::default();
+        let snapshot = TraySnapshot {
+            percentage: Some(42),
+            visible: true,
+        };
+
+        state.set_snapshot(TrayService::Claude, snapshot);
+
+        assert!(state.should_skip_update(TrayService::Claude, snapshot, false));
+        assert!(!state.should_skip_update(TrayService::Claude, snapshot, true));
     }
 }
