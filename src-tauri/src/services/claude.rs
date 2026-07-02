@@ -20,6 +20,13 @@ const CREDENTIAL_NAMES: [&str; 4] = [
     "Claude-credentials",
     "claudecode-credentials",
 ];
+const FABLE5_QUOTA_KEYS: [&str; 5] = [
+    "seven_day_fable5",
+    "seven_day_fable_5",
+    "seven_day_fable",
+    "seven_day_claude_fable5",
+    "seven_day_claude_fable_5",
+];
 
 static REQUEST_COUNT: AtomicU64 = AtomicU64::new(0);
 static LAST_REQUEST_TIME: OnceLock<Mutex<Option<Instant>>> = OnceLock::new();
@@ -307,6 +314,10 @@ fn parse_quota_window(value: &serde_json::Value) -> Option<UsageInfo> {
     })
 }
 
+fn parse_first_quota_window(data: &serde_json::Value, keys: &[&str]) -> Option<UsageInfo> {
+    keys.iter().find_map(|key| parse_quota_window(&data[*key]))
+}
+
 fn get_cached_quota() -> Option<QuotaData> {
     let guard = quota_cache().lock().ok()?;
     let cached = guard.as_ref()?;
@@ -471,8 +482,11 @@ pub async fn fetch_quota() -> QuotaData {
     let five_hour = data["five_hour"]["utilization"].as_f64();
     let seven_day = data["seven_day"]["utilization"].as_f64();
     let seven_day_design = data["seven_day_omelette"]["utilization"].as_f64();
+    let seven_day_fable5 = FABLE5_QUOTA_KEYS
+        .iter()
+        .find_map(|key| data[*key]["utilization"].as_f64());
     log_msg(&format!(
-        "[Quota] SUCCESS: five_hour={five_hour:?}%, seven_day={seven_day:?}%, seven_day_omelette={seven_day_design:?}%"
+        "[Quota] SUCCESS: five_hour={five_hour:?}%, seven_day={seven_day:?}%, seven_day_omelette={seven_day_design:?}%, seven_day_fable5={seven_day_fable5:?}%"
     ));
 
     let session = parse_quota_window(&data["five_hour"]);
@@ -480,12 +494,14 @@ pub async fn fetch_quota() -> QuotaData {
     let weekly_opus = parse_quota_window(&data["seven_day_opus"]);
     let weekly_sonnet = parse_quota_window(&data["seven_day_sonnet"]);
     let weekly_design = parse_quota_window(&data["seven_day_omelette"]);
+    let weekly_fable5 = parse_first_quota_window(&data, &FABLE5_QUOTA_KEYS);
 
     if session.is_none()
         && weekly_total.is_none()
         && weekly_opus.is_none()
         && weekly_sonnet.is_none()
         && weekly_design.is_none()
+        && weekly_fable5.is_none()
     {
         log_msg("[Quota] parse error: no numeric quota utilization fields");
         return QuotaData::disconnected(
@@ -499,6 +515,7 @@ pub async fn fetch_quota() -> QuotaData {
         weekly_opus,
         weekly_sonnet,
         weekly_design,
+        weekly_fable5,
     );
 
     save_quota_cache(&result);
@@ -507,7 +524,7 @@ pub async fn fetch_quota() -> QuotaData {
 
 #[cfg(test)]
 mod tests {
-    use super::parse_quota_window;
+    use super::{parse_first_quota_window, parse_quota_window};
     use serde_json::json;
 
     #[test]
@@ -531,5 +548,25 @@ mod tests {
         assert_eq!(window.limit, 100.0);
         assert_eq!(window.percentage, 42.5);
         assert_eq!(window.reset_time.as_deref(), Some("2026-06-06T00:00:00Z"));
+    }
+
+    #[test]
+    fn parse_first_quota_window_accepts_fable5_aliases() {
+        let parsed = parse_first_quota_window(
+            &json!({
+                "seven_day_fable_5": {
+                    "utilization": 63.0,
+                    "resets_at": "2026-07-09T00:00:00Z"
+                }
+            }),
+            &["seven_day_fable5", "seven_day_fable_5", "seven_day_fable"],
+        );
+        let window = match parsed {
+            Some(window) => window,
+            None => panic!("fable5 alias should parse"),
+        };
+
+        assert_eq!(window.percentage, 63.0);
+        assert_eq!(window.reset_time.as_deref(), Some("2026-07-09T00:00:00Z"));
     }
 }

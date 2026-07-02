@@ -12,6 +12,7 @@ export interface QuotaData {
   weeklyOpus?: UsageInfo;
   weeklySonnet?: UsageInfo;
   weeklyDesign?: UsageInfo;
+  weeklyFable5?: UsageInfo;
   error?: string;
 }
 

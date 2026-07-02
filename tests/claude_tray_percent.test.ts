@@ -20,6 +20,7 @@ describe('getClaudeTrayUsedPercent', () => {
       connected: true,
       weeklyTotal: usage(42),
       weeklyDesign: usage(91),
+      weeklyFable5: usage(96),
     })).toBe(42);
   });
 
@@ -30,6 +31,15 @@ describe('getClaudeTrayUsedPercent', () => {
       weeklyOpus: usage(36),
       weeklyDesign: usage(84),
     })).toBe(84);
+  });
+
+  test('includes Fable 5 in weekly bucket fallback', () => {
+    expect(getClaudeTrayUsedPercent({
+      connected: true,
+      session: usage(12),
+      weeklyOpus: usage(36),
+      weeklyFable5: usage(87),
+    })).toBe(87);
   });
 
   test('falls back to session usage when weekly buckets are missing', () => {

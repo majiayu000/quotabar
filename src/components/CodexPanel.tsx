@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { backend } from '../services/backend';
 import CostSummarySection from './CostSummarySection';
 import type { CodexData, CodexRateLimits, CodexStats } from '../types/models';
-import { formatPlanType, getProgressStyle } from '../utils/quota_format';
+import { formatPlanType, formatResetTime, getProgressStyle } from '../utils/quota_format';
 
 interface CodexPanelProps {
   onConnectionChange?: (connected: boolean) => void;
@@ -38,28 +38,6 @@ function formatWindowLabel(minutes?: number): string {
     return `${hours}h`;
   }
   return `${minutes}m`;
-}
-
-function formatResetTime(resetAt?: number): string {
-  if (!resetAt) return '';
-  const date = new Date(resetAt * 1000);
-  const now = new Date();
-  const diffMs = date.getTime() - now.getTime();
-
-  if (diffMs <= 0) return 'now';
-
-  const diffMinutes = Math.max(1, Math.floor(diffMs / 60000));
-  if (diffMinutes < 60) return `${diffMinutes}m`;
-
-  const diffHours = Math.floor(diffMinutes / 60);
-  const remainingMinutes = diffMinutes % 60;
-  if (diffHours < 24) {
-    return remainingMinutes > 0 ? `${diffHours}h ${remainingMinutes}m` : `${diffHours}h`;
-  }
-
-  const diffDays = Math.floor(diffHours / 24);
-  const remainingHours = diffHours % 24;
-  return remainingHours > 0 ? `${diffDays}d ${remainingHours}h` : `${diffDays}d`;
 }
 
 function getTrayUsedPercent(limits: CodexRateLimits): number | null {
