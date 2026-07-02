@@ -5,6 +5,19 @@ import type { CostOverview, CostRangeSummary, CostSource } from '../types/models
 interface CostSummarySectionProps {
   source: CostSource;
   refreshKey?: number;
+  autoRefreshIntervalMs?: number;
+}
+
+const DEFAULT_AUTO_REFRESH_INTERVAL_MS = 5 * 60 * 1000;
+
+export function getCostSummaryErrorMessage(err: unknown): string {
+  if (err instanceof Error) return err.message;
+  if (typeof err === 'string' && err.trim()) return err;
+  if (err && typeof err === 'object' && 'message' in err) {
+    const message = err.message;
+    if (typeof message === 'string' && message.trim()) return message;
+  }
+  return 'Failed to load cost summary';
 }
 
 function formatMoney(value: number | null | undefined, currency: string): string {
@@ -52,13 +65,18 @@ function pickPrimaryRange(overview: CostOverview | null): CostRangeSummary | nul
   );
 }
 
-export default function CostSummarySection({ source, refreshKey = 0 }: CostSummarySectionProps) {
+export default function CostSummarySection({
+  source,
+  refreshKey = 0,
+  autoRefreshIntervalMs = DEFAULT_AUTO_REFRESH_INTERVAL_MS,
+}: CostSummarySectionProps) {
   const [overview, setOverview] = useState<CostOverview | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
+    let interval: number | undefined;
 
     const loadCost = async (force: boolean) => {
       try {
@@ -70,7 +88,7 @@ export default function CostSummarySection({ source, refreshKey = 0 }: CostSumma
         }
       } catch (err) {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : 'Failed to load cost summary');
+          setError(getCostSummaryErrorMessage(err));
         }
       } finally {
         if (!cancelled) {
@@ -80,11 +98,19 @@ export default function CostSummarySection({ source, refreshKey = 0 }: CostSumma
     };
 
     loadCost(refreshKey > 0);
+    if (autoRefreshIntervalMs > 0) {
+      interval = window.setInterval(() => {
+        void loadCost(true);
+      }, autoRefreshIntervalMs);
+    }
 
     return () => {
       cancelled = true;
+      if (interval !== undefined) {
+        window.clearInterval(interval);
+      }
     };
-  }, [source, refreshKey]);
+  }, [source, refreshKey, autoRefreshIntervalMs]);
 
   const primaryRange = useMemo(() => pickPrimaryRange(overview), [overview]);
   const topModels = primaryRange?.models.slice(0, 3) ?? [];

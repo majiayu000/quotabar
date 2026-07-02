@@ -1,5 +1,6 @@
 //! Local cost summaries powered by the `ccstats` SDK.
 
+use crate::services::codex_pricing::{CodexPriorityPricingPolicy, CodexTokenUsage};
 use ccstats::{
     summarize_cost_ranges, CostSummary, ModelCostSummary, MultiSummaryOptions, TokenBreakdown,
     UsageRange, UsageSource,
@@ -140,7 +141,15 @@ fn build_cost_overview(
     let display_name = batch.display_name;
     let currency = batch.currency;
     let generated_at = batch.generated_at;
-    let ranges = map_batch_ranges(&range_specs, batch.summaries)?;
+    let mut ranges = map_batch_ranges(&range_specs, batch.summaries)?;
+    if batch.source == UsageSource::Codex
+        && ranges
+            .iter()
+            .any(|range| range.currency.eq_ignore_ascii_case("USD"))
+    {
+        let pricing_policy = CodexPriorityPricingPolicy::load_from_default_cache()?;
+        apply_codex_priority_costs(&mut ranges, &pricing_policy)?;
+    }
     let overview = CostOverview {
         source: source_name,
         display_name,
@@ -207,6 +216,43 @@ fn map_batch_ranges(
     }
 
     Ok(ranges)
+}
+
+fn apply_codex_priority_costs(
+    ranges: &mut [CostRangeSummary],
+    pricing_policy: &CodexPriorityPricingPolicy,
+) -> Result<(), String> {
+    for range in ranges {
+        if !range.currency.eq_ignore_ascii_case("USD") {
+            continue;
+        }
+
+        let mut range_cost = 0.0;
+        let mut has_cost = false;
+        for model in &mut range.models {
+            let usage = CodexTokenUsage {
+                input_tokens: model.tokens.input_tokens,
+                output_tokens: model.tokens.output_tokens,
+                reasoning_tokens: model.tokens.reasoning_tokens,
+                cache_read_tokens: model.tokens.cache_read_tokens,
+            };
+            if let Some(cost) = pricing_policy.calculate_us_priority_cost(&model.model, usage)? {
+                model.cost = Some(cost);
+                model.cost_usd = Some(cost);
+            }
+            if let Some(cost) = model.cost_usd {
+                range_cost += cost;
+                has_cost = true;
+            }
+        }
+
+        if has_cost {
+            range.cost = Some(range_cost);
+            range.cost_usd = Some(range_cost);
+        }
+    }
+
+    Ok(())
 }
 
 fn normalize_optional(value: Option<String>) -> Option<String> {
@@ -311,6 +357,22 @@ mod tests {
         }
     }
 
+    fn token_breakdown(
+        input_tokens: i64,
+        output_tokens: i64,
+        reasoning_tokens: i64,
+        cache_read_tokens: i64,
+    ) -> CostTokenBreakdown {
+        CostTokenBreakdown {
+            input_tokens,
+            output_tokens,
+            reasoning_tokens,
+            cache_creation_tokens: 0,
+            cache_read_tokens,
+            total_tokens: input_tokens + output_tokens + reasoning_tokens + cache_read_tokens,
+        }
+    }
+
     #[test]
     fn maps_batch_summaries_to_ui_ranges_in_order() {
         let specs = cost_range_specs();
@@ -363,5 +425,53 @@ mod tests {
         };
 
         assert!(err.contains("ccstats returned ThisMonth for week cost range"));
+    }
+
+    #[test]
+    fn applies_codex_priority_regional_costs_for_usd_ranges() {
+        let pricing_policy = CodexPriorityPricingPolicy::from_litellm_json_str(
+            r#"{
+              "gpt-5.5": {
+                "input_cost_per_token_priority": 0.00001,
+                "output_cost_per_token_priority": 0.00006,
+                "cache_read_input_token_cost_priority": 0.000001,
+                "regional_processing_uplift_multiplier_us": 1.1
+              }
+            }"#,
+        );
+        let pricing_policy = match pricing_policy {
+            Ok(policy) => policy,
+            Err(err) => panic!("fixture should parse: {err}"),
+        };
+        let mut ranges = vec![CostRangeSummary {
+            range: "today".to_string(),
+            label: "Today".to_string(),
+            since: None,
+            until: None,
+            currency: "USD".to_string(),
+            cost: Some(0.0),
+            cost_usd: Some(0.0),
+            tokens: token_breakdown(1_000_000, 2_000_000, 3_000_000, 4_000_000),
+            models: vec![CostModelSummary {
+                model: "gpt-5.5".to_string(),
+                cost: Some(0.0),
+                cost_usd: Some(0.0),
+                tokens: token_breakdown(1_000_000, 2_000_000, 3_000_000, 4_000_000),
+            }],
+            valid_entries: 1,
+            skipped_entries: 0,
+            elapsed_ms: 0.0,
+        }];
+
+        if let Err(err) = apply_codex_priority_costs(&mut ranges, &pricing_policy) {
+            panic!("Codex priority costs should recalculate: {err}");
+        }
+
+        let cost = match ranges[0].cost_usd {
+            Some(cost) => cost,
+            None => panic!("cost should be recalculated"),
+        };
+        assert!((cost - 345.4).abs() < 0.001);
+        assert_eq!(ranges[0].models[0].cost_usd, Some(cost));
     }
 }
