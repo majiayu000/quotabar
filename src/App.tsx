@@ -1,15 +1,14 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
-import QuotaCard from './components/QuotaCard';
 import ActionButtons from './components/ActionButtons';
 import ThemeSelector, { ThemeName } from './components/ThemeSelector';
 import TabSwitcher, { TabName } from './components/TabSwitcher';
+import ClaudePanel from './components/ClaudePanel';
 import CodexPanel from './components/CodexPanel';
 import CursorPanel from './components/CursorPanel';
 import AntigravityPanel from './components/AntigravityPanel';
 import TrayToggles, { type TrayToggleEntry } from './components/TrayToggles';
-import CostSummarySection from './components/CostSummarySection';
 import { backend, hasTauriBackend } from './services/backend';
 import { SERVICE_META, SERVICES } from './services/service_meta';
 import {
@@ -115,27 +114,6 @@ function getInitialTrayEnabledState(): TrayEnabledState {
   return state;
 }
 
-function formatResetTime(resetTime?: string): string {
-  if (!resetTime) return 'N/A';
-  try {
-    const reset = new Date(resetTime);
-    const now = new Date();
-    const diff = reset.getTime() - now.getTime();
-    if (diff <= 0) return 'Soon';
-
-    const hours = Math.floor(diff / (1000 * 60 * 60));
-    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-
-    if (hours > 24) {
-      const days = Math.floor(hours / 24);
-      return `${days}d ${hours % 24}h`;
-    }
-    return `${hours}h ${minutes}m`;
-  } catch {
-    return 'N/A';
-  }
-}
-
 export function getClaudeTrayUsedPercent(quota: QuotaData | null): number | null {
   if (!quota) return null;
 
@@ -147,6 +125,7 @@ export function getClaudeTrayUsedPercent(quota: QuotaData | null): number | null
     quota.weeklyOpus?.percentage,
     quota.weeklySonnet?.percentage,
     quota.weeklyDesign?.percentage,
+    quota.weeklyFable5?.percentage,
   ]
     .filter((value): value is number => typeof value === 'number');
   if (weeklyUsedCandidates.length > 0) {
@@ -606,94 +585,14 @@ export default function App() {
       <div className="container" ref={containerRef}>
         <div className="panel-scroll">
           {activeTab === 'claude' && (
-            <>
-              {claudeLoading && !quota && (
-                <div className="loading-state">Loading Claude quota...</div>
-              )}
-
-              {claudeError && (
-                <div className="error-banner">
-                  <span className="error-icon">!</span>
-                  <span className="error-text">{claudeError}</span>
-                </div>
-              )}
-
-              {!claudeError && quota && (
-                <div className="quota-list">
-                  <div className="section">
-                    <div className="section-title">
-                      CURRENT SESSION
-                      <span className="plan-tag">Claude Code</span>
-                    </div>
-                    {quota.session ? (
-                      <QuotaCard
-                        label="5-Hour Usage"
-                        percentage={Math.round(quota.session.percentage)}
-                        resetsIn={formatResetTime(quota.session.resetTime)}
-                      />
-                    ) : (
-                      <div className="no-data">No session data</div>
-                    )}
-                  </div>
-
-                  <div className="section">
-                    <div className="section-title">
-                      WEEKLY LIMITS
-                      <span className="plan-tag">Claude Code</span>
-                    </div>
-
-                    {quota.weeklyTotal && (
-                      <QuotaCard
-                        label="7-Day Usage"
-                        percentage={Math.round(quota.weeklyTotal.percentage)}
-                        resetsIn={formatResetTime(quota.weeklyTotal.resetTime)}
-                      />
-                    )}
-
-                    {quota.weeklyOpus && (
-                      <QuotaCard
-                        label="Opus (7-Day)"
-                        percentage={Math.round(quota.weeklyOpus.percentage)}
-                        resetsIn={formatResetTime(quota.weeklyOpus.resetTime)}
-                      />
-                    )}
-
-                    {quota.weeklySonnet && (
-                      <QuotaCard
-                        label="Sonnet (7-Day)"
-                        percentage={Math.round(quota.weeklySonnet.percentage)}
-                        resetsIn={formatResetTime(quota.weeklySonnet.resetTime)}
-                      />
-                    )}
-
-                    {quota.weeklyDesign && (
-                      <QuotaCard
-                        label="Claude Design (7-Day)"
-                        percentage={Math.round(quota.weeklyDesign.percentage)}
-                        resetsIn={formatResetTime(quota.weeklyDesign.resetTime)}
-                      />
-                    )}
-
-                    {!quota.weeklyTotal && !quota.weeklyOpus && !quota.weeklySonnet && !quota.weeklyDesign && (
-                      <div className="no-data">No weekly data</div>
-                    )}
-                  </div>
-
-                  {windowVisible && (
-                    <CostSummarySection source="claude" refreshKey={claudeCostRefreshNonce} />
-                  )}
-                </div>
-              )}
-
-              {!claudeError && !quota && !claudeLoading && (
-                <div className="empty-state">
-                  <p>Unable to load quota data</p>
-                  <button onClick={handleRefresh} className="retry-btn">
-                    Try Again
-                  </button>
-                </div>
-              )}
-            </>
+            <ClaudePanel
+              quota={quota}
+              loading={claudeLoading}
+              error={claudeError}
+              windowVisible={windowVisible}
+              costRefreshKey={claudeCostRefreshNonce}
+              onRetry={handleRefresh}
+            />
           )}
 
           <div style={{ display: activeTab === 'codex' ? 'block' : 'none' }}>
