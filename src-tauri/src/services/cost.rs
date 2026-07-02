@@ -1,6 +1,8 @@
 //! Local cost summaries powered by the `ccstats` SDK.
 
-use crate::services::codex_pricing::{CodexPriorityPricingPolicy, CodexTokenUsage};
+use crate::services::codex_pricing::{
+    requires_codex_priority_policy, CodexPriorityPricingPolicy, CodexTokenUsage,
+};
 use ccstats::{
     summarize_cost_ranges, CostSummary, ModelCostSummary, MultiSummaryOptions, TokenBreakdown,
     UsageRange, UsageSource,
@@ -142,11 +144,7 @@ fn build_cost_overview(
     let currency = batch.currency;
     let generated_at = batch.generated_at;
     let mut ranges = map_batch_ranges(&range_specs, batch.summaries)?;
-    if batch.source == UsageSource::Codex
-        && ranges
-            .iter()
-            .any(|range| range.currency.eq_ignore_ascii_case("USD"))
-    {
+    if batch.source == UsageSource::Codex && ranges_require_codex_priority_policy(&ranges) {
         let pricing_policy = CodexPriorityPricingPolicy::load_from_default_cache()?;
         apply_codex_priority_costs(&mut ranges, &pricing_policy)?;
     }
@@ -253,6 +251,16 @@ fn apply_codex_priority_costs(
     }
 
     Ok(())
+}
+
+fn ranges_require_codex_priority_policy(ranges: &[CostRangeSummary]) -> bool {
+    ranges.iter().any(|range| {
+        range.currency.eq_ignore_ascii_case("USD")
+            && range
+                .models
+                .iter()
+                .any(|model| requires_codex_priority_policy(&model.model))
+    })
 }
 
 fn normalize_optional(value: Option<String>) -> Option<String> {
@@ -473,5 +481,35 @@ mod tests {
         };
         assert!((cost - 345.4).abs() < 0.001);
         assert_eq!(ranges[0].models[0].cost_usd, Some(cost));
+    }
+
+    #[test]
+    fn priority_policy_is_required_only_for_known_codex_usd_models() {
+        let mut ranges = vec![CostRangeSummary {
+            range: "today".to_string(),
+            label: "Today".to_string(),
+            since: None,
+            until: None,
+            currency: "USD".to_string(),
+            cost: Some(1.0),
+            cost_usd: Some(1.0),
+            tokens: token_breakdown(10, 0, 0, 0),
+            models: vec![CostModelSummary {
+                model: "other-model".to_string(),
+                cost: Some(1.0),
+                cost_usd: Some(1.0),
+                tokens: token_breakdown(10, 0, 0, 0),
+            }],
+            valid_entries: 1,
+            skipped_entries: 0,
+            elapsed_ms: 0.0,
+        }];
+        assert!(!ranges_require_codex_priority_policy(&ranges));
+
+        ranges[0].models[0].model = "gpt-5.5".to_string();
+        assert!(ranges_require_codex_priority_policy(&ranges));
+
+        ranges[0].currency = "EUR".to_string();
+        assert!(!ranges_require_codex_priority_policy(&ranges));
     }
 }

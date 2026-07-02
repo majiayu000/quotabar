@@ -10,6 +10,16 @@ interface CostSummarySectionProps {
 
 const DEFAULT_AUTO_REFRESH_INTERVAL_MS = 5 * 60 * 1000;
 
+export function startCostSummaryAutoRefresh(
+  autoRefreshIntervalMs: number,
+  loadCost: (force: boolean) => void | Promise<void>,
+): ReturnType<typeof setInterval> | undefined {
+  if (autoRefreshIntervalMs <= 0) return undefined;
+  return setInterval(() => {
+    void loadCost(true);
+  }, autoRefreshIntervalMs);
+}
+
 export function getCostSummaryErrorMessage(err: unknown): string {
   if (err instanceof Error) return err.message;
   if (typeof err === 'string' && err.trim()) return err;
@@ -98,16 +108,12 @@ export default function CostSummarySection({
     };
 
     loadCost(refreshKey > 0);
-    if (autoRefreshIntervalMs > 0) {
-      interval = window.setInterval(() => {
-        void loadCost(true);
-      }, autoRefreshIntervalMs);
-    }
+    interval = startCostSummaryAutoRefresh(autoRefreshIntervalMs, loadCost);
 
     return () => {
       cancelled = true;
       if (interval !== undefined) {
-        window.clearInterval(interval);
+        clearInterval(interval);
       }
     };
   }, [source, refreshKey, autoRefreshIntervalMs]);

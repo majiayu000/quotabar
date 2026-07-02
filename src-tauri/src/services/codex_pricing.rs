@@ -173,7 +173,7 @@ fn model_lookup_keys(model: &str) -> Vec<String> {
     keys
 }
 
-fn requires_codex_priority_policy(model: &str) -> bool {
+pub(crate) fn requires_codex_priority_policy(model: &str) -> bool {
     matches!(
         normalize_openai_model_key(model).as_str(),
         "gpt-5.4" | "gpt-5.4-2026-03-05" | "gpt-5.5" | "gpt-5.5-2026-04-23"
