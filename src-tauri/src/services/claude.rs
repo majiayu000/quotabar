@@ -318,6 +318,38 @@ fn parse_first_quota_window(data: &serde_json::Value, keys: &[&str]) -> Option<U
     keys.iter().find_map(|key| parse_quota_window(&data[*key]))
 }
 
+fn parse_weekly_scoped_model_quota(
+    data: &serde_json::Value,
+    model_display_name: &str,
+) -> Option<UsageInfo> {
+    let limits = data.get("limits")?.as_array()?;
+    limits.iter().find_map(|limit| {
+        if limit.get("group")?.as_str()? != "weekly" {
+            return None;
+        }
+        if limit.get("kind")?.as_str()? != "weekly_scoped" {
+            return None;
+        }
+        let display_name = limit
+            .get("scope")?
+            .get("model")?
+            .get("display_name")?
+            .as_str()?;
+        if !display_name.eq_ignore_ascii_case(model_display_name) {
+            return None;
+        }
+
+        let percent = limit.get("percent")?.as_f64()?;
+        let resets_at = limit["resets_at"].as_str().map(ToString::to_string);
+        Some(UsageInfo {
+            used: percent,
+            limit: 100.0,
+            percentage: percent,
+            reset_time: resets_at,
+        })
+    })
+}
+
 fn get_cached_quota() -> Option<QuotaData> {
     let guard = quota_cache().lock().ok()?;
     let cached = guard.as_ref()?;
@@ -482,9 +514,9 @@ pub async fn fetch_quota() -> QuotaData {
     let five_hour = data["five_hour"]["utilization"].as_f64();
     let seven_day = data["seven_day"]["utilization"].as_f64();
     let seven_day_design = data["seven_day_omelette"]["utilization"].as_f64();
-    let seven_day_fable5 = FABLE5_QUOTA_KEYS
-        .iter()
-        .find_map(|key| data[*key]["utilization"].as_f64());
+    let weekly_fable5 = parse_first_quota_window(&data, &FABLE5_QUOTA_KEYS)
+        .or_else(|| parse_weekly_scoped_model_quota(&data, "Fable"));
+    let seven_day_fable5 = weekly_fable5.as_ref().map(|window| window.percentage);
     log_msg(&format!(
         "[Quota] SUCCESS: five_hour={five_hour:?}%, seven_day={seven_day:?}%, seven_day_omelette={seven_day_design:?}%, seven_day_fable5={seven_day_fable5:?}%"
     ));
@@ -494,7 +526,6 @@ pub async fn fetch_quota() -> QuotaData {
     let weekly_opus = parse_quota_window(&data["seven_day_opus"]);
     let weekly_sonnet = parse_quota_window(&data["seven_day_sonnet"]);
     let weekly_design = parse_quota_window(&data["seven_day_omelette"]);
-    let weekly_fable5 = parse_first_quota_window(&data, &FABLE5_QUOTA_KEYS);
 
     if session.is_none()
         && weekly_total.is_none()
@@ -524,7 +555,10 @@ pub async fn fetch_quota() -> QuotaData {
 
 #[cfg(test)]
 mod tests {
-    use super::{parse_first_quota_window, parse_quota_window, FABLE5_QUOTA_KEYS};
+    use super::{
+        parse_first_quota_window, parse_quota_window, parse_weekly_scoped_model_quota,
+        FABLE5_QUOTA_KEYS,
+    };
     use serde_json::{json, Value};
 
     #[test]
@@ -572,5 +606,34 @@ mod tests {
             assert_eq!(window.percentage, utilization);
             assert_eq!(window.reset_time.as_deref(), Some("2026-07-09T00:00:00Z"));
         }
+    }
+
+    #[test]
+    fn parse_weekly_scoped_model_quota_accepts_limits_array_fable() {
+        let parsed = parse_weekly_scoped_model_quota(
+            &json!({
+                "limits": [
+                    {
+                        "group": "weekly",
+                        "kind": "weekly_scoped",
+                        "scope": {
+                            "model": {
+                                "display_name": "Fable"
+                            }
+                        },
+                        "percent": 28,
+                        "resets_at": "2026-07-09T00:00:00Z"
+                    }
+                ]
+            }),
+            "Fable",
+        );
+        let window = match parsed {
+            Some(window) => window,
+            None => panic!("Fable scoped weekly limit should parse"),
+        };
+
+        assert_eq!(window.percentage, 28.0);
+        assert_eq!(window.reset_time.as_deref(), Some("2026-07-09T00:00:00Z"));
     }
 }
