@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { backend } from '../services/backend';
 import CostSummarySection from './CostSummarySection';
 import type { CursorData } from '../types/models';
+import { buildCursorQuotaWindows, type QuotaWindowSummary } from '../services/provider_summary';
 import { formatPlanType, getProgressStyle } from '../utils/quota_format';
 
 interface CursorPanelProps {
@@ -10,6 +11,7 @@ interface CursorPanelProps {
   autoRefreshIntervalMs?: number;
   manualRefreshNonce?: number;
   onLoadingChange?: (loading: boolean) => void;
+  onQuotaWindowsChange?: (windows: QuotaWindowSummary[]) => void;
   showCostSummary?: boolean;
 }
 
@@ -36,6 +38,7 @@ export default function CursorPanel({
   autoRefreshIntervalMs = 60 * 1000,
   manualRefreshNonce = 0,
   onLoadingChange,
+  onQuotaWindowsChange,
   showCostSummary = true,
 }: CursorPanelProps) {
   const [cursorData, setCursorData] = useState<CursorData | null>(null);
@@ -53,15 +56,17 @@ export default function CursorPanel({
       }
       onConnectionChange?.(data.connected);
       onUsageChange?.(data.percentage ?? null);
+      onQuotaWindowsChange?.(buildCursorQuotaWindows(data));
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to fetch Cursor data';
       setError(message);
       onConnectionChange?.(false);
       onUsageChange?.(null);
+      onQuotaWindowsChange?.([]);
     } finally {
       setLoading(false);
     }
-  }, [onConnectionChange, onUsageChange]);
+  }, [onConnectionChange, onQuotaWindowsChange, onUsageChange]);
 
   useEffect(() => {
     fetchData();
