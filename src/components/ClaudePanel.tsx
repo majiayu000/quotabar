@@ -1,7 +1,12 @@
 import CostSummarySection from './CostSummarySection';
 import QuotaCard from './QuotaCard';
+import ProviderDetailHeader from './ProviderDetailHeader';
+import ResetTimeline from './ResetTimeline';
+import SmartTip from './SmartTip';
 import type { QuotaData } from '../types/models';
 import { formatResetTime } from '../utils/quota_format';
+import { buildClaudeQuotaWindows, sortMostConstrained } from '../services/provider_summary';
+import { getHighUsageTip } from '../services/detail_helpers';
 
 interface ClaudePanelProps {
   quota: QuotaData | null;
@@ -38,6 +43,9 @@ export default function ClaudePanel({
   costRefreshKey,
   onRetry,
 }: ClaudePanelProps) {
+  const windows = buildClaudeQuotaWindows(quota);
+  const topWindow = sortMostConstrained(windows)[0];
+
   return (
     <>
       {loading && !quota && (
@@ -52,7 +60,15 @@ export default function ClaudePanel({
       )}
 
       {!error && quota && (
-        <div className="quota-list">
+        <div className="detail-stack">
+          <ProviderDetailHeader
+            service="claude"
+            status={quota.connected ? 'Connected' : 'Offline'}
+            plan="Claude Code"
+            usedPercent={topWindow?.usedPercent ?? null}
+          />
+          <SmartTip message={getHighUsageTip(windows)} />
+
           <div className="section">
             <div className="section-title">
               CURRENT SESSION
@@ -119,6 +135,8 @@ export default function ClaudePanel({
               <div className="no-data">No weekly data</div>
             )}
           </div>
+
+          <ResetTimeline windows={windows} />
 
           {windowVisible && (
             <CostSummarySection source="claude" refreshKey={costRefreshKey} />

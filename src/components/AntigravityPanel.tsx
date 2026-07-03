@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { backend } from '../services/backend';
 import type { AntigravityData } from '../types/models';
+import ProviderDetailHeader from './ProviderDetailHeader';
 
 interface AntigravityPanelProps {
   onConnectionChange?: (connected: boolean) => void;
@@ -25,7 +26,9 @@ export default function AntigravityPanel({
       const info = await backend.getAntigravityInfo();
       setData(info);
       onConnectionChange?.(info.connected);
-    } catch {
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to load Antigravity status';
+      setData({ connected: false, status: 'error', error: message });
       onConnectionChange?.(false);
     } finally {
       setLoading(false);
@@ -60,6 +63,13 @@ export default function AntigravityPanel({
 
   return (
     <div className="codex-panel">
+      <ProviderDetailHeader
+        service="antigravity"
+        status={data?.connected ? 'Preview' : 'Pending'}
+        plan="Antigravity"
+        usedPercent={null}
+      />
+
       <div className="section">
         <div className="section-title">
           ANTIGRAVITY
@@ -78,6 +88,10 @@ export default function AntigravityPanel({
             the paid tier ships.
           </p>
         </div>
+      </div>
+
+      <div className="unsupported-state">
+        Local cost and reset timeline are not available for Antigravity until a stable usage API exists.
       </div>
 
       <button className="open-dashboard-btn" onClick={handleOpenDashboard}>

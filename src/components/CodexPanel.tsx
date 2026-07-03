@@ -1,8 +1,12 @@
 import { useEffect, useState, useCallback } from 'react';
 import { backend } from '../services/backend';
 import CostSummarySection from './CostSummarySection';
+import ProviderDetailHeader from './ProviderDetailHeader';
+import ResetTimeline from './ResetTimeline';
+import SmartTip from './SmartTip';
 import type { CodexData, CodexRateLimits, CodexResetCredits, CodexStats } from '../types/models';
-import { buildCodexQuotaWindows, type QuotaWindowSummary } from '../services/provider_summary';
+import { buildCodexQuotaWindows, sortMostConstrained, type QuotaWindowSummary } from '../services/provider_summary';
+import { getAvailableResetCredits, getHighUsageTip } from '../services/detail_helpers';
 import { formatPlanType, formatResetTime, getProgressStyle } from '../utils/quota_format';
 
 interface CodexPanelProps {
@@ -157,6 +161,9 @@ export default function CodexPanel({
   const hasRateLimits = rateLimits?.primary || rateLimits?.secondary;
   const connected = rateLimits?.connected || codexData?.connected;
   const planType = rateLimits?.planType || codexData?.planType;
+  const windows = buildCodexQuotaWindows(rateLimits);
+  const topWindow = sortMostConstrained(windows)[0];
+  const availableResetCredits = getAvailableResetCredits(resetCredits);
 
   return (
     <div className="codex-panel">
@@ -169,6 +176,14 @@ export default function CodexPanel({
 
       {connected && (
         <div className="codex-content">
+          <ProviderDetailHeader
+            service="codex"
+            status={connected ? 'Connected' : 'Offline'}
+            plan={`Codex ${formatPlanType(planType)}`}
+            usedPercent={topWindow?.usedPercent ?? null}
+          />
+          <SmartTip message={getHighUsageTip(windows)} />
+
           {/* Rate Limits Section */}
           {hasRateLimits && (
             <div className="section">
@@ -240,18 +255,16 @@ export default function CodexPanel({
             </div>
           )}
 
-          {/* Rate-limit Reset Credits Section */}
-          {resetCredits?.connected && resetCredits.availableCount > 0 && (
+          {/* Bonus Reset Credits Section */}
+          {availableResetCredits.length > 0 && (
             <div className="section">
               <div className="section-title">
-                RESET CREDITS
-                <span className="plan-tag">{resetCredits.availableCount} available</span>
+                BONUS RESETS
+                <span className="plan-tag">{availableResetCredits.length} gifted</span>
               </div>
-              {resetCredits.credits
-                .filter((credit) => credit.status === 'available')
-                .sort((a, b) => (a.expiresAt ?? '').localeCompare(b.expiresAt ?? ''))
-                .map((credit, index) => (
-                  <div className="quota-card" key={`${credit.expiresAt ?? 'unknown'}-${index}`}>
+              <div className="bonus-reset-list">
+                {availableResetCredits.map((credit, index) => (
+                  <div className="bonus-reset-card" key={`${credit.expiresAt ?? 'unknown'}-${index}`}>
                     <div className="quota-header">
                       <span className="quota-label">{credit.title ?? 'Rate limit reset'}</span>
                     </div>
@@ -260,8 +273,11 @@ export default function CodexPanel({
                     </div>
                   </div>
                 ))}
+              </div>
             </div>
           )}
+
+          <ResetTimeline windows={windows} />
 
           {/* Subscription Section (only if no rate limits) */}
           {!hasRateLimits && codexData && (
