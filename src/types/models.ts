@@ -52,6 +52,20 @@ export interface CodexRateLimits {
   error?: string;
 }
 
+export interface CodexResetCredit {
+  status: string;
+  title?: string;
+  grantedAt?: string;
+  expiresAt?: string;
+}
+
+export interface CodexResetCredits {
+  connected: boolean;
+  availableCount: number;
+  credits: CodexResetCredit[];
+  error?: string;
+}
+
 export interface CursorData {
   connected: boolean;
   planType?: string;
