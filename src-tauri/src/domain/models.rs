@@ -150,6 +150,36 @@ impl CodexRateLimits {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct CodexResetCredit {
+    pub status: String,
+    pub title: Option<String>,
+    #[serde(rename = "grantedAt")]
+    pub granted_at: Option<String>,
+    #[serde(rename = "expiresAt")]
+    pub expires_at: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct CodexResetCredits {
+    pub connected: bool,
+    #[serde(rename = "availableCount")]
+    pub available_count: u32,
+    pub credits: Vec<CodexResetCredit>,
+    pub error: Option<String>,
+}
+
+impl CodexResetCredits {
+    pub fn disconnected(error: impl Into<String>) -> Self {
+        Self {
+            connected: false,
+            available_count: 0,
+            credits: Vec::new(),
+            error: Some(error.into()),
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct CursorData {
     pub connected: bool,
     #[serde(rename = "planType")]

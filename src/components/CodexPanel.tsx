@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { backend } from '../services/backend';
 import CostSummarySection from './CostSummarySection';
-import type { CodexData, CodexRateLimits, CodexStats } from '../types/models';
+import type { CodexData, CodexRateLimits, CodexResetCredits, CodexStats } from '../types/models';
 import { buildCodexQuotaWindows, type QuotaWindowSummary } from '../services/provider_summary';
 import { formatPlanType, formatResetTime, getProgressStyle } from '../utils/quota_format';
 
@@ -27,6 +27,19 @@ function formatSubscriptionDate(dateStr?: string): string {
   } catch {
     return dateStr;
   }
+}
+
+function formatCreditDate(dateStr?: string): string {
+  if (!dateStr) return 'Unknown';
+  const date = new Date(dateStr);
+  if (Number.isNaN(date.getTime())) return dateStr;
+  return date.toLocaleString(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 }
 
 function formatWindowLabel(minutes?: number): string {
@@ -64,6 +77,7 @@ export default function CodexPanel({
   const [codexData, setCodexData] = useState<CodexData | null>(null);
   const [codexStats, setCodexStats] = useState<CodexStats | null>(null);
   const [rateLimits, setRateLimits] = useState<CodexRateLimits | null>(null);
+  const [resetCredits, setResetCredits] = useState<CodexResetCredits | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -72,16 +86,18 @@ export default function CodexPanel({
       setLoading(true);
       setError(null);
 
-      const [info, stats, limits] = await Promise.all([
+      const [info, stats, limits, credits] = await Promise.all([
         backend.getCodexInfo(),
         backend.getCodexStats(),
         backend.getCodexRateLimits(),
+        backend.getCodexResetCredits(),
       ]);
 
       setCodexData(info);
       setCodexStats(stats);
       setRateLimits(limits);
       onQuotaWindowsChange?.(buildCodexQuotaWindows(limits));
+      setResetCredits(credits);
 
       if (limits.error) {
         setError(limits.error);
@@ -221,6 +237,29 @@ export default function CodexPanel({
                   </div>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Rate-limit Reset Credits Section */}
+          {resetCredits?.connected && resetCredits.availableCount > 0 && (
+            <div className="section">
+              <div className="section-title">
+                RESET CREDITS
+                <span className="plan-tag">{resetCredits.availableCount} available</span>
+              </div>
+              {resetCredits.credits
+                .filter((credit) => credit.status === 'available')
+                .sort((a, b) => (a.expiresAt ?? '').localeCompare(b.expiresAt ?? ''))
+                .map((credit, index) => (
+                  <div className="quota-card" key={`${credit.expiresAt ?? 'unknown'}-${index}`}>
+                    <div className="quota-header">
+                      <span className="quota-label">{credit.title ?? 'Rate limit reset'}</span>
+                    </div>
+                    <div className="reset-time">
+                      Expires {formatCreditDate(credit.expiresAt)}
+                    </div>
+                  </div>
+                ))}
             </div>
           )}
 

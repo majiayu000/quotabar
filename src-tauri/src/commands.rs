@@ -2,7 +2,8 @@ use tauri::{AppHandle, State};
 
 use crate::{
     domain::models::{
-        AntigravityData, CodexData, CodexRateLimits, CodexStats, CursorData, QuotaData,
+        AntigravityData, CodexData, CodexRateLimits, CodexResetCredits, CodexStats, CursorData,
+        QuotaData,
     },
     services::{antigravity, claude, codex, cost, cursor, link, tray, window},
 };
@@ -25,6 +26,11 @@ pub async fn get_codex_stats() -> Result<CodexStats, String> {
 #[tauri::command]
 pub async fn get_codex_rate_limits() -> Result<CodexRateLimits, String> {
     Ok(codex::fetch_codex_rate_limits().await)
+}
+
+#[tauri::command]
+pub async fn get_codex_reset_credits() -> Result<CodexResetCredits, String> {
+    Ok(codex::fetch_codex_reset_credits().await)
 }
 
 #[tauri::command]

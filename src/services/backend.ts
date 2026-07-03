@@ -3,6 +3,7 @@ import type {
   AntigravityData,
   CodexData,
   CodexRateLimits,
+  CodexResetCredits,
   CodexStats,
   CostOverview,
   CostSource,
@@ -41,6 +42,10 @@ export const backend = {
 
   getCodexRateLimits() {
     return invokeBackend<CodexRateLimits>('get_codex_rate_limits');
+  },
+
+  getCodexResetCredits() {
+    return invokeBackend<CodexResetCredits>('get_codex_reset_credits');
   },
 
   getCursorInfo() {
