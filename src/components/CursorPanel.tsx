@@ -1,8 +1,12 @@
 import { useEffect, useState, useCallback } from 'react';
 import { backend } from '../services/backend';
 import CostSummarySection from './CostSummarySection';
+import ProviderDetailHeader from './ProviderDetailHeader';
+import ResetTimeline from './ResetTimeline';
+import SmartTip from './SmartTip';
 import type { CursorData } from '../types/models';
-import { buildCursorQuotaWindows, type QuotaWindowSummary } from '../services/provider_summary';
+import { buildCursorQuotaWindows, sortMostConstrained, type QuotaWindowSummary } from '../services/provider_summary';
+import { getHighUsageTip } from '../services/detail_helpers';
 import { formatPlanType, getProgressStyle } from '../utils/quota_format';
 
 interface CursorPanelProps {
@@ -104,6 +108,8 @@ export default function CursorPanel({
 
   const percentage = cursorData?.percentage ?? null;
   const resetLabel = formatResetDate(cursorData?.resetAt);
+  const windows = buildCursorQuotaWindows(cursorData);
+  const topWindow = sortMostConstrained(windows)[0];
 
   return (
     <div className="codex-panel">
@@ -116,6 +122,14 @@ export default function CursorPanel({
 
       {cursorData?.connected && (
         <div className="codex-content">
+          <ProviderDetailHeader
+            service="cursor"
+            status="Connected"
+            plan={`Cursor ${formatPlanType(cursorData.planType, 'Unknown')}`}
+            usedPercent={topWindow?.usedPercent ?? null}
+          />
+          <SmartTip message={getHighUsageTip(windows)} />
+
           <div className="section">
             <div className="section-title">
               USAGE
@@ -157,6 +171,8 @@ export default function CursorPanel({
               </div>
             )}
           </div>
+
+          <ResetTimeline windows={windows} />
 
           {showCostSummary && (
             <CostSummarySection source="cursor" refreshKey={manualRefreshNonce} />
