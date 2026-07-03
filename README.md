@@ -8,7 +8,8 @@ QuotaBar is a Tauri v2 menubar app for monitoring Claude Code, Codex, Cursor, an
 
 ## Features
 
-- Provider switcher: full-name cards for Claude, Codex, Cursor, and Antigravity.
+- Overview: glass popover shell with provider summary tiles and real-data quota windows.
+- Provider switcher: overview plus full-name cards for Claude, Codex, Cursor, and Antigravity.
 - Claude quota: 5-hour, 7-day, Opus, Sonnet, and Claude Design windows.
 - Codex quota: short and weekly ChatGPT usage windows, with reset times shown as days plus hours when available.
 - Cursor quota: signed-in Cursor usage and request-limit windows when session data is available.
@@ -16,7 +17,7 @@ QuotaBar is a Tauri v2 menubar app for monitoring Claude Code, Codex, Cursor, an
 - Local cost tracking: today, week, and month estimates for Claude Code, Codex, and Cursor.
 - Per-provider tray icons: independent menu bar indicators for supported providers.
 - Tray controls: enable or hide each tray while keeping at least one entry point.
-- Collapsible settings: theme and tray controls live at the bottom of the scrollable panel.
+- Settings view: theme, macOS Hide Dock, and per-provider tray controls keep their existing storage keys.
 - Background polling: refreshes every 60 seconds, backs off to 5 minutes on 429, and backs off to 1 hour on Claude auth failures.
 - Read-only Claude OAuth: reads Claude Code credentials from the correct source, but never refreshes or writes OAuth tokens.
 - Hidden-window polling: disables macOS webview throttling so menubar mode keeps working.
@@ -25,7 +26,7 @@ QuotaBar is a Tauri v2 menubar app for monitoring Claude Code, Codex, Cursor, an
 
 ![QuotaBar browser preview without provider credentials](docs/assets/quotabar-no-provider-preview.png)
 
-This screenshot is captured from the production React UI in browser preview without a Tauri desktop backend. It intentionally includes no provider quota values, account identifiers, tokens, cookies, or sessions. See `docs/demo-proof.md` for the capture scope and refresh steps.
+This screenshot is captured from the production React UI in browser preview without a Tauri desktop backend. It intentionally includes no provider quota values, account identifiers, tokens, cookies, or sessions. Desktop widget and notification visuals are static design previews only until a runtime implementation ships. See `docs/demo-proof.md` for the capture scope and refresh steps.
 
 ## Quota Semantics
 

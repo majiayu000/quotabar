@@ -2,13 +2,15 @@ import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import ActionButtons from './components/ActionButtons';
-import ThemeSelector, { ThemeName } from './components/ThemeSelector';
+import OverviewPanel from './components/OverviewPanel';
+import SettingsView from './components/SettingsView';
+import type { ThemeName } from './components/ThemeSelector';
 import TabSwitcher, { TabName } from './components/TabSwitcher';
 import ClaudePanel from './components/ClaudePanel';
 import CodexPanel from './components/CodexPanel';
 import CursorPanel from './components/CursorPanel';
 import AntigravityPanel from './components/AntigravityPanel';
-import TrayToggles, { type TrayToggleEntry } from './components/TrayToggles';
+import type { TrayToggleEntry } from './components/TrayToggles';
 import { backend, hasTauriBackend } from './services/backend';
 import { SERVICE_META, SERVICES } from './services/service_meta';
 import {
@@ -17,6 +19,15 @@ import {
   shouldShowTray,
   type TrayServiceName,
 } from './services/tray_visibility';
+import {
+  buildClaudeQuotaWindows,
+  buildProviderSummaries,
+  isProviderTab,
+  sortMostConstrained,
+  sortUpcomingResets,
+  type AppViewName,
+  type QuotaWindowSummary,
+} from './services/provider_summary';
 import type { QuotaData } from './types/models';
 import './styles.css';
 
@@ -31,7 +42,7 @@ export const BACKGROUND_REFRESH_INTERVAL_MS = 5 * 60 * 1000;
 const TRAY_SERVICE_ACTIVATED_EVENT = 'tray-service-activated';
 const TRAY_GUARD_TOAST_MS = 2000;
 const TRAY_GUARD_MESSAGE = 'At least one tray must remain enabled';
-const VALID_TABS = new Set<string>(SERVICES);
+const VALID_TABS = new Set<string>(['overview', ...SERVICES]);
 
 const THEME_LABELS: Record<ThemeName, string> = {
   light: 'Light',
@@ -75,7 +86,7 @@ function getSavedTab(): TabName {
       return saved as TabName;
     }
   } catch {}
-  return 'claude';
+  return 'overview';
 }
 
 function getSavedTheme(): ThemeName {
@@ -186,6 +197,9 @@ export default function App() {
     defaultServiceMap<number | null>(null),
   );
   const [panelLoading, setPanelLoading] = useState<ServiceMap<boolean>>(() => defaultServiceMap(false));
+  const [providerQuotaWindows, setProviderQuotaWindows] = useState<ServiceMap<QuotaWindowSummary[]>>(() =>
+    defaultServiceMap<QuotaWindowSummary[]>([]),
+  );
 
   // Manual refresh nonces (per non-Claude service)
   const [refreshNonces, setRefreshNonces] = useState<ServiceMap<number>>(() => defaultServiceMap(0));
@@ -195,7 +209,13 @@ export default function App() {
   const [dockHidden, setDockHidden] = useState<boolean>(getSavedDockHidden);
   const [trayEnabled, setTrayEnabled] = useState<TrayEnabledState>(getInitialTrayEnabledState);
   const [toast, setToast] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<TabName>(getSavedTab);
+  const [activeView, setActiveView] = useState<AppViewName>(() =>
+    getSavedSettingsExpanded() ? 'settings' : getSavedTab(),
+  );
+  const [lastProviderTab, setLastProviderTab] = useState<TrayServiceName>(() => {
+    const saved = getSavedTab();
+    return isProviderTab(saved) ? saved : 'claude';
+  });
   const [windowVisible, setWindowVisible] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const lastTrayIconRequestRef = useRef<Partial<Record<TrayServiceName, TrayIconRequest>>>({});
@@ -236,10 +256,24 @@ export default function App() {
     return setters;
   }, [setServiceLoading]);
 
+  const quotaWindowSetters = useMemo<ServiceMap<(windows: QuotaWindowSummary[]) => void>>(() => {
+    const setters = {} as ServiceMap<(windows: QuotaWindowSummary[]) => void>;
+    for (const svc of SERVICES) {
+      setters[svc] = (windows) => {
+        setProviderQuotaWindows((prev) => ({ ...prev, [svc]: windows }));
+      };
+    }
+    return setters;
+  }, []);
+
   const setAndPersistTab = useCallback((tab: TabName) => {
-    setActiveTab(tab);
+    setActiveView(tab);
+    if (isProviderTab(tab)) {
+      setLastProviderTab(tab);
+    }
     try {
       localStorage.setItem(TAB_STORAGE_KEY, tab);
+      localStorage.setItem(SETTINGS_EXPANDED_KEY, 'false');
     } catch {}
   }, []);
 
@@ -276,7 +310,7 @@ export default function App() {
       clearTimeout(timer2);
       observer.disconnect();
     };
-  }, [activeTab, quota, connected, windowVisible]);
+  }, [activeView, quota, connected, windowVisible]);
 
   useEffect(() => {
     if (typeof window === 'undefined' || !('__TAURI_INTERNALS__' in window)) {
@@ -501,18 +535,20 @@ export default function App() {
     };
   }, [setAndPersistTab]);
 
+  const activeProvider = isProviderTab(activeView) ? activeView : lastProviderTab;
+
   const handleRefresh = useCallback(() => {
-    if (activeTab === 'claude') {
+    if (activeProvider === 'claude') {
       fetchClaudeQuota();
       setClaudeCostRefreshNonce((value) => value + 1);
       return;
     }
-    setRefreshNonces((prev) => ({ ...prev, [activeTab]: prev[activeTab] + 1 }));
-  }, [activeTab, fetchClaudeQuota]);
+    setRefreshNonces((prev) => ({ ...prev, [activeProvider]: prev[activeProvider] + 1 }));
+  }, [activeProvider, fetchClaudeQuota]);
 
   const handleOpenDashboard = useCallback(async () => {
     try {
-      switch (activeTab) {
+      switch (activeProvider) {
         case 'claude':
           await backend.openClaudeDashboard();
           break;
@@ -531,7 +567,17 @@ export default function App() {
       setToast(message);
       setTimeout(() => setToast(null), 2000);
     }
-  }, [activeTab]);
+  }, [activeProvider]);
+
+  const handleSettingsViewToggle = useCallback(() => {
+    setActiveView((prev) => {
+      const opening = prev !== 'settings';
+      try {
+        localStorage.setItem(SETTINGS_EXPANDED_KEY, String(opening));
+      } catch {}
+      return opening ? 'settings' : getSavedTab();
+    });
+  }, []);
 
   const handleQuit = async () => {
     try {
@@ -556,7 +602,7 @@ export default function App() {
     };
   });
 
-  const tabConnected: Record<TabName, boolean> = {
+  const tabConnected: ServiceMap<boolean> = {
     claude: quota?.connected ?? false,
     codex: connected.codex,
     cursor: connected.cursor,
@@ -564,7 +610,7 @@ export default function App() {
   };
 
   const activeLoading =
-    activeTab === 'claude' ? claudeLoading : panelLoading[activeTab];
+    activeProvider === 'claude' ? claudeLoading : panelLoading[activeProvider];
 
   const serviceUsage: ServiceMap<number | null> = {
     ...usedPercent,
@@ -580,12 +626,43 @@ export default function App() {
   const enabledTrayCount = SERVICES.filter((svc) => trayEnabled[svc]).length;
   const connectedTrayCount = trayEntries.filter((entry) => entry.connected).length;
   const settingsSummary = `${THEME_LABELS[theme]} / ${enabledTrayCount} tray on / ${connectedTrayCount} connected`;
+  const providerSummaries = buildProviderSummaries(tabConnected, serviceLoading, serviceUsage);
+  const allQuotaWindows = [
+    ...buildClaudeQuotaWindows(quota),
+    ...providerQuotaWindows.codex,
+    ...providerQuotaWindows.cursor,
+  ];
+  const mostConstrained = sortMostConstrained(allQuotaWindows).slice(0, 4);
+  const upcomingResets = sortUpcomingResets(allQuotaWindows).slice(0, 4);
+  const visibleTab: TabName = activeView === 'settings' ? getSavedTab() : activeView;
+
   return (
     <div className={`app theme-${theme}`}>
       {toast && <div className="toast">{toast}</div>}
       <div className="container" ref={containerRef}>
         <div className="panel-scroll">
-          {activeTab === 'claude' && (
+          {activeView === 'overview' && (
+            <OverviewPanel
+              summaries={providerSummaries}
+              mostConstrained={mostConstrained}
+              upcomingResets={upcomingResets}
+              onProviderSelect={setAndPersistTab}
+            />
+          )}
+
+          {activeView === 'settings' && (
+            <SettingsView
+              isMacOS={isMacOS}
+              theme={theme}
+              dockHidden={dockHidden}
+              trayEntries={trayEntries}
+              onThemeChange={handleThemeChange}
+              onDockToggle={handleDockToggle}
+              onTrayToggle={handleTrayToggle}
+            />
+          )}
+
+          {activeView === 'claude' && (
             <ClaudePanel
               quota={quota}
               loading={claudeLoading}
@@ -596,100 +673,67 @@ export default function App() {
             />
           )}
 
-          <div style={{ display: activeTab === 'codex' ? 'block' : 'none' }}>
+          <div style={{ display: activeView === 'codex' ? 'block' : 'none' }}>
             <CodexPanel
               onConnectionChange={connectionSetters.codex}
               onUsageChange={usageSetters.codex}
               onLoadingChange={loadingSetters.codex}
+              onQuotaWindowsChange={quotaWindowSetters.codex}
               manualRefreshNonce={refreshNonces.codex}
               autoRefreshIntervalMs={nonClaudeRefreshIntervalMs}
-              showCostSummary={windowVisible && activeTab === 'codex'}
+              showCostSummary={windowVisible && activeView === 'codex'}
             />
           </div>
 
-          <div style={{ display: activeTab === 'cursor' ? 'block' : 'none' }}>
+          <div style={{ display: activeView === 'cursor' ? 'block' : 'none' }}>
             <CursorPanel
               onConnectionChange={connectionSetters.cursor}
               onUsageChange={usageSetters.cursor}
               onLoadingChange={loadingSetters.cursor}
+              onQuotaWindowsChange={quotaWindowSetters.cursor}
               manualRefreshNonce={refreshNonces.cursor}
               autoRefreshIntervalMs={nonClaudeRefreshIntervalMs}
-              showCostSummary={windowVisible && activeTab === 'cursor'}
+              showCostSummary={windowVisible && activeView === 'cursor'}
             />
           </div>
 
-          <div style={{ display: activeTab === 'antigravity' ? 'block' : 'none' }}>
+          <div style={{ display: activeView === 'antigravity' ? 'block' : 'none' }}>
             <AntigravityPanel
               onConnectionChange={connectionSetters.antigravity}
               onLoadingChange={loadingSetters.antigravity}
               manualRefreshNonce={refreshNonces.antigravity}
             />
           </div>
-          <div className="bottom-controls">
-            <div className="command-bar">
-              <TabSwitcher
-                activeTab={activeTab}
-                onTabChange={handleTabChange}
-                connected={tabConnected}
-                loading={serviceLoading}
-                usedPercent={serviceUsage}
-              />
-            </div>
+        </div>
 
-            <div className="settings-row" aria-label="Settings">
-              <input
-                id="settings-fold-toggle"
-                className="settings-fold-input"
-                type="checkbox"
-                defaultChecked={getSavedSettingsExpanded()}
-                onChange={(event) => {
-                  try {
-                    localStorage.setItem(SETTINGS_EXPANDED_KEY, String(event.currentTarget.checked));
-                  } catch {}
-                }}
-              />
-              <label
-                htmlFor="settings-fold-toggle"
-                className="settings-fold-header"
-              >
-                <span className="settings-fold-copy">
-                  <span className="settings-title">Settings</span>
-                  <span className="settings-summary">{settingsSummary}</span>
-                </span>
-                <span className="settings-chevron" aria-hidden="true" />
-              </label>
-
-              <div
-                id="settings-fold-body"
-                className="settings-fold-body"
-              >
-                <div className="settings-fold-content">
-                  <div className="settings-meta">
-                    <span className="settings-title">Appearance</span>
-                    {isMacOS && (
-                      <label className="dock-toggle">
-                        <span className="toggle-label">Hide Dock</span>
-                        <input
-                          type="checkbox"
-                          checked={dockHidden}
-                          onChange={handleDockToggle}
-                        />
-                      </label>
-                    )}
-                  </div>
-                  <ThemeSelector currentTheme={theme} onThemeChange={handleThemeChange} />
-                  <TrayToggles entries={trayEntries} onToggle={handleTrayToggle} />
-                </div>
-              </div>
-            </div>
-
-            <ActionButtons
-              onRefresh={handleRefresh}
-              onDashboard={handleOpenDashboard}
-              onQuit={handleQuit}
-              loading={activeLoading}
+        <div className="bottom-controls">
+          <div className="command-bar">
+            <TabSwitcher
+              activeTab={visibleTab}
+              onTabChange={handleTabChange}
+              summaries={providerSummaries}
             />
           </div>
+
+          <button
+            type="button"
+            className={`settings-nav-button ${activeView === 'settings' ? 'active' : ''}`}
+            onClick={handleSettingsViewToggle}
+            aria-pressed={activeView === 'settings'}
+          >
+            <span className="settings-fold-copy">
+              <span className="settings-title">Settings</span>
+              <span className="settings-summary">{settingsSummary}</span>
+            </span>
+            <span className="settings-chevron" aria-hidden="true" />
+          </button>
+
+          <ActionButtons
+            onRefresh={handleRefresh}
+            onDashboard={handleOpenDashboard}
+            onQuit={handleQuit}
+            loading={activeLoading}
+          />
         </div>
       </div>
     </div>

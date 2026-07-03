@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { backend } from '../services/backend';
 import CostSummarySection from './CostSummarySection';
 import type { CodexData, CodexRateLimits, CodexResetCredits, CodexStats } from '../types/models';
+import { buildCodexQuotaWindows, type QuotaWindowSummary } from '../services/provider_summary';
 import { formatPlanType, formatResetTime, getProgressStyle } from '../utils/quota_format';
 
 interface CodexPanelProps {
@@ -10,6 +11,7 @@ interface CodexPanelProps {
   autoRefreshIntervalMs?: number;
   manualRefreshNonce?: number;
   onLoadingChange?: (loading: boolean) => void;
+  onQuotaWindowsChange?: (windows: QuotaWindowSummary[]) => void;
   showCostSummary?: boolean;
 }
 
@@ -69,6 +71,7 @@ export default function CodexPanel({
   autoRefreshIntervalMs = 60 * 1000,
   manualRefreshNonce = 0,
   onLoadingChange,
+  onQuotaWindowsChange,
   showCostSummary = true,
 }: CodexPanelProps) {
   const [codexData, setCodexData] = useState<CodexData | null>(null);
@@ -93,6 +96,7 @@ export default function CodexPanel({
       setCodexData(info);
       setCodexStats(stats);
       setRateLimits(limits);
+      onQuotaWindowsChange?.(buildCodexQuotaWindows(limits));
       setResetCredits(credits);
 
       if (limits.error) {
@@ -111,10 +115,11 @@ export default function CodexPanel({
       setError(err instanceof Error ? err.message : 'Failed to fetch Codex data');
       onConnectionChange?.(false);
       onUsageChange?.(null);
+      onQuotaWindowsChange?.([]);
     } finally {
       setLoading(false);
     }
-  }, [onConnectionChange, onUsageChange]);
+  }, [onConnectionChange, onQuotaWindowsChange, onUsageChange]);
 
   useEffect(() => {
     fetchData();

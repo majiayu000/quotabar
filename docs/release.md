@@ -42,7 +42,7 @@ Refresh the visual proof asset before publishing user-facing release notes:
 
 ```bash
 npm run dev -- --host 127.0.0.1
-npx playwright screenshot --wait-for-timeout=3500 --viewport-size=320,580 http://127.0.0.1:1420 docs/assets/quotabar-no-provider-preview.png
+npx playwright screenshot --wait-for-timeout=3500 --viewport-size=340,580 http://127.0.0.1:1420 docs/assets/quotabar-no-provider-preview.png
 ```
 
 Do not include provider tokens, cookies, session files, or local auth material in release artifacts.

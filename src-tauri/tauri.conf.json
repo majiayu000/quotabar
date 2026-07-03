@@ -13,7 +13,7 @@
     "windows": [
       {
         "title": "QuotaBar",
-        "width": 320,
+        "width": 340,
         "minWidth": 280,
         "height": 200,
         "minHeight": 100,
