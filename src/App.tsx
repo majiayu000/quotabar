@@ -829,11 +829,12 @@ export default function App() {
     : windowVisible
       ? AUTO_REFRESH_INTERVAL_MS
       : BACKGROUND_REFRESH_INTERVAL_MS;
+  // Keep this short: the footer status slot is ~80px wide.
   const footerStatus = activeLoading
     ? 'Updating...'
     : justRefreshed
-      ? 'Updated just now'
-      : `Updated ${new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`;
+      ? 'Updated now'
+      : `Updated ${new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`;
   const providerSummaries = buildProviderSummaries(tabConnected, serviceLoading, serviceUsage);
   const switcherSummaries = providerSummaries.filter((summary) => switcherVisibility[summary.id]);
   const usageParts = providerSummaries

@@ -124,7 +124,11 @@ export default function ActionButtons({
           <span className="btn-icon dashboard-arrow">↗</span>
         </button>
 
-        {statusText && <span className="action-status" style={statusStyle}>{statusText}</span>}
+        {statusText && (
+          <span className="action-status" style={statusStyle} title={statusText}>
+            {statusText}
+          </span>
+        )}
 
         <button
           className={`action-btn icon-action settings-btn ${settingsActive ? 'active' : ''}`}
