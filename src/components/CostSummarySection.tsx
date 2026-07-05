@@ -208,6 +208,7 @@ export default function CostSummarySection({
   const [overview, setOverview] = useState<CostOverview | null>(null);
   const [daily, setDaily] = useState<CostDailyPoint[] | null>(null);
   const [sparkRange, setSparkRange] = useState<SparkRange>('7d');
+  const [hoveredDay, setHoveredDay] = useState<CostDailyPoint | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const sourceKey = Array.isArray(source) ? source.join(',') : source;
@@ -350,25 +351,30 @@ export default function CostSummarySection({
                   const maxCost = Math.max(...sparkDays.map((day) => day.costUsd ?? day.cost ?? 0), 0);
                   return (
                     <>
-                      <div className="spark-bars">
+                      <div className="spark-bars" onMouseLeave={() => setHoveredDay(null)}>
                         {sparkDays.map((day, index) => {
                           const value = day.costUsd ?? day.cost ?? 0;
                           const height = maxCost > 0 ? Math.max(8, (value / maxCost) * 100) : 8;
+                          const isHovered = hoveredDay?.date === day.date;
                           return (
                             <div
-                              className={`spark-bar ${index === sparkDays.length - 1 ? 'latest' : ''}`}
+                              className={`spark-bar-hit ${isHovered ? 'hovered' : ''}`}
                               key={day.date}
-                              title={`${day.date}: ${formatMoney(value, primaryRange.currency)}`}
-                              style={{ height: `${height}%` }}
-                            />
+                              onMouseEnter={() => setHoveredDay(day)}
+                            >
+                              <div
+                                className={`spark-bar ${index === sparkDays.length - 1 ? 'latest' : ''} ${isHovered ? 'hovered' : ''}`}
+                                style={{ height: `${height}%` }}
+                              />
+                            </div>
                           );
                         })}
                       </div>
                       <div className="cost-footer">
-                        <span>
-                          {sparkRange === '7d' ? 'Past 7 days' : 'Past 30 days'}
-                          {' · '}
-                          {formatMoney(sumDailyCost(sparkDays), primaryRange.currency)}
+                        <span className={hoveredDay ? 'spark-hover-label' : undefined}>
+                          {hoveredDay
+                            ? `${hoveredDay.date} · ${formatMoney(hoveredDay.costUsd ?? hoveredDay.cost ?? 0, primaryRange.currency)}`
+                            : `${sparkRange === '7d' ? 'Past 7 days' : 'Past 30 days'} · ${formatMoney(sumDailyCost(sparkDays), primaryRange.currency)}`}
                         </span>
                         <span className="spark-range-chips">
                           <button

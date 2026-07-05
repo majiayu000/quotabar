@@ -35,6 +35,11 @@ import {
 } from './services/tray_style';
 import { getSavedEvents, recordEvent, type AppEvent, type EventLevel } from './services/event_log';
 import {
+  getSavedSwitcherVisibility,
+  saveSwitcherVisibility,
+  type SwitcherVisibility,
+} from './services/switcher_providers';
+import {
   getSavedNotificationSettings,
   notify,
   saveNotificationSettings,
@@ -241,6 +246,7 @@ export default function App() {
   const [trayCycleIndex, setTrayCycleIndex] = useState(0);
   const [events, setEvents] = useState<AppEvent[]>(getSavedEvents);
   const [notifSettings, setNotifSettings] = useState<NotificationSettings>(getSavedNotificationSettings);
+  const [switcherVisibility, setSwitcherVisibility] = useState<SwitcherVisibility>(getSavedSwitcherVisibility);
   const prevServiceStateRef = useRef<ServiceMap<{ connected: boolean; used: number | null }> | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const lastTrayIconRequestRef = useRef<Partial<Record<TrayServiceName, TrayIconRequest>>>({});
@@ -555,6 +561,31 @@ export default function App() {
     }
   }, [quota, connected, usedPercent, logEvent, notifSettings.q80, notifSettings.q95]);
 
+  const handleSwitcherToggle = useCallback((service: TrayServiceName) => {
+    let blocked = false;
+    setSwitcherVisibility((prev) => {
+      const nextValue = !prev[service];
+      if (!nextValue && !SERVICES.some((other) => other !== service && prev[other])) {
+        blocked = true;
+        return prev;
+      }
+      const next = { ...prev, [service]: nextValue };
+      saveSwitcherVisibility(next);
+      return next;
+    });
+    if (blocked) {
+      setToast('At least one provider must stay in the switcher');
+      setTimeout(() => setToast(null), TRAY_GUARD_TOAST_MS);
+    }
+  }, []);
+
+  // If the active provider tab gets hidden from the switcher, fall back to Overview.
+  useEffect(() => {
+    if (isProviderTab(activeView) && !switcherVisibility[activeView]) {
+      setAndPersistTab('all');
+    }
+  }, [activeView, switcherVisibility, setAndPersistTab]);
+
   const handleNotificationToggle = useCallback((key: NotificationKey) => {
     setNotifSettings((prev) => {
       const next = { ...prev, [key]: !prev[key] };
@@ -804,6 +835,7 @@ export default function App() {
       ? 'Updated just now'
       : `Updated ${new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`;
   const providerSummaries = buildProviderSummaries(tabConnected, serviceLoading, serviceUsage);
+  const switcherSummaries = providerSummaries.filter((summary) => switcherVisibility[summary.id]);
   const usageParts = providerSummaries
     .filter((summary) => summary.usedPercent != null)
     .map((summary) => `${summary.label} ${Math.round(summary.usedPercent as number)}%`);
@@ -836,6 +868,7 @@ export default function App() {
               trayCycle={trayCycle}
               events={events}
               notificationSettings={notifSettings}
+              switcherVisibility={switcherVisibility}
               onClose={handleCloseSettings}
               onThemeChange={handleThemeChange}
               onDockToggle={handleDockToggle}
@@ -844,6 +877,7 @@ export default function App() {
               onTrayStyleChange={handleTrayStyleChange}
               onTrayCycleToggle={handleTrayCycleToggle}
               onNotificationToggle={handleNotificationToggle}
+              onSwitcherToggle={handleSwitcherToggle}
             />
           </div>
         ) : (
@@ -852,7 +886,7 @@ export default function App() {
               <TabSwitcher
                 activeTab={activeTab}
                 onTabChange={handleTabChange}
-                summaries={providerSummaries}
+                summaries={switcherSummaries}
               />
             </div>
 

@@ -707,14 +707,40 @@
   padding: 0 2px;
 }
 
+/* Full-height hit target so short bars are still hoverable. */
+.spark-bar-hit {
+  flex: 1;
+  display: flex;
+  align-items: flex-end;
+  align-self: stretch;
+  min-width: 0;
+  border-radius: 2px;
+}
+
+.spark-bar-hit.hovered {
+  background: color-mix(in srgb, var(--acc) 12%, transparent);
+}
+
 .spark-bar {
   flex: 1;
   border-radius: 2px;
   background: color-mix(in srgb, var(--acc) 38%, transparent);
+  transition: background 0.12s ease;
 }
 
-.spark-bar.latest {
+.spark-bar.hovered {
+  background: color-mix(in srgb, var(--acc) 75%, transparent);
+}
+
+.spark-bar.latest,
+.spark-bar.latest.hovered {
   background: var(--acc);
+}
+
+.spark-hover-label {
+  color: var(--text);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
 
 .spark-range-chips {

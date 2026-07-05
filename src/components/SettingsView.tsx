@@ -8,7 +8,8 @@ import {
   saveMonthlyBudgets,
   type MonthlyBudgets,
 } from '../services/budget';
-import { SERVICE_META } from '../services/service_meta';
+import { SERVICE_META, SERVICES } from '../services/service_meta';
+import type { SwitcherVisibility } from '../services/switcher_providers';
 import { TRAY_STYLE_OPTIONS, type TrayStyle } from '../services/tray_style';
 import { formatEventTime, type AppEvent } from '../services/event_log';
 import {
@@ -34,6 +35,7 @@ interface SettingsViewProps {
   trayCycle: boolean;
   events: AppEvent[];
   notificationSettings: NotificationSettings;
+  switcherVisibility: SwitcherVisibility;
   onClose: () => void;
   onThemeChange: (theme: ThemeName) => void;
   onDockToggle: () => void;
@@ -42,6 +44,7 @@ interface SettingsViewProps {
   onTrayStyleChange: (style: TrayStyle) => void;
   onTrayCycleToggle: () => void;
   onNotificationToggle: (key: NotificationKey) => void;
+  onSwitcherToggle: (service: TrayServiceName) => void;
 }
 
 export default function SettingsView({
@@ -54,6 +57,7 @@ export default function SettingsView({
   trayCycle,
   events,
   notificationSettings,
+  switcherVisibility,
   onClose,
   onThemeChange,
   onDockToggle,
@@ -62,6 +66,7 @@ export default function SettingsView({
   onTrayStyleChange,
   onTrayCycleToggle,
   onNotificationToggle,
+  onSwitcherToggle,
 }: SettingsViewProps) {
   const [budgets, setBudgets] = useState<MonthlyBudgets>(getSavedMonthlyBudgets);
 
@@ -128,6 +133,23 @@ export default function SettingsView({
             <span />
           </button>
         </div>
+      </div>
+
+      <div className="settings-block">
+        <div className="settings-section-title">Switcher providers</div>
+        {SERVICES.map((service) => (
+          <label className="settings-line" key={service}>
+            <span>{SERVICE_META[service].label}</span>
+            <input
+              className="native-switch-input"
+              type="checkbox"
+              checked={switcherVisibility[service]}
+              onChange={() => onSwitcherToggle(service)}
+            />
+            <span className={`target-switch ${switcherVisibility[service] ? 'on' : ''}`}><span /></span>
+          </label>
+        ))}
+        <div className="settings-hint">Hidden providers keep refreshing; at least one stays visible.</div>
       </div>
 
       <div className="settings-block">
