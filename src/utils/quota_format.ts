@@ -85,7 +85,8 @@ export function formatPaceText(
   if (msToFull < msToReset) {
     return `At current pace, full in ~${formatShortDuration(msToFull)}`;
   }
-  return 'At current pace, window outlasts usage';
+  const projectedPercent = Math.min(99, Math.round(usedPercent + (usedPercent / elapsedMs) * msToReset));
+  return `At current pace, ~${projectedPercent}% at reset`;
 }
 
 export function getProgressColor(usedPercent: number): string {

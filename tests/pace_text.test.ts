@@ -16,10 +16,10 @@ describe('formatPaceText', () => {
     expect(text).toBe('At current pace, full in ~1h 14m');
   });
 
-  test('reports window outlasts usage when burning slow', () => {
-    // 2h elapsed, 20% used → full in ~8h, after the 3h reset.
+  test('projects usage at reset when burning slow', () => {
+    // 2h elapsed, 20% used → rate 10%/h → +30% over the remaining 3h.
     const text = formatPaceText(20, resetIn(180), FIVE_HOURS_MIN, NOW);
-    expect(text).toBe('At current pace, window outlasts usage');
+    expect(text).toBe('At current pace, ~50% at reset');
   });
 
   test('returns null without enough signal', () => {

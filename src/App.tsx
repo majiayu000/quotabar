@@ -1,6 +1,5 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { listen } from '@tauri-apps/api/event';
-import { getCurrentWindow } from '@tauri-apps/api/window';
 import ActionButtons from './components/ActionButtons';
 import QuickActions from './components/QuickActions';
 import OverviewPanel from './components/OverviewPanel';
@@ -14,12 +13,7 @@ import AntigravityPanel from './components/AntigravityPanel';
 import type { TrayToggleEntry } from './components/TrayToggles';
 import { backend, hasTauriBackend } from './services/backend';
 import { SERVICE_META, SERVICES } from './services/service_meta';
-import {
-  getSavedTrayEnabled,
-  saveTrayEnabled,
-  shouldShowTray,
-  type TrayServiceName,
-} from './services/tray_visibility';
+import { saveTrayEnabled, shouldShowTray, type TrayServiceName } from './services/tray_visibility';
 import {
   getSavedPanelSections,
   savePanelSections,
@@ -33,7 +27,7 @@ import {
   saveTrayStyle,
   type TrayStyle,
 } from './services/tray_style';
-import { getSavedEvents, recordEvent, type AppEvent, type EventLevel } from './services/event_log';
+import { formatEventTime, getSavedEvents, recordEvent, type AppEvent, type EventLevel } from './services/event_log';
 import {
   getSavedSwitcherVisibility,
   saveSwitcherVisibility,
@@ -60,147 +54,44 @@ import './styles.css';
 import './redesign.css';
 import './redesign-settings.css';
 
-const THEME_STORAGE_KEY = 'claude-quota-theme';
-const DOCK_HIDDEN_KEY = 'claude-quota-dock-hidden';
-const TAB_STORAGE_KEY = 'claude-quota-tab';
-const SETTINGS_EXPANDED_KEY = 'claude-quota-settings-expanded';
-export const AUTO_REFRESH_INTERVAL_MS = 60 * 1000;
-export const BACKOFF_REFRESH_INTERVAL_MS = 5 * 60 * 1000;
-export const AUTH_REFRESH_INTERVAL_MS = 60 * 60 * 1000;
-export const BACKGROUND_REFRESH_INTERVAL_MS = 5 * 60 * 1000;
-const TRAY_SERVICE_ACTIVATED_EVENT = 'tray-service-activated';
-const TRAY_GUARD_TOAST_MS = 2000;
-const TRAY_CYCLE_INTERVAL_MS = 15 * 1000;
-const TRAY_GUARD_MESSAGE = 'At least one tray must remain enabled';
-const VALID_TABS = new Set<string>(['all', ...SERVICES]);
+import {
+  AUTO_REFRESH_INTERVAL_MS,
+  BACKGROUND_REFRESH_INTERVAL_MS,
+  SETTINGS_EXPANDED_KEY,
+  TAB_STORAGE_KEY,
+  THEME_STORAGE_KEY,
+  DOCK_HIDDEN_KEY,
+  TRAY_CYCLE_INTERVAL_MS,
+  TRAY_GUARD_MESSAGE,
+  TRAY_GUARD_TOAST_MS,
+  TRAY_SERVICE_ACTIVATED_EVENT,
+  VALID_TABS,
+  defaultServiceMap,
+  getClaudeRefreshIntervalMs,
+  getClaudeTrayUsedPercent,
+  getInitialTrayEnabledState,
+  getSavedDockHidden,
+  getSavedSettingsExpanded,
+  getSavedTab,
+  getSavedTheme,
+  isMacOSPlatform,
+  type ServiceMap,
+  type TrayEnabledState,
+  type TrayIconRequest,
+  type TrayServiceActivatedPayload,
+} from './services/app_state';
+import { useServiceEvents } from './hooks/use_service_events';
+import { usePopoverWindow } from './hooks/use_popover_window';
 
-interface TrayServiceActivatedPayload {
-  service: TrayServiceName;
-}
-
-type ServiceMap<T> = Record<TrayServiceName, T>;
-type TrayEnabledState = ServiceMap<boolean>;
-type TrayIconRequest = {
-  percentage: number | null;
-  visible: boolean;
-  style: TrayStyle;
-};
-
-function defaultServiceMap<T>(value: T): ServiceMap<T> {
-  return SERVICES.reduce((acc, svc) => {
-    acc[svc] = value;
-    return acc;
-  }, {} as ServiceMap<T>);
-}
-
-function isMacOSPlatform(): boolean {
-  if (typeof navigator === 'undefined') return false;
-  const nav = navigator as Navigator & { userAgentData?: { platform?: string } };
-  const platform = nav.userAgentData?.platform ?? navigator.platform ?? '';
-  return /mac/i.test(platform);
-}
-
-function getSavedTab(): TabName {
-  try {
-    const saved = localStorage.getItem(TAB_STORAGE_KEY);
-    if (saved && VALID_TABS.has(saved)) {
-      return saved as TabName;
-    }
-  } catch {}
-  return 'claude';
-}
-
-function getSavedTheme(): ThemeName {
-  try {
-    const saved = localStorage.getItem(THEME_STORAGE_KEY);
-    if (saved && ['light', 'dark', 'claude', 'claude-dark', 'minimal', 'minimal-dark', 'ocean'].includes(saved)) {
-      return saved as ThemeName;
-    }
-  } catch {}
-  return 'light';
-}
-
-function getSavedDockHidden(): boolean {
-  try {
-    return localStorage.getItem(DOCK_HIDDEN_KEY) === 'true';
-  } catch {}
-  return false;
-}
-
-function getSavedSettingsExpanded(): boolean {
-  try {
-    return localStorage.getItem(SETTINGS_EXPANDED_KEY) === 'true';
-  } catch {}
-  return false;
-}
-
-function getInitialTrayEnabledState(): TrayEnabledState {
-  const state = defaultServiceMap(false);
-  for (const svc of SERVICES) {
-    state[svc] = getSavedTrayEnabled(svc);
-  }
-  if (!SERVICES.some((svc) => state[svc])) {
-    saveTrayEnabled('claude', true);
-    state.claude = true;
-  }
-  return state;
-}
-
-export function getClaudeTrayUsedPercent(quota: QuotaData | null): number | null {
-  if (!quota) return null;
-
-  if (quota.weeklyTotal) {
-    return quota.weeklyTotal.percentage;
-  }
-
-  const weeklyUsedCandidates = [
-    quota.weeklyOpus?.percentage,
-    quota.weeklySonnet?.percentage,
-    quota.weeklyDesign?.percentage,
-    quota.weeklyFable5?.percentage,
-  ]
-    .filter((value): value is number => typeof value === 'number');
-  if (weeklyUsedCandidates.length > 0) {
-    return Math.max(...weeklyUsedCandidates);
-  }
-
-  if (quota.session) {
-    return quota.session.percentage;
-  }
-
-  return null;
-}
-
-function isClaudeAuthError(error: string): boolean {
-  const normalized = error.toLowerCase();
-  return (
-    normalized.includes('oauth token') ||
-    normalized.includes('re-login') ||
-    normalized.includes('login to claude code') ||
-    normalized.includes('token expired') ||
-    normalized.includes('expired or invalid') ||
-    normalized.includes('401') ||
-    normalized.includes('403') ||
-    normalized.includes('unauthorized') ||
-    normalized.includes('forbidden')
-  );
-}
-
-export function getClaudeRefreshIntervalMs(error?: string | null): number {
-  if (!error) {
-    return AUTO_REFRESH_INTERVAL_MS;
-  }
-
-  if (error.includes('429')) {
-    return BACKOFF_REFRESH_INTERVAL_MS;
-  }
-
-  if (isClaudeAuthError(error)) {
-    return AUTH_REFRESH_INTERVAL_MS;
-  }
-
-  return AUTO_REFRESH_INTERVAL_MS;
-}
+// Re-exported for existing tests/importers.
+export {
+  AUTO_REFRESH_INTERVAL_MS,
+  BACKOFF_REFRESH_INTERVAL_MS,
+  AUTH_REFRESH_INTERVAL_MS,
+  BACKGROUND_REFRESH_INTERVAL_MS,
+  getClaudeRefreshIntervalMs,
+  getClaudeTrayUsedPercent,
+} from './services/app_state';
 
 export default function App() {
   const isMacOS = isMacOSPlatform();
@@ -237,8 +128,8 @@ export default function App() {
     const saved = getSavedTab();
     return isProviderTab(saved) ? saved : 'claude';
   });
-  const [windowVisible, setWindowVisible] = useState(false);
-  const [justRefreshed, setJustRefreshed] = useState(false);
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<number | null>(null);
+  const [, setStatusTick] = useState(0);
   const [pollingPaused, setPollingPaused] = useState(false);
   const [panelSections, setPanelSections] = useState<PanelSectionVisibility>(getSavedPanelSections);
   const [trayStyle, setTrayStyle] = useState<TrayStyle>(getSavedTrayStyle);
@@ -247,10 +138,9 @@ export default function App() {
   const [events, setEvents] = useState<AppEvent[]>(getSavedEvents);
   const [notifSettings, setNotifSettings] = useState<NotificationSettings>(getSavedNotificationSettings);
   const [switcherVisibility, setSwitcherVisibility] = useState<SwitcherVisibility>(getSavedSwitcherVisibility);
-  const prevServiceStateRef = useRef<ServiceMap<{ connected: boolean; used: number | null }> | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const windowVisible = usePopoverWindow(containerRef, [activeView, quota, connected]);
   const lastTrayIconRequestRef = useRef<Partial<Record<TrayServiceName, TrayIconRequest>>>({});
-  const refreshIndicatorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const setServiceConnected = useCallback((service: TrayServiceName, value: boolean) => {
     setConnected((prev) => (prev[service] === value ? prev : { ...prev, [service]: value }));
@@ -307,95 +197,6 @@ export default function App() {
       localStorage.setItem(TAB_STORAGE_KEY, tab);
       localStorage.setItem(SETTINGS_EXPANDED_KEY, 'false');
     } catch {}
-  }, []);
-
-  // Auto-resize window
-  useEffect(() => {
-    if (!windowVisible) {
-      return;
-    }
-
-    const updateHeight = async () => {
-      if (containerRef.current) {
-        const height = containerRef.current.scrollHeight + 24;
-        try {
-          await backend.resizeWindow(Math.min(Math.max(height, 300), 620));
-        } catch (err) {
-          console.error('Failed to resize window:', err);
-        }
-      }
-    };
-
-    const timer1 = setTimeout(updateHeight, 50);
-    const timer2 = setTimeout(updateHeight, 300);
-
-    const observer = new ResizeObserver(() => {
-      updateHeight();
-    });
-
-    if (containerRef.current) {
-      observer.observe(containerRef.current);
-    }
-
-    return () => {
-      clearTimeout(timer1);
-      clearTimeout(timer2);
-      observer.disconnect();
-    };
-  }, [activeView, quota, connected, windowVisible]);
-
-  useEffect(() => {
-    return () => {
-      if (refreshIndicatorTimerRef.current) {
-        clearTimeout(refreshIndicatorTimerRef.current);
-      }
-    };
-  }, []);
-
-  useEffect(() => {
-    if (typeof window === 'undefined' || !('__TAURI_INTERNALS__' in window)) {
-      setWindowVisible(true);
-      return;
-    }
-
-    const appWindow = getCurrentWindow();
-    let mounted = true;
-    let unlisten: (() => void) | null = null;
-
-    appWindow.isVisible()
-      .then((visible) => {
-        if (mounted) {
-          setWindowVisible(visible);
-        }
-      })
-      .catch(() => {
-        if (mounted) {
-          setWindowVisible(true);
-        }
-      });
-
-    appWindow.onFocusChanged(({ payload: focused }) => {
-      setWindowVisible(focused);
-    })
-      .then((stopListening) => {
-        if (mounted) {
-          unlisten = stopListening;
-          return;
-        }
-        stopListening();
-      })
-      .catch(() => {
-        if (mounted) {
-          setWindowVisible(true);
-        }
-      });
-
-    return () => {
-      mounted = false;
-      if (unlisten) {
-        unlisten();
-      }
-    };
   }, []);
 
   const updateTrayIcon = useCallback(async (
@@ -519,47 +320,7 @@ export default function App() {
     setEvents((prev) => recordEvent(prev, level, text));
   }, []);
 
-  // Detect provider connectivity and usage-threshold transitions.
-  useEffect(() => {
-    const current = SERVICES.reduce((acc, svc) => {
-      acc[svc] = {
-        connected: svc === 'claude' ? quota?.connected ?? false : connected[svc],
-        used: svc === 'claude' ? getClaudeTrayUsedPercent(quota) : usedPercent[svc],
-      };
-      return acc;
-    }, {} as ServiceMap<{ connected: boolean; used: number | null }>);
-
-    const prev = prevServiceStateRef.current;
-    prevServiceStateRef.current = current;
-    if (!prev) return;
-
-    for (const svc of SERVICES) {
-      const label = SERVICE_META[svc].label;
-      const before = prev[svc];
-      const after = current[svc];
-
-      if (before.connected !== after.connected) {
-        logEvent(
-          after.connected ? 'info' : 'warning',
-          `${label} ${after.connected ? 'connected' : 'disconnected'}`,
-        );
-      }
-
-      if (before.used != null && after.used != null) {
-        if (before.used < 95 && after.used >= 95) {
-          logEvent('critical', `${label} usage crossed 95%`);
-          if (notifSettings.q95) {
-            void notify('QuotaBar', `${label} usage crossed 95%`);
-          }
-        } else if (before.used < 80 && after.used >= 80) {
-          logEvent('warning', `${label} usage crossed 80%`);
-          if (notifSettings.q80) {
-            void notify('QuotaBar', `${label} usage crossed 80%`);
-          }
-        }
-      }
-    }
-  }, [quota, connected, usedPercent, logEvent, notifSettings.q80, notifSettings.q95]);
+  useServiceEvents(quota, connected, usedPercent, notifSettings, logEvent);
 
   const handleSwitcherToggle = useCallback((service: TrayServiceName) => {
     let blocked = false;
@@ -716,12 +477,6 @@ export default function App() {
   const activeTab: TabName = activeView === 'all' ? 'all' : activeProvider;
 
   const handleRefresh = useCallback(() => {
-    setJustRefreshed(true);
-    if (refreshIndicatorTimerRef.current) {
-      clearTimeout(refreshIndicatorTimerRef.current);
-    }
-    refreshIndicatorTimerRef.current = setTimeout(() => setJustRefreshed(false), 2000);
-
     if (activeView === 'all') {
       fetchClaudeQuota();
       setClaudeCostRefreshNonce((value) => value + 1);
@@ -816,6 +571,22 @@ export default function App() {
     ? claudeLoading || SERVICES.some((svc) => panelLoading[svc])
     : activeProvider === 'claude' ? claudeLoading : panelLoading[activeProvider];
 
+  const prevLoadingRef = useRef(false);
+  useEffect(() => {
+    if (prevLoadingRef.current && !activeLoading) {
+      setLastUpdatedAt(Date.now());
+    }
+    prevLoadingRef.current = activeLoading;
+  }, [activeLoading]);
+
+  // Keep the relative "updated" label fresh while the panel is open.
+  useEffect(() => {
+    if (!windowVisible) return;
+    const interval = setInterval(() => setStatusTick((tick) => tick + 1), 30 * 1000);
+    return () => clearInterval(interval);
+  }, [windowVisible]);
+
+
   const serviceUsage: ServiceMap<number | null> = {
     ...usedPercent,
     claude: getClaudeTrayUsedPercent(quota),
@@ -830,13 +601,14 @@ export default function App() {
       ? AUTO_REFRESH_INTERVAL_MS
       : BACKGROUND_REFRESH_INTERVAL_MS;
   // Keep this short: the footer status slot only fits ~8 characters.
-  const lastUpdatedTime = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
   const footerStatus = activeLoading
     ? 'Updating...'
-    : justRefreshed
-      ? 'Just now'
-      : lastUpdatedTime;
-  const footerStatusTitle = activeLoading ? 'Updating...' : `Updated ${lastUpdatedTime}`;
+    : lastUpdatedAt != null
+      ? `Upd. ${formatEventTime(new Date(lastUpdatedAt).toISOString())}`
+      : '';
+  const footerStatusTitle = lastUpdatedAt != null
+    ? `Last updated ${new Date(lastUpdatedAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`
+    : 'Not updated yet';
   const providerSummaries = buildProviderSummaries(tabConnected, serviceLoading, serviceUsage);
   const switcherSummaries = providerSummaries.filter((summary) => switcherVisibility[summary.id]);
   const usageParts = providerSummaries
