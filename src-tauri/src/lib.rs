@@ -35,6 +35,7 @@ pub fn run() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_notification::init())
         .manage(TrayState::default())
         .invoke_handler(tauri::generate_handler![
             commands::get_quota,
@@ -45,6 +46,7 @@ pub fn run() {
             commands::get_cursor_info,
             commands::get_antigravity_info,
             commands::get_cost_overview,
+            commands::get_cost_daily,
             commands::open_claude_dashboard,
             commands::open_codex_dashboard,
             commands::open_cursor_dashboard,

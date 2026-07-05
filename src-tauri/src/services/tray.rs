@@ -18,6 +18,7 @@ const TRAY_HIDDEN_TOOLTIP_SUFFIX: &str = "hidden";
 struct TraySnapshot {
     percentage: Option<u8>,
     visible: bool,
+    style: tray_icon::TrayIconStyle,
 }
 
 #[derive(Default)]
@@ -257,6 +258,7 @@ fn build_service_tray(app: &AppHandle, service: TrayService) -> tauri::Result<()
         service.icon_identity(),
         None,
         ICON_SIZE,
+        tray_icon::TrayIconStyle::default(),
     ))?;
 
     let menu_service = service;
@@ -285,10 +287,25 @@ fn build_service_tray(app: &AppHandle, service: TrayService) -> tauri::Result<()
             {
                 let app = tray.app_handle();
                 emit_tray_service_activated(app, click_service);
-                if let Some(window) = app.get_webview_window("main") {
-                    position_window_near_tray(app, tray);
-                    let _ = window.show();
-                    let _ = window.set_focus();
+                match app.get_webview_window("main") {
+                    Some(window) => {
+                        position_window_near_tray(app, tray);
+                        let shown = window.show();
+                        let focused = window.set_focus();
+                        eprintln!(
+                            "[Tray] {} clicked: show={:?} focus={:?} pos={:?}",
+                            click_service.label(),
+                            shown,
+                            focused,
+                            window.outer_position()
+                        );
+                    }
+                    None => {
+                        eprintln!(
+                            "[Tray] {} clicked but main window is missing",
+                            click_service.label()
+                        );
+                    }
                 }
             }
         })
@@ -326,11 +343,14 @@ pub async fn update_tray_icon(
     percentage: Option<u8>,
     visible: bool,
     force: bool,
+    style: Option<tray_icon::TrayIconStyle>,
 ) -> Result<(), String> {
     let runtime = tray_state.runtime.clone();
+    let style = style.unwrap_or_default();
     let snapshot = TraySnapshot {
         percentage: percentage.map(|value| value.min(100)),
         visible,
+        style,
     };
     let request_generation = {
         let mut state = runtime
@@ -390,6 +410,7 @@ pub async fn update_tray_icon(
                 service.icon_identity(),
                 percentage,
                 ICON_SIZE,
+                style,
             ))
             .map_err(|e| e.to_string())?;
             let updated_at = Local::now().format("%H:%M:%S").to_string();
@@ -427,6 +448,7 @@ pub async fn update_tray_icon(
 #[cfg(test)]
 mod tests {
     use super::{format_tooltip, TrayRuntimeState, TrayService, TraySnapshot};
+    use crate::services::tray_icon::TrayIconStyle;
 
     #[test]
     fn tooltip_marks_unavailable() {
@@ -450,6 +472,7 @@ mod tests {
         let snapshot = TraySnapshot {
             percentage: Some(100),
             visible: true,
+            style: TrayIconStyle::Percent,
         };
 
         assert_eq!(state.snapshot(TrayService::Claude), None);
@@ -467,6 +490,7 @@ mod tests {
         let snapshot = TraySnapshot {
             percentage: Some(42),
             visible: true,
+            style: TrayIconStyle::Percent,
         };
 
         state.set_snapshot(TrayService::Claude, snapshot);

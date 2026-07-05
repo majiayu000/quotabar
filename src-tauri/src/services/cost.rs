@@ -7,6 +7,7 @@ use ccstats::{
     summarize_cost_ranges, CostSummary, ModelCostSummary, MultiSummaryOptions, TokenBreakdown,
     UsageRange, UsageSource,
 };
+use chrono::{Days, Local};
 use once_cell::sync::Lazy;
 use serde::Serialize;
 use std::{
@@ -17,14 +18,24 @@ use std::{
 };
 
 const CACHE_TTL: Duration = Duration::from_secs(300);
+const MAX_DAILY_DAYS: u32 = 60;
 
 static COST_CACHE: Lazy<Mutex<HashMap<String, CachedOverview>>> =
+    Lazy::new(|| Mutex::new(HashMap::new()));
+
+static DAILY_CACHE: Lazy<Mutex<HashMap<String, CachedDaily>>> =
     Lazy::new(|| Mutex::new(HashMap::new()));
 
 #[derive(Clone)]
 struct CachedOverview {
     inserted_at: Instant,
     overview: CostOverview,
+}
+
+#[derive(Clone)]
+struct CachedDaily {
+    inserted_at: Instant,
+    series: CostDailySeries,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -73,6 +84,164 @@ pub struct CostModelSummary {
     pub cost: Option<f64>,
     pub cost_usd: Option<f64>,
     pub tokens: CostTokenBreakdown,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CostDailySeries {
+    pub source: String,
+    pub currency: String,
+    pub generated_at: String,
+    pub cached: bool,
+    pub days: Vec<CostDailyPoint>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CostDailyPoint {
+    pub date: String,
+    pub cost: Option<f64>,
+    pub cost_usd: Option<f64>,
+    pub total_tokens: i64,
+}
+
+pub async fn get_cost_daily(
+    source: String,
+    days: u32,
+    currency: Option<String>,
+    timezone: Option<String>,
+    force: Option<bool>,
+) -> Result<CostDailySeries, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let series = build_cost_daily(source, days, currency, timezone, force.unwrap_or(false));
+        relieve_allocator_pressure();
+        series
+    })
+    .await
+    .map_err(|err| format!("Daily cost task failed: {err}"))?
+}
+
+fn build_cost_daily(
+    source: String,
+    days: u32,
+    currency: Option<String>,
+    timezone: Option<String>,
+    force: bool,
+) -> Result<CostDailySeries, String> {
+    if days == 0 || days > MAX_DAILY_DAYS {
+        return Err(format!("days must be between 1 and {MAX_DAILY_DAYS}"));
+    }
+
+    let source = UsageSource::from_str(&source).map_err(|err| err.to_string())?;
+    let currency = normalize_optional(currency);
+    let timezone = normalize_optional(timezone);
+    let cache_key = format!(
+        "daily|{}|{}|{}|{}",
+        source.as_str(),
+        days,
+        currency.as_deref().unwrap_or("USD"),
+        timezone.as_deref().unwrap_or("local")
+    );
+
+    if !force {
+        if let Some(cached) = get_cached_daily(&cache_key)? {
+            return Ok(cached);
+        }
+    }
+
+    // ccstats resolves range boundaries in the requested timezone; the app
+    // always passes the local timezone (None), so local dates line up.
+    let today = Local::now().date_naive();
+    let dates: Vec<_> = (0..days)
+        .rev()
+        .map(|offset| {
+            today
+                .checked_sub_days(Days::new(u64::from(offset)))
+                .ok_or_else(|| format!("date underflow computing day -{offset}"))
+        })
+        .collect::<Result<_, _>>()?;
+
+    let batch = summarize_cost_ranges(MultiSummaryOptions {
+        source,
+        ranges: dates
+            .iter()
+            .map(|date| UsageRange::DateRange {
+                since: Some(*date),
+                until: Some(*date),
+            })
+            .collect(),
+        timezone,
+        offline: true,
+        strict_pricing: false,
+        currency,
+    })
+    .map_err(|err| err.to_string())?;
+
+    if batch.summaries.len() != dates.len() {
+        return Err(format!(
+            "ccstats returned {} daily ranges, expected {}",
+            batch.summaries.len(),
+            dates.len()
+        ));
+    }
+
+    // Reuse the range mapping so Codex priority pricing applies to daily
+    // points exactly like the overview ranges.
+    let date_labels: Vec<String> = dates.iter().map(|date| date.to_string()).collect();
+    let mut ranges: Vec<CostRangeSummary> = date_labels
+        .iter()
+        .zip(batch.summaries)
+        .map(|(label, summary)| CostRangeSummary::from_summary(label, label, summary))
+        .collect();
+    if batch.source == UsageSource::Codex && ranges_require_codex_priority_policy(&ranges) {
+        let pricing_policy = CodexPriorityPricingPolicy::load_from_default_cache()?;
+        apply_codex_priority_costs(&mut ranges, &pricing_policy)?;
+    }
+
+    let series = CostDailySeries {
+        source: batch.source.as_str().to_string(),
+        currency: batch.currency,
+        generated_at: batch.generated_at,
+        cached: false,
+        days: ranges
+            .into_iter()
+            .map(|range| CostDailyPoint {
+                date: range.range,
+                cost: range.cost,
+                cost_usd: range.cost_usd,
+                total_tokens: range.tokens.total_tokens,
+            })
+            .collect(),
+    };
+
+    set_cached_daily(cache_key, series.clone())?;
+    Ok(series)
+}
+
+fn get_cached_daily(cache_key: &str) -> Result<Option<CostDailySeries>, String> {
+    let cache = DAILY_CACHE.lock().map_err(|err| err.to_string())?;
+    let Some(cached) = cache.get(cache_key) else {
+        return Ok(None);
+    };
+    if cached.inserted_at.elapsed() > CACHE_TTL {
+        return Ok(None);
+    }
+
+    let mut series = cached.series.clone();
+    series.cached = true;
+    Ok(Some(series))
+}
+
+fn set_cached_daily(cache_key: String, series: CostDailySeries) -> Result<(), String> {
+    let mut cache = DAILY_CACHE.lock().map_err(|err| err.to_string())?;
+    cache.insert(
+        cache_key,
+        CachedDaily {
+            inserted_at: Instant::now(),
+            series,
+        },
+    );
+    Ok(())
 }
 
 pub async fn get_cost_overview(
@@ -378,6 +547,27 @@ mod tests {
             cache_creation_tokens: 0,
             cache_read_tokens,
             total_tokens: input_tokens + output_tokens + reasoning_tokens + cache_read_tokens,
+        }
+    }
+
+    #[test]
+    #[ignore = "reads real local usage files; run manually with --ignored"]
+    fn daily_series_smoke() {
+        for source in ["claude", "codex", "cursor"] {
+            match build_cost_daily(source.to_string(), 7, Some("USD".into()), None, true) {
+                Ok(series) => {
+                    assert_eq!(series.days.len(), 7, "{source} should return 7 days");
+                    eprintln!(
+                        "{source}: {:?}",
+                        series
+                            .days
+                            .iter()
+                            .map(|d| (d.date.clone(), d.cost_usd))
+                            .collect::<Vec<_>>()
+                    );
+                }
+                Err(err) => panic!("{source} daily failed: {err}"),
+            }
         }
     }
 

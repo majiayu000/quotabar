@@ -5,7 +5,7 @@ use crate::{
         AntigravityData, CodexData, CodexRateLimits, CodexResetCredits, CodexStats, CursorData,
         QuotaData,
     },
-    services::{antigravity, claude, codex, cost, cursor, link, tray, window},
+    services::{antigravity, claude, codex, cost, cursor, link, tray, tray_icon, window},
 };
 
 #[tauri::command]
@@ -54,6 +54,17 @@ pub async fn get_cost_overview(
 }
 
 #[tauri::command]
+pub async fn get_cost_daily(
+    source: String,
+    days: u32,
+    currency: Option<String>,
+    timezone: Option<String>,
+    force: Option<bool>,
+) -> Result<cost::CostDailySeries, String> {
+    cost::get_cost_daily(source, days, currency, timezone, force).await
+}
+
+#[tauri::command]
 pub fn open_claude_dashboard() -> Result<(), String> {
     link::open_claude_dashboard()
 }
@@ -91,6 +102,7 @@ pub async fn update_tray_icon(
     percentage: Option<u8>,
     visible: bool,
     force: Option<bool>,
+    style: Option<tray_icon::TrayIconStyle>,
 ) -> Result<(), String> {
     tray::update_tray_icon(
         app,
@@ -99,6 +111,7 @@ pub async fn update_tray_icon(
         percentage,
         visible,
         force.unwrap_or(false),
+        style,
     )
     .await
 }

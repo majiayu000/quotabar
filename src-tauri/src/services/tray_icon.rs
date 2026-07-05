@@ -4,6 +4,7 @@ use image::{
     imageops::{resize, FilterType},
     load_from_memory_with_format, ImageBuffer, ImageEncoder, ImageFormat, Rgba, RgbaImage,
 };
+use serde::Deserialize;
 
 const GLYPH_WIDTH: u32 = 3;
 const GLYPH_HEIGHT: u32 = 5;
@@ -49,6 +50,19 @@ pub enum TrayIconIdentity {
     Codex,
     Cursor,
     Antigravity,
+}
+
+/// Menu bar rendering style, mirroring the Settings "Menu bar style" control.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum TrayIconStyle {
+    /// Progress ring with the usage percentage digits (default).
+    #[default]
+    Percent,
+    /// Progress ring only.
+    Ring,
+    /// Provider badge only.
+    Icon,
 }
 
 fn draw_glyph(img: &mut RgbaImage, pattern: &[u8; 5], x: i32, y: i32, scale: u32, color: Rgba<u8>) {
@@ -265,6 +279,7 @@ pub fn generate_tray_icon(
     identity: TrayIconIdentity,
     used_percent: Option<u8>,
     size: u32,
+    style: TrayIconStyle,
 ) -> Vec<u8> {
     let mut img: RgbaImage = ImageBuffer::new(size, size);
     let center = size as f32 / 2.0;
@@ -288,6 +303,9 @@ pub fn generate_tray_icon(
         pct.map(|value| start_angle + (2.0 * std::f32::consts::PI * (value as f32 / 100.0)));
 
     for y in 0..size {
+        if style == TrayIconStyle::Icon {
+            break;
+        }
         for x in 0..size {
             let dx = x as f32 - center + 0.5;
             let dy = y as f32 - center + 0.5;
@@ -319,7 +337,7 @@ pub fn generate_tray_icon(
         }
     }
 
-    if let Some(pct) = pct {
+    if let (TrayIconStyle::Percent, Some(pct)) = (style, pct) {
         let scale = if is_large { 3 } else { 1 };
         let digit_w = GLYPH_WIDTH * scale;
         let digit_h = GLYPH_HEIGHT * scale;
@@ -355,32 +373,32 @@ pub fn generate_tray_icon(
 
 #[cfg(test)]
 mod tests {
-    use super::{generate_tray_icon, usage_color, TrayIconIdentity};
+    use super::{generate_tray_icon, usage_color, TrayIconIdentity, TrayIconStyle};
 
     #[test]
     fn generate_icon_returns_png_bytes() {
-        let bytes = generate_tray_icon(TrayIconIdentity::Claude, Some(73), 44);
+        let bytes = generate_tray_icon(TrayIconIdentity::Claude, Some(73), 44, TrayIconStyle::Percent);
         assert!(!bytes.is_empty());
     }
 
     #[test]
     fn generate_placeholder_icon_returns_png_bytes() {
-        let bytes = generate_tray_icon(TrayIconIdentity::Claude, None, 44);
+        let bytes = generate_tray_icon(TrayIconIdentity::Claude, None, 44, TrayIconStyle::Percent);
         assert!(!bytes.is_empty());
     }
 
     #[test]
     fn service_badges_produce_distinct_icons() {
-        let claude = generate_tray_icon(TrayIconIdentity::Claude, Some(42), 44);
-        let codex = generate_tray_icon(TrayIconIdentity::Codex, Some(42), 44);
+        let claude = generate_tray_icon(TrayIconIdentity::Claude, Some(42), 44, TrayIconStyle::Percent);
+        let codex = generate_tray_icon(TrayIconIdentity::Codex, Some(42), 44, TrayIconStyle::Percent);
         assert_ne!(claude, codex);
     }
 
     #[test]
     fn tray_icon_distinguishes_full_usage_from_ninety_nine() {
-        let ninety_nine = generate_tray_icon(TrayIconIdentity::Claude, Some(99), 44);
-        let full = generate_tray_icon(TrayIconIdentity::Claude, Some(100), 44);
-        let over_limit = generate_tray_icon(TrayIconIdentity::Claude, Some(130), 44);
+        let ninety_nine = generate_tray_icon(TrayIconIdentity::Claude, Some(99), 44, TrayIconStyle::Percent);
+        let full = generate_tray_icon(TrayIconIdentity::Claude, Some(100), 44, TrayIconStyle::Percent);
+        let over_limit = generate_tray_icon(TrayIconIdentity::Claude, Some(130), 44, TrayIconStyle::Percent);
 
         assert_ne!(ninety_nine, full);
         assert_eq!(full, over_limit);
@@ -395,7 +413,7 @@ mod tests {
             (TrayIconIdentity::Cursor, "cursor"),
             (TrayIconIdentity::Antigravity, "antigravity"),
         ] {
-            let bytes = generate_tray_icon(id, Some(65), 44);
+            let bytes = generate_tray_icon(id, Some(65), 44, TrayIconStyle::Percent);
             std::fs::write(format!("/tmp/tray_{}.png", name), &bytes).unwrap();
         }
     }

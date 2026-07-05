@@ -30,6 +30,7 @@ dirs = "5"
 image = { version = "0.25", default-features = false, features = ["png"] }
 once_cell = "1.19"
 ccstats = { git = "https://github.com/majiayu000/ccstats.git", rev = "7dbfad0ffc29277da22cd095db067e88982f3f12" }
+tauri-plugin-notification = "2.3.3"
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
