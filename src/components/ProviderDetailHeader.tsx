@@ -1,4 +1,3 @@
-import type { CSSProperties } from 'react';
 import { SERVICE_META } from '../services/service_meta';
 import type { TrayServiceName } from '../services/tray_visibility';
 
@@ -13,20 +12,16 @@ export default function ProviderDetailHeader({
   service,
   status,
   plan,
-  usedPercent,
+  usedPercent: _usedPercent,
 }: ProviderDetailHeaderProps) {
   const meta = SERVICE_META[service];
-  const style = { '--service-accent': meta.accent } as CSSProperties;
-  const usageLabel = usedPercent == null ? '--' : `${Math.round(usedPercent)}%`;
 
   return (
-    <div className="provider-detail-header" style={style}>
-      <span className="provider-detail-icon" aria-hidden="true">{meta.initials}</span>
-      <span className="provider-detail-copy">
-        <span className="provider-detail-name">{meta.label}</span>
-        <span className="provider-detail-status">{plan ? `${plan} / ${status}` : status}</span>
-      </span>
-      <span className="provider-detail-usage">{usageLabel}</span>
+    <div className="provider-detail-header">
+      <span className="provider-detail-name">{meta.label}</span>
+      <span className={`provider-detail-dot ${status === 'Offline' || status === 'Pending' ? 'offline' : ''}`} />
+      <span className="provider-detail-spacer" />
+      <span className="provider-detail-status">{plan || status}</span>
     </div>
   );
 }

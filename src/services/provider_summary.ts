@@ -4,7 +4,7 @@ import { SERVICE_META, SERVICES } from './service_meta';
 import type { TrayServiceName } from './tray_visibility';
 import { formatResetTime, getProgressStyle } from '../utils/quota_format';
 
-export type AppTabName = TrayServiceName | 'overview';
+export type AppTabName = TrayServiceName | 'all';
 export type AppViewName = AppTabName | 'settings';
 
 export interface ProviderSummary {
@@ -107,12 +107,12 @@ function codexWindowLabel(minutes?: number): string {
   if (!minutes) return 'Usage limit';
   if (minutes >= 1440) {
     const days = Math.round(minutes / 1440);
-    return days === 7 ? 'Weekly limit' : `${days}d limit`;
+    return days === 7 ? 'Weekly' : `${days}d`;
   }
   if (minutes >= 60) {
-    return `${Math.round(minutes / 60)}h limit`;
+    return `${Math.round(minutes / 60)}h`;
   }
-  return `${minutes}m limit`;
+  return `${minutes}m`;
 }
 
 export function buildCodexQuotaWindows(rateLimits: CodexRateLimits | null): QuotaWindowSummary[] {

@@ -1,14 +1,45 @@
 import { useEffect, useMemo, useState } from 'react';
 import { backend } from '../services/backend';
-import type { CostOverview, CostRangeSummary, CostSource } from '../types/models';
+import { getBudgetForSources, getSavedMonthlyBudgets } from '../services/budget';
+import type { CostDailyPoint, CostDailySeries, CostOverview, CostRangeSummary, CostSource } from '../types/models';
+import { getProgressStyle } from '../utils/quota_format';
 
 interface CostSummarySectionProps {
-  source: CostSource;
+  source: CostSource | readonly CostSource[];
   refreshKey?: number;
   autoRefreshIntervalMs?: number;
+  showTrend?: boolean;
 }
 
 const DEFAULT_AUTO_REFRESH_INTERVAL_MS = 5 * 60 * 1000;
+const DAILY_SERIES_DAYS = 30;
+
+export type SparkRange = '7d' | '30d';
+
+export function mergeDailySeries(seriesList: CostDailySeries[]): CostDailyPoint[] {
+  const byDate = new Map<string, CostDailyPoint>();
+  for (const series of seriesList) {
+    for (const day of series.days) {
+      const existing = byDate.get(day.date);
+      if (!existing) {
+        byDate.set(day.date, { ...day });
+        continue;
+      }
+      existing.cost = sumNullable([existing.cost, day.cost]);
+      existing.costUsd = sumNullable([existing.costUsd, day.costUsd]);
+      existing.totalTokens += day.totalTokens;
+    }
+  }
+  return Array.from(byDate.values()).sort((left, right) => left.date.localeCompare(right.date));
+}
+
+export function sliceSparkDays(days: CostDailyPoint[], range: SparkRange): CostDailyPoint[] {
+  return range === '7d' ? days.slice(-7) : days.slice(-30);
+}
+
+export function sumDailyCost(days: CostDailyPoint[]): number {
+  return days.reduce((total, day) => total + (day.costUsd ?? day.cost ?? 0), 0);
+}
 
 export function startCostSummaryAutoRefresh(
   autoRefreshIntervalMs: number,
@@ -65,6 +96,11 @@ function formatUpdatedAt(value: string): string {
   }
 }
 
+function formatCostNote(range: CostRangeSummary | null): string {
+  if (!range) return '';
+  return `${formatCompactNumber(range.tokens.totalTokens)} tokens`;
+}
+
 function pickPrimaryRange(overview: CostOverview | null): CostRangeSummary | null {
   if (!overview) return null;
   return (
@@ -75,14 +111,106 @@ function pickPrimaryRange(overview: CostOverview | null): CostRangeSummary | nul
   );
 }
 
+function emptyTokens() {
+  return {
+    inputTokens: 0,
+    outputTokens: 0,
+    reasoningTokens: 0,
+    cacheCreationTokens: 0,
+    cacheReadTokens: 0,
+    totalTokens: 0,
+  };
+}
+
+function addTokens(left: ReturnType<typeof emptyTokens>, right: CostRangeSummary['tokens']) {
+  left.inputTokens += right.inputTokens;
+  left.outputTokens += right.outputTokens;
+  left.reasoningTokens += right.reasoningTokens;
+  left.cacheCreationTokens += right.cacheCreationTokens;
+  left.cacheReadTokens += right.cacheReadTokens;
+  left.totalTokens += right.totalTokens;
+}
+
+function sumNullable(values: Array<number | null | undefined>): number | null {
+  let total = 0;
+  let hasValue = false;
+  for (const value of values) {
+    if (value == null || !Number.isFinite(value)) continue;
+    total += value;
+    hasValue = true;
+  }
+  return hasValue ? total : null;
+}
+
+function latestTimestamp(values: string[]): string {
+  return values.reduce((latest, value) => {
+    const latestTime = Date.parse(latest);
+    const valueTime = Date.parse(value);
+    return Number.isFinite(valueTime) && valueTime > latestTime ? value : latest;
+  });
+}
+
+function mergeCostOverviews(overviews: CostOverview[]): CostOverview {
+  if (overviews.length === 1) return overviews[0];
+
+  const rangeOrder = overviews[0]?.ranges.map((range) => range.range) ?? [];
+  const ranges = rangeOrder.map((rangeName) => {
+    const matching = overviews
+      .map((overview) => overview.ranges.find((range) => range.range === rangeName))
+      .filter((range): range is CostRangeSummary => Boolean(range));
+    const first = matching[0];
+    const tokens = emptyTokens();
+    const modelMap = new Map<string, CostRangeSummary['models'][number]>();
+
+    for (const range of matching) {
+      addTokens(tokens, range.tokens);
+      for (const model of range.models) {
+        const existing = modelMap.get(model.model);
+        if (!existing) {
+          modelMap.set(model.model, { ...model, tokens: { ...model.tokens } });
+          continue;
+        }
+        existing.cost = sumNullable([existing.cost, model.cost]);
+        existing.costUsd = sumNullable([existing.costUsd, model.costUsd]);
+        addTokens(existing.tokens, model.tokens);
+      }
+    }
+
+    return {
+      ...first,
+      currency: 'USD',
+      cost: sumNullable(matching.map((range) => range.costUsd ?? range.cost)),
+      costUsd: sumNullable(matching.map((range) => range.costUsd ?? range.cost)),
+      tokens,
+      models: Array.from(modelMap.values()).sort((left, right) => (right.costUsd ?? right.cost ?? 0) - (left.costUsd ?? left.cost ?? 0)),
+      validEntries: matching.reduce((total, range) => total + range.validEntries, 0),
+      skippedEntries: matching.reduce((total, range) => total + range.skippedEntries, 0),
+      elapsedMs: matching.reduce((total, range) => total + range.elapsedMs, 0),
+    };
+  });
+
+  return {
+    source: 'all',
+    displayName: 'All providers',
+    currency: 'USD',
+    generatedAt: latestTimestamp(overviews.map((overview) => overview.generatedAt)),
+    cached: overviews.every((overview) => overview.cached),
+    ranges,
+  };
+}
+
 export default function CostSummarySection({
   source,
   refreshKey = 0,
   autoRefreshIntervalMs = DEFAULT_AUTO_REFRESH_INTERVAL_MS,
+  showTrend = true,
 }: CostSummarySectionProps) {
   const [overview, setOverview] = useState<CostOverview | null>(null);
+  const [daily, setDaily] = useState<CostDailyPoint[] | null>(null);
+  const [sparkRange, setSparkRange] = useState<SparkRange>('7d');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const sourceKey = Array.isArray(source) ? source.join(',') : source;
 
   useEffect(() => {
     let cancelled = false;
@@ -92,7 +220,9 @@ export default function CostSummarySection({
       try {
         setLoading(true);
         setError(null);
-        const data = await backend.getCostOverview(source, force);
+        const sources = Array.isArray(source) ? source : [source];
+        const overviews = await Promise.all(sources.map((item) => backend.getCostOverview(item, force)));
+        const data = mergeCostOverviews(overviews);
         if (!cancelled) {
           setOverview(data);
         }
@@ -107,8 +237,30 @@ export default function CostSummarySection({
       }
     };
 
+    const loadDaily = async (force: boolean) => {
+      try {
+        const sources = Array.isArray(source) ? source : [source];
+        const seriesList = await Promise.all(
+          sources.map((item) => backend.getCostDaily(item, DAILY_SERIES_DAYS, force)),
+        );
+        if (!cancelled) {
+          setDaily(mergeDailySeries(seriesList));
+        }
+      } catch (err) {
+        // The trend falls back to per-model bars; surface why in the console.
+        console.error('Failed to load daily cost series:', err);
+        if (!cancelled) {
+          setDaily(null);
+        }
+      }
+    };
+
     loadCost(refreshKey > 0);
-    interval = startCostSummaryAutoRefresh(autoRefreshIntervalMs, loadCost);
+    void loadDaily(refreshKey > 0);
+    interval = startCostSummaryAutoRefresh(autoRefreshIntervalMs, (force) => {
+      void loadCost(force);
+      void loadDaily(force);
+    });
 
     return () => {
       cancelled = true;
@@ -116,19 +268,28 @@ export default function CostSummarySection({
         clearInterval(interval);
       }
     };
-  }, [source, refreshKey, autoRefreshIntervalMs]);
+  }, [sourceKey, refreshKey, autoRefreshIntervalMs]);
 
   const primaryRange = useMemo(() => pickPrimaryRange(overview), [overview]);
   const topModels = primaryRange?.models.slice(0, 3) ?? [];
-  const currency = overview?.currency ?? 'USD';
+
+  // Budgets are edited in Settings, which unmounts this component, so a
+  // read-on-mount snapshot stays in sync.
+  const monthlyBudget = useMemo(() => {
+    const sources = Array.isArray(source) ? source : [source];
+    return getBudgetForSources(getSavedMonthlyBudgets(), sources);
+  }, [sourceKey]);
+  const monthRange = overview?.ranges.find((range) => range.range === 'month') ?? null;
+  const monthCost = monthRange ? monthRange.costUsd ?? monthRange.cost : null;
+  const budgetPercent = monthlyBudget != null && monthCost != null
+    ? (monthCost / monthlyBudget) * 100
+    : null;
 
   return (
     <div className="section cost-section">
-      <div className="section-title">
-        LOCAL COST
-        {overview && (
-          <span className="plan-tag">{overview.cached ? 'Cached' : currency}</span>
-        )}
+      <div className="cost-title-row">
+        <span className="section-title">Local cost</span>
+        {overview && <span className="cost-note">{formatCostNote(primaryRange)}</span>}
       </div>
 
       {loading && !overview && (
@@ -140,7 +301,7 @@ export default function CostSummarySection({
       )}
 
       {overview && (
-        <div className="cost-card">
+        <div className="cost-panel">
           <div className="cost-range-grid">
             {overview.ranges.map((range) => (
               <div
@@ -157,48 +318,90 @@ export default function CostSummarySection({
 
           {primaryRange && (
             <>
-              <div className="cost-detail-grid">
-                <div className="cost-detail">
-                  <span className="cost-detail-label">Tokens</span>
-                  <strong className="cost-detail-value">
-                    {formatCompactNumber(primaryRange.tokens.totalTokens)}
-                  </strong>
+              {budgetPercent != null && monthlyBudget != null ? (
+                <div className="budget-panel">
+                  <div className="budget-row">
+                    <span>Monthly budget</span>
+                    <strong>
+                      {formatMoney(monthCost, monthRange?.currency ?? 'USD')}
+                      {' / '}
+                      {formatMoney(monthlyBudget, monthRange?.currency ?? 'USD')}
+                    </strong>
+                  </div>
+                  <div className="budget-track">
+                    <div className="budget-fill" style={getProgressStyle(budgetPercent)} />
+                  </div>
                 </div>
-                <div className="cost-detail">
-                  <span className="cost-detail-label">Entries</span>
-                  <strong className="cost-detail-value">
-                    {formatCompactNumber(primaryRange.validEntries)}
-                  </strong>
-                </div>
-                <div className="cost-detail">
-                  <span className="cost-detail-label">Input</span>
-                  <strong className="cost-detail-value">
-                    {formatCompactNumber(primaryRange.tokens.inputTokens)}
-                  </strong>
-                </div>
-                <div className="cost-detail">
-                  <span className="cost-detail-label">Output</span>
-                  <strong className="cost-detail-value">
-                    {formatCompactNumber(primaryRange.tokens.outputTokens)}
-                  </strong>
-                </div>
-              </div>
-
-              {topModels.length > 0 && (
-                <div className="cost-models">
-                  {topModels.map((model) => (
-                    <div className="cost-model-row" key={model.model}>
-                      <span className="cost-model-name">{model.model}</span>
-                      <span className="cost-model-tokens">
-                        {formatCompactNumber(model.tokens.totalTokens)}
-                      </span>
-                      <span className="cost-model-cost">
-                        {formatMoney(model.cost, primaryRange.currency)}
-                      </span>
-                    </div>
-                  ))}
+              ) : (
+                <div className="budget-panel">
+                  <div className="budget-row">
+                    <span>Entries</span>
+                    <strong>{formatCompactNumber(primaryRange.validEntries)}</strong>
+                  </div>
+                  <div className="budget-track">
+                    <div className="budget-fill" style={getProgressStyle(Math.min(primaryRange.validEntries, 100))} />
+                  </div>
                 </div>
               )}
+
+              {showTrend && daily && daily.length > 0 ? (
+                (() => {
+                  const sparkDays = sliceSparkDays(daily, sparkRange);
+                  const maxCost = Math.max(...sparkDays.map((day) => day.costUsd ?? day.cost ?? 0), 0);
+                  return (
+                    <>
+                      <div className="spark-bars">
+                        {sparkDays.map((day, index) => {
+                          const value = day.costUsd ?? day.cost ?? 0;
+                          const height = maxCost > 0 ? Math.max(8, (value / maxCost) * 100) : 8;
+                          return (
+                            <div
+                              className={`spark-bar ${index === sparkDays.length - 1 ? 'latest' : ''}`}
+                              key={day.date}
+                              title={`${day.date}: ${formatMoney(value, primaryRange.currency)}`}
+                              style={{ height: `${height}%` }}
+                            />
+                          );
+                        })}
+                      </div>
+                      <div className="cost-footer">
+                        <span>
+                          {sparkRange === '7d' ? 'Past 7 days' : 'Past 30 days'}
+                          {' · '}
+                          {formatMoney(sumDailyCost(sparkDays), primaryRange.currency)}
+                        </span>
+                        <span className="spark-range-chips">
+                          <button
+                            type="button"
+                            className={`spark-chip ${sparkRange === '7d' ? 'active' : ''}`}
+                            onClick={() => setSparkRange('7d')}
+                          >
+                            7D
+                          </button>
+                          <button
+                            type="button"
+                            className={`spark-chip ${sparkRange === '30d' ? 'active' : ''}`}
+                            onClick={() => setSparkRange('30d')}
+                          >
+                            30D
+                          </button>
+                        </span>
+                      </div>
+                    </>
+                  );
+                })()
+              ) : showTrend && topModels.length > 0 ? (
+                <div className="spark-bars">
+                  {topModels.map((model, index) => (
+                    <div
+                      className="spark-bar"
+                      key={model.model}
+                      title={`${model.model}: ${formatMoney(model.cost, primaryRange.currency)}`}
+                      style={{ height: `${Math.max(18, 44 - index * 9)}%` }}
+                    />
+                  ))}
+                </div>
+              ) : null}
             </>
           )}
 

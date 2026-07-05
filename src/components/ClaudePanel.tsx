@@ -4,9 +4,10 @@ import ProviderDetailHeader from './ProviderDetailHeader';
 import ResetTimeline from './ResetTimeline';
 import SmartTip from './SmartTip';
 import type { QuotaData } from '../types/models';
-import { formatResetTime } from '../utils/quota_format';
+import { formatPaceText, formatResetTime } from '../utils/quota_format';
 import { buildClaudeQuotaWindows, sortMostConstrained } from '../services/provider_summary';
 import { getHighUsageTip } from '../services/detail_helpers';
+import { defaultPanelSections, type PanelSectionVisibility } from '../services/panel_sections';
 
 interface ClaudePanelProps {
   quota: QuotaData | null;
@@ -15,7 +16,10 @@ interface ClaudePanelProps {
   windowVisible: boolean;
   costRefreshKey: number;
   onRetry: () => void;
+  sections?: PanelSectionVisibility;
 }
+
+const SESSION_WINDOW_MINUTES = 5 * 60;
 
 function formatClaudeResetTime(resetTime?: string): string {
   return formatResetTime(resetTime, {
@@ -42,6 +46,7 @@ export default function ClaudePanel({
   windowVisible,
   costRefreshKey,
   onRetry,
+  sections = defaultPanelSections(),
 }: ClaudePanelProps) {
   const windows = buildClaudeQuotaWindows(quota);
   const topWindow = sortMostConstrained(windows)[0];
@@ -67,79 +72,78 @@ export default function ClaudePanel({
             plan="Claude Code"
             usedPercent={topWindow?.usedPercent ?? null}
           />
-          <SmartTip message={getHighUsageTip(windows)} />
 
           <div className="section">
-            <div className="section-title">
-              CURRENT SESSION
-              <span className="plan-tag">Claude Code</span>
+            <div className="section-title">Current session</div>
+            <div className="quota-group">
+              {quota.session ? (
+                <QuotaCard
+                  label="5-hour window"
+                  percentage={Math.round(quota.session.percentage)}
+                  resetsIn={formatClaudeResetTime(quota.session.resetTime)}
+                  pace={formatPaceText(quota.session.percentage, quota.session.resetTime, SESSION_WINDOW_MINUTES)}
+                />
+              ) : (
+                <div className="no-data">No session data</div>
+              )}
             </div>
-            {quota.session ? (
-              <QuotaCard
-                label="5-Hour Usage"
-                percentage={Math.round(quota.session.percentage)}
-                resetsIn={formatClaudeResetTime(quota.session.resetTime)}
-              />
-            ) : (
-              <div className="no-data">No session data</div>
-            )}
           </div>
 
           <div className="section">
-            <div className="section-title">
-              WEEKLY LIMITS
-              <span className="plan-tag">Claude Code</span>
+            <div className="section-title">Weekly limits</div>
+            <div className="quota-group">
+              {quota.weeklyTotal && (
+                <QuotaCard
+                  label="All models"
+                  percentage={Math.round(quota.weeklyTotal.percentage)}
+                  resetsIn={formatClaudeResetTime(quota.weeklyTotal.resetTime)}
+                />
+              )}
+
+              {quota.weeklyOpus && (
+                <QuotaCard
+                  label="Opus"
+                  percentage={Math.round(quota.weeklyOpus.percentage)}
+                  resetsIn={formatClaudeResetTime(quota.weeklyOpus.resetTime)}
+                />
+              )}
+
+              {quota.weeklySonnet && (
+                <QuotaCard
+                  label="Sonnet"
+                  percentage={Math.round(quota.weeklySonnet.percentage)}
+                  resetsIn={formatClaudeResetTime(quota.weeklySonnet.resetTime)}
+                />
+              )}
+
+              {quota.weeklyDesign && (
+                <QuotaCard
+                  label="Claude Design"
+                  percentage={Math.round(quota.weeklyDesign.percentage)}
+                  resetsIn={formatClaudeResetTime(quota.weeklyDesign.resetTime)}
+                />
+              )}
+
+              {quota.weeklyFable5 && (
+                <QuotaCard
+                  label="Fable 5"
+                  percentage={Math.round(quota.weeklyFable5.percentage)}
+                  resetsIn={formatClaudeResetTime(quota.weeklyFable5.resetTime)}
+                />
+              )}
+
+              {!hasWeeklyData(quota) && (
+                <div className="no-data">No weekly data</div>
+              )}
             </div>
-
-            {quota.weeklyTotal && (
-              <QuotaCard
-                label="7-Day Usage"
-                percentage={Math.round(quota.weeklyTotal.percentage)}
-                resetsIn={formatClaudeResetTime(quota.weeklyTotal.resetTime)}
-              />
-            )}
-
-            {quota.weeklyOpus && (
-              <QuotaCard
-                label="Opus (7-Day)"
-                percentage={Math.round(quota.weeklyOpus.percentage)}
-                resetsIn={formatClaudeResetTime(quota.weeklyOpus.resetTime)}
-              />
-            )}
-
-            {quota.weeklySonnet && (
-              <QuotaCard
-                label="Sonnet (7-Day)"
-                percentage={Math.round(quota.weeklySonnet.percentage)}
-                resetsIn={formatClaudeResetTime(quota.weeklySonnet.resetTime)}
-              />
-            )}
-
-            {quota.weeklyDesign && (
-              <QuotaCard
-                label="Claude Design (7-Day)"
-                percentage={Math.round(quota.weeklyDesign.percentage)}
-                resetsIn={formatClaudeResetTime(quota.weeklyDesign.resetTime)}
-              />
-            )}
-
-            {quota.weeklyFable5 && (
-              <QuotaCard
-                label="Fable 5 (7-Day)"
-                percentage={Math.round(quota.weeklyFable5.percentage)}
-                resetsIn={formatClaudeResetTime(quota.weeklyFable5.resetTime)}
-              />
-            )}
-
-            {!hasWeeklyData(quota) && (
-              <div className="no-data">No weekly data</div>
-            )}
           </div>
 
-          <ResetTimeline windows={windows} />
+          {sections.tips && <SmartTip message={getHighUsageTip(windows)} />}
 
-          {windowVisible && (
-            <CostSummarySection source="claude" refreshKey={costRefreshKey} />
+          {sections.timeline && <ResetTimeline windows={windows} />}
+
+          {sections.cost && windowVisible && (
+            <CostSummarySection source="claude" refreshKey={costRefreshKey} showTrend={sections.trend} />
           )}
         </div>
       )}

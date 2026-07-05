@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import ActionButtons from './components/ActionButtons';
+import QuickActions from './components/QuickActions';
 import OverviewPanel from './components/OverviewPanel';
 import SettingsView from './components/SettingsView';
 import type { ThemeName } from './components/ThemeSelector';
@@ -20,6 +21,27 @@ import {
   type TrayServiceName,
 } from './services/tray_visibility';
 import {
+  getSavedPanelSections,
+  savePanelSections,
+  type PanelSectionKey,
+  type PanelSectionVisibility,
+} from './services/panel_sections';
+import {
+  getSavedTrayCycle,
+  getSavedTrayStyle,
+  saveTrayCycle,
+  saveTrayStyle,
+  type TrayStyle,
+} from './services/tray_style';
+import { getSavedEvents, recordEvent, type AppEvent, type EventLevel } from './services/event_log';
+import {
+  getSavedNotificationSettings,
+  notify,
+  saveNotificationSettings,
+  type NotificationKey,
+  type NotificationSettings,
+} from './services/notifications';
+import {
   buildClaudeQuotaWindows,
   buildProviderSummaries,
   isProviderTab,
@@ -30,6 +52,8 @@ import {
 } from './services/provider_summary';
 import type { QuotaData } from './types/models';
 import './styles.css';
+import './redesign.css';
+import './redesign-settings.css';
 
 const THEME_STORAGE_KEY = 'claude-quota-theme';
 const DOCK_HIDDEN_KEY = 'claude-quota-dock-hidden';
@@ -41,18 +65,9 @@ export const AUTH_REFRESH_INTERVAL_MS = 60 * 60 * 1000;
 export const BACKGROUND_REFRESH_INTERVAL_MS = 5 * 60 * 1000;
 const TRAY_SERVICE_ACTIVATED_EVENT = 'tray-service-activated';
 const TRAY_GUARD_TOAST_MS = 2000;
+const TRAY_CYCLE_INTERVAL_MS = 15 * 1000;
 const TRAY_GUARD_MESSAGE = 'At least one tray must remain enabled';
-const VALID_TABS = new Set<string>(['overview', ...SERVICES]);
-
-const THEME_LABELS: Record<ThemeName, string> = {
-  light: 'Light',
-  dark: 'Dark',
-  claude: 'Claude',
-  'claude-dark': 'Claude Dark',
-  minimal: 'Minimal',
-  'minimal-dark': 'Minimal Dark',
-  ocean: 'Ocean',
-};
+const VALID_TABS = new Set<string>(['all', ...SERVICES]);
 
 interface TrayServiceActivatedPayload {
   service: TrayServiceName;
@@ -63,6 +78,7 @@ type TrayEnabledState = ServiceMap<boolean>;
 type TrayIconRequest = {
   percentage: number | null;
   visible: boolean;
+  style: TrayStyle;
 };
 
 function defaultServiceMap<T>(value: T): ServiceMap<T> {
@@ -86,7 +102,7 @@ function getSavedTab(): TabName {
       return saved as TabName;
     }
   } catch {}
-  return 'overview';
+  return 'claude';
 }
 
 function getSavedTheme(): ThemeName {
@@ -217,8 +233,18 @@ export default function App() {
     return isProviderTab(saved) ? saved : 'claude';
   });
   const [windowVisible, setWindowVisible] = useState(false);
+  const [justRefreshed, setJustRefreshed] = useState(false);
+  const [pollingPaused, setPollingPaused] = useState(false);
+  const [panelSections, setPanelSections] = useState<PanelSectionVisibility>(getSavedPanelSections);
+  const [trayStyle, setTrayStyle] = useState<TrayStyle>(getSavedTrayStyle);
+  const [trayCycle, setTrayCycle] = useState<boolean>(getSavedTrayCycle);
+  const [trayCycleIndex, setTrayCycleIndex] = useState(0);
+  const [events, setEvents] = useState<AppEvent[]>(getSavedEvents);
+  const [notifSettings, setNotifSettings] = useState<NotificationSettings>(getSavedNotificationSettings);
+  const prevServiceStateRef = useRef<ServiceMap<{ connected: boolean; used: number | null }> | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const lastTrayIconRequestRef = useRef<Partial<Record<TrayServiceName, TrayIconRequest>>>({});
+  const refreshIndicatorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const setServiceConnected = useCallback((service: TrayServiceName, value: boolean) => {
     setConnected((prev) => (prev[service] === value ? prev : { ...prev, [service]: value }));
@@ -287,7 +313,7 @@ export default function App() {
       if (containerRef.current) {
         const height = containerRef.current.scrollHeight + 24;
         try {
-          await backend.resizeWindow(Math.min(Math.max(height, 300), 600));
+          await backend.resizeWindow(Math.min(Math.max(height, 300), 620));
         } catch (err) {
           console.error('Failed to resize window:', err);
         }
@@ -311,6 +337,14 @@ export default function App() {
       observer.disconnect();
     };
   }, [activeView, quota, connected, windowVisible]);
+
+  useEffect(() => {
+    return () => {
+      if (refreshIndicatorTimerRef.current) {
+        clearTimeout(refreshIndicatorTimerRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (typeof window === 'undefined' || !('__TAURI_INTERNALS__' in window)) {
@@ -363,15 +397,21 @@ export default function App() {
     percentage: number | null,
     visible: boolean,
     force = false,
+    style: TrayStyle = 'percent',
   ) => {
     const previous = lastTrayIconRequestRef.current[service];
-    if (!force && previous?.percentage === percentage && previous.visible === visible) {
+    if (
+      !force &&
+      previous?.percentage === percentage &&
+      previous.visible === visible &&
+      previous.style === style
+    ) {
       return;
     }
 
     try {
-      await backend.updateTrayIcon(service, percentage, visible, force);
-      lastTrayIconRequestRef.current[service] = { percentage, visible };
+      await backend.updateTrayIcon(service, percentage, visible, force, style);
+      lastTrayIconRequestRef.current[service] = { percentage, visible, style };
     } catch (err) {
       console.error(`Failed to update ${service} tray icon:`, err);
     }
@@ -407,6 +447,8 @@ export default function App() {
   }, [setServiceConnected]);
 
   useEffect(() => {
+    if (pollingPaused) return;
+
     let timer: ReturnType<typeof setTimeout> | null = null;
     let cancelled = false;
 
@@ -424,19 +466,29 @@ export default function App() {
         clearTimeout(timer);
       }
     };
-  }, [fetchClaudeQuota]);
+  }, [fetchClaudeQuota, pollingPaused]);
 
   useEffect(() => {
     setServiceUsedPercent('claude', getClaudeTrayUsedPercent(quota));
   }, [quota, setServiceUsedPercent]);
 
   const syncTrayIcons = useCallback((force = false) => {
+    const candidates = SERVICES.filter((svc) => {
+      const isConnected = svc === 'claude' ? quota?.connected ?? false : connected[svc];
+      return shouldShowTray(trayEnabled[svc], isConnected);
+    });
+    // Cycle mode keeps a single menu bar item, rotating through the candidates.
+    const cycled = trayCycle && candidates.length > 1
+      ? candidates[trayCycleIndex % candidates.length]
+      : null;
+
     for (const svc of SERVICES) {
       const pct = svc === 'claude' ? getClaudeTrayUsedPercent(quota) : usedPercent[svc];
-      const isConnected = svc === 'claude' ? quota?.connected ?? false : connected[svc];
-      updateTrayIcon(svc, pct, shouldShowTray(trayEnabled[svc], isConnected), force);
+      const showable = candidates.includes(svc);
+      const visible = cycled ? svc === cycled : showable;
+      updateTrayIcon(svc, pct, visible, force, trayStyle);
     }
-  }, [quota, connected, usedPercent, trayEnabled, updateTrayIcon]);
+  }, [quota, connected, usedPercent, trayEnabled, trayCycle, trayCycleIndex, trayStyle, updateTrayIcon]);
 
   useEffect(() => {
     syncTrayIcons();
@@ -448,6 +500,92 @@ export default function App() {
     }, 5000);
     return () => clearInterval(interval);
   }, [syncTrayIcons]);
+
+  useEffect(() => {
+    if (!trayCycle) return;
+    const interval = setInterval(() => {
+      setTrayCycleIndex((index) => index + 1);
+    }, TRAY_CYCLE_INTERVAL_MS);
+    return () => clearInterval(interval);
+  }, [trayCycle]);
+
+  const logEvent = useCallback((level: EventLevel, text: string) => {
+    setEvents((prev) => recordEvent(prev, level, text));
+  }, []);
+
+  // Detect provider connectivity and usage-threshold transitions.
+  useEffect(() => {
+    const current = SERVICES.reduce((acc, svc) => {
+      acc[svc] = {
+        connected: svc === 'claude' ? quota?.connected ?? false : connected[svc],
+        used: svc === 'claude' ? getClaudeTrayUsedPercent(quota) : usedPercent[svc],
+      };
+      return acc;
+    }, {} as ServiceMap<{ connected: boolean; used: number | null }>);
+
+    const prev = prevServiceStateRef.current;
+    prevServiceStateRef.current = current;
+    if (!prev) return;
+
+    for (const svc of SERVICES) {
+      const label = SERVICE_META[svc].label;
+      const before = prev[svc];
+      const after = current[svc];
+
+      if (before.connected !== after.connected) {
+        logEvent(
+          after.connected ? 'info' : 'warning',
+          `${label} ${after.connected ? 'connected' : 'disconnected'}`,
+        );
+      }
+
+      if (before.used != null && after.used != null) {
+        if (before.used < 95 && after.used >= 95) {
+          logEvent('critical', `${label} usage crossed 95%`);
+          if (notifSettings.q95) {
+            void notify('QuotaBar', `${label} usage crossed 95%`);
+          }
+        } else if (before.used < 80 && after.used >= 80) {
+          logEvent('warning', `${label} usage crossed 80%`);
+          if (notifSettings.q80) {
+            void notify('QuotaBar', `${label} usage crossed 80%`);
+          }
+        }
+      }
+    }
+  }, [quota, connected, usedPercent, logEvent, notifSettings.q80, notifSettings.q95]);
+
+  const handleNotificationToggle = useCallback((key: NotificationKey) => {
+    setNotifSettings((prev) => {
+      const next = { ...prev, [key]: !prev[key] };
+      saveNotificationSettings(next);
+      return next;
+    });
+  }, []);
+
+  const handleBonusExpiring = useCallback((daysLeft: number) => {
+    const text = daysLeft <= 0
+      ? 'Codex bonus reset expires today'
+      : `Codex bonus reset expires in ${daysLeft}d`;
+    logEvent('warning', text);
+    if (notifSettings.bonus) {
+      void notify('QuotaBar', text);
+    }
+  }, [logEvent, notifSettings.bonus]);
+
+  const handleTrayStyleChange = useCallback((style: TrayStyle) => {
+    saveTrayStyle(style);
+    setTrayStyle(style);
+  }, []);
+
+  const handleTrayCycleToggle = useCallback(() => {
+    setTrayCycle((prev) => {
+      const next = !prev;
+      saveTrayCycle(next);
+      return next;
+    });
+    setTrayCycleIndex(0);
+  }, []);
 
   const handleThemeChange = useCallback((newTheme: ThemeName) => {
     setTheme(newTheme);
@@ -501,6 +639,14 @@ export default function App() {
     }
   }, [showTrayGuardToast]);
 
+  const handlePanelSectionToggle = useCallback((key: PanelSectionKey) => {
+    setPanelSections((prev) => {
+      const next = { ...prev, [key]: !prev[key] };
+      savePanelSections(next);
+      return next;
+    });
+  }, []);
+
   const handleTabChange = useCallback((tab: TabName) => {
     setAndPersistTab(tab);
   }, [setAndPersistTab]);
@@ -536,15 +682,34 @@ export default function App() {
   }, [setAndPersistTab]);
 
   const activeProvider = isProviderTab(activeView) ? activeView : lastProviderTab;
+  const activeTab: TabName = activeView === 'all' ? 'all' : activeProvider;
 
   const handleRefresh = useCallback(() => {
+    setJustRefreshed(true);
+    if (refreshIndicatorTimerRef.current) {
+      clearTimeout(refreshIndicatorTimerRef.current);
+    }
+    refreshIndicatorTimerRef.current = setTimeout(() => setJustRefreshed(false), 2000);
+
+    if (activeView === 'all') {
+      fetchClaudeQuota();
+      setClaudeCostRefreshNonce((value) => value + 1);
+      setRefreshNonces((prev) => {
+        const next = { ...prev };
+        for (const svc of SERVICES) {
+          next[svc] += 1;
+        }
+        return next;
+      });
+      return;
+    }
     if (activeProvider === 'claude') {
       fetchClaudeQuota();
       setClaudeCostRefreshNonce((value) => value + 1);
       return;
     }
     setRefreshNonces((prev) => ({ ...prev, [activeProvider]: prev[activeProvider] + 1 }));
-  }, [activeProvider, fetchClaudeQuota]);
+  }, [activeProvider, activeView, fetchClaudeQuota]);
 
   const handleOpenDashboard = useCallback(async () => {
     try {
@@ -579,6 +744,13 @@ export default function App() {
     });
   }, []);
 
+  const handleCloseSettings = useCallback(() => {
+    try {
+      localStorage.setItem(SETTINGS_EXPANDED_KEY, 'false');
+    } catch {}
+    setActiveView(getSavedTab());
+  }, []);
+
   const handleQuit = async () => {
     try {
       await backend.quitApp();
@@ -609,8 +781,9 @@ export default function App() {
     antigravity: connected.antigravity,
   };
 
-  const activeLoading =
-    activeProvider === 'claude' ? claudeLoading : panelLoading[activeProvider];
+  const activeLoading = activeView === 'all'
+    ? claudeLoading || SERVICES.some((svc) => panelLoading[svc])
+    : activeProvider === 'claude' ? claudeLoading : panelLoading[activeProvider];
 
   const serviceUsage: ServiceMap<number | null> = {
     ...usedPercent,
@@ -620,121 +793,148 @@ export default function App() {
     ...panelLoading,
     claude: claudeLoading,
   };
-  const nonClaudeRefreshIntervalMs = windowVisible
-    ? AUTO_REFRESH_INTERVAL_MS
-    : BACKGROUND_REFRESH_INTERVAL_MS;
-  const enabledTrayCount = SERVICES.filter((svc) => trayEnabled[svc]).length;
-  const connectedTrayCount = trayEntries.filter((entry) => entry.connected).length;
-  const settingsSummary = `${THEME_LABELS[theme]} / ${enabledTrayCount} tray on / ${connectedTrayCount} connected`;
+  const nonClaudeRefreshIntervalMs = pollingPaused
+    ? 0
+    : windowVisible
+      ? AUTO_REFRESH_INTERVAL_MS
+      : BACKGROUND_REFRESH_INTERVAL_MS;
+  const footerStatus = activeLoading
+    ? 'Updating...'
+    : justRefreshed
+      ? 'Updated just now'
+      : `Updated ${new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`;
   const providerSummaries = buildProviderSummaries(tabConnected, serviceLoading, serviceUsage);
+  const usageParts = providerSummaries
+    .filter((summary) => summary.usedPercent != null)
+    .map((summary) => `${summary.label} ${Math.round(summary.usedPercent as number)}%`);
+  const statusCopyText = usageParts.length > 0
+    ? `${usageParts.join(' · ')} — via QuotaBar`
+    : 'No usage data yet — via QuotaBar';
   const allQuotaWindows = [
     ...buildClaudeQuotaWindows(quota),
     ...providerQuotaWindows.codex,
     ...providerQuotaWindows.cursor,
   ];
   const mostConstrained = sortMostConstrained(allQuotaWindows).slice(0, 4);
-  const upcomingResets = sortUpcomingResets(allQuotaWindows).slice(0, 4);
-  const visibleTab: TabName = activeView === 'settings' ? getSavedTab() : activeView;
+  const upcomingResets = sortUpcomingResets(allQuotaWindows).slice(0, 5);
+  const providerViewActive = isProviderTab(activeView);
+  const overviewCostRefreshKey = claudeCostRefreshNonce + refreshNonces.codex + refreshNonces.cursor;
 
   return (
     <div className={`app theme-${theme}`}>
       {toast && <div className="toast">{toast}</div>}
       <div className="container" ref={containerRef}>
-        <div className="panel-scroll">
-          {activeView === 'overview' && (
-            <OverviewPanel
-              summaries={providerSummaries}
-              mostConstrained={mostConstrained}
-              upcomingResets={upcomingResets}
-              onProviderSelect={setAndPersistTab}
-            />
-          )}
-
-          {activeView === 'settings' && (
+        {activeView === 'settings' ? (
+          <div className="panel-scroll settings-scroll">
             <SettingsView
               isMacOS={isMacOS}
               theme={theme}
               dockHidden={dockHidden}
               trayEntries={trayEntries}
+              panelSections={panelSections}
+              trayStyle={trayStyle}
+              trayCycle={trayCycle}
+              events={events}
+              notificationSettings={notifSettings}
+              onClose={handleCloseSettings}
               onThemeChange={handleThemeChange}
               onDockToggle={handleDockToggle}
               onTrayToggle={handleTrayToggle}
-            />
-          )}
-
-          {activeView === 'claude' && (
-            <ClaudePanel
-              quota={quota}
-              loading={claudeLoading}
-              error={claudeError}
-              windowVisible={windowVisible}
-              costRefreshKey={claudeCostRefreshNonce}
-              onRetry={handleRefresh}
-            />
-          )}
-
-          <div style={{ display: activeView === 'codex' ? 'block' : 'none' }}>
-            <CodexPanel
-              onConnectionChange={connectionSetters.codex}
-              onUsageChange={usageSetters.codex}
-              onLoadingChange={loadingSetters.codex}
-              onQuotaWindowsChange={quotaWindowSetters.codex}
-              manualRefreshNonce={refreshNonces.codex}
-              autoRefreshIntervalMs={nonClaudeRefreshIntervalMs}
-              showCostSummary={windowVisible && activeView === 'codex'}
+              onPanelSectionToggle={handlePanelSectionToggle}
+              onTrayStyleChange={handleTrayStyleChange}
+              onTrayCycleToggle={handleTrayCycleToggle}
+              onNotificationToggle={handleNotificationToggle}
             />
           </div>
+        ) : (
+          <>
+            <div className="command-bar">
+              <TabSwitcher
+                activeTab={activeTab}
+                onTabChange={handleTabChange}
+                summaries={providerSummaries}
+              />
+            </div>
 
-          <div style={{ display: activeView === 'cursor' ? 'block' : 'none' }}>
-            <CursorPanel
-              onConnectionChange={connectionSetters.cursor}
-              onUsageChange={usageSetters.cursor}
-              onLoadingChange={loadingSetters.cursor}
-              onQuotaWindowsChange={quotaWindowSetters.cursor}
-              manualRefreshNonce={refreshNonces.cursor}
-              autoRefreshIntervalMs={nonClaudeRefreshIntervalMs}
-              showCostSummary={windowVisible && activeView === 'cursor'}
+            <div className="panel-scroll">
+              {providerViewActive && activeView === 'claude' && (
+                <ClaudePanel
+                  quota={quota}
+                  loading={claudeLoading}
+                  error={claudeError}
+                  windowVisible={windowVisible}
+                  costRefreshKey={claudeCostRefreshNonce}
+                  onRetry={handleRefresh}
+                  sections={panelSections}
+                />
+              )}
+
+              <div style={{ display: activeView === 'codex' ? 'block' : 'none' }}>
+                <CodexPanel
+                  onConnectionChange={connectionSetters.codex}
+                  onUsageChange={usageSetters.codex}
+                  onLoadingChange={loadingSetters.codex}
+                  onQuotaWindowsChange={quotaWindowSetters.codex}
+                  manualRefreshNonce={refreshNonces.codex}
+                  autoRefreshIntervalMs={nonClaudeRefreshIntervalMs}
+                  showCostSummary={windowVisible && activeView === 'codex'}
+                  sections={panelSections}
+                  onBonusExpiring={handleBonusExpiring}
+                />
+              </div>
+
+              <div style={{ display: activeView === 'cursor' ? 'block' : 'none' }}>
+                <CursorPanel
+                  onConnectionChange={connectionSetters.cursor}
+                  onUsageChange={usageSetters.cursor}
+                  onLoadingChange={loadingSetters.cursor}
+                  onQuotaWindowsChange={quotaWindowSetters.cursor}
+                  manualRefreshNonce={refreshNonces.cursor}
+                  autoRefreshIntervalMs={nonClaudeRefreshIntervalMs}
+                  showCostSummary={windowVisible && activeView === 'cursor'}
+                  sections={panelSections}
+                />
+              </div>
+
+              <div style={{ display: activeView === 'antigravity' ? 'block' : 'none' }}>
+                <AntigravityPanel
+                  onConnectionChange={connectionSetters.antigravity}
+                  onLoadingChange={loadingSetters.antigravity}
+                  manualRefreshNonce={refreshNonces.antigravity}
+                />
+              </div>
+
+              {activeView === 'all' && (
+                <OverviewPanel
+                  summaries={providerSummaries}
+                  mostConstrained={mostConstrained}
+                  upcomingResets={upcomingResets}
+                  costRefreshKey={overviewCostRefreshKey}
+                  onProviderSelect={setAndPersistTab}
+                  sections={panelSections}
+                />
+              )}
+            </div>
+
+            {panelSections.quick && (
+            <QuickActions
+              statusText={statusCopyText}
+              paused={pollingPaused}
+              onTogglePause={() => setPollingPaused((prev) => !prev)}
+              onOpenUsagePage={handleOpenDashboard}
             />
-          </div>
+            )}
 
-          <div style={{ display: activeView === 'antigravity' ? 'block' : 'none' }}>
-            <AntigravityPanel
-              onConnectionChange={connectionSetters.antigravity}
-              onLoadingChange={loadingSetters.antigravity}
-              manualRefreshNonce={refreshNonces.antigravity}
+            <ActionButtons
+              onRefresh={handleRefresh}
+              onDashboard={handleOpenDashboard}
+              onSettings={handleSettingsViewToggle}
+              onQuit={handleQuit}
+              loading={activeLoading}
+              statusText={footerStatus}
             />
-          </div>
-        </div>
-
-        <div className="bottom-controls">
-          <div className="command-bar">
-            <TabSwitcher
-              activeTab={visibleTab}
-              onTabChange={handleTabChange}
-              summaries={providerSummaries}
-            />
-          </div>
-
-          <button
-            type="button"
-            className={`settings-nav-button ${activeView === 'settings' ? 'active' : ''}`}
-            onClick={handleSettingsViewToggle}
-            aria-pressed={activeView === 'settings'}
-          >
-            <span className="settings-fold-copy">
-              <span className="settings-title">Settings</span>
-              <span className="settings-summary">{settingsSummary}</span>
-            </span>
-            <span className="settings-chevron" aria-hidden="true" />
-          </button>
-
-          <ActionButtons
-            onRefresh={handleRefresh}
-            onDashboard={handleOpenDashboard}
-            onQuit={handleQuit}
-            loading={activeLoading}
-          />
-        </div>
+          </>
+        )}
       </div>
     </div>
   );

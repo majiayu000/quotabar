@@ -4,10 +4,16 @@ import CostSummarySection from './CostSummarySection';
 import ProviderDetailHeader from './ProviderDetailHeader';
 import ResetTimeline from './ResetTimeline';
 import SmartTip from './SmartTip';
-import type { CodexData, CodexRateLimits, CodexResetCredits, CodexStats } from '../types/models';
+import type {
+  CodexData,
+  CodexRateLimits,
+  CodexResetCredit,
+  CodexResetCredits,
+} from '../types/models';
 import { buildCodexQuotaWindows, sortMostConstrained, type QuotaWindowSummary } from '../services/provider_summary';
 import { getAvailableResetCredits, getHighUsageTip } from '../services/detail_helpers';
-import { formatPlanType, formatResetTime, getProgressStyle } from '../utils/quota_format';
+import { formatPaceText, formatPlanType, formatResetTime, getProgressStyle } from '../utils/quota_format';
+import { defaultPanelSections, type PanelSectionVisibility } from '../services/panel_sections';
 
 interface CodexPanelProps {
   onConnectionChange?: (connected: boolean) => void;
@@ -17,6 +23,8 @@ interface CodexPanelProps {
   onLoadingChange?: (loading: boolean) => void;
   onQuotaWindowsChange?: (windows: QuotaWindowSummary[]) => void;
   showCostSummary?: boolean;
+  sections?: PanelSectionVisibility;
+  onBonusExpiring?: (daysLeft: number) => void;
 }
 
 function formatSubscriptionDate(dateStr?: string): string {
@@ -33,30 +41,86 @@ function formatSubscriptionDate(dateStr?: string): string {
   }
 }
 
-function formatCreditDate(dateStr?: string): string {
-  if (!dateStr) return 'Unknown';
-  const date = new Date(dateStr);
-  if (Number.isNaN(date.getTime())) return dateStr;
-  return date.toLocaleString(undefined, {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+function formatCodexPlan(planType?: string): string {
+  return `ChatGPT ${formatPlanType(planType, 'Pro')}`;
 }
 
-function formatWindowLabel(minutes?: number): string {
+function formatWindowLabel(minutes?: number, kind: 'primary' | 'secondary' = 'primary'): string {
   if (!minutes) return 'Limit';
   if (minutes >= 1440) {
     const days = Math.round(minutes / 1440);
-    return days === 7 ? 'Weekly' : `${days}d`;
+    if (days === 7) return kind === 'secondary' ? 'Weekly limit' : '7-day window';
+    return `${days}d ${kind === 'secondary' ? 'limit' : 'window'}`;
   }
   if (minutes >= 60) {
     const hours = Math.round(minutes / 60);
-    return `${hours}h`;
+    return `${hours}-hour window`;
   }
   return `${minutes}m`;
+}
+
+function formatResetAt(value?: number): string {
+  if (!value) return '';
+  const date = new Date(value * 1000);
+  if (Number.isNaN(date.getTime())) return '';
+  const now = new Date();
+  const sameDay = date.toDateString() === now.toDateString();
+  const time = date.toLocaleTimeString('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+  if (sameDay) return `Today, ${time}`;
+  const day = date.toLocaleDateString('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+  });
+  return `${day}, ${time}`;
+}
+
+function formatGrantDate(value?: string): string {
+  if (!value) return 'Unknown';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+  });
+}
+
+const BONUS_EXPIRY_REMINDER_DAYS = 3;
+
+function getDaysLeft(value?: string): number | null {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return Math.max(0, Math.ceil((date.getTime() - Date.now()) / 86_400_000));
+}
+
+interface BonusGrantGroup {
+  key: string;
+  count: number;
+  grantedAt?: string;
+  expiresAt?: string;
+}
+
+function buildBonusGrantGroups(credits: CodexResetCredit[]): BonusGrantGroup[] {
+  const groups = new Map<string, BonusGrantGroup>();
+  for (const credit of credits) {
+    const key = `${credit.grantedAt ?? 'unknown'}-${credit.expiresAt ?? 'unknown'}`;
+    const existing = groups.get(key);
+    if (existing) {
+      existing.count += 1;
+      continue;
+    }
+    groups.set(key, {
+      key,
+      count: 1,
+      grantedAt: credit.grantedAt,
+      expiresAt: credit.expiresAt,
+    });
+  }
+  return Array.from(groups.values());
 }
 
 function getTrayUsedPercent(limits: CodexRateLimits): number | null {
@@ -77,9 +141,10 @@ export default function CodexPanel({
   onLoadingChange,
   onQuotaWindowsChange,
   showCostSummary = true,
+  sections = defaultPanelSections(),
+  onBonusExpiring,
 }: CodexPanelProps) {
   const [codexData, setCodexData] = useState<CodexData | null>(null);
-  const [codexStats, setCodexStats] = useState<CodexStats | null>(null);
   const [rateLimits, setRateLimits] = useState<CodexRateLimits | null>(null);
   const [resetCredits, setResetCredits] = useState<CodexResetCredits | null>(null);
   const [loading, setLoading] = useState(true);
@@ -90,15 +155,13 @@ export default function CodexPanel({
       setLoading(true);
       setError(null);
 
-      const [info, stats, limits, credits] = await Promise.all([
+      const [info, limits, credits] = await Promise.all([
         backend.getCodexInfo(),
-        backend.getCodexStats(),
         backend.getCodexRateLimits(),
         backend.getCodexResetCredits(),
       ]);
 
       setCodexData(info);
-      setCodexStats(stats);
       setRateLimits(limits);
       onQuotaWindowsChange?.(buildCodexQuotaWindows(limits));
       setResetCredits(credits);
@@ -127,7 +190,8 @@ export default function CodexPanel({
 
   useEffect(() => {
     fetchData();
-    // Refresh in background at configured interval.
+    // Refresh in background at configured interval; 0 pauses polling.
+    if (autoRefreshIntervalMs <= 0) return;
     const interval = setInterval(fetchData, autoRefreshIntervalMs);
     return () => clearInterval(interval);
   }, [fetchData, autoRefreshIntervalMs]);
@@ -142,13 +206,15 @@ export default function CodexPanel({
     }
   }, [manualRefreshNonce, fetchData]);
 
-  const handleOpenDashboard = async () => {
-    try {
-      await backend.openCodexDashboard();
-    } catch (err) {
-      console.error('Failed to open Codex dashboard:', err);
+  useEffect(() => {
+    if (!onBonusExpiring) return;
+    for (const group of buildBonusGrantGroups(getAvailableResetCredits(resetCredits))) {
+      const daysLeft = getDaysLeft(group.expiresAt);
+      if (daysLeft != null && daysLeft <= BONUS_EXPIRY_REMINDER_DAYS) {
+        onBonusExpiring(daysLeft);
+      }
     }
-  };
+  }, [resetCredits, onBonusExpiring]);
 
   if (loading && !codexData && !rateLimits) {
     return (
@@ -164,6 +230,7 @@ export default function CodexPanel({
   const windows = buildCodexQuotaWindows(rateLimits);
   const topWindow = sortMostConstrained(windows)[0];
   const availableResetCredits = getAvailableResetCredits(resetCredits);
+  const bonusGrantGroups = buildBonusGrantGroups(availableResetCredits);
 
   return (
     <div className="codex-panel">
@@ -179,158 +246,167 @@ export default function CodexPanel({
           <ProviderDetailHeader
             service="codex"
             status={connected ? 'Connected' : 'Offline'}
-            plan={`Codex ${formatPlanType(planType)}`}
+            plan={formatCodexPlan(planType)}
             usedPercent={topWindow?.usedPercent ?? null}
           />
-          <SmartTip message={getHighUsageTip(windows)} />
 
           {/* Rate Limits Section */}
           {hasRateLimits && (
             <div className="section">
-              <div className="section-title">
-                USAGE
-                <span className="plan-tag">Codex {formatPlanType(planType)}</span>
-              </div>
+              <div className="section-title">Usage</div>
 
-              {rateLimits?.primary && (
-                <div className="quota-card">
-                  <div className="quota-header">
-                    <span className="quota-label">
-                      {formatWindowLabel(rateLimits.primary.windowMinutes)} limit
-                    </span>
-                    <span className="quota-value">
-                      {Math.round(rateLimits.primary.usedPercent)}% used
-                    </span>
-                  </div>
-                  <div className="progress-bar">
-                    <div
-                      className="progress-fill"
-                      style={getProgressStyle(rateLimits.primary.usedPercent)}
-                    />
-                  </div>
-                  {rateLimits.primary.resetsAt && (
-                    <div className="reset-time">
-                      Resets in {formatResetTime(rateLimits.primary.resetsAt)}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {rateLimits?.secondary && (
-                <div className="quota-card">
-                  <div className="quota-header">
-                    <span className="quota-label">
-                      {formatWindowLabel(rateLimits.secondary.windowMinutes)} limit
-                    </span>
-                    <span className="quota-value">
-                      {Math.round(rateLimits.secondary.usedPercent)}% used
-                    </span>
-                  </div>
-                  <div className="progress-bar">
-                    <div
-                      className="progress-fill"
-                      style={getProgressStyle(rateLimits.secondary.usedPercent)}
-                    />
-                  </div>
-                  {rateLimits.secondary.resetsAt && (
-                    <div className="reset-time">
-                      Resets in {formatResetTime(rateLimits.secondary.resetsAt)}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {rateLimits?.credits?.hasCredits && (
-                <div className="quota-card credits-card">
-                  <div className="quota-header">
-                    <span className="quota-label">Credits</span>
-                    <span className="quota-value">
-                      {rateLimits.credits.unlimited
-                        ? 'Unlimited'
-                        : rateLimits.credits.balance || '0'}
-                    </span>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Bonus Reset Credits Section */}
-          {availableResetCredits.length > 0 && (
-            <div className="section">
-              <div className="section-title">
-                BONUS RESETS
-                <span className="plan-tag">{availableResetCredits.length} gifted</span>
-              </div>
-              <div className="bonus-reset-list">
-                {availableResetCredits.map((credit, index) => (
-                  <div className="bonus-reset-card" key={`${credit.expiresAt ?? 'unknown'}-${index}`}>
+              <div className="quota-group">
+                {rateLimits?.primary && (
+                  <div className="quota-card">
                     <div className="quota-header">
-                      <span className="quota-label">{credit.title ?? 'Rate limit reset'}</span>
+                      <span className="quota-label">
+                        {formatWindowLabel(rateLimits.primary.windowMinutes, 'primary')}
+                      </span>
+                      <span className="quota-value">
+                        {Math.round(rateLimits.primary.usedPercent)}%
+                      </span>
                     </div>
-                    <div className="reset-time">
-                      Expires {formatCreditDate(credit.expiresAt)}
+                    <div className="progress-bar">
+                      <div
+                        className="progress-fill"
+                        style={getProgressStyle(rateLimits.primary.usedPercent)}
+                      />
                     </div>
+                    {rateLimits.primary.resetsAt && (
+                      <div className="reset-time">
+                        <span>Resets in {formatResetTime(rateLimits.primary.resetsAt)}</span>
+                        <span>{formatResetAt(rateLimits.primary.resetsAt)}</span>
+                      </div>
+                    )}
+                    {(() => {
+                      const pace = formatPaceText(
+                        rateLimits.primary.usedPercent,
+                        rateLimits.primary.resetsAt,
+                        rateLimits.primary.windowMinutes,
+                      );
+                      return pace ? (
+                        <span className={`quota-pace ${rateLimits.primary.usedPercent >= 50 ? 'warning' : ''}`}>
+                          {pace}
+                        </span>
+                      ) : null;
+                    })()}
                   </div>
-                ))}
-              </div>
-            </div>
-          )}
+                )}
 
-          <ResetTimeline windows={windows} />
+                {rateLimits?.secondary && (
+                  <div className="quota-card">
+                    <div className="quota-header">
+                      <span className="quota-label">
+                        {formatWindowLabel(rateLimits.secondary.windowMinutes, 'secondary')}
+                      </span>
+                      <span className="quota-value">
+                        {Math.round(rateLimits.secondary.usedPercent)}%
+                      </span>
+                    </div>
+                    <div className="progress-bar">
+                      <div
+                        className="progress-fill"
+                        style={getProgressStyle(rateLimits.secondary.usedPercent)}
+                      />
+                    </div>
+                    {rateLimits.secondary.resetsAt && (
+                      <div className="reset-time">
+                        <span>Resets in {formatResetTime(rateLimits.secondary.resetsAt)}</span>
+                        <span>{formatResetAt(rateLimits.secondary.resetsAt)}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
 
-          {/* Subscription Section (only if no rate limits) */}
-          {!hasRateLimits && codexData && (
-            <div className="section">
-              <div className="section-title">SUBSCRIPTION</div>
-              <div className="codex-card">
-                <div className="codex-row">
-                  <span className="codex-label">Plan</span>
-                  <span className="codex-value plan-badge">
-                    {formatPlanType(planType)}
-                  </span>
-                </div>
-                <div className="codex-row">
-                  <span className="codex-label">Valid Until</span>
-                  <span className="codex-value">
-                    {formatSubscriptionDate(codexData.subscriptionUntil)}
-                  </span>
-                </div>
-                {codexData.email && (
-                  <div className="codex-row">
-                    <span className="codex-label">Account</span>
-                    <span className="codex-value email">{codexData.email}</span>
+                {rateLimits?.credits?.hasCredits && (
+                  <div className="quota-card">
+                    <div className="quota-header">
+                      <span className="quota-label">Credits</span>
+                      <span className="quota-value">
+                        {rateLimits.credits.unlimited
+                          ? 'Unlimited'
+                          : rateLimits.credits.balance || '0'}
+                      </span>
+                    </div>
                   </div>
                 )}
               </div>
             </div>
           )}
 
-          {showCostSummary && (
-            <CostSummarySection source="codex" refreshKey={manualRefreshNonce} />
+          {sections.tips && <SmartTip message={getHighUsageTip(windows)} />}
+
+          {/* Bonus Reset Credits Section */}
+          {availableResetCredits.length > 0 && (
+            <div className="bonus-panel">
+              <div className="bonus-header">
+                <div className="bonus-title-row">
+                  <span className="bonus-title">Bonus resets</span>
+                  <span className="bonus-badge">Gifted</span>
+                </div>
+                <span className="bonus-count">{availableResetCredits.length} available</span>
+              </div>
+              <div className="bonus-grants">
+                {bonusGrantGroups.map((group) => {
+                  const daysLeft = getDaysLeft(group.expiresAt);
+                  return (
+                  <div className="bonus-grant-row" key={group.key}>
+                    <span className="bonus-grant-left">
+                      <span className="bonus-dot" />
+                      <span className="bonus-grant-label">
+                        +{group.count} · granted {formatGrantDate(group.grantedAt)}
+                      </span>
+                    </span>
+                    <span className={`bonus-grant-right ${daysLeft != null && daysLeft <= 10 ? 'warning' : ''}`}>
+                      {daysLeft == null ? 'Expires unknown' : `${daysLeft}d left · ${formatGrantDate(group.expiresAt)}`}
+                    </span>
+                  </div>
+                  );
+                })}
+              </div>
+              <div className="bonus-note">Gifted occasionally · no cap · each grant valid 30 days</div>
+            </div>
           )}
 
-          {/* ChatGPT Link */}
-          <button className="open-dashboard-btn" onClick={handleOpenDashboard}>
-            Open Dashboard
-          </button>
+          {sections.timeline && <ResetTimeline windows={windows} />}
 
-          {/* Local Stats Section */}
-          {codexStats && (codexStats.totalSessions > 0 || codexStats.todaySessions > 0) && (
+          {/* Subscription Section (only if no rate limits) */}
+          {!hasRateLimits && codexData && (
             <div className="section">
-              <div className="section-title">LOCAL STATS</div>
-              <div className="codex-card">
-                <div className="codex-row">
-                  <span className="codex-label">Today</span>
-                  <span className="codex-value">{codexStats.todaySessions} sessions</span>
+              <div className="section-title">Subscription</div>
+              <div className="quota-group">
+                <div className="quota-card">
+                  <div className="quota-header">
+                    <span className="quota-label">Plan</span>
+                    <span className="quota-value plan-badge">
+                      {formatPlanType(planType)}
+                    </span>
+                  </div>
                 </div>
-                <div className="codex-row">
-                  <span className="codex-label">Total</span>
-                  <span className="codex-value">{codexStats.totalSessions} sessions</span>
+                <div className="quota-card">
+                  <div className="quota-header">
+                    <span className="quota-label">Valid Until</span>
+                    <span className="quota-value">
+                      {formatSubscriptionDate(codexData.subscriptionUntil)}
+                    </span>
+                  </div>
                 </div>
+                {codexData.email && (
+                  <div className="quota-card">
+                    <div className="quota-header">
+                      <span className="quota-label">Account</span>
+                      <span className="quota-value email">{codexData.email}</span>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}
+
+          {sections.cost && showCostSummary && (
+            <CostSummarySection source="codex" refreshKey={manualRefreshNonce} showTrend={sections.trend} />
+          )}
+
         </div>
       )}
 

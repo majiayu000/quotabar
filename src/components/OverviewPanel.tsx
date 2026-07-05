@@ -1,105 +1,67 @@
-import type { CSSProperties } from 'react';
 import type { ProviderSummary, QuotaWindowSummary } from '../services/provider_summary';
-import { progressStyle } from '../services/provider_summary';
 import type { TrayServiceName } from '../services/tray_visibility';
+import { getProgressStyle } from '../utils/quota_format';
+import CostSummarySection from './CostSummarySection';
+import ProviderDetailHeader from './ProviderDetailHeader';
+import ResetTimeline from './ResetTimeline';
+import { defaultPanelSections, type PanelSectionVisibility } from '../services/panel_sections';
+
+const ALL_COST_SOURCES = ['claude', 'codex', 'cursor'] as const;
 
 interface OverviewPanelProps {
   summaries: ProviderSummary[];
   mostConstrained: QuotaWindowSummary[];
   upcomingResets: QuotaWindowSummary[];
+  costRefreshKey: number;
   onProviderSelect: (provider: TrayServiceName) => void;
-}
-
-function providerStyle(summary: ProviderSummary): CSSProperties {
-  return { '--service-accent': summary.accent } as CSSProperties;
-}
-
-function formatPercent(value: number): string {
-  return `${Math.round(value)}%`;
-}
-
-function renderWindowRow(window: QuotaWindowSummary) {
-  return (
-    <div className="overview-window-row" key={`${window.provider}-${window.label}`}>
-      <div className="overview-window-main">
-        <span className="overview-window-provider">{window.providerLabel}</span>
-        <span className="overview-window-label">{window.label}</span>
-      </div>
-      <div className="overview-window-meter">
-        <span className="overview-window-percent">{formatPercent(window.usedPercent)}</span>
-        <span className="overview-meter-track" aria-hidden="true">
-          <span className="overview-meter-fill" style={progressStyle(window.usedPercent)} />
-        </span>
-      </div>
-      {window.resetLabel && (
-        <span className="overview-window-reset">Reset {window.resetLabel}</span>
-      )}
-    </div>
-  );
+  sections?: PanelSectionVisibility;
 }
 
 export default function OverviewPanel({
   summaries,
   mostConstrained,
   upcomingResets,
+  costRefreshKey,
   onProviderSelect,
+  sections = defaultPanelSections(),
 }: OverviewPanelProps) {
   return (
     <div className="overview-panel">
-      <div className="overview-hero">
-        <div>
-          <div className="overview-kicker">QuotaBar</div>
-          <h1>Provider overview</h1>
-        </div>
-        <div className="overview-health">
-          <strong>{summaries.filter((summary) => summary.connected).length}</strong>
-          <span>online</span>
-        </div>
-      </div>
-
-      <div className="overview-provider-list">
-        {summaries.map((summary) => (
-          <button
-            key={summary.id}
-            type="button"
-            className="overview-provider-tile"
-            style={providerStyle(summary)}
-            onClick={() => onProviderSelect(summary.id)}
-          >
-            <span className="overview-provider-icon" aria-hidden="true">{summary.initials}</span>
-            <span className="overview-provider-copy">
-              <span className="overview-provider-name">{summary.label}</span>
-              <span className="overview-provider-status">{summary.statusText}</span>
-            </span>
-            <span className={`status-dot ${summary.connected ? 'connected' : 'disconnected'}`} />
-          </button>
-        ))}
-      </div>
+      <ProviderDetailHeader
+        service="claude"
+        status={`${summaries.filter((summary) => summary.connected).length} connected`}
+        plan="All providers"
+        usedPercent={mostConstrained[0]?.usedPercent ?? null}
+      />
 
       <div className="section">
         <div className="section-title">Most constrained</div>
-        {mostConstrained.length > 0 ? (
-          <div className="overview-window-list">
-            {mostConstrained.map(renderWindowRow)}
-          </div>
-        ) : (
-          <div className="no-data">--</div>
-        )}
+        <div className="quota-group">
+          {mostConstrained.length > 0 ? mostConstrained.map((window) => (
+            <button
+              type="button"
+              className="quota-card overview-quota-row"
+              key={`${window.provider}-${window.label}`}
+              onClick={() => onProviderSelect(window.provider)}
+            >
+              <div className="quota-header">
+                <span className="quota-label">{`${window.providerLabel} · ${window.label}`}</span>
+                <span className="quota-value">{Math.round(window.usedPercent)}%</span>
+              </div>
+              <div className="progress-bar">
+                <div className="progress-fill" style={getProgressStyle(window.usedPercent)} />
+              </div>
+              {window.resetLabel && <div className="reset-time">Resets in {window.resetLabel}</div>}
+            </button>
+          )) : (
+            <div className="no-data">No provider data</div>
+          )}
+        </div>
       </div>
 
-      {upcomingResets.length > 0 && (
-        <div className="section">
-          <div className="section-title">Upcoming resets</div>
-          <div className="overview-reset-list">
-            {upcomingResets.map((window) => (
-              <div className="overview-reset-row" key={`${window.provider}-${window.label}-${window.resetAtMs}`}>
-                <span>{window.providerLabel}</span>
-                <strong>{window.label}</strong>
-                <em>{window.resetLabel}</em>
-              </div>
-            ))}
-          </div>
-        </div>
+      {sections.timeline && <ResetTimeline windows={upcomingResets} />}
+      {sections.cost && (
+        <CostSummarySection source={ALL_COST_SOURCES} refreshKey={costRefreshKey} showTrend={sections.trend} />
       )}
     </div>
   );

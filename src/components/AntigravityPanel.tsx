@@ -18,7 +18,6 @@ export default function AntigravityPanel({
 }: AntigravityPanelProps) {
   const [data, setData] = useState<AntigravityData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [openError, setOpenError] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
     try {
@@ -51,16 +50,6 @@ export default function AntigravityPanel({
     }
   }, [manualRefreshNonce, fetchData]);
 
-  const handleOpenDashboard = async () => {
-    try {
-      setOpenError(null);
-      await backend.openAntigravityDashboard();
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to open Antigravity dashboard';
-      setOpenError(message);
-    }
-  };
-
   return (
     <div className="codex-panel">
       <ProviderDetailHeader
@@ -70,37 +59,21 @@ export default function AntigravityPanel({
         usedPercent={null}
       />
 
-      <div className="section">
-        <div className="section-title">
-          ANTIGRAVITY
-          <span className="plan-tag">Antigravity Preview</span>
+      <div className="offline-panel">
+        <div className="offline-tile">Ag</div>
+        <div className="offline-title">Antigravity is not connected</div>
+        <div className="offline-hint">
+          Antigravity quota tracking is pending provider support. Check sign-in status below.
         </div>
-        <div className="quota-card">
-          <div className="quota-header">
-            <span className="quota-label">Quota tracking</span>
-            <span className="quota-value">Pending</span>
-          </div>
-          <p className="hint" style={{ marginTop: 8, fontSize: 12, lineHeight: 1.45 }}>
-            Antigravity is in public preview and Google hasn't shipped a stable
-            usage API yet. The only signal we could surface is the 5-hour sprint
-            window, which is decoupled from the weekly baseline that actually
-            triggers rate limiting — so we'd be lying. Tracking arrives when
-            the paid tier ships.
-          </p>
+        <div className="offline-command">
+          <span>antigravity status</span>
+          <span className="offline-copy">⧉</span>
         </div>
       </div>
 
-      <div className="unsupported-state">
-        Local cost and reset timeline are not available for Antigravity until a stable usage API exists.
-      </div>
-
-      <button className="open-dashboard-btn" onClick={handleOpenDashboard}>
-        Open Antigravity
-      </button>
-
-      {(openError || (data?.error && !loading)) && (
+      {data?.error && !loading && (
         <p className="hint" style={{ marginTop: 12, fontSize: 11, opacity: 0.6 }}>
-          Backend status: {openError ?? data?.error}
+          Backend status: {data.error}
         </p>
       )}
     </div>

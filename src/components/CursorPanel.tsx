@@ -8,6 +8,7 @@ import type { CursorData } from '../types/models';
 import { buildCursorQuotaWindows, sortMostConstrained, type QuotaWindowSummary } from '../services/provider_summary';
 import { getHighUsageTip } from '../services/detail_helpers';
 import { formatPlanType, getProgressStyle } from '../utils/quota_format';
+import { defaultPanelSections, type PanelSectionVisibility } from '../services/panel_sections';
 
 interface CursorPanelProps {
   onConnectionChange?: (connected: boolean) => void;
@@ -17,6 +18,7 @@ interface CursorPanelProps {
   onLoadingChange?: (loading: boolean) => void;
   onQuotaWindowsChange?: (windows: QuotaWindowSummary[]) => void;
   showCostSummary?: boolean;
+  sections?: PanelSectionVisibility;
 }
 
 function formatResetDate(resetAt?: string): string {
@@ -44,6 +46,7 @@ export default function CursorPanel({
   onLoadingChange,
   onQuotaWindowsChange,
   showCostSummary = true,
+  sections = defaultPanelSections(),
 }: CursorPanelProps) {
   const [cursorData, setCursorData] = useState<CursorData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -74,6 +77,8 @@ export default function CursorPanel({
 
   useEffect(() => {
     fetchData();
+    // 0 pauses background polling.
+    if (autoRefreshIntervalMs <= 0) return;
     const interval = setInterval(fetchData, autoRefreshIntervalMs);
     return () => clearInterval(interval);
   }, [fetchData, autoRefreshIntervalMs]);
@@ -87,16 +92,6 @@ export default function CursorPanel({
       fetchData();
     }
   }, [manualRefreshNonce, fetchData]);
-
-  const handleOpenDashboard = async () => {
-    try {
-      setError(null);
-      await backend.openCursorDashboard();
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to open Cursor dashboard';
-      setError(message);
-    }
-  };
 
   if (loading && !cursorData) {
     return (
@@ -128,59 +123,55 @@ export default function CursorPanel({
             plan={`Cursor ${formatPlanType(cursorData.planType, 'Unknown')}`}
             usedPercent={topWindow?.usedPercent ?? null}
           />
-          <SmartTip message={getHighUsageTip(windows)} />
 
           <div className="section">
-            <div className="section-title">
-              USAGE
-              <span className="plan-tag">Cursor {formatPlanType(cursorData.planType, 'Unknown')}</span>
-            </div>
+            <div className="section-title">Usage</div>
 
-            {cursorData.fastUsed != null && cursorData.fastLimit != null && (
-              <div className="quota-card">
-                <div className="quota-header">
-                  <span className="quota-label">Fast requests</span>
-                  <span className="quota-value">
-                    {cursorData.fastUsed} / {cursorData.fastLimit}
-                  </span>
-                </div>
-                {percentage != null && (
-                  <div className="progress-bar">
-                    <div className="progress-fill" style={getProgressStyle(percentage)} />
+            <div className="quota-group">
+              {cursorData.fastUsed != null && cursorData.fastLimit != null && (
+                <div className="quota-card">
+                  <div className="quota-header">
+                    <span className="quota-label">Included requests</span>
+                    <span className="quota-value">
+                      {percentage != null ? `${Math.round(percentage)}%` : `${cursorData.fastUsed} / ${cursorData.fastLimit}`}
+                    </span>
                   </div>
-                )}
-                {resetLabel && <div className="reset-time">{resetLabel}</div>}
-              </div>
-            )}
-
-            {cursorData.slowUsed != null && cursorData.slowUsed > 0 && (
-              <div className="quota-card credits-card">
-                <div className="quota-header">
-                  <span className="quota-label">Slow requests</span>
-                  <span className="quota-value">{cursorData.slowUsed}</span>
+                  {percentage != null && (
+                    <div className="progress-bar">
+                      <div className="progress-fill" style={getProgressStyle(percentage)} />
+                    </div>
+                  )}
+                  {resetLabel && <div className="reset-time">{resetLabel}</div>}
                 </div>
-              </div>
-            )}
+              )}
 
-            {cursorData.email && (
-              <div className="quota-card credits-card">
-                <div className="quota-header">
-                  <span className="quota-label">Account</span>
-                  <span className="quota-value email">{cursorData.email}</span>
+              {cursorData.slowUsed != null && cursorData.slowUsed > 0 && (
+                <div className="quota-card">
+                  <div className="quota-header">
+                    <span className="quota-label">Slow requests</span>
+                    <span className="quota-value">{cursorData.slowUsed}</span>
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
+
+              {cursorData.email && (
+                <div className="quota-card">
+                  <div className="quota-header">
+                    <span className="quota-label">Account</span>
+                    <span className="quota-value email">{cursorData.email}</span>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
-          <ResetTimeline windows={windows} />
+          {sections.tips && <SmartTip message={getHighUsageTip(windows)} />}
 
-          {showCostSummary && (
-            <CostSummarySection source="cursor" refreshKey={manualRefreshNonce} />
+          {sections.timeline && <ResetTimeline windows={windows} />}
+
+          {sections.cost && showCostSummary && (
+            <CostSummarySection source="cursor" refreshKey={manualRefreshNonce} showTrend={sections.trend} />
           )}
-
-          <button className="open-dashboard-btn" onClick={handleOpenDashboard}>
-            Open Dashboard
-          </button>
         </div>
       )}
 

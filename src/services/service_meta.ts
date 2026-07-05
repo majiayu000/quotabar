@@ -29,7 +29,7 @@ export const SERVICE_META: Record<TrayServiceName, ServiceMeta> = {
     shortLabel: 'Codex',
     initials: 'Co',
     trayLabel: 'Codex Tray',
-    accent: '#12a66a',
+    accent: '#10A37F',
     disconnectedHint: 'Requires Codex App or CLI login',
   },
   cursor: {
@@ -38,7 +38,7 @@ export const SERVICE_META: Record<TrayServiceName, ServiceMeta> = {
     shortLabel: 'Cursor',
     initials: 'Cu',
     trayLabel: 'Cursor Tray',
-    accent: '#ef4444',
+    accent: '#5B5BD6',
     disconnectedHint: 'Requires Cursor sign-in or CURSOR_SESSION_TOKEN',
   },
   antigravity: {
@@ -47,7 +47,7 @@ export const SERVICE_META: Record<TrayServiceName, ServiceMeta> = {
     shortLabel: 'Anti',
     initials: 'Ag',
     trayLabel: 'Antigravity Tray',
-    accent: '#168bd8',
+    accent: '#0A84FF',
     connectedHint: 'Preview',
     disconnectedHint: 'Quota tracking pending - see panel',
   },

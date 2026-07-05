@@ -1,9 +1,10 @@
-import type { CSSProperties } from 'react';
+import { getProgressStyle } from '../utils/quota_format';
 
 interface QuotaCardProps {
   label: string;
   percentage: number;
   resetsIn: string;
+  pace?: string | null;
 }
 
 function getStatusColor(percentage: number): string {
@@ -12,31 +13,14 @@ function getStatusColor(percentage: number): string {
   return 'good';
 }
 
-function getStatusLabel(percentage: number): string {
-  if (percentage >= 80) return 'Critical';
-  if (percentage >= 50) return 'Warning';
-  return 'Good';
-}
-
-function getProgressStyle(percentage: number): CSSProperties {
-  const clamped = Math.min(Math.max(percentage, 0), 100);
-  return {
-    '--progress-scale': String(clamped / 100),
-  } as CSSProperties;
-}
-
-export default function QuotaCard({ label, percentage, resetsIn }: QuotaCardProps) {
+export default function QuotaCard({ label, percentage, resetsIn, pace }: QuotaCardProps) {
   const status = getStatusColor(percentage);
-  const statusLabel = getStatusLabel(percentage);
 
   return (
     <div className="quota-card">
       <div className="quota-header">
         <span className="quota-label">{label}</span>
-        <div className="quota-status">
-          <span className={`status-badge ${status}`}>{statusLabel}</span>
-          <span className="quota-percentage">{percentage}%</span>
-        </div>
+        <span className="quota-percentage">{percentage}%</span>
       </div>
 
       <div className="progress-bar">
@@ -47,9 +31,13 @@ export default function QuotaCard({ label, percentage, resetsIn }: QuotaCardProp
       </div>
 
       <div className="quota-footer">
-        <span className="reset-icon">↻</span>
         <span className="reset-text">Resets in {resetsIn}</span>
+        <span className="reset-at-text" />
       </div>
+
+      {pace && (
+        <span className={`quota-pace ${percentage >= 50 ? 'warning' : ''}`}>{pace}</span>
+      )}
     </div>
   );
 }
