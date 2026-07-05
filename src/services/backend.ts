@@ -5,6 +5,7 @@ import type {
   CodexRateLimits,
   CodexResetCredits,
   CodexStats,
+  CostDailySeries,
   CostOverview,
   CostSource,
   CursorData,
@@ -65,6 +66,16 @@ export const backend = {
     });
   },
 
+  getCostDaily(source: CostSource, days: number, force = false) {
+    return invokeBackend<CostDailySeries>('get_cost_daily', {
+      source,
+      days,
+      currency: 'USD',
+      timezone: null,
+      force,
+    });
+  },
+
   openClaudeDashboard() {
     return invokeBackend<void>('open_claude_dashboard');
   },
@@ -86,12 +97,14 @@ export const backend = {
     percentage: number | null,
     visible: boolean,
     force = false,
+    style: 'percent' | 'ring' | 'icon' = 'percent',
   ) {
     return invokeBackend<void>('update_tray_icon', {
       service,
       percentage: percentage == null ? null : Math.round(percentage),
       visible,
       force,
+      style,
     });
   },
 

@@ -125,3 +125,18 @@ export interface CostOverview {
   cached: boolean;
   ranges: CostRangeSummary[];
 }
+
+export interface CostDailyPoint {
+  date: string;
+  cost?: number | null;
+  costUsd?: number | null;
+  totalTokens: number;
+}
+
+export interface CostDailySeries {
+  source: string;
+  currency: string;
+  generatedAt: string;
+  cached: boolean;
+  days: CostDailyPoint[];
+}
