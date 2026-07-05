@@ -8,6 +8,7 @@ interface ActionButtonsProps {
   loading: boolean;
   settingsActive?: boolean;
   statusText?: string;
+  statusTitle?: string;
 }
 
 const footerDividerStyle: CSSProperties = {
@@ -79,12 +80,11 @@ const statusStyle: CSSProperties = {
 
 const iconButtonStyle: CSSProperties = {
   ...baseButtonStyle,
-  width: '28px',
-  height: '28px',
-  flexBasis: '28px',
+  width: '26px',
+  height: '26px',
+  flexBasis: '26px',
   padding: 0,
   borderRadius: '7px',
-  fontSize: '18px',
   color: 'var(--sub,rgba(60,60,67,0.7))',
 };
 
@@ -96,6 +96,7 @@ export default function ActionButtons({
   loading,
   settingsActive = false,
   statusText,
+  statusTitle,
 }: ActionButtonsProps) {
   return (
     <>
@@ -125,7 +126,7 @@ export default function ActionButtons({
         </button>
 
         {statusText && (
-          <span className="action-status" style={statusStyle} title={statusText}>
+          <span className="action-status" style={statusStyle} title={statusTitle ?? statusText}>
             {statusText}
           </span>
         )}
