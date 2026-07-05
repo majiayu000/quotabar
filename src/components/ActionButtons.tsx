@@ -79,12 +79,12 @@ const statusStyle: CSSProperties = {
 
 const iconButtonStyle: CSSProperties = {
   ...baseButtonStyle,
-  width: '26px',
-  height: '26px',
-  flexBasis: '26px',
+  width: '28px',
+  height: '28px',
+  flexBasis: '28px',
   padding: 0,
   borderRadius: '7px',
-  fontSize: '14px',
+  fontSize: '18px',
   color: 'var(--sub,rgba(60,60,67,0.7))',
 };
 
@@ -143,7 +143,7 @@ export default function ActionButtons({
 
         <button
           className="action-btn icon-action quit-btn"
-          style={{ ...iconButtonStyle, fontSize: '13px' }}
+          style={{ ...iconButtonStyle, fontSize: '16px' }}
           onClick={onQuit}
           title="Quit"
           aria-label="Quit QuotaBar"
