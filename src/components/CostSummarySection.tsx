@@ -319,7 +319,7 @@ export default function CostSummarySection({
 
           {primaryRange && (
             <>
-              {budgetPercent != null && monthlyBudget != null ? (
+              {budgetPercent != null && monthlyBudget != null && (
                 <div className="budget-panel">
                   <div className="budget-row">
                     <span>Monthly budget</span>
@@ -331,16 +331,6 @@ export default function CostSummarySection({
                   </div>
                   <div className="budget-track">
                     <div className="budget-fill" style={getProgressStyle(budgetPercent)} />
-                  </div>
-                </div>
-              ) : (
-                <div className="budget-panel">
-                  <div className="budget-row">
-                    <span>Entries</span>
-                    <strong>{formatCompactNumber(primaryRange.validEntries)}</strong>
-                  </div>
-                  <div className="budget-track">
-                    <div className="budget-fill" style={getProgressStyle(Math.min(primaryRange.validEntries, 100))} />
                   </div>
                 </div>
               )}

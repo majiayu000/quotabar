@@ -30,7 +30,7 @@ describe('panel sections persistence', () => {
 
   test('round-trips saved visibility', () => {
     installMemoryStorage();
-    const sections = { ...defaultPanelSections(), tips: false, quick: false };
+    const sections = { ...defaultPanelSections(), tips: false };
     savePanelSections(sections);
     expect(getSavedPanelSections()).toEqual(sections);
   });

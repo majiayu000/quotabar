@@ -1,7 +1,6 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { listen } from '@tauri-apps/api/event';
 import ActionButtons from './components/ActionButtons';
-import QuickActions from './components/QuickActions';
 import OverviewPanel from './components/OverviewPanel';
 import SettingsView from './components/SettingsView';
 import type { ThemeName } from './components/ThemeSelector';
@@ -130,7 +129,6 @@ export default function App() {
   });
   const [lastUpdatedAt, setLastUpdatedAt] = useState<number | null>(null);
   const [, setStatusTick] = useState(0);
-  const [pollingPaused, setPollingPaused] = useState(false);
   const [panelSections, setPanelSections] = useState<PanelSectionVisibility>(getSavedPanelSections);
   const [trayStyle, setTrayStyle] = useState<TrayStyle>(getSavedTrayStyle);
   const [trayCycle, setTrayCycle] = useState<boolean>(getSavedTrayCycle);
@@ -254,8 +252,6 @@ export default function App() {
   }, [setServiceConnected]);
 
   useEffect(() => {
-    if (pollingPaused) return;
-
     let timer: ReturnType<typeof setTimeout> | null = null;
     let cancelled = false;
 
@@ -273,7 +269,7 @@ export default function App() {
         clearTimeout(timer);
       }
     };
-  }, [fetchClaudeQuota, pollingPaused]);
+  }, [fetchClaudeQuota]);
 
   useEffect(() => {
     setServiceUsedPercent('claude', getClaudeTrayUsedPercent(quota));
@@ -595,11 +591,9 @@ export default function App() {
     ...panelLoading,
     claude: claudeLoading,
   };
-  const nonClaudeRefreshIntervalMs = pollingPaused
-    ? 0
-    : windowVisible
-      ? AUTO_REFRESH_INTERVAL_MS
-      : BACKGROUND_REFRESH_INTERVAL_MS;
+  const nonClaudeRefreshIntervalMs = windowVisible
+    ? AUTO_REFRESH_INTERVAL_MS
+    : BACKGROUND_REFRESH_INTERVAL_MS;
   // Keep this short: the footer status slot only fits ~8 characters.
   const footerStatus = activeLoading
     ? 'Updating...'
@@ -611,12 +605,6 @@ export default function App() {
     : 'Not updated yet';
   const providerSummaries = buildProviderSummaries(tabConnected, serviceLoading, serviceUsage);
   const switcherSummaries = providerSummaries.filter((summary) => switcherVisibility[summary.id]);
-  const usageParts = providerSummaries
-    .filter((summary) => summary.usedPercent != null)
-    .map((summary) => `${summary.label} ${Math.round(summary.usedPercent as number)}%`);
-  const statusCopyText = usageParts.length > 0
-    ? `${usageParts.join(' · ')} — via QuotaBar`
-    : 'No usage data yet — via QuotaBar';
   const allQuotaWindows = [
     ...buildClaudeQuotaWindows(quota),
     ...providerQuotaWindows.codex,
@@ -724,15 +712,6 @@ export default function App() {
                 />
               )}
             </div>
-
-            {panelSections.quick && (
-            <QuickActions
-              statusText={statusCopyText}
-              paused={pollingPaused}
-              onTogglePause={() => setPollingPaused((prev) => !prev)}
-              onOpenUsagePage={handleOpenDashboard}
-            />
-            )}
 
             <ActionButtons
               onRefresh={handleRefresh}

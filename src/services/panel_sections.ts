@@ -1,21 +1,20 @@
-export type PanelSectionKey = 'timeline' | 'cost' | 'trend' | 'tips' | 'quick';
+export type PanelSectionKey = 'timeline' | 'cost' | 'trend' | 'tips';
 
 export type PanelSectionVisibility = Record<PanelSectionKey, boolean>;
 
-export const PANEL_SECTION_ORDER: PanelSectionKey[] = ['timeline', 'cost', 'trend', 'tips', 'quick'];
+export const PANEL_SECTION_ORDER: PanelSectionKey[] = ['timeline', 'cost', 'trend', 'tips'];
 
 export const PANEL_SECTION_LABELS: Record<PanelSectionKey, string> = {
   timeline: 'Reset timeline',
   cost: 'Local cost',
   trend: 'Usage trend',
   tips: 'Smart tips',
-  quick: 'Quick actions',
 };
 
 const STORAGE_KEY = 'claude-quota-panel-sections';
 
 export function defaultPanelSections(): PanelSectionVisibility {
-  return { timeline: true, cost: true, trend: true, tips: true, quick: true };
+  return { timeline: true, cost: true, trend: true, tips: true };
 }
 
 export function getSavedPanelSections(): PanelSectionVisibility {
