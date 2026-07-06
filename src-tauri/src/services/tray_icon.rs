@@ -377,7 +377,12 @@ mod tests {
 
     #[test]
     fn generate_icon_returns_png_bytes() {
-        let bytes = generate_tray_icon(TrayIconIdentity::Claude, Some(73), 44, TrayIconStyle::Percent);
+        let bytes = generate_tray_icon(
+            TrayIconIdentity::Claude,
+            Some(73),
+            44,
+            TrayIconStyle::Percent,
+        );
         assert!(!bytes.is_empty());
     }
 
@@ -389,16 +394,41 @@ mod tests {
 
     #[test]
     fn service_badges_produce_distinct_icons() {
-        let claude = generate_tray_icon(TrayIconIdentity::Claude, Some(42), 44, TrayIconStyle::Percent);
-        let codex = generate_tray_icon(TrayIconIdentity::Codex, Some(42), 44, TrayIconStyle::Percent);
+        let claude = generate_tray_icon(
+            TrayIconIdentity::Claude,
+            Some(42),
+            44,
+            TrayIconStyle::Percent,
+        );
+        let codex = generate_tray_icon(
+            TrayIconIdentity::Codex,
+            Some(42),
+            44,
+            TrayIconStyle::Percent,
+        );
         assert_ne!(claude, codex);
     }
 
     #[test]
     fn tray_icon_distinguishes_full_usage_from_ninety_nine() {
-        let ninety_nine = generate_tray_icon(TrayIconIdentity::Claude, Some(99), 44, TrayIconStyle::Percent);
-        let full = generate_tray_icon(TrayIconIdentity::Claude, Some(100), 44, TrayIconStyle::Percent);
-        let over_limit = generate_tray_icon(TrayIconIdentity::Claude, Some(130), 44, TrayIconStyle::Percent);
+        let ninety_nine = generate_tray_icon(
+            TrayIconIdentity::Claude,
+            Some(99),
+            44,
+            TrayIconStyle::Percent,
+        );
+        let full = generate_tray_icon(
+            TrayIconIdentity::Claude,
+            Some(100),
+            44,
+            TrayIconStyle::Percent,
+        );
+        let over_limit = generate_tray_icon(
+            TrayIconIdentity::Claude,
+            Some(130),
+            44,
+            TrayIconStyle::Percent,
+        );
 
         assert_ne!(ninety_nine, full);
         assert_eq!(full, over_limit);
