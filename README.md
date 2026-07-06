@@ -129,13 +129,13 @@ Expected output locations:
 
 ## Release Artifacts
 
-There is no published GitHub release yet. Until the first release is cut, use the source-build path above.
+The latest published release is [QuotaBar v0.2.0](https://github.com/majiayu000/quotabar/releases/tag/v0.2.0).
 
 Release candidates should be built by the `release-artifacts` GitHub Actions workflow or from a clean checkout, then attached manually to the matching GitHub release only after final human approval. The workflow uploads build artifacts for inspection; it does not publish a GitHub Release. See [docs/release.md](docs/release.md) for the release checklist.
 
 ## Install / Run
 
-Until a public release exists, install from a local build.
+For normal use, download the current installer from [GitHub Releases](https://github.com/majiayu000/quotabar/releases/latest). For development, install from a local build.
 
 macOS:
 
@@ -153,6 +153,7 @@ Or one-shot restart after rebuild:
 
 Windows:
 
+- Download the `.msi` or `.exe` from GitHub Releases.
 - Build installer: `npm run tauri build -- --bundles msi,nsis`
 - Install from the generated `.msi` or `.exe`
 

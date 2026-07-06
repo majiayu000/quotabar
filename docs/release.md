@@ -1,10 +1,10 @@
 # First-Release Runbook
 
-QuotaBar does not currently have a published GitHub Release.
+QuotaBar's first published GitHub Release is `v0.2.0`.
 
-This runbook prepares release artifacts, but it does not authorize publishing.
-Create the public release only after a human approves the tag, artifacts, release
-notes, and signing/notarization decision.
+This runbook prepares future release artifacts, but it does not authorize
+publishing. Create a public release only after a human approves the tag,
+artifacts, release notes, and signing/notarization decision.
 
 ## Release Gates
 
