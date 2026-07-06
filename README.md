@@ -1,5 +1,8 @@
 # QuotaBar
 
+[![CI](https://github.com/majiayu000/quotabar/actions/workflows/ci.yml/badge.svg)](https://github.com/majiayu000/quotabar/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 <p align="center">
   <img src="src-tauri/icons/app-icon.svg" alt="QuotaBar logo" width="128" />
 </p>
@@ -83,31 +86,56 @@ This screenshot is captured from the production React UI in browser preview with
 ## Development
 
 ```bash
-npm install
+npm ci
 npm run tauri dev
 ```
 
 ## Build
 
+Frontend and Rust verification:
+
 ```bash
-npm install
+npm ci
+npm test
+npm run build
+cargo fmt --manifest-path src-tauri/Cargo.toml --check
+cargo check --manifest-path src-tauri/Cargo.toml
+cargo test --manifest-path src-tauri/Cargo.toml
+```
+
+Local macOS app bundle:
+
+```bash
 npm run tauri build -- --bundles app
 ```
 
-macOS app bundle output:
-
 `src-tauri/target/release/bundle/macos/QuotaBar.app`
 
-Windows installer output:
+Downloadable release bundles:
 
+```bash
+# macOS
+npm run tauri build -- --bundles dmg
+
+# Windows
+npm run tauri build -- --bundles msi,nsis
+```
+
+Expected output locations:
+
+`src-tauri/target/release/bundle/dmg/`
 `src-tauri/target/release/bundle/msi/`
 `src-tauri/target/release/bundle/nsis/`
 
 ## Release Artifacts
 
-There is no published GitHub release yet. When a release is cut, build from a clean checkout and attach the generated platform artifact from the paths above to the matching GitHub release tag. See `docs/release.md` for the release checklist.
+There is no published GitHub release yet. Until the first release is cut, use the source-build path above.
+
+Release candidates should be built by the `release-artifacts` GitHub Actions workflow or from a clean checkout, then attached manually to the matching GitHub release only after final human approval. The workflow uploads build artifacts for inspection; it does not publish a GitHub Release. See [docs/release.md](docs/release.md) for the release checklist.
 
 ## Install / Run
+
+Until a public release exists, install from a local build.
 
 macOS:
 
@@ -131,10 +159,12 @@ Windows:
 ## Verification
 
 ```bash
-npm run build
 npm test
-cd src-tauri && cargo check
-cd src-tauri && cargo test
+npm run build
+cargo fmt --manifest-path src-tauri/Cargo.toml --check
+cargo check --manifest-path src-tauri/Cargo.toml
+cargo test --manifest-path src-tauri/Cargo.toml
+npm run tauri build -- --bundles app
 ```
 
 ## Limitations
@@ -170,15 +200,12 @@ cd src-tauri && cargo test
   - local logs may not exist yet
   - costs are estimated offline from local Claude/Codex logs via `ccstats`
 
-## Repository Rename
+## Support and Security
 
-Recommended GitHub repository name: `quotabar`.
-
-After the repository is renamed on GitHub, update local remotes with:
-
-```bash
-git remote set-url origin https://github.com/majiayu000/quotabar.git
-```
+- Bugs and feature requests: use GitHub issues.
+- Security or credential exposure: use GitHub private security advisories. Do not paste provider tokens, cookies, session files, or local auth material into public issues.
+- Contributor setup and expectations: see [CONTRIBUTING.md](CONTRIBUTING.md).
+- Security scope and reporting: see [SECURITY.md](SECURITY.md).
 
 ## License
 

@@ -1,21 +1,25 @@
-# GH-27 Product Spec: Local Cost Multi-Range Summary
+# GH-27 Product Spec: First Public Release Readiness
 
 ## Goals
 
-- Use the ccstats GH27 multi-range SDK path for QuotaBar local cost summaries.
-- Keep the existing QuotaBar UI response shape for Today, This Week, and This Month.
-- Reduce cold or forced local cost refresh work from repeated per-range scans to one shared ccstats scan.
+- Prepare QuotaBar for a first public desktop-app release without publishing the release.
+- Make the repository understandable and safe for outside users and contributors.
+- Provide a manual release artifact workflow that can build downloadable desktop bundles before a release is cut.
+- Keep the current honest product boundary: provider credentials are read locally, release artifacts are not published yet, and Antigravity quota tracking remains pending provider support.
 
 ## Non-Goals
 
-- Do not change QuotaBar's visible cost UI.
-- Do not add new providers or expose new cost fields.
-- Do not change tray behavior or existing quota polling behavior.
+- Do not publish a GitHub Release.
+- Do not upload installer artifacts to a public release.
+- Do not add branch protection or merge policy settings.
+- Do not add provider quota features or change quota semantics.
 
 ## Acceptance Criteria
 
-- QuotaBar depends on a ccstats revision that includes GH27 `summarize_cost_ranges`.
-- `src-tauri/src/services/cost.rs` calls the multi-range SDK once for Today, This Week, and This Month instead of looping over single-range summaries.
-- The returned `CostOverview` still contains the same range keys and labels: `today`, `week`, and `month`.
-- Cache behavior remains unchanged: non-forced calls can return the five-minute cached overview and forced calls rebuild it.
-- Fresh Rust and TypeScript verification passes.
+- README and release docs explain the current install and release status without stale rename guidance.
+- GitHub metadata no longer points to the old `quota-menubar-tauri` homepage.
+- `SECURITY.md` and `CONTRIBUTING.md` exist with QuotaBar-specific credential and token boundaries.
+- A release workflow can build and upload macOS and Windows desktop artifacts as workflow artifacts without auto-publishing a GitHub Release.
+- Tauri CSP is restricted for the bundled React UI and Tauri IPC instead of being disabled with `csp: null`.
+- The pre-existing upstream ccstats GH27 notes no longer occupy the local `specs/GH27` namespace.
+- Fresh frontend and Rust verification passes.

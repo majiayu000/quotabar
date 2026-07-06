@@ -1,25 +1,42 @@
-# GH-27 Tech Spec: Local Cost Multi-Range Summary
+# GH-27 Tech Spec: First Public Release Readiness
 
 ## Proposed Design
 
-Upgrade QuotaBar's ccstats dependency to a revision containing GH27 and import:
+Use a repository-preparation PR rather than publishing a release directly.
 
-- `summarize_cost_ranges`
-- `MultiSummaryOptions`
+Documentation changes:
 
-In `build_cost_overview`, build the three existing `UsageRange` values, call `summarize_cost_ranges` once, then map the ordered returned summaries back into QuotaBar's existing `CostRangeSummary` structs with the current labels.
+- Update README release and install sections so outside users understand the current no-release state, source-build path, and release artifact plan.
+- Replace the stale repository rename section with support and security-report guidance.
+- Expand `docs/release.md` into a first-release runbook with local verification, release artifact workflow usage, and explicit human gate before tag/release publication.
+- Add `SECURITY.md`, `CONTRIBUTING.md`, and `CODE_OF_CONDUCT.md` for public project hygiene.
 
-The mapping layer must fail if the SDK returns an unexpected number of summaries. A missing or mismatched SDK result should be an error, not a partial UI fallback.
+Workflow changes:
+
+- Add `.github/workflows/release-artifacts.yml`.
+- Run on pull requests touching release-critical paths and on manual dispatch.
+- Build macOS and Windows bundles on pinned hosted runners.
+- Upload workflow artifacts with `actions/upload-artifact`.
+- Do not create or mutate GitHub Releases.
+
+Security changes:
+
+- Replace `app.security.csp: null` with a restrictive CSP object for local bundled assets, Tauri IPC, inline CSS needed by the current React/CSS stack, and image data URLs.
+- Keep Tauri capabilities scoped to core, opener, and notification permissions.
+
+Metadata changes:
+
+- Update GitHub repository metadata out of band with `gh repo edit` so the homepage no longer points at the old repo and topics reflect current providers.
 
 ## Test Plan
 
-- Unit-test the mapping layer for stable QuotaBar range keys and labels.
-- Unit-test mismatch handling for an unexpected SDK summary count.
-- Run `cargo check --manifest-path src-tauri/Cargo.toml`.
-- Run `cargo test --manifest-path src-tauri/Cargo.toml`.
-- Run `npx tsc --noEmit`.
-- Run `npm test -- --run`.
+- `npm test`
+- `npm run build`
+- `cargo fmt --manifest-path src-tauri/Cargo.toml --check`
+- `cargo check --manifest-path src-tauri/Cargo.toml`
+- `cargo test --manifest-path src-tauri/Cargo.toml`
+- `npm run tauri build -- --bundles app`
 
 ## Rollback Plan
 
-Revert the ccstats revision and the `cost.rs` multi-range integration. The existing cache and per-range single summary path can be restored from git history if the upstream SDK API changes.
+Revert the PR. The release workflow is artifact-only and does not publish releases, so rollback does not need to delete release assets. If the CSP breaks the desktop shell, revert only the CSP object to the previous release branch state and keep the docs/community files.
