@@ -42,6 +42,10 @@ npm run dev -- --host 127.0.0.1
 npx playwright screenshot --wait-for-timeout=3500 --viewport-size=340,580 http://127.0.0.1:1420 docs/assets/quotabar-no-provider-preview.png
 ```
 
+This captures the default browser-preview state without a Tauri desktop
+backend. Do not seed local storage, provider credentials, sessions, or fake
+quota percentages for this proof.
+
 ## Artifact Workflow
 
 Use the `release-artifacts` workflow to produce downloadable bundles for

@@ -29,7 +29,7 @@ QuotaBar is a Tauri v2 menubar app for monitoring Claude Code, Codex, Cursor, an
 
 ![QuotaBar browser preview without provider credentials](docs/assets/quotabar-no-provider-preview.png)
 
-This screenshot is captured from the production React UI in browser preview without a Tauri desktop backend. It intentionally includes no provider quota values, account identifiers, tokens, cookies, or sessions. Desktop widget and notification visuals are static design previews only until a runtime implementation ships. See `docs/demo-proof.md` for the capture scope and refresh steps.
+This `v0.2.0` screenshot was refreshed on 2026-07-07 from the production React UI in browser preview without a Tauri desktop backend. It intentionally shows the default unavailable-backend state and includes no provider quota values, account identifiers, tokens, cookies, or sessions. Desktop widget and notification visuals are static design previews only until a runtime implementation ships. See `docs/demo-proof.md` for the capture scope and refresh steps.
 
 ## Quota Semantics
 
