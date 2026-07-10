@@ -187,12 +187,59 @@ fn read_credentials_from_system() -> Result<KeychainCredentials, String> {
     ))
 }
 
-fn token_preview(token: &str) -> String {
-    if token.len() > 12 {
-        format!("{}...{}", &token[..6], &token[token.len() - 6..])
-    } else {
-        "***".to_string()
+struct RedactedCredential<'a> {
+    _secret: &'a str,
+}
+
+impl<'a> RedactedCredential<'a> {
+    fn new(secret: &'a str) -> Self {
+        Self { _secret: secret }
     }
+}
+
+impl std::fmt::Display for RedactedCredential<'_> {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str("<redacted>")
+    }
+}
+
+fn oauth_cache_hit_diagnostic(
+    access_token: &str,
+    elapsed: Duration,
+    expires_at_ms: Option<u64>,
+) -> String {
+    format!(
+        "[OAuth] cache hit, credential={}, age={:.0}s, ttl={:.0}s remaining, expires_at={expires_at_ms:?}",
+        RedactedCredential::new(access_token),
+        elapsed.as_secs_f64(),
+        (TOKEN_CACHE_TTL - elapsed).as_secs_f64()
+    )
+}
+
+fn oauth_env_source_diagnostic(access_token: &str) -> String {
+    format!(
+        "[OAuth] using env var credentials: credential={}",
+        RedactedCredential::new(access_token)
+    )
+}
+
+fn oauth_keychain_source_diagnostic(
+    cred_name: &str,
+    access_token: &str,
+    expires_at_ms: Option<u64>,
+) -> String {
+    format!(
+        "[OAuth] keychain read ok: cred_name={cred_name}, credential={}, expires_at={expires_at_ms:?}",
+        RedactedCredential::new(access_token)
+    )
+}
+
+fn request_quota_diagnostic(access_token: &str, count: u64, gap: Option<f64>) -> String {
+    format!(
+        "[API] request_quota: credential={}, req_count={count}, gap={:.1}s",
+        RedactedCredential::new(access_token),
+        gap.unwrap_or(0.0)
+    )
 }
 
 fn get_oauth_token(force_refresh: bool) -> Result<String, String> {
@@ -205,12 +252,10 @@ fn get_oauth_token(force_refresh: bool) -> Result<String, String> {
             if let Some(creds) = guard.as_ref() {
                 let elapsed = creds.cached_at.elapsed();
                 if elapsed < TOKEN_CACHE_TTL {
-                    log_msg(&format!(
-                        "[OAuth] cache hit, token={}, age={:.0}s, ttl={:.0}s remaining, expires_at={:?}",
-                        token_preview(&creds.access_token),
-                        elapsed.as_secs_f64(),
-                        (TOKEN_CACHE_TTL - elapsed).as_secs_f64(),
-                        creds.expires_at_ms
+                    log_msg(&oauth_cache_hit_diagnostic(
+                        &creds.access_token,
+                        elapsed,
+                        creds.expires_at_ms,
                     ));
                     return Ok(creds.access_token.clone());
                 } else {
@@ -227,10 +272,7 @@ fn get_oauth_token(force_refresh: bool) -> Result<String, String> {
     }
 
     if let Some(token) = read_oauth_token_from_env() {
-        log_msg(&format!(
-            "[OAuth] using env var token={}",
-            token_preview(&token)
-        ));
+        log_msg(&oauth_env_source_diagnostic(&token));
         if let Ok(mut guard) = credentials_cache().lock() {
             *guard = Some(CachedCredentials {
                 access_token: token.clone(),
@@ -243,11 +285,10 @@ fn get_oauth_token(force_refresh: bool) -> Result<String, String> {
 
     log_msg("[OAuth] reading from keychain...");
     let keychain = read_credentials_from_system()?;
-    log_msg(&format!(
-        "[OAuth] keychain read ok: cred_name={}, token={}, expires_at={:?}",
-        keychain.cred_name,
-        token_preview(&keychain.access_token),
-        keychain.expires_at_ms
+    log_msg(&oauth_keychain_source_diagnostic(
+        &keychain.cred_name,
+        &keychain.access_token,
+        keychain.expires_at_ms,
     ));
 
     if let Ok(mut guard) = credentials_cache().lock() {
@@ -262,11 +303,7 @@ fn get_oauth_token(force_refresh: bool) -> Result<String, String> {
 
 async fn request_quota(access_token: &str) -> Result<reqwest::Response, String> {
     let (count, gap) = track_request();
-    log_msg(&format!(
-        "[API] request_quota: token={}, req_count={count}, gap={:.1}s",
-        token_preview(access_token),
-        gap.unwrap_or(0.0)
-    ));
+    log_msg(&request_quota_diagnostic(access_token, count, gap));
 
     let start = Instant::now();
     let response = shared_http_client()
@@ -556,10 +593,58 @@ pub async fn fetch_quota() -> QuotaData {
 #[cfg(test)]
 mod tests {
     use super::{
+        oauth_cache_hit_diagnostic, oauth_env_source_diagnostic, oauth_keychain_source_diagnostic,
         parse_first_quota_window, parse_quota_window, parse_weekly_scoped_model_quota,
-        FABLE5_QUOTA_KEYS,
+        request_quota_diagnostic, FABLE5_QUOTA_KEYS,
     };
     use serde_json::{json, Value};
+    use std::time::Duration;
+
+    const SENTINEL_TOKEN: &str = "secret-prefix-sensitive-value-secret-suffix";
+
+    fn assert_excludes_token_fragments(diagnostic: &str) {
+        assert!(SENTINEL_TOKEN.is_ascii());
+        assert!(diagnostic.contains("<redacted>"));
+        assert!(!diagnostic.contains(SENTINEL_TOKEN));
+        for width in 6..=SENTINEL_TOKEN.len() {
+            for start in 0..=SENTINEL_TOKEN.len() - width {
+                let fragment = &SENTINEL_TOKEN[start..start + width];
+                assert!(
+                    !diagnostic.contains(fragment),
+                    "diagnostic contains a token-derived fragment"
+                );
+            }
+        }
+        assert!(!diagnostic.contains("token="));
+    }
+
+    #[test]
+    fn credential_diagnostics_exclude_oauth_token_fragments() {
+        let diagnostics = [
+            oauth_cache_hit_diagnostic(
+                SENTINEL_TOKEN,
+                Duration::from_secs(12),
+                Some(1_800_000_000_000),
+            ),
+            oauth_env_source_diagnostic(SENTINEL_TOKEN),
+            oauth_keychain_source_diagnostic(
+                "Claude Code-credentials",
+                SENTINEL_TOKEN,
+                Some(1_800_000_000_000),
+            ),
+        ];
+
+        for diagnostic in diagnostics {
+            assert_excludes_token_fragments(&diagnostic);
+        }
+    }
+
+    #[test]
+    fn request_diagnostic_excludes_oauth_token_fragments() {
+        let diagnostic = request_quota_diagnostic(SENTINEL_TOKEN, 7, Some(1.5));
+
+        assert_excludes_token_fragments(&diagnostic);
+    }
 
     #[test]
     fn parse_quota_window_requires_numeric_utilization() {
