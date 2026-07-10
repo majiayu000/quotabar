@@ -187,25 +187,57 @@ fn read_credentials_from_system() -> Result<KeychainCredentials, String> {
     ))
 }
 
-fn oauth_cache_hit_diagnostic(elapsed: Duration, expires_at_ms: Option<u64>) -> String {
+struct RedactedCredential<'a> {
+    _secret: &'a str,
+}
+
+impl<'a> RedactedCredential<'a> {
+    fn new(secret: &'a str) -> Self {
+        Self { _secret: secret }
+    }
+}
+
+impl std::fmt::Display for RedactedCredential<'_> {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str("<redacted>")
+    }
+}
+
+fn oauth_cache_hit_diagnostic(
+    access_token: &str,
+    elapsed: Duration,
+    expires_at_ms: Option<u64>,
+) -> String {
     format!(
-        "[OAuth] cache hit, age={:.0}s, ttl={:.0}s remaining, expires_at={expires_at_ms:?}",
+        "[OAuth] cache hit, credential={}, age={:.0}s, ttl={:.0}s remaining, expires_at={expires_at_ms:?}",
+        RedactedCredential::new(access_token),
         elapsed.as_secs_f64(),
         (TOKEN_CACHE_TTL - elapsed).as_secs_f64()
     )
 }
 
-fn oauth_env_source_diagnostic() -> &'static str {
-    "[OAuth] using env var credentials"
-}
-
-fn oauth_keychain_source_diagnostic(cred_name: &str, expires_at_ms: Option<u64>) -> String {
-    format!("[OAuth] keychain read ok: cred_name={cred_name}, expires_at={expires_at_ms:?}")
-}
-
-fn request_quota_diagnostic(count: u64, gap: Option<f64>) -> String {
+fn oauth_env_source_diagnostic(access_token: &str) -> String {
     format!(
-        "[API] request_quota: req_count={count}, gap={:.1}s",
+        "[OAuth] using env var credentials: credential={}",
+        RedactedCredential::new(access_token)
+    )
+}
+
+fn oauth_keychain_source_diagnostic(
+    cred_name: &str,
+    access_token: &str,
+    expires_at_ms: Option<u64>,
+) -> String {
+    format!(
+        "[OAuth] keychain read ok: cred_name={cred_name}, credential={}, expires_at={expires_at_ms:?}",
+        RedactedCredential::new(access_token)
+    )
+}
+
+fn request_quota_diagnostic(access_token: &str, count: u64, gap: Option<f64>) -> String {
+    format!(
+        "[API] request_quota: credential={}, req_count={count}, gap={:.1}s",
+        RedactedCredential::new(access_token),
         gap.unwrap_or(0.0)
     )
 }
@@ -220,7 +252,11 @@ fn get_oauth_token(force_refresh: bool) -> Result<String, String> {
             if let Some(creds) = guard.as_ref() {
                 let elapsed = creds.cached_at.elapsed();
                 if elapsed < TOKEN_CACHE_TTL {
-                    log_msg(&oauth_cache_hit_diagnostic(elapsed, creds.expires_at_ms));
+                    log_msg(&oauth_cache_hit_diagnostic(
+                        &creds.access_token,
+                        elapsed,
+                        creds.expires_at_ms,
+                    ));
                     return Ok(creds.access_token.clone());
                 } else {
                     log_msg(&format!(
@@ -236,7 +272,7 @@ fn get_oauth_token(force_refresh: bool) -> Result<String, String> {
     }
 
     if let Some(token) = read_oauth_token_from_env() {
-        log_msg(oauth_env_source_diagnostic());
+        log_msg(&oauth_env_source_diagnostic(&token));
         if let Ok(mut guard) = credentials_cache().lock() {
             *guard = Some(CachedCredentials {
                 access_token: token.clone(),
@@ -251,6 +287,7 @@ fn get_oauth_token(force_refresh: bool) -> Result<String, String> {
     let keychain = read_credentials_from_system()?;
     log_msg(&oauth_keychain_source_diagnostic(
         &keychain.cred_name,
+        &keychain.access_token,
         keychain.expires_at_ms,
     ));
 
@@ -266,7 +303,7 @@ fn get_oauth_token(force_refresh: bool) -> Result<String, String> {
 
 async fn request_quota(access_token: &str) -> Result<reqwest::Response, String> {
     let (count, gap) = track_request();
-    log_msg(&request_quota_diagnostic(count, gap));
+    log_msg(&request_quota_diagnostic(access_token, count, gap));
 
     let start = Instant::now();
     let response = shared_http_client()
@@ -566,28 +603,35 @@ mod tests {
     const SENTINEL_TOKEN: &str = "secret-prefix-sensitive-value-secret-suffix";
 
     fn assert_excludes_token_fragments(diagnostic: &str) {
-        let prefix = SENTINEL_TOKEN.chars().take(6).collect::<String>();
-        let suffix = SENTINEL_TOKEN
-            .chars()
-            .rev()
-            .take(6)
-            .collect::<String>()
-            .chars()
-            .rev()
-            .collect::<String>();
-
+        assert!(SENTINEL_TOKEN.is_ascii());
+        assert!(diagnostic.contains("<redacted>"));
         assert!(!diagnostic.contains(SENTINEL_TOKEN));
-        assert!(!diagnostic.contains(&prefix));
-        assert!(!diagnostic.contains(&suffix));
+        for width in 6..=SENTINEL_TOKEN.len() {
+            for start in 0..=SENTINEL_TOKEN.len() - width {
+                let fragment = &SENTINEL_TOKEN[start..start + width];
+                assert!(
+                    !diagnostic.contains(fragment),
+                    "diagnostic contains a token-derived fragment"
+                );
+            }
+        }
         assert!(!diagnostic.contains("token="));
     }
 
     #[test]
     fn credential_diagnostics_exclude_oauth_token_fragments() {
         let diagnostics = [
-            oauth_cache_hit_diagnostic(Duration::from_secs(12), Some(1_800_000_000_000)),
-            oauth_env_source_diagnostic().to_string(),
-            oauth_keychain_source_diagnostic("Claude Code-credentials", Some(1_800_000_000_000)),
+            oauth_cache_hit_diagnostic(
+                SENTINEL_TOKEN,
+                Duration::from_secs(12),
+                Some(1_800_000_000_000),
+            ),
+            oauth_env_source_diagnostic(SENTINEL_TOKEN),
+            oauth_keychain_source_diagnostic(
+                "Claude Code-credentials",
+                SENTINEL_TOKEN,
+                Some(1_800_000_000_000),
+            ),
         ];
 
         for diagnostic in diagnostics {
@@ -597,7 +641,7 @@ mod tests {
 
     #[test]
     fn request_diagnostic_excludes_oauth_token_fragments() {
-        let diagnostic = request_quota_diagnostic(7, Some(1.5));
+        let diagnostic = request_quota_diagnostic(SENTINEL_TOKEN, 7, Some(1.5));
 
         assert_excludes_token_fragments(&diagnostic);
     }
