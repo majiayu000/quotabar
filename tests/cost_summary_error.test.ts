@@ -6,8 +6,8 @@ import {
 
 describe('getCostSummaryErrorMessage', () => {
   test('preserves string errors returned by Tauri commands', () => {
-    expect(getCostSummaryErrorMessage('ccstats pricing cache is missing Codex priority pricing')).toBe(
-      'ccstats pricing cache is missing Codex priority pricing',
+    expect(getCostSummaryErrorMessage('ccstats failed to parse local usage')).toBe(
+      'ccstats failed to parse local usage',
     );
   });
 
