@@ -10,7 +10,7 @@
 - [x] `LCOST-T6` Superseded by `LCOST-T8`;保留 ID 作为历史记录。 Covers: none（历史 tombstone）。
 - [x] `LCOST-T7` Owner: codex. Dependencies: `LCOST-T2`、`LCOST-T5`. Done when: 初始刷新与错误处理验证通过。 Verify: `cargo check --manifest-path src-tauri/Cargo.toml && npx tsc --noEmit && npm test -- --run`. Covers: `B-001`、`B-004`、`B-005`.
 - [x] `LCOST-T8` Owner: codex. Dependencies: `LCOST-T1`. Done when: 删除 QuotaBar 自有的 Codex 服务等级/区域重定价模块，每日与总览直接使用 ccstats 成本。 Verify: `rg -n "codex_pricing|input_cost_per_token_priority|regional_processing_uplift_multiplier_us" src-tauri/src` 返回空。 Covers: `B-002`、`B-003`.
-- [x] `LCOST-T9` Owner: codex. Dependencies: `LCOST-T8`. Done when: 回归测试证明 ccstats 标准 API 成本原样进入响应。 Verify: `cargo test --manifest-path src-tauri/Cargo.toml preserves_ccstats_standard_api_costs`. Covers: `B-002`、`B-003`.
+- [x] `LCOST-T9` Owner: codex. Dependencies: `LCOST-T8`. Done when: 回归测试通过最终 daily 和 overview 响应构造路径，证明 ccstats 标准 API 成本原样进入响应。 Verify: `cargo test --manifest-path src-tauri/Cargo.toml final_responses_preserve_ccstats_standard_api_costs`. Covers: `B-002`、`B-003`.
 - [x] `LCOST-T10` Owner: codex. Dependencies: `LCOST-T7`、`LCOST-T8`、`LCOST-T9`. Done when: Rust、TypeScript、前端测试、真实本地数据 smoke test 与双平台 bundle CI 通过。 Verify: 执行 `specs/GH10/tech.md` 的 Test Plan 并检查 PR status checks。 Covers: `B-005`.
 
 ## Handoff Notes

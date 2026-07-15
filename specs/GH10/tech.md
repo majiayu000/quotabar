@@ -18,7 +18,7 @@
 | Behavior invariant | Implementation area | Verification |
 | --- | --- | --- |
 | `B-001` 自动 force refresh 与卸载清理 | `src/components/CostSummarySection.tsx:220-272` | `npm test -- --run tests/cost_summary_error.test.ts` |
-| `B-002` ccstats 成本原样映射 | `src-tauri/src/services/cost.rs:185-205`、`:292-317` | `cargo test --manifest-path src-tauri/Cargo.toml preserves_ccstats_standard_api_costs`；运行 ignored daily smoke test |
+| `B-002` ccstats 成本原样映射 | `src-tauri/src/services/cost.rs` 的最终 daily/overview 响应构造函数 | `cargo test --manifest-path src-tauri/Cargo.toml final_responses_preserve_ccstats_standard_api_costs`；运行 ignored daily smoke test |
 | `B-003` 不推断服务等级或区域 | `src-tauri/src/services/cost.rs`；`src-tauri/src/services/mod.rs` | `rg -n "codex_pricing|input_cost_per_token_priority|regional_processing_uplift_multiplier_us" src-tauri/src` 返回空 |
 | `B-004` 字符串错误原样展示 | `src/components/CostSummarySection.tsx` | `npm test -- --run tests/cost_summary_error.test.ts` |
 | `B-005` 完整验证证据 | Rust、TypeScript、Vitest、Tauri bundle | 运行下方 Test Plan 全部命令 |

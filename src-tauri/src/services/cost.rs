@@ -1,10 +1,10 @@
 //! Local cost summaries powered by the `ccstats` SDK.
 
 use ccstats::{
-    summarize_cost_ranges, CostSummary, ModelCostSummary, MultiSummaryOptions, TokenBreakdown,
-    UsageRange, UsageSource,
+    summarize_cost_ranges, CostSummary, ModelCostSummary, MultiCostSummary, MultiSummaryOptions,
+    TokenBreakdown, UsageRange, UsageSource,
 };
-use chrono::{Days, Local};
+use chrono::{Days, Local, NaiveDate};
 use once_cell::sync::Lazy;
 use serde::Serialize;
 use std::{
@@ -174,6 +174,16 @@ fn build_cost_daily(
     })
     .map_err(|err| err.to_string())?;
 
+    let series = build_daily_series_from_batch(&dates, batch)?;
+
+    set_cached_daily(cache_key, series.clone())?;
+    Ok(series)
+}
+
+fn build_daily_series_from_batch(
+    dates: &[NaiveDate],
+    batch: MultiCostSummary,
+) -> Result<CostDailySeries, String> {
     if batch.summaries.len() != dates.len() {
         return Err(format!(
             "ccstats returned {} daily ranges, expected {}",
@@ -205,7 +215,6 @@ fn build_cost_daily(
             .collect(),
     };
 
-    set_cached_daily(cache_key, series.clone())?;
     Ok(series)
 }
 
@@ -299,19 +308,7 @@ fn build_cost_overview(
         currency,
     })
     .map_err(|err| err.to_string())?;
-    let source_name = batch.source.as_str().to_string();
-    let display_name = batch.display_name;
-    let currency = batch.currency;
-    let generated_at = batch.generated_at;
-    let ranges = map_batch_ranges(&range_specs, batch.summaries)?;
-    let overview = CostOverview {
-        source: source_name,
-        display_name,
-        currency,
-        generated_at,
-        cached: false,
-        ranges,
-    };
+    let overview = build_overview_from_batch(&range_specs, batch)?;
 
     set_cached_overview(cache_key, overview.clone())?;
     Ok(overview)
@@ -342,6 +339,21 @@ fn cost_range_specs() -> [CostRangeSpec; 3] {
             range: UsageRange::ThisMonth,
         },
     ]
+}
+
+fn build_overview_from_batch(
+    range_specs: &[CostRangeSpec],
+    batch: MultiCostSummary,
+) -> Result<CostOverview, String> {
+    let ranges = map_batch_ranges(range_specs, batch.summaries)?;
+    Ok(CostOverview {
+        source: batch.source.as_str().to_string(),
+        display_name: batch.display_name,
+        currency: batch.currency,
+        generated_at: batch.generated_at,
+        cached: false,
+        ranges,
+    })
 }
 
 fn map_batch_ranges(
@@ -455,6 +467,18 @@ impl From<ModelCostSummary> for CostModelSummary {
 mod tests {
     use super::*;
 
+    fn batch(summaries: Vec<CostSummary>) -> MultiCostSummary {
+        MultiCostSummary {
+            source: UsageSource::Codex,
+            source_name: "codex".to_string(),
+            display_name: "Codex".to_string(),
+            currency: "USD".to_string(),
+            generated_at: "2026-07-16T00:00:00Z".to_string(),
+            summaries,
+            elapsed_ms: 12.0,
+        }
+    }
+
     fn summary(range: UsageRange, valid_entries: i64) -> CostSummary {
         CostSummary {
             source: UsageSource::Codex,
@@ -521,15 +545,50 @@ mod tests {
     }
 
     #[test]
-    fn preserves_ccstats_standard_api_costs() {
-        let mut ccstats_summary = summary(UsageRange::Today, 1);
-        ccstats_summary.cost = Some(12.34);
-        ccstats_summary.cost_usd = Some(12.34);
+    fn final_responses_preserve_ccstats_standard_api_costs() {
+        let date = match NaiveDate::from_ymd_opt(2026, 7, 16) {
+            Some(date) => date,
+            None => panic!("fixture date should be valid"),
+        };
+        let mut daily_summary = summary(
+            UsageRange::DateRange {
+                since: Some(date),
+                until: Some(date),
+            },
+            1,
+        );
+        daily_summary.cost = Some(12.34);
+        daily_summary.cost_usd = Some(12.34);
+        let daily = match build_daily_series_from_batch(&[date], batch(vec![daily_summary])) {
+            Ok(daily) => daily,
+            Err(err) => panic!("daily response should build: {err}"),
+        };
 
-        let range = CostRangeSummary::from_summary("today", "Today", ccstats_summary);
+        let mut overview_summaries = vec![
+            summary(UsageRange::Today, 1),
+            summary(UsageRange::ThisWeek, 1),
+            summary(UsageRange::ThisMonth, 1),
+        ];
+        for summary in &mut overview_summaries {
+            summary.cost = Some(12.34);
+            summary.cost_usd = Some(12.34);
+        }
+        let overview =
+            match build_overview_from_batch(&cost_range_specs(), batch(overview_summaries)) {
+                Ok(overview) => overview,
+                Err(err) => panic!("overview response should build: {err}"),
+            };
 
-        assert_eq!(range.cost, Some(12.34));
-        assert_eq!(range.cost_usd, Some(12.34));
+        assert_eq!(daily.days[0].cost, Some(12.34));
+        assert_eq!(daily.days[0].cost_usd, Some(12.34));
+        assert!(overview
+            .ranges
+            .iter()
+            .all(|range| range.cost == Some(12.34)));
+        assert!(overview
+            .ranges
+            .iter()
+            .all(|range| range.cost_usd == Some(12.34)));
     }
 
     #[test]
