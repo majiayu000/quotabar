@@ -266,6 +266,25 @@ test('does not let the owned guard timer clear a newer storage toast', async () 
   await unmount(renderer);
 });
 
+test('does not let an older storage timer clear a newer switcher guard', async () => {
+  const renderer = await render_app();
+  expect(harness.write_failure_listener).not.toBeNull();
+  await act(async () => harness.write_failure_listener!());
+  expect(rendered_text(renderer)).toContain(STORAGE_WRITE_FAILURE_MESSAGE);
+  await act(async () => vi.advanceTimersByTime(TRAY_GUARD_TOAST_MS / 4));
+
+  await act(async () => settings(renderer).props.onSwitcherToggle('claude'));
+  expect(rendered_text(renderer)).toContain(SWITCHER_GUARD_MESSAGE);
+
+  await act(async () => vi.advanceTimersByTime(TRAY_GUARD_TOAST_MS * 3 / 4));
+  expect(rendered_text(renderer)).toContain(SWITCHER_GUARD_MESSAGE);
+  await act(async () => vi.advanceTimersByTime(TRAY_GUARD_TOAST_MS / 4 - 1));
+  expect(rendered_text(renderer)).toContain(SWITCHER_GUARD_MESSAGE);
+  await act(async () => vi.advanceTimersByTime(1));
+  expect(rendered_text(renderer)).not.toContain(SWITCHER_GUARD_MESSAGE);
+  await unmount(renderer);
+});
+
 test('cancels the owned guard timer on unmount', async () => {
   const renderer = await render_app();
   const set_timeout = vi.spyOn(globalThis, 'setTimeout');
