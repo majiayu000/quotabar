@@ -312,13 +312,23 @@ function direct_method_call(node: ts.Node, owner: string, method: string): node 
 function validate_focus_guard(source: string): void {
   const file = ts.createSourceFile('use_popover_window.ts', source, ts.ScriptTarget.Latest, true);
   const registrations: ts.CallExpression[] = [];
+  const focus_method_tokens: ts.Node[] = [];
   const visit = (node: ts.Node) => {
     if (direct_method_call(node, 'appWindow', 'onFocusChanged')) registrations.push(node);
+    if ((ts.isIdentifier(node) || ts.isStringLiteral(node)) && node.text === 'onFocusChanged') {
+      focus_method_tokens.push(node);
+    }
     ts.forEachChild(node, visit);
   };
   visit(file);
   if (registrations.length !== 1) fail('expected one direct focus registration');
   const registration = registrations[0];
+  const registration_property = registration.expression;
+  if (!ts.isPropertyAccessExpression(registration_property)
+    || focus_method_tokens.length !== 1
+    || focus_method_tokens[0] !== registration_property.name) {
+    fail('focus method must have one exact source-wide reference');
+  }
 
   let effect: ts.ArrowFunction | undefined;
   let nearest_function: ts.Node | undefined;
@@ -353,21 +363,43 @@ function validate_focus_guard(source: string): void {
     && ts.isBlock(effect.body)
     && try_statement.parent === effect.body;
   if (!direct_registration) fail('focus registration must be a direct visibility-effect try statement');
-  let read_calls = 0;
-  let current_window_bindings = 0;
+  const app_window_references: ts.Identifier[] = [];
+  const current_window_bindings: ts.VariableDeclaration[] = [];
+  const current_window_calls: ts.CallExpression[] = [];
+  const read_calls: ts.CallExpression[] = [];
   const inspect_effect = (node: ts.Node) => {
-    if (direct_method_call(node, 'appWindow', 'isVisible')) read_calls += 1;
+    if (ts.isIdentifier(node) && node.text === 'appWindow') app_window_references.push(node);
+    if (direct_method_call(node, 'appWindow', 'isVisible')) read_calls.push(node);
+    if (ts.isCallExpression(node)
+      && ts.isIdentifier(node.expression)
+      && node.expression.text === 'getCurrentWindow') current_window_calls.push(node);
     if (ts.isVariableDeclaration(node)
       && ts.isIdentifier(node.name)
       && node.name.text === 'appWindow'
       && node.initializer
       && ts.isCallExpression(node.initializer)
       && ts.isIdentifier(node.initializer.expression)
-      && node.initializer.expression.text === 'getCurrentWindow') current_window_bindings += 1;
+      && node.initializer.expression.text === 'getCurrentWindow') current_window_bindings.push(node);
     ts.forEachChild(node, inspect_effect);
   };
   inspect_effect(effect.body);
-  if (read_calls !== 1 || current_window_bindings !== 1) fail('registration is not bound to the real window effect');
+  if (read_calls.length !== 1 || current_window_bindings.length !== 1 || current_window_calls.length !== 1) {
+    fail('registration is not bound to the real window effect');
+  }
+  const binding = current_window_bindings[0];
+  const read_property = read_calls[0].expression;
+  if (!ts.isIdentifier(binding.name)
+    || !binding.initializer
+    || current_window_calls[0] !== binding.initializer
+    || !ts.isPropertyAccessExpression(read_property)
+    || !ts.isIdentifier(read_property.expression)
+    || !ts.isIdentifier(registration_property.expression)
+    || app_window_references.length !== 3
+    || app_window_references[0] !== binding.name
+    || app_window_references[1] !== read_property.expression
+    || app_window_references[2] !== registration_property.expression) {
+    fail('appWindow references must have exact declaration/read/focus provenance');
+  }
 
   const callback = registration.arguments[0];
   if (!callback || !ts.isArrowFunction(callback) || !ts.isBlock(callback.body)) {
@@ -377,10 +409,10 @@ function validate_focus_guard(source: string): void {
   if (!parameter || !ts.isObjectBindingPattern(parameter) || parameter.elements.length !== 1) {
     fail('focus callback must bind the payload');
   }
-  const binding = parameter.elements[0];
-  if (!binding.propertyName || !ts.isIdentifier(binding.propertyName)
-    || binding.propertyName.text !== 'payload' || !ts.isIdentifier(binding.name)
-    || binding.name.text !== 'focused') fail('focus callback payload binding is wrong');
+  const payload_binding = parameter.elements[0];
+  if (!payload_binding.propertyName || !ts.isIdentifier(payload_binding.propertyName)
+    || payload_binding.propertyName.text !== 'payload' || !ts.isIdentifier(payload_binding.name)
+    || payload_binding.name.text !== 'focused') fail('focus callback payload binding is wrong');
 
   const statements = callback.body.statements;
   if (statements.length !== 3 || !ts.isIfStatement(statements[0])) {
@@ -430,6 +462,14 @@ function replace_live_registration_with_dead_decoy(source: string): string {
   );
 }
 
+function append_unsafe_registration(source: string, registration: string): string {
+  return replace_exact(
+    source,
+    '    return () => {\n      mounted = false;',
+    `${registration}\n\n    return () => {\n      mounted = false;`,
+  );
+}
+
 describe('focus callback source gate', () => {
   const source = readFileSync(new URL('../src/hooks/use_popover_window.ts', import.meta.url), 'utf8');
 
@@ -450,6 +490,12 @@ describe('focus callback source gate', () => {
       guard.replace('if (!mounted) return;', 'if (!mounted) return; else read_superseded = true;'))],
     ['wrong payload', replace_exact(source, 'setWindowVisible(focused);', 'setWindowVisible(!focused);')],
     ['computed live registration with dead direct decoy', replace_live_registration_with_dead_decoy(source)],
+    ['additional computed registration', append_unsafe_registration(source,
+      "    appWindow['onFocusChanged'](({ payload: focused }) => {\n      setWindowVisible(focused);\n    });")],
+    ['additional property alias registration', append_unsafe_registration(source,
+      '    const register_focus = appWindow.onFocusChanged;\n    register_focus(({ payload: focused }) => {\n      setWindowVisible(focused);\n    });')],
+    ['additional dynamic alias registration', append_unsafe_registration(source,
+      "    const window_alias = appWindow;\n    const focus_method = 'onFocus' + 'Changed';\n    window_alias[focus_method](({ payload: focused }: { payload: boolean }) => {\n      setWindowVisible(focused);\n    });")],
   ] as const;
 
   it.each(fixtures)('rejects %s', (_name, mutated_source) => {
