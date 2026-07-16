@@ -16,7 +16,7 @@
 
 ## Handoff
 
-- [ ] `SP52-T5` Owner: codex. Dependencies: T4. Done when: implementation PR `Closes #52`，正文记录 reproduction、lane model、stale terminal semantics、dependency boundary、coverage、rollback，并通过 implementation-vs-spec、current-head connector/CI/reviewThreads gate。
+- [x] `SP52-T5` Owner: codex. Dependencies: T4. Done when: implementation PR `Closes #52`，正文记录 reproduction、lane model、stale terminal semantics、dependency boundary、coverage、rollback，并通过 implementation-vs-spec、current-head connector/CI/reviewThreads gate。
 
 ## Handoff Notes
 
