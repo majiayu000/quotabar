@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from 'vitest';
+import { afterEach, describe, expect, test, vi } from 'vitest';
 import {
   defaultNotificationSettings,
   getSavedNotificationSettings,
@@ -37,11 +37,16 @@ describe('notification settings', () => {
     expect(getSavedNotificationSettings()).toEqual({ q80: false, q95: true, bonus: false });
   });
 
-  test('dedupes repeated notification bodies within 12 hours', () => {
-    installMemoryStorage();
-    expect(shouldNotify('Claude usage crossed 80%', NOW)).toBe(true);
+  test('reads dedupe eligibility without writing storage', () => {
+    const values = installMemoryStorage();
+    values.set('claude-quota-notified', JSON.stringify({
+      'Claude usage crossed 80%': NOW,
+    }));
+    const setItem = vi.spyOn(localStorage, 'setItem');
+
     expect(shouldNotify('Claude usage crossed 80%', NOW + 60 * 60000)).toBe(false);
     expect(shouldNotify('Claude usage crossed 80%', NOW + 13 * 3600000)).toBe(true);
     expect(shouldNotify('Codex usage crossed 80%', NOW)).toBe(true);
+    expect(setItem).not.toHaveBeenCalled();
   });
 });

@@ -301,7 +301,7 @@ describe('user setting savers', () => {
 });
 
 describe('background storage writes', () => {
-  it('fails notification dedupe closed without shadow or user notification, then retries', () => {
+  it('keeps notification eligibility read-only when persistent writes are unavailable', () => {
     const key = 'claude-quota-notified';
     installMemoryStorage();
     expect(writeStorageItem(key, '{}')).toBe(true);
@@ -310,13 +310,13 @@ describe('background storage writes', () => {
     const listener = vi.fn();
     const unsubscribe = subscribeStorageWriteFailures(listener);
 
-    expect(shouldNotify('quota warning', 1_000)).toBe(false);
+    expect(shouldNotify('quota warning', 1_000)).toBe(true);
     expect(readStoredString(key)).toBeNull();
     expect(listener).not.toHaveBeenCalled();
 
     const values = installMemoryStorage();
     expect(shouldNotify('quota warning', 1_000)).toBe(true);
-    expect(JSON.parse(values.get(key) ?? '')).toEqual({ 'quota warning': 1_000 });
+    expect(values.has(key)).toBe(false);
     expect(listener).not.toHaveBeenCalled();
     unsubscribe();
   });

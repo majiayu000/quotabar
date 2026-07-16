@@ -65,17 +65,21 @@ export function shouldNotify(body: string, now: number = Date.now()): boolean {
   if (result.status === 'failure') return false;
   const notified = result.status === 'value' ? result.value : {};
   const last = notified[body];
-  if (typeof last === 'number' && now - last < NOTIFY_DEDUPE_WINDOW_MS) {
-    return false;
-  }
+  return !(typeof last === 'number' && now - last < NOTIFY_DEDUPE_WINDOW_MS);
+}
+
+function commitNotificationDelivery(body: string, now: number): void {
+  const result = loadNotified();
+  if (result.status === 'failure') return;
+  const notified = result.status === 'value' ? result.value : {};
   const next: Record<string, number> = { [body]: now };
   for (const [key, value] of Object.entries(notified)) {
     if (typeof value === 'number' && now - value < NOTIFY_DEDUPE_WINDOW_MS) {
       next[key] = value;
     }
   }
-  return writeStorageItem(DEDUPE_STORAGE_KEY, JSON.stringify(next), {
-    preserveSessionValue: false,
+  writeStorageItem(DEDUPE_STORAGE_KEY, JSON.stringify(next), {
+    preserveSessionValue: true,
     notifyUser: false,
   });
 }
@@ -94,6 +98,7 @@ export async function notify(title: string, body: string): Promise<void> {
     }
     if (granted) {
       sendNotification({ title, body });
+      commitNotificationDelivery(body, Date.now());
     }
   } catch (err) {
     console.error('Failed to send notification:', err);
