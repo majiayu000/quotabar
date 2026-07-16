@@ -1,3 +1,5 @@
+import { readStorageItem, writeStorageItem } from './storage';
+
 export type PanelSectionKey = 'timeline' | 'cost' | 'trend' | 'tips';
 
 export type PanelSectionVisibility = Record<PanelSectionKey, boolean>;
@@ -20,7 +22,7 @@ export function defaultPanelSections(): PanelSectionVisibility {
 export function getSavedPanelSections(): PanelSectionVisibility {
   const defaults = defaultPanelSections();
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = readStorageItem(STORAGE_KEY);
     if (!raw) return defaults;
     const parsed: unknown = JSON.parse(raw);
     if (!parsed || typeof parsed !== 'object') return defaults;
@@ -36,8 +38,9 @@ export function getSavedPanelSections(): PanelSectionVisibility {
   }
 }
 
-export function savePanelSections(sections: PanelSectionVisibility): void {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(sections));
-  } catch {}
+export function savePanelSections(sections: PanelSectionVisibility): boolean {
+  return writeStorageItem(STORAGE_KEY, JSON.stringify(sections), {
+    preserveSessionValue: true,
+    notifyUser: true,
+  });
 }

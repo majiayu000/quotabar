@@ -1,9 +1,36 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
+  getSavedDockHidden,
+  getSavedSettingsExpanded,
+  getSavedTab,
+  getSavedTheme,
+  saveActiveTab,
+  saveDockHidden,
+  saveSettingsExpanded,
+  saveTheme,
+} from '../src/services/app_state';
+import { getSavedMonthlyBudgets, saveMonthlyBudgets } from '../src/services/budget';
+import {
+  getSavedNotificationSettings,
+  saveNotificationSettings,
+} from '../src/services/notifications';
+import { getSavedPanelSections, savePanelSections } from '../src/services/panel_sections';
+import {
   readStorageItem,
   subscribeStorageWriteFailures,
   writeStorageItem,
 } from '../src/services/storage';
+import {
+  getSavedSwitcherVisibility,
+  saveSwitcherVisibility,
+} from '../src/services/switcher_providers';
+import {
+  getSavedTrayCycle,
+  getSavedTrayStyle,
+  saveTrayCycle,
+  saveTrayStyle,
+} from '../src/services/tray_style';
+import { getSavedTrayEnabled, saveTrayEnabled } from '../src/services/tray_visibility';
 
 function installMemoryStorage(initial: Record<string, string> = {}): Map<string, string> {
   const values = new Map(Object.entries(initial));
@@ -121,4 +148,144 @@ describe('storage write adapter', () => {
 
     unsubscribe();
   });
+});
+
+interface UserSettingCase {
+  name: string;
+  key: string;
+  serialized: string;
+  save: () => boolean;
+  read: () => unknown;
+  expectedRead: unknown;
+}
+
+const notificationSettings = { q80: false, q95: true, bonus: false };
+const panelSections = { timeline: false, cost: true, trend: false, tips: true };
+const switcherVisibility = {
+  claude: true,
+  codex: false,
+  cursor: true,
+  antigravity: false,
+};
+
+const userSettingCases: UserSettingCase[] = [
+  {
+    name: 'monthly budgets',
+    key: 'claude-quota-monthly-budgets',
+    serialized: JSON.stringify({ claude: 50 }),
+    save: () => saveMonthlyBudgets({ claude: 50 }),
+    read: getSavedMonthlyBudgets,
+    expectedRead: { claude: 50 },
+  },
+  {
+    name: 'notification settings',
+    key: 'claude-quota-notifications',
+    serialized: JSON.stringify(notificationSettings),
+    save: () => saveNotificationSettings(notificationSettings),
+    read: getSavedNotificationSettings,
+    expectedRead: notificationSettings,
+  },
+  {
+    name: 'panel sections',
+    key: 'claude-quota-panel-sections',
+    serialized: JSON.stringify(panelSections),
+    save: () => savePanelSections(panelSections),
+    read: getSavedPanelSections,
+    expectedRead: panelSections,
+  },
+  {
+    name: 'switcher visibility',
+    key: 'claude-quota-switcher-providers',
+    serialized: JSON.stringify(switcherVisibility),
+    save: () => saveSwitcherVisibility(switcherVisibility),
+    read: getSavedSwitcherVisibility,
+    expectedRead: switcherVisibility,
+  },
+  {
+    name: 'tray style',
+    key: 'claude-quota-tray-style',
+    serialized: 'ring',
+    save: () => saveTrayStyle('ring'),
+    read: getSavedTrayStyle,
+    expectedRead: 'ring',
+  },
+  {
+    name: 'tray cycle',
+    key: 'claude-quota-tray-cycle',
+    serialized: 'true',
+    save: () => saveTrayCycle(true),
+    read: getSavedTrayCycle,
+    expectedRead: true,
+  },
+  {
+    name: 'tray visibility',
+    key: 'antigravity-tray-enabled',
+    serialized: 'true',
+    save: () => saveTrayEnabled('antigravity', true),
+    read: () => getSavedTrayEnabled('antigravity'),
+    expectedRead: true,
+  },
+  {
+    name: 'active tab',
+    key: 'claude-quota-tab',
+    serialized: 'codex',
+    save: () => saveActiveTab('codex'),
+    read: getSavedTab,
+    expectedRead: 'codex',
+  },
+  {
+    name: 'theme',
+    key: 'claude-quota-theme',
+    serialized: 'ocean',
+    save: () => saveTheme('ocean'),
+    read: getSavedTheme,
+    expectedRead: 'ocean',
+  },
+  {
+    name: 'dock visibility',
+    key: 'claude-quota-dock-hidden',
+    serialized: 'true',
+    save: () => saveDockHidden(true),
+    read: getSavedDockHidden,
+    expectedRead: true,
+  },
+  {
+    name: 'settings expanded',
+    key: 'claude-quota-settings-expanded',
+    serialized: 'true',
+    save: () => saveSettingsExpanded(true),
+    read: getSavedSettingsExpanded,
+    expectedRead: true,
+  },
+];
+
+describe('user setting savers', () => {
+  it.each(userSettingCases)('round-trips $name with the existing key and format', (testCase) => {
+    const values = installMemoryStorage();
+
+    expect(testCase.save()).toBe(true);
+    expect(values.get(testCase.key)).toBe(testCase.serialized);
+    expect(testCase.read()).toEqual(testCase.expectedRead);
+  });
+
+  it.each(userSettingCases)(
+    'returns false, preserves $name, and notifies exactly once on failure',
+    (testCase) => {
+      installMemoryStorage();
+      expect(writeStorageItem(testCase.key, 'baseline')).toBe(true);
+      installThrowingStorage(new Error(`${testCase.name} unavailable`));
+      vi.spyOn(console, 'error').mockImplementation(() => undefined);
+      const listener = vi.fn();
+      const unsubscribe = subscribeStorageWriteFailures(listener);
+
+      expect(testCase.save()).toBe(false);
+      expect(readStorageItem(testCase.key)).toBe(testCase.serialized);
+      expect(testCase.read()).toEqual(testCase.expectedRead);
+      expect(listener).toHaveBeenCalledTimes(1);
+
+      unsubscribe();
+      installMemoryStorage();
+      expect(writeStorageItem(testCase.key, 'cleanup')).toBe(true);
+    },
+  );
 });

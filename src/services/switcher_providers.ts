@@ -1,4 +1,5 @@
 import { SERVICES } from './service_meta';
+import { readStorageItem, writeStorageItem } from './storage';
 import type { TrayServiceName } from './tray_visibility';
 
 export type SwitcherVisibility = Record<TrayServiceName, boolean>;
@@ -15,7 +16,7 @@ export function defaultSwitcherVisibility(): SwitcherVisibility {
 export function getSavedSwitcherVisibility(): SwitcherVisibility {
   const defaults = defaultSwitcherVisibility();
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = readStorageItem(STORAGE_KEY);
     if (!raw) return defaults;
     const parsed: unknown = JSON.parse(raw);
     if (!parsed || typeof parsed !== 'object') return defaults;
@@ -35,8 +36,9 @@ export function getSavedSwitcherVisibility(): SwitcherVisibility {
   }
 }
 
-export function saveSwitcherVisibility(visibility: SwitcherVisibility): void {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(visibility));
-  } catch {}
+export function saveSwitcherVisibility(visibility: SwitcherVisibility): boolean {
+  return writeStorageItem(STORAGE_KEY, JSON.stringify(visibility), {
+    preserveSessionValue: true,
+    notifyUser: true,
+  });
 }
