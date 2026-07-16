@@ -9,6 +9,7 @@ import { buildCursorQuotaWindows, sortMostConstrained, type QuotaWindowSummary }
 import { getHighUsageTip } from '../services/detail_helpers';
 import { formatPlanType, getProgressStyle } from '../utils/quota_format';
 import { defaultPanelSections, type PanelSectionVisibility } from '../services/panel_sections';
+import { useLatestRequestGeneration } from '../hooks/use_latest_request_generation';
 
 interface CursorPanelProps {
   onConnectionChange?: (connected: boolean) => void;
@@ -51,12 +52,15 @@ export default function CursorPanel({
   const [cursorData, setCursorData] = useState<CursorData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const request_generation = useLatestRequestGeneration();
 
   const fetchData = useCallback(async () => {
+    const generation = request_generation.begin();
     try {
       setLoading(true);
       setError(null);
       const data = await backend.getCursorInfo();
+      if (!request_generation.isCurrent(generation)) return;
       setCursorData(data);
       if (data.error) {
         setError(data.error);
@@ -65,15 +69,18 @@ export default function CursorPanel({
       onUsageChange?.(data.percentage ?? null);
       onQuotaWindowsChange?.(buildCursorQuotaWindows(data));
     } catch (err) {
+      if (!request_generation.isCurrent(generation)) return;
       const message = err instanceof Error ? err.message : 'Failed to fetch Cursor data';
       setError(message);
       onConnectionChange?.(false);
       onUsageChange?.(null);
       onQuotaWindowsChange?.([]);
     } finally {
-      setLoading(false);
+      if (request_generation.isCurrent(generation)) {
+        setLoading(false);
+      }
     }
-  }, [onConnectionChange, onQuotaWindowsChange, onUsageChange]);
+  }, [onConnectionChange, onQuotaWindowsChange, onUsageChange, request_generation]);
 
   useEffect(() => {
     fetchData();

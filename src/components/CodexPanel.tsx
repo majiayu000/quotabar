@@ -14,6 +14,7 @@ import { buildCodexQuotaWindows, sortMostConstrained, type QuotaWindowSummary } 
 import { getAvailableResetCredits, getHighUsageTip } from '../services/detail_helpers';
 import { formatPaceText, formatPlanType, formatResetTime, getProgressStyle } from '../utils/quota_format';
 import { defaultPanelSections, type PanelSectionVisibility } from '../services/panel_sections';
+import { useLatestRequestGeneration } from '../hooks/use_latest_request_generation';
 
 interface CodexPanelProps {
   onConnectionChange?: (connected: boolean) => void;
@@ -149,8 +150,10 @@ export default function CodexPanel({
   const [resetCredits, setResetCredits] = useState<CodexResetCredits | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const request_generation = useLatestRequestGeneration();
 
   const fetchData = useCallback(async () => {
+    const generation = request_generation.begin();
     try {
       setLoading(true);
       setError(null);
@@ -160,6 +163,7 @@ export default function CodexPanel({
         backend.getCodexRateLimits(),
         backend.getCodexResetCredits(),
       ]);
+      if (!request_generation.isCurrent(generation)) return;
 
       setCodexData(info);
       setRateLimits(limits);
@@ -179,14 +183,17 @@ export default function CodexPanel({
       // Use weekly usage for tray when available (secondary window).
       onUsageChange?.(getTrayUsedPercent(limits));
     } catch (err) {
+      if (!request_generation.isCurrent(generation)) return;
       setError(err instanceof Error ? err.message : 'Failed to fetch Codex data');
       onConnectionChange?.(false);
       onUsageChange?.(null);
       onQuotaWindowsChange?.([]);
     } finally {
-      setLoading(false);
+      if (request_generation.isCurrent(generation)) {
+        setLoading(false);
+      }
     }
-  }, [onConnectionChange, onQuotaWindowsChange, onUsageChange]);
+  }, [onConnectionChange, onQuotaWindowsChange, onUsageChange, request_generation]);
 
   useEffect(() => {
     fetchData();

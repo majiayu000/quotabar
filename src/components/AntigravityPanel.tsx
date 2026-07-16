@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { backend } from '../services/backend';
 import type { AntigravityData } from '../types/models';
 import ProviderDetailHeader from './ProviderDetailHeader';
+import { useLatestRequestGeneration } from '../hooks/use_latest_request_generation';
 
 interface AntigravityPanelProps {
   onConnectionChange?: (connected: boolean) => void;
@@ -18,24 +19,31 @@ export default function AntigravityPanel({
 }: AntigravityPanelProps) {
   const [data, setData] = useState<AntigravityData | null>(null);
   const [loading, setLoading] = useState(true);
+  const request_generation = useLatestRequestGeneration();
 
   const fetchData = useCallback(async () => {
+    const generation = request_generation.begin();
     try {
       setLoading(true);
       const info = await backend.getAntigravityInfo();
+      if (!request_generation.isCurrent(generation)) return;
       setData(info);
       onConnectionChange?.(info.connected);
     } catch (err) {
+      if (!request_generation.isCurrent(generation)) return;
       const message = err instanceof Error ? err.message : 'Failed to load Antigravity status';
       setData({ connected: false, status: 'error', error: message });
       onConnectionChange?.(false);
     } finally {
-      setLoading(false);
+      if (request_generation.isCurrent(generation)) {
+        setLoading(false);
+      }
     }
-  }, [onConnectionChange]);
+  }, [onConnectionChange, request_generation]);
 
   useEffect(() => {
     fetchData();
+    if (autoRefreshIntervalMs <= 0) return;
     const interval = setInterval(fetchData, autoRefreshIntervalMs);
     return () => clearInterval(interval);
   }, [fetchData, autoRefreshIntervalMs]);
