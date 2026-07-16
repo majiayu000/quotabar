@@ -1,4 +1,5 @@
 import { hasTauriBackend } from './backend';
+import { readStorageItem, writeStorageItem } from './storage';
 
 export type NotificationKey = 'q80' | 'q95' | 'bonus';
 
@@ -22,7 +23,7 @@ export function defaultNotificationSettings(): NotificationSettings {
 export function getSavedNotificationSettings(): NotificationSettings {
   const defaults = defaultNotificationSettings();
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = readStorageItem(STORAGE_KEY);
     if (!raw) return defaults;
     const parsed: unknown = JSON.parse(raw);
     if (!parsed || typeof parsed !== 'object') return defaults;
@@ -38,15 +39,16 @@ export function getSavedNotificationSettings(): NotificationSettings {
   }
 }
 
-export function saveNotificationSettings(settings: NotificationSettings): void {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
-  } catch {}
+export function saveNotificationSettings(settings: NotificationSettings): boolean {
+  return writeStorageItem(STORAGE_KEY, JSON.stringify(settings), {
+    preserveSessionValue: true,
+    notifyUser: true,
+  });
 }
 
 function loadNotified(): Record<string, number> {
   try {
-    const raw = localStorage.getItem(DEDUPE_STORAGE_KEY);
+    const raw = readStorageItem(DEDUPE_STORAGE_KEY);
     const parsed: unknown = raw ? JSON.parse(raw) : {};
     return parsed && typeof parsed === 'object' ? (parsed as Record<string, number>) : {};
   } catch {
@@ -66,10 +68,10 @@ export function shouldNotify(body: string, now: number = Date.now()): boolean {
       next[key] = value;
     }
   }
-  try {
-    localStorage.setItem(DEDUPE_STORAGE_KEY, JSON.stringify(next));
-  } catch {}
-  return true;
+  return writeStorageItem(DEDUPE_STORAGE_KEY, JSON.stringify(next), {
+    preserveSessionValue: false,
+    notifyUser: false,
+  });
 }
 
 export async function notify(title: string, body: string): Promise<void> {

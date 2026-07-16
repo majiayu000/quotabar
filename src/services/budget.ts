@@ -1,4 +1,5 @@
 import type { CostSource } from '../types/models';
+import { readStorageItem, writeStorageItem } from './storage';
 
 export type MonthlyBudgets = Partial<Record<CostSource, number>>;
 
@@ -8,7 +9,7 @@ const STORAGE_KEY = 'claude-quota-monthly-budgets';
 
 export function getSavedMonthlyBudgets(): MonthlyBudgets {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = readStorageItem(STORAGE_KEY);
     if (!raw) return {};
     const parsed: unknown = JSON.parse(raw);
     if (!parsed || typeof parsed !== 'object') return {};
@@ -25,10 +26,11 @@ export function getSavedMonthlyBudgets(): MonthlyBudgets {
   }
 }
 
-export function saveMonthlyBudgets(budgets: MonthlyBudgets): void {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(budgets));
-  } catch {}
+export function saveMonthlyBudgets(budgets: MonthlyBudgets): boolean {
+  return writeStorageItem(STORAGE_KEY, JSON.stringify(budgets), {
+    preserveSessionValue: true,
+    notifyUser: true,
+  });
 }
 
 /**

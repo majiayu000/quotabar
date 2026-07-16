@@ -1,3 +1,5 @@
+import { readStorageItem, writeStorageItem } from './storage';
+
 export type TrayServiceName = 'claude' | 'codex' | 'cursor' | 'antigravity';
 
 const TRAY_STORAGE_KEYS: Record<TrayServiceName, string> = {
@@ -16,17 +18,18 @@ const TRAY_DEFAULT_ENABLED: Record<TrayServiceName, boolean> = {
 
 export function getSavedTrayEnabled(service: TrayServiceName): boolean {
   try {
-    const saved = localStorage.getItem(TRAY_STORAGE_KEYS[service]);
+    const saved = readStorageItem(TRAY_STORAGE_KEYS[service]);
     if (saved === 'false') return false;
     if (saved === 'true') return true;
   } catch {}
   return TRAY_DEFAULT_ENABLED[service];
 }
 
-export function saveTrayEnabled(service: TrayServiceName, enabled: boolean): void {
-  try {
-    localStorage.setItem(TRAY_STORAGE_KEYS[service], String(enabled));
-  } catch {}
+export function saveTrayEnabled(service: TrayServiceName, enabled: boolean): boolean {
+  return writeStorageItem(TRAY_STORAGE_KEYS[service], String(enabled), {
+    preserveSessionValue: true,
+    notifyUser: true,
+  });
 }
 
 export function shouldShowTray(enabled: boolean, _connected: boolean): boolean {

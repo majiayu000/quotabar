@@ -2,6 +2,7 @@ import type { ThemeName } from '../components/ThemeSelector';
 import type { QuotaData } from '../types/models';
 import { SERVICES } from './service_meta';
 import type { AppTabName } from './provider_summary';
+import { readStorageItem, writeStorageItem } from './storage';
 import { getSavedTrayEnabled, saveTrayEnabled, type TrayServiceName } from './tray_visibility';
 import type { TrayStyle } from './tray_style';
 
@@ -47,7 +48,7 @@ export function isMacOSPlatform(): boolean {
 
 export function getSavedTab(): AppTabName {
   try {
-    const saved = localStorage.getItem(TAB_STORAGE_KEY);
+    const saved = readStorageItem(TAB_STORAGE_KEY);
     if (saved && VALID_TABS.has(saved)) {
       return saved as AppTabName;
     }
@@ -57,7 +58,7 @@ export function getSavedTab(): AppTabName {
 
 export function getSavedTheme(): ThemeName {
   try {
-    const saved = localStorage.getItem(THEME_STORAGE_KEY);
+    const saved = readStorageItem(THEME_STORAGE_KEY);
     if (saved && ['light', 'dark', 'claude', 'claude-dark', 'minimal', 'minimal-dark', 'ocean'].includes(saved)) {
       return saved as ThemeName;
     }
@@ -67,16 +68,44 @@ export function getSavedTheme(): ThemeName {
 
 export function getSavedDockHidden(): boolean {
   try {
-    return localStorage.getItem(DOCK_HIDDEN_KEY) === 'true';
+    return readStorageItem(DOCK_HIDDEN_KEY) === 'true';
   } catch {}
   return false;
 }
 
 export function getSavedSettingsExpanded(): boolean {
   try {
-    return localStorage.getItem(SETTINGS_EXPANDED_KEY) === 'true';
+    return readStorageItem(SETTINGS_EXPANDED_KEY) === 'true';
   } catch {}
   return false;
+}
+
+export function saveActiveTab(tab: AppTabName): boolean {
+  return writeStorageItem(TAB_STORAGE_KEY, tab, {
+    preserveSessionValue: true,
+    notifyUser: true,
+  });
+}
+
+export function saveTheme(theme: ThemeName): boolean {
+  return writeStorageItem(THEME_STORAGE_KEY, theme, {
+    preserveSessionValue: true,
+    notifyUser: true,
+  });
+}
+
+export function saveDockHidden(hidden: boolean): boolean {
+  return writeStorageItem(DOCK_HIDDEN_KEY, String(hidden), {
+    preserveSessionValue: true,
+    notifyUser: true,
+  });
+}
+
+export function saveSettingsExpanded(expanded: boolean): boolean {
+  return writeStorageItem(SETTINGS_EXPANDED_KEY, String(expanded), {
+    preserveSessionValue: true,
+    notifyUser: true,
+  });
 }
 
 export function getInitialTrayEnabledState(): TrayEnabledState {
@@ -85,7 +114,9 @@ export function getInitialTrayEnabledState(): TrayEnabledState {
     state[svc] = getSavedTrayEnabled(svc);
   }
   if (!SERVICES.some((svc) => state[svc])) {
-    saveTrayEnabled('claude', true);
+    if (!saveTrayEnabled('claude', true)) {
+      return { ...state, claude: true };
+    }
     state.claude = true;
   }
   return state;
