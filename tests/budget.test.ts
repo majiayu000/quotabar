@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from 'vitest';
+import { afterEach, describe, expect, test, vi } from 'vitest';
 import {
   getBudgetForSources,
   getSavedMonthlyBudgets,
@@ -20,6 +20,7 @@ function installMemoryStorage(): Map<string, string> {
 }
 
 afterEach(() => {
+  vi.restoreAllMocks();
   delete (globalThis as Record<string, unknown>).localStorage;
 });
 
@@ -28,13 +29,15 @@ describe('monthly budgets', () => {
     expect(getSavedMonthlyBudgets()).toEqual({});
   });
 
-  test('round-trips and drops invalid values', () => {
+  test('round-trips and rejects the whole record when a known value is invalid', () => {
     const store = installMemoryStorage();
     saveMonthlyBudgets({ claude: 400, codex: 150 });
     expect(getSavedMonthlyBudgets()).toEqual({ claude: 400, codex: 150 });
 
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     store.set('claude-quota-monthly-budgets', JSON.stringify({ claude: -5, codex: 'x', cursor: 50 }));
-    expect(getSavedMonthlyBudgets()).toEqual({ cursor: 50 });
+    expect(getSavedMonthlyBudgets()).toEqual({});
+    expect(consoleError).toHaveBeenCalledExactlyOnceWith('Failed to decode local storage value.');
   });
 
   test('sums budgets across sources and returns null when unset', () => {

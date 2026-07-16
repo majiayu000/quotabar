@@ -21,7 +21,7 @@ import {
 } from '../src/services/notifications';
 import { getSavedPanelSections, savePanelSections } from '../src/services/panel_sections';
 import {
-  readStorageItem,
+  readStorageValue,
   subscribeStorageWriteFailures,
   writeStorageItem,
 } from '../src/services/storage';
@@ -63,6 +63,11 @@ function installThrowingStorage(error: Error): void {
   });
 }
 
+function readStoredString(key: string): string | null {
+  const result = readStorageValue(key, (raw) => raw, { notifyUser: false });
+  return result.status === 'value' ? result.value : null;
+}
+
 afterEach(() => {
   vi.restoreAllMocks();
   delete (globalThis as Record<string, unknown>).localStorage;
@@ -74,7 +79,7 @@ describe('storage write adapter', () => {
 
     expect(writeStorageItem('success-key', 'saved')).toBe(true);
     expect(values.get('success-key')).toBe('saved');
-    expect(readStorageItem('success-key')).toBe('saved');
+    expect(readStoredString('success-key')).toBe('saved');
   });
 
   it('preserves a failed value for the session and reports the original error', () => {
@@ -86,7 +91,7 @@ describe('storage write adapter', () => {
       preserveSessionValue: true,
       notifyUser: false,
     })).toBe(false);
-    expect(readStorageItem('shadow-key')).toBe('session-value');
+    expect(readStoredString('shadow-key')).toBe('session-value');
     expect(consoleError).toHaveBeenCalledExactlyOnceWith(
       'Failed to persist local setting:',
       error,
@@ -103,7 +108,7 @@ describe('storage write adapter', () => {
 
     installMemoryStorage();
     expect(writeStorageItem('recovery-key', 'persisted')).toBe(true);
-    expect(readStorageItem('recovery-key')).toBe('persisted');
+    expect(readStoredString('recovery-key')).toBe('persisted');
   });
 
   it('notifies subscribers once and stops after unsubscribe', () => {
@@ -124,7 +129,7 @@ describe('storage write adapter', () => {
       notifyUser: true,
     })).toBe(false);
     expect(listener).toHaveBeenCalledTimes(1);
-    expect(readStorageItem('notify-key')).toBeNull();
+    expect(readStoredString('notify-key')).toBeNull();
   });
 
   it('logs a subscriber error and continues reporting the storage failure', () => {
@@ -284,7 +289,7 @@ describe('user setting savers', () => {
       const unsubscribe = subscribeStorageWriteFailures(listener);
 
       expect(testCase.save()).toBe(false);
-      expect(readStorageItem(testCase.key)).toBe(testCase.serialized);
+      expect(readStoredString(testCase.key)).toBe(testCase.serialized);
       expect(testCase.read()).toEqual(testCase.expectedRead);
       expect(listener).toHaveBeenCalledTimes(1);
 
@@ -306,7 +311,7 @@ describe('background storage writes', () => {
     const unsubscribe = subscribeStorageWriteFailures(listener);
 
     expect(shouldNotify('quota warning', 1_000)).toBe(false);
-    expect(readStorageItem(key)).toBeNull();
+    expect(readStoredString(key)).toBeNull();
     expect(listener).not.toHaveBeenCalled();
 
     const values = installMemoryStorage();

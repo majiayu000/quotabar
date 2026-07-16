@@ -1,5 +1,5 @@
 import { hasTauriBackend } from './backend';
-import { readStorageItem, writeStorageItem } from './storage';
+import { readStorageValue, writeStorageItem } from './storage';
 
 export type NotificationKey = 'q80' | 'q95' | 'bonus';
 
@@ -22,21 +22,20 @@ export function defaultNotificationSettings(): NotificationSettings {
 
 export function getSavedNotificationSettings(): NotificationSettings {
   const defaults = defaultNotificationSettings();
-  try {
-    const raw = readStorageItem(STORAGE_KEY);
-    if (!raw) return defaults;
+  const result = readStorageValue(STORAGE_KEY, (raw) => {
     const parsed: unknown = JSON.parse(raw);
-    if (!parsed || typeof parsed !== 'object') return defaults;
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      throw new Error('Invalid saved notification settings');
+    }
     for (const { key } of NOTIFICATION_ROWS) {
       const value = (parsed as Record<string, unknown>)[key];
-      if (typeof value === 'boolean') {
-        defaults[key] = value;
-      }
+      if (value === undefined) continue;
+      if (typeof value !== 'boolean') throw new Error('Invalid saved notification value');
+      defaults[key] = value;
     }
     return defaults;
-  } catch {
-    return defaults;
-  }
+  }, { notifyUser: true });
+  return result.status === 'value' ? result.value : defaultNotificationSettings();
 }
 
 export function saveNotificationSettings(settings: NotificationSettings): boolean {
@@ -46,18 +45,25 @@ export function saveNotificationSettings(settings: NotificationSettings): boolea
   });
 }
 
-function loadNotified(): Record<string, number> {
-  try {
-    const raw = readStorageItem(DEDUPE_STORAGE_KEY);
-    const parsed: unknown = raw ? JSON.parse(raw) : {};
-    return parsed && typeof parsed === 'object' ? (parsed as Record<string, number>) : {};
-  } catch {
-    return {};
-  }
+function loadNotified() {
+  return readStorageValue(DEDUPE_STORAGE_KEY, (raw) => {
+    const parsed: unknown = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      throw new Error('Invalid notification dedupe record');
+    }
+    for (const value of Object.values(parsed)) {
+      if (typeof value !== 'number' || !Number.isFinite(value)) {
+        throw new Error('Invalid notification dedupe timestamp');
+      }
+    }
+    return parsed as Record<string, number>;
+  }, { notifyUser: false });
 }
 
 export function shouldNotify(body: string, now: number = Date.now()): boolean {
-  const notified = loadNotified();
+  const result = loadNotified();
+  if (result.status === 'failure') return false;
+  const notified = result.status === 'value' ? result.value : {};
   const last = notified[body];
   if (typeof last === 'number' && now - last < NOTIFY_DEDUPE_WINDOW_MS) {
     return false;

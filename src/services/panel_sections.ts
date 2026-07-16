@@ -1,4 +1,4 @@
-import { readStorageItem, writeStorageItem } from './storage';
+import { readStorageValue, writeStorageItem } from './storage';
 
 export type PanelSectionKey = 'timeline' | 'cost' | 'trend' | 'tips';
 
@@ -21,21 +21,20 @@ export function defaultPanelSections(): PanelSectionVisibility {
 
 export function getSavedPanelSections(): PanelSectionVisibility {
   const defaults = defaultPanelSections();
-  try {
-    const raw = readStorageItem(STORAGE_KEY);
-    if (!raw) return defaults;
+  const result = readStorageValue(STORAGE_KEY, (raw) => {
     const parsed: unknown = JSON.parse(raw);
-    if (!parsed || typeof parsed !== 'object') return defaults;
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      throw new Error('Invalid saved panel sections');
+    }
     for (const key of PANEL_SECTION_ORDER) {
       const value = (parsed as Record<string, unknown>)[key];
-      if (typeof value === 'boolean') {
-        defaults[key] = value;
-      }
+      if (value === undefined) continue;
+      if (typeof value !== 'boolean') throw new Error('Invalid saved panel section value');
+      defaults[key] = value;
     }
     return defaults;
-  } catch {
-    return defaults;
-  }
+  }, { notifyUser: true });
+  return result.status === 'value' ? result.value : defaultPanelSections();
 }
 
 export function savePanelSections(sections: PanelSectionVisibility): boolean {

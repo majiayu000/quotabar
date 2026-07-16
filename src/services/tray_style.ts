@@ -1,4 +1,4 @@
-import { readStorageItem, writeStorageItem } from './storage';
+import { readStorageValue, writeStorageItem } from './storage';
 
 export type TrayStyle = 'percent' | 'ring' | 'icon';
 
@@ -14,13 +14,11 @@ const CYCLE_STORAGE_KEY = 'claude-quota-tray-cycle';
 const VALID_STYLES = new Set<string>(TRAY_STYLE_OPTIONS.map((option) => option.id));
 
 export function getSavedTrayStyle(): TrayStyle {
-  try {
-    const saved = readStorageItem(STYLE_STORAGE_KEY);
-    if (saved && VALID_STYLES.has(saved)) {
-      return saved as TrayStyle;
-    }
-  } catch {}
-  return 'percent';
+  const result = readStorageValue(STYLE_STORAGE_KEY, (raw) => {
+    if (!VALID_STYLES.has(raw)) throw new Error('Invalid saved tray style');
+    return raw as TrayStyle;
+  }, { notifyUser: true });
+  return result.status === 'value' ? result.value : 'percent';
 }
 
 export function saveTrayStyle(style: TrayStyle): boolean {
@@ -31,11 +29,12 @@ export function saveTrayStyle(style: TrayStyle): boolean {
 }
 
 export function getSavedTrayCycle(): boolean {
-  try {
-    return readStorageItem(CYCLE_STORAGE_KEY) === 'true';
-  } catch {
-    return false;
-  }
+  const result = readStorageValue(CYCLE_STORAGE_KEY, (raw) => {
+    if (raw === 'true') return true;
+    if (raw === 'false') return false;
+    throw new Error('Invalid saved tray cycle');
+  }, { notifyUser: true });
+  return result.status === 'value' ? result.value : false;
 }
 
 export function saveTrayCycle(enabled: boolean): boolean {
