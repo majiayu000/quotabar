@@ -42,6 +42,7 @@
 - real hook tests 覆盖 browser path、initial visible/hidden success、read rejection、read sync throw、focus true/false events、subscription rejection、subscription sync throw。
 - race tests 覆盖 focus event 后 late read `true`、`false` 与 rejection，以及 subscription failure 后 late read success/rejection；authoritative focus/failure state 不被 initial read 覆盖。
 - cleanup tests 分别覆盖 late read resolve/reject、late subscription resolve/reject、focus callback after cleanup；state/log/unlisten counts 精确。
+- 因 React 19 会吞掉 unmounted setter 的 visible render，测试必须另用 TypeScript AST source gate 绑定真实 `appWindow.onFocusChanged` callback，证明 mounted guard 是 callback 第一条 executable statement 且在任何 state write 前 fail closed return；缺失、后移或错误 guard fixtures 必须失败。
 - 两条 failure messages 固定为：`Failed to read popover window visibility` 与 `Failed to subscribe to popover focus changes`。
 - failure tests 断言原始 error text/object 不出现在任意 `console.error` arguments；browser 与 cleanup-stale terminal 不记录 error。
 - public hook signature 与 resize behavior 不变；production/runtime dependencies 不变。
@@ -60,6 +61,7 @@
 | Cleanup before read terminal | 零 state/log。 |
 | Cleanup before listener resolves | late unlisten exactly once。 |
 | Focus callback after cleanup | 零 state/log。 |
+| Hidden unmounted setter | real callback AST guard gate 直接证明零 setter invocation path。 |
 
 ## Open Questions
 
