@@ -88,26 +88,6 @@ impl CodexData {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct CodexStats {
-    #[serde(rename = "totalSessions")]
-    pub total_sessions: u32,
-    #[serde(rename = "todaySessions")]
-    pub today_sessions: u32,
-    #[serde(rename = "lastActivity")]
-    pub last_activity: Option<String>,
-}
-
-impl CodexStats {
-    pub fn empty() -> Self {
-        Self {
-            total_sessions: 0,
-            today_sessions: 0,
-            last_activity: None,
-        }
-    }
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct CodexRateLimitWindow {
     #[serde(rename = "usedPercent")]
     pub used_percent: f64,
