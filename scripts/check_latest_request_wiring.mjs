@@ -4,50 +4,62 @@ import ts from 'typescript';
 const owner_configs = [
   {
     path: 'src/App.tsx',
+    component_name: 'App',
     function_name: 'fetchClaudeQuota',
     owner_name: 'claude_request_generation',
     backend_methods: ['getQuota'],
     loading: true,
     loading_setter: 'setClaudeLoading',
+    await_kind: 'direct',
   },
   {
     path: 'src/components/CodexPanel.tsx',
+    component_name: 'CodexPanel',
     function_name: 'fetchData',
     owner_name: 'request_generation',
     backend_methods: ['getCodexInfo', 'getCodexRateLimits', 'getCodexResetCredits'],
     loading: true,
     loading_setter: 'setLoading',
+    await_kind: 'promise_all',
   },
   {
     path: 'src/components/CursorPanel.tsx',
+    component_name: 'CursorPanel',
     function_name: 'fetchData',
     owner_name: 'request_generation',
     backend_methods: ['getCursorInfo'],
     loading: true,
     loading_setter: 'setLoading',
+    await_kind: 'direct',
   },
   {
     path: 'src/components/AntigravityPanel.tsx',
+    component_name: 'AntigravityPanel',
     function_name: 'fetchData',
     owner_name: 'request_generation',
     backend_methods: ['getAntigravityInfo'],
     loading: true,
     loading_setter: 'setLoading',
+    await_kind: 'direct',
   },
   {
     path: 'src/components/CostSummarySection.tsx',
+    component_name: 'CostSummarySection',
     function_name: 'loadCost',
     owner_name: 'overview_generation',
     backend_methods: ['getCostOverview'],
     loading: true,
     loading_setter: 'setLoading',
+    await_kind: 'promise_all',
   },
   {
     path: 'src/components/CostSummarySection.tsx',
+    component_name: 'CostSummarySection',
     function_name: 'loadDaily',
     owner_name: 'daily_generation',
     backend_methods: ['getCostDaily'],
     loading: false,
+    await_kind: 'promise_all',
   },
 ];
 
@@ -141,12 +153,11 @@ function is_generation_start(statement, owner_name) {
     && declaration.initializer.arguments.length === 0;
 }
 
-function backend_methods_in(statement) {
-  const methods = collect_nodes(statement, (node) => {
+function backend_method_calls_in(root) {
+  return collect_nodes(root, (node) => {
     const parts = property_call_parts(node);
     return parts !== null && parts.owner_name === 'backend';
   }).map((node) => property_call_parts(node).method_name);
-  return [...new Set(methods)].sort();
 }
 
 function same_strings(left, right) {
@@ -154,8 +165,29 @@ function same_strings(left, right) {
   return left.every((value, index) => value === right[index]);
 }
 
-function validate_owner(source_file, config) {
-  const declarations = collect_nodes(source_file, (node) => (
+function validate_await_operand(await_expression, await_statement, config) {
+  const expected_methods = [...config.backend_methods].sort();
+  const statement_methods = backend_method_calls_in(await_statement).sort();
+  ensure(same_strings(statement_methods, expected_methods), `${config.path}:${config.function_name} backend call count or placement is wrong`);
+
+  if (config.await_kind === 'direct') {
+    const parts = property_call_parts(await_expression.expression);
+    ensure(parts !== null, `${config.path}:${config.function_name} must directly await its backend call`);
+    ensure(parts.owner_name === 'backend', `${config.path}:${config.function_name} must directly await its backend owner`);
+    ensure(same_strings([parts.method_name], expected_methods), `${config.path}:${config.function_name} direct backend await mapping is wrong`);
+    return;
+  }
+
+  const promise_all = property_call_parts(await_expression.expression);
+  ensure(promise_all !== null, `${config.path}:${config.function_name} must await Promise.all`);
+  ensure(promise_all.owner_name === 'Promise' && promise_all.method_name === 'all', `${config.path}:${config.function_name} must await Promise.all`);
+  ensure(await_expression.expression.arguments.length === 1, `${config.path}:${config.function_name} Promise.all argument count is wrong`);
+  const operand_methods = backend_method_calls_in(await_expression.expression.arguments[0]).sort();
+  ensure(same_strings(operand_methods, expected_methods), `${config.path}:${config.function_name} Promise.all backend dataflow is wrong`);
+}
+
+function validate_owner(component_body, config) {
+  const declarations = collect_nodes(component_body, (node) => (
     ts.isVariableDeclaration(node) && identifier_name(node.name) === config.function_name
   ));
   ensure(declarations.length === 1, `${config.path}:${config.function_name} target count is not one`);
@@ -173,9 +205,10 @@ function validate_owner(source_file, config) {
   }
   ensure(await_indexes.length === 1, `${config.path}:${config.function_name} backend await count is not one`);
   const await_index = await_indexes[0];
-  const actual_methods = backend_methods_in(try_statement.tryBlock.statements[await_index]);
-  const expected_methods = [...config.backend_methods].sort();
-  ensure(same_strings(actual_methods, expected_methods), `${config.path}:${config.function_name} backend await mapping is wrong`);
+  const await_statement = try_statement.tryBlock.statements[await_index];
+  const await_expressions = collect_nodes(await_statement, ts.isAwaitExpression);
+  ensure(await_expressions.length === 1, `${config.path}:${config.function_name} await expression count is not one`);
+  validate_await_operand(await_expressions[0], await_statement, config);
   const success_guard = try_statement.tryBlock.statements[await_index + 1];
   ensure(success_guard !== undefined, `${config.path}:${config.function_name} has no success guard`);
   ensure(is_fail_closed_guard(success_guard, config.owner_name), `${config.path}:${config.function_name} success guard is not fail closed`);
@@ -193,18 +226,33 @@ function validate_owner(source_file, config) {
   }
 }
 
-function validate_hook_bindings(source_file, path, configs) {
-  const hook_calls = collect_nodes(source_file, (node) => is_identifier_call(node, 'useLatestRequestGeneration'));
+function validate_hook_bindings(component_body, path, configs) {
+  const hook_calls = collect_nodes(component_body, (node) => is_identifier_call(node, 'useLatestRequestGeneration'));
   ensure(hook_calls.length === configs.length, `${path} hook call count is wrong`);
   const owner_names = hook_calls.map((call) => {
     ensure(call.arguments.length === 0, `${path} generation hook must have no arguments`);
     const declaration = call.parent;
     ensure(ts.isVariableDeclaration(declaration), `${path} generation hook is not bound by a variable declarator`);
     ensure(declaration.initializer === call, `${path} generation hook is not the declarator initializer`);
+    const variable_statement = declaration.parent.parent;
+    ensure(ts.isVariableStatement(variable_statement), `${path} generation hook is not a variable statement`);
+    ensure(variable_statement.parent === component_body, `${path} generation hook must be bound directly in its owning component`);
     return identifier_name(declaration.name);
   }).sort();
   const expected_names = configs.map((config) => config.owner_name).sort();
   ensure(same_strings(owner_names, expected_names), `${path} generation owner binding is wrong`);
+}
+
+function get_component_body(source_file, path, configs) {
+  const component_name = configs[0].component_name;
+  ensure(configs.every((config) => config.component_name === component_name), `${path} component mapping is inconsistent`);
+  const components = collect_nodes(source_file, (node) => (
+    ts.isFunctionDeclaration(node) && identifier_name(node.name) === component_name
+  ));
+  ensure(components.length === 1, `${path}:${component_name} component count is not one`);
+  ensure(components[0].parent === source_file, `${path}:${component_name} must be declared at module scope`);
+  ensure(components[0].body !== undefined, `${path}:${component_name} has no body`);
+  return components[0].body;
 }
 
 function validate_cost_cleanup(source_file) {
@@ -281,8 +329,9 @@ export function check_latest_request_wiring(sources = read_owner_sources()) {
     ensure(typeof source === 'string', `${path} source is missing`);
     const source_file = ts.createSourceFile(path, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
     source_files.set(path, source_file);
-    validate_hook_bindings(source_file, path, configs);
-    for (const config of configs) validate_owner(source_file, config);
+    const component_body = get_component_body(source_file, path, configs);
+    validate_hook_bindings(component_body, path, configs);
+    for (const config of configs) validate_owner(component_body, config);
   }
 
   validate_cost_cleanup(source_files.get('src/components/CostSummarySection.tsx'));

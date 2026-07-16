@@ -71,6 +71,21 @@ test('rejects a wrong generation owner binding', () => {
   );
 });
 
+test('rejects a generation hook moved outside its owning component', () => {
+  const sources = read_owner_sources();
+  const original = sources.get(paths.cursor);
+  assert.equal(typeof original, 'string');
+  const without_binding = original.replace('  const request_generation = useLatestRequestGeneration();\n', '');
+  assert.notEqual(without_binding, original);
+  const moved_binding = without_binding.replace(
+    "import { useLatestRequestGeneration } from '../hooks/use_latest_request_generation';",
+    "import { useLatestRequestGeneration } from '../hooks/use_latest_request_generation';\nconst request_generation = useLatestRequestGeneration();",
+  );
+  assert.notEqual(moved_binding, without_binding);
+  sources.set(paths.cursor, moved_binding);
+  assert.throws(() => check_latest_request_wiring(sources), /hook call count|owning component/);
+});
+
 test('rejects a wrong token in a terminal guard', () => {
   rejects_change(
     paths.cursor,
@@ -204,7 +219,25 @@ for (const [name, replacement] of malformed_start_fixtures) {
 }
 
 test('rejects a wrong backend await mapping', () => {
-  rejects_change(paths.cursor, 'backend.getCursorInfo()', 'backend.getQuota()', /backend await mapping/);
+  rejects_change(paths.cursor, 'backend.getCursorInfo()', 'backend.getQuota()', /backend call count|await mapping/);
+});
+
+test('rejects an expected backend call that is not awaited', () => {
+  rejects_change(
+    paths.cursor,
+    'const data = await backend.getCursorInfo();',
+    'const data = (backend.getCursorInfo(), await Promise.resolve({ connected: true }));',
+    /directly await/,
+  );
+});
+
+test('rejects an expected backend call discarded inside the await operand', () => {
+  rejects_change(
+    paths.cursor,
+    'const data = await backend.getCursorInfo();',
+    'const data = await (backend.getCursorInfo(), Promise.resolve({ connected: true }));',
+    /directly await/,
+  );
 });
 
 test('rejects a missing Cost lane invalidation', () => {
