@@ -1,5 +1,5 @@
 import type { CostSource } from '../types/models';
-import { readStorageItem, writeStorageItem } from './storage';
+import { readStorageValue, writeStorageItem } from './storage';
 
 export type MonthlyBudgets = Partial<Record<CostSource, number>>;
 
@@ -8,22 +8,23 @@ export const BUDGET_SOURCES: CostSource[] = ['claude', 'codex', 'cursor'];
 const STORAGE_KEY = 'claude-quota-monthly-budgets';
 
 export function getSavedMonthlyBudgets(): MonthlyBudgets {
-  try {
-    const raw = readStorageItem(STORAGE_KEY);
-    if (!raw) return {};
+  const result = readStorageValue(STORAGE_KEY, (raw) => {
     const parsed: unknown = JSON.parse(raw);
-    if (!parsed || typeof parsed !== 'object') return {};
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      throw new Error('Invalid saved budgets');
+    }
     const budgets: MonthlyBudgets = {};
     for (const key of BUDGET_SOURCES) {
       const value = (parsed as Record<string, unknown>)[key];
-      if (typeof value === 'number' && Number.isFinite(value) && value > 0) {
-        budgets[key] = value;
+      if (value === undefined) continue;
+      if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
+        throw new Error('Invalid saved budget value');
       }
+      budgets[key] = value;
     }
     return budgets;
-  } catch {
-    return {};
-  }
+  }, { notifyUser: true });
+  return result.status === 'value' ? result.value : {};
 }
 
 export function saveMonthlyBudgets(budgets: MonthlyBudgets): boolean {

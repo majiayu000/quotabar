@@ -30,13 +30,6 @@ const DEFAULT_WRITE_OPTIONS: StorageWriteOptions = {
   notifyUser: false,
 };
 
-export function readStorageItem(key: string): string | null {
-  if (failedWriteShadow.has(key)) {
-    return failedWriteShadow.get(key) ?? null;
-  }
-  return localStorage.getItem(key);
-}
-
 function callReadFailureListener(listener: StorageReadFailureListener): void {
   try {
     listener();

@@ -1,4 +1,4 @@
-import { readStorageItem, writeStorageItem } from './storage';
+import { readStorageValue, writeStorageItem } from './storage';
 
 export type TrayServiceName = 'claude' | 'codex' | 'cursor' | 'antigravity';
 
@@ -17,12 +17,12 @@ const TRAY_DEFAULT_ENABLED: Record<TrayServiceName, boolean> = {
 };
 
 export function getSavedTrayEnabled(service: TrayServiceName): boolean {
-  try {
-    const saved = readStorageItem(TRAY_STORAGE_KEYS[service]);
-    if (saved === 'false') return false;
-    if (saved === 'true') return true;
-  } catch {}
-  return TRAY_DEFAULT_ENABLED[service];
+  const result = readStorageValue(TRAY_STORAGE_KEYS[service], (raw) => {
+    if (raw === 'false') return false;
+    if (raw === 'true') return true;
+    throw new Error('Invalid saved tray visibility');
+  }, { notifyUser: true });
+  return result.status === 'value' ? result.value : TRAY_DEFAULT_ENABLED[service];
 }
 
 export function saveTrayEnabled(service: TrayServiceName, enabled: boolean): boolean {

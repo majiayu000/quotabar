@@ -80,7 +80,9 @@ import {
   type TrayServiceActivatedPayload,
 } from './services/app_state';
 import {
+  STORAGE_READ_FAILURE_MESSAGE,
   STORAGE_WRITE_FAILURE_MESSAGE,
+  subscribeStorageReadFailures,
   subscribeStorageWriteFailures,
 } from './services/storage';
 import { useServiceEvents } from './hooks/use_service_events';
@@ -95,6 +97,23 @@ export {
   getClaudeRefreshIntervalMs,
   getClaudeTrayUsedPercent,
 } from './services/app_state';
+
+type ToastSetter = (message: string | null) => void;
+type ToastScheduler = (callback: () => void, delayMs: number) => void;
+
+const scheduleToastClear: ToastScheduler = (callback, delayMs) => {
+  setTimeout(callback, delayMs);
+};
+
+export function subscribeStorageReadFailureToast(
+  setToast: ToastSetter,
+  schedule: ToastScheduler = scheduleToastClear,
+): () => void {
+  return subscribeStorageReadFailures(() => {
+    setToast(STORAGE_READ_FAILURE_MESSAGE);
+    schedule(() => setToast(null), TRAY_GUARD_TOAST_MS);
+  });
+}
 
 export default function App() {
   const isMacOS = isMacOSPlatform();
@@ -198,6 +217,10 @@ export default function App() {
   useEffect(() => {
     return subscribeStorageWriteFailures(showStorageWriteFailure);
   }, [showStorageWriteFailure]);
+
+  useEffect(() => {
+    return subscribeStorageReadFailureToast(setToast);
+  }, []);
 
   const setAndPersistTab = useCallback((tab: TabName) => {
     setActiveView(tab);

@@ -2,7 +2,7 @@ import type { ThemeName } from '../components/ThemeSelector';
 import type { QuotaData } from '../types/models';
 import { SERVICES } from './service_meta';
 import type { AppTabName } from './provider_summary';
-import { readStorageItem, writeStorageItem } from './storage';
+import { readStorageValue, writeStorageItem } from './storage';
 import { getSavedTrayEnabled, saveTrayEnabled, type TrayServiceName } from './tray_visibility';
 import type { TrayStyle } from './tray_style';
 
@@ -47,37 +47,37 @@ export function isMacOSPlatform(): boolean {
 }
 
 export function getSavedTab(): AppTabName {
-  try {
-    const saved = readStorageItem(TAB_STORAGE_KEY);
-    if (saved && VALID_TABS.has(saved)) {
-      return saved as AppTabName;
-    }
-  } catch {}
-  return 'claude';
+  const result = readStorageValue(TAB_STORAGE_KEY, (raw) => {
+    if (!VALID_TABS.has(raw)) throw new Error('Invalid saved tab');
+    return raw as AppTabName;
+  }, { notifyUser: true });
+  return result.status === 'value' ? result.value : 'claude';
 }
 
 export function getSavedTheme(): ThemeName {
-  try {
-    const saved = readStorageItem(THEME_STORAGE_KEY);
-    if (saved && ['light', 'dark', 'claude', 'claude-dark', 'minimal', 'minimal-dark', 'ocean'].includes(saved)) {
-      return saved as ThemeName;
+  const result = readStorageValue(THEME_STORAGE_KEY, (raw) => {
+    if (!['light', 'dark', 'claude', 'claude-dark', 'minimal', 'minimal-dark', 'ocean'].includes(raw)) {
+      throw new Error('Invalid saved theme');
     }
-  } catch {}
-  return 'light';
+    return raw as ThemeName;
+  }, { notifyUser: true });
+  return result.status === 'value' ? result.value : 'light';
 }
 
 export function getSavedDockHidden(): boolean {
-  try {
-    return readStorageItem(DOCK_HIDDEN_KEY) === 'true';
-  } catch {}
-  return false;
+  const result = readStorageValue(DOCK_HIDDEN_KEY, decodeBoolean, { notifyUser: true });
+  return result.status === 'value' ? result.value : false;
 }
 
 export function getSavedSettingsExpanded(): boolean {
-  try {
-    return readStorageItem(SETTINGS_EXPANDED_KEY) === 'true';
-  } catch {}
-  return false;
+  const result = readStorageValue(SETTINGS_EXPANDED_KEY, decodeBoolean, { notifyUser: true });
+  return result.status === 'value' ? result.value : false;
+}
+
+function decodeBoolean(raw: string): boolean {
+  if (raw === 'true') return true;
+  if (raw === 'false') return false;
+  throw new Error('Invalid saved boolean');
 }
 
 export function saveActiveTab(tab: AppTabName): boolean {

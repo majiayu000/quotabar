@@ -1,5 +1,5 @@
 import { SERVICES } from './service_meta';
-import { readStorageItem, writeStorageItem } from './storage';
+import { readStorageValue, writeStorageItem } from './storage';
 import type { TrayServiceName } from './tray_visibility';
 
 export type SwitcherVisibility = Record<TrayServiceName, boolean>;
@@ -15,25 +15,23 @@ export function defaultSwitcherVisibility(): SwitcherVisibility {
 
 export function getSavedSwitcherVisibility(): SwitcherVisibility {
   const defaults = defaultSwitcherVisibility();
-  try {
-    const raw = readStorageItem(STORAGE_KEY);
-    if (!raw) return defaults;
+  const result = readStorageValue(STORAGE_KEY, (raw) => {
     const parsed: unknown = JSON.parse(raw);
-    if (!parsed || typeof parsed !== 'object') return defaults;
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      throw new Error('Invalid saved switcher visibility');
+    }
     for (const svc of SERVICES) {
       const value = (parsed as Record<string, unknown>)[svc];
-      if (typeof value === 'boolean') {
-        defaults[svc] = value;
-      }
+      if (value === undefined) continue;
+      if (typeof value !== 'boolean') throw new Error('Invalid saved switcher value');
+      defaults[svc] = value;
     }
-    // The switcher needs at least one provider next to Overview.
     if (!SERVICES.some((svc) => defaults[svc])) {
-      return defaultSwitcherVisibility();
+      throw new Error('At least one switcher provider must remain visible');
     }
     return defaults;
-  } catch {
-    return defaults;
-  }
+  }, { notifyUser: true });
+  return result.status === 'value' ? result.value : defaultSwitcherVisibility();
 }
 
 export function saveSwitcherVisibility(visibility: SwitcherVisibility): boolean {

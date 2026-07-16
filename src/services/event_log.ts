@@ -1,4 +1,4 @@
-import { readStorageItem, writeStorageItem } from './storage';
+import { readStorageValue, writeStorageItem } from './storage';
 
 export type EventLevel = 'info' | 'warning' | 'critical';
 
@@ -15,15 +15,14 @@ const MAX_EVENTS = 50;
 const DEDUPE_WINDOW_MS = 30 * 60 * 1000;
 
 export function getSavedEvents(): AppEvent[] {
-  try {
-    const raw = readStorageItem(STORAGE_KEY);
-    if (!raw) return [];
+  const result = readStorageValue(STORAGE_KEY, (raw) => {
     const parsed: unknown = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    return parsed.filter(isAppEvent);
-  } catch {
-    return [];
-  }
+    if (!Array.isArray(parsed) || !parsed.every(isAppEvent)) {
+      throw new Error('Invalid saved event history');
+    }
+    return parsed;
+  }, { notifyUser: true });
+  return result.status === 'value' ? result.value : [];
 }
 
 function isAppEvent(value: unknown): value is AppEvent {
