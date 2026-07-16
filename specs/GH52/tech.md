@@ -53,7 +53,7 @@ Codex 的 `Promise.all(info, limits, credits)` 保持 atomic；不得逐 member 
 
 App Claude 的 request generation hook 放在现有 `fetchClaudeQuota` ownership scope；manual 和 self-scheduled background call 共用。旧 429/error 不能改变 current interval selection、quota、connected 或 loading。
 
-实现变量名固定为：App `claude_request_generation`；Codex/Cursor/Antigravity `request_generation`；Cost `overview_generation` 与 `daily_generation`。Test Plan 使用 TypeScript AST 验证每个 owner 的 hook call exact count，且每个 generation object 都实际调用一个 `begin()` 与至少三个 `isCurrent(generation)` terminal guards，禁止只 import/声明但不接线。
+实现变量名固定为：App `claude_request_generation`；Codex/Cursor/Antigravity `request_generation`；Cost `overview_generation` 与 `daily_generation`。
 
 ### 3. Cost lanes
 
@@ -64,12 +64,34 @@ App Claude 的 request generation hook 放在现有 `fetchClaudeQuota` ownership
 
 两 lane 独立 begin/current/invalidate。effect cleanup invalidate 两者；新 effect 仍启动两 lane。overview stale finally 不清新 overview loading；daily stale error 不把新 daily 设 null。现有 merge functions 与 error message contract不变。
 
-### 4. Tests
+### 4. Fail-closed wiring checker
+
+新增 `scripts/check_latest_request_wiring.mjs`，使用 TypeScript AST 对真实 owner function 的 binding、token dataflow 与 control flow 做 exact validation，而不是只计数 method syntax：
+
+- generation variable declarator initializer 必须是 `useLatestRequestGeneration()`，变量名与 owner 固定映射一致。
+- 真实 target function 固定为 App `fetchClaudeQuota`、三个 panel 的 `fetchData`、Cost 的 `loadCost` 与 `loadDaily`；async body 的第一条 executable statement 必须是对应 owner 的 `const generation = <owner>.begin()`。真实 await callee 映射固定为 `backend.getQuota`、Codex `Promise.all(backend.getCodexInfo/getCodexRateLimits/getCodexResetCredits)`、`backend.getCursorInfo`、`backend.getAntigravityInfo`、Cost `Promise.all(...backend.getCostOverview)` 与 `Promise.all(...backend.getCostDaily)`。
+- backend await 后的 success、catch 第一条 executable statement、finally loading write 都必须由对应 owner 的 `isCurrent(generation)` fail-closed guard 控制；guard false 必须 return，token/owner 不得替换。
+- Cost owning effect cleanup 必须调用 `overview_generation.invalidate()` 与 `daily_generation.invalidate()`；Antigravity 必须存在 `autoRefreshIntervalMs <= 0` 的 no-timer branch。
+- checker 对缺失、额外、错误 owner/token、guard 在 fetch 外、dummy hook/fake object、dead-code guard、缺 catch/finally、缺 Cost invalidate、缺 interval-zero branch 全部失败。
+
+新增 `scripts/check_latest_request_wiring.test.mjs`，用 valid fixture 与上述逐类 adversarial fixtures 验证 fail-closed；checker 自身 Node line/function/branch coverage 全部 100%。
+
+### 5. Tests
 
 - `tests/latest_request_generation.test.ts`：begin monotonic、current replacement、invalidate、hook unmount cleanup，critical 100%。
-- `tests/provider_refresh_races.test.tsx`：dev-only real React effects，使用 deferred promises；至少覆盖 Codex reproduction、Claude manual/background、Cursor stale failure、Antigravity unmount+interval 0、Cost overview/daily independent races。
-- 每个 provider 至少同时断言 visible state 或 callback、error、loading 中适用的两个维度，禁止只测 helper。
+- `tests/provider_refresh_races.test.tsx`：dev-only real React effects，使用 parameterized deferred promises，按下表逐 owner/terminal 完整执行；禁止只测 helper。
+- 每个 provider 同时断言 visible state 或 callback、error、loading 中适用的维度；current failure 不得因 stale suppression 被吞。
 - renderer 仅为 dev dependency，版本必须与 `package-lock.json` resolved React 版本兼容；不得进入 `dependencies`。
+
+| Owner/lane | Required deterministic cases |
+| --- | --- |
+| Claude | new-success/old-success、new-success/old-failure、new-failure/old-success、stale-finally-while-current-pending、unmount |
+| Codex | 同上；另对 info/limits/credits 每个 member parameterize current rejection 与 stale rejection |
+| Cursor | new-success/old-success、new-success/old-failure、new-failure/old-success、stale-finally-while-current-pending、unmount |
+| Antigravity | 同上；另断言 interval `0` 不注册 timer |
+| Cost overview | new-success/old-success、new-success/old-failure、new-failure/old-success、stale-finally-while-current-pending、effect cleanup |
+| Cost daily | new-success/old-success、new-success/old-failure、new-failure/old-success、effect cleanup |
+| Cost cross-lane | overview 与 daily 同时在途时互不 invalidate，任一 lane 的新 request 不改变另一 lane current identity |
 
 ## Affected Files / Allowlist
 
@@ -81,6 +103,8 @@ App Claude 的 request generation hook 放在现有 `fetchClaudeQuota` ownership
 - `src/components/CostSummarySection.tsx`
 - `tests/latest_request_generation.test.ts`
 - `tests/provider_refresh_races.test.tsx`
+- `scripts/check_latest_request_wiring.mjs`
+- `scripts/check_latest_request_wiring.test.mjs`
 - `package.json`
 - `package-lock.json`
 - `specs/GH52/tasks.md`
@@ -90,8 +114,9 @@ App Claude 的 request generation hook 放在现有 `fetchClaudeQuota` ownership
 | Risk | Mitigation |
 | --- | --- |
 | stale finally clears new loading | current check inside finally + deferred assertion。 |
-| helper tested but component not wired | real component effect tests for every owner。 |
-| one provider uses separate manual guard | exact source/AST gate requires one coordinator per provider fetch owner。 |
+| helper tested but component not wired | real component effect tests for every owner + fail-closed wiring checker。 |
+| dummy/dead AST syntax bypasses gate | checker binds exact hook declarator、real fetch、token dataflow、backend await、terminal control flow；adversarial fixtures 100% coverage。 |
+| one provider uses separate manual guard | exact owner/function mapping requires one coordinator per provider fetch owner。 |
 | cost overview invalidates daily | two independent coordinator identities + cross-lane test。 |
 | unmount callbacks leak | hook cleanup invalidate + deferred unmount test。 |
 | current failures silently disappear | only stale failure ignored；current failure regression assertions。 |
@@ -102,11 +127,11 @@ App Claude 的 request generation hook 放在现有 `fetchClaudeQuota` ownership
 
 | Invariant | Verification |
 | --- | --- |
-| `B-001` latest success only | Codex/Claude/Cursor/Antigravity deferred old/new success |
-| `B-002` stale failures ignored | provider old failure/new success and new failure/old success |
-| `B-003` loading ownership | stale finally while current request pending |
-| `B-004` cleanup invalidation | unmount and cost effect cleanup deferred completion |
-| `B-005` lane ownership | Codex atomic bundle + cost independent lane test |
+| `B-001` latest success only | 每个 provider 与每条 Cost lane 的 parameterized old/new success |
+| `B-002` stale failures ignored | 每个 owner/lane 的 old failure/new success 与 new failure/old success；Codex 三个 bundle members current/stale rejection |
+| `B-003` loading ownership | 每个 provider 与 Cost overview 的 stale finally while current pending |
+| `B-004` cleanup invalidation | 每个 provider unmount 与两条 Cost lane cleanup deferred completion |
+| `B-005` lane ownership | Codex atomic bundle + Cost cross-lane identity test |
 | `B-006` shared entry points/pause | manual+startup races、fake interval 0 assertions |
 | `B-007` regression/gates | coverage、full local/CI/current-head review |
 
@@ -125,6 +150,8 @@ git diff --quiet origin/main...HEAD -- . \
   ':(exclude)src/components/CostSummarySection.tsx' \
   ':(exclude)tests/latest_request_generation.test.ts' \
   ':(exclude)tests/provider_refresh_races.test.tsx' \
+  ':(exclude)scripts/check_latest_request_wiring.mjs' \
+  ':(exclude)scripts/check_latest_request_wiring.test.mjs' \
   ':(exclude)package.json' \
   ':(exclude)package-lock.json' \
   ':(exclude)specs/GH52/tasks.md'
@@ -137,37 +164,13 @@ node -e "
   const renderer = lock.packages?.['node_modules/react-test-renderer']?.version;
   if (!react || renderer !== react) process.exit(1);
 "
-node --input-type=module -e "
-  import ts from 'typescript';
-  import { readFileSync } from 'node:fs';
-  const owners = new Map([
-    ['src/App.tsx', [['claude_request_generation', 1]]],
-    ['src/components/CodexPanel.tsx', [['request_generation', 1]]],
-    ['src/components/CursorPanel.tsx', [['request_generation', 1]]],
-    ['src/components/AntigravityPanel.tsx', [['request_generation', 1]]],
-    ['src/components/CostSummarySection.tsx', [['overview_generation', 1], ['daily_generation', 1]]],
-  ]);
-  for (const [path, expected] of owners) {
-    const source = ts.createSourceFile(path, readFileSync(path, 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
-    let hookCalls = 0;
-    const calls = new Map(expected.map(([name]) => [name, { begin: 0, current: 0 }]));
-    const visit = (node) => {
-      if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === 'useLatestRequestGeneration') hookCalls += 1;
-      if (ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression) && ts.isIdentifier(node.expression.expression)) {
-        const counts = calls.get(node.expression.expression.text);
-        if (counts && node.expression.name.text === 'begin') counts.begin += 1;
-        if (counts && node.expression.name.text === 'isCurrent') counts.current += 1;
-      }
-      ts.forEachChild(node, visit);
-    };
-    visit(source);
-    if (hookCalls !== expected.length) process.exit(1);
-    for (const [name, beginCount] of expected) {
-      const counts = calls.get(name);
-      if (!counts || counts.begin !== beginCount || counts.current < 3) process.exit(1);
-    }
-  }
-"
+node --experimental-test-coverage \
+  --test-coverage-include=scripts/check_latest_request_wiring.mjs \
+  --test-coverage-lines=100 \
+  --test-coverage-functions=100 \
+  --test-coverage-branches=100 \
+  --test scripts/check_latest_request_wiring.test.mjs
+node scripts/check_latest_request_wiring.mjs
 npx vitest run tests/latest_request_generation.test.ts tests/provider_refresh_races.test.tsx
 node --experimental-test-coverage \
   --test-coverage-include=scripts/check_ts_diff_coverage.mjs \
@@ -183,7 +186,12 @@ node scripts/check_ts_diff_coverage.mjs \
   --base origin/main \
   --lcov coverage/lcov.info \
   --minimum 80 \
-  --critical src/hooks/use_latest_request_generation.ts=100
+  --critical src/hooks/use_latest_request_generation.ts=100 \
+  --critical src/App.tsx=100 \
+  --critical src/components/CodexPanel.tsx=100 \
+  --critical src/components/CursorPanel.tsx=100 \
+  --critical src/components/AntigravityPanel.tsx=100 \
+  --critical src/components/CostSummarySection.tsx=100
 npm test
 npm run build
 cargo fmt --manifest-path src-tauri/Cargo.toml --check
