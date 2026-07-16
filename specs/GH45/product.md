@@ -33,7 +33,7 @@
 3. `B-003` `App.tsx` 的全部 CSS import 顺序必须精确为 foundation、content、views、redesign shell、redesign panels、`redesign-settings.css`，不得插入 `@import` 或其他 CSS import。
 4. `B-004` production build 必须继续只生成一个 CSS asset，大小 52,095 bytes、SHA-256 `d7f90db387af5a7e53c340b02890f40f0f407def247a3cceacf6dfdad473b955`。
 5. `B-005` implementation 只允许机械文件拆分与 import replacement；frontend tests/build、Rust fmt/check/test、零 executable TS coverage applicability evidence、current-head reviews、CI 与 reviewThreads 必须通过。
-6. `B-006` implementation 开始前必须重新验证 then-latest `origin/main` 的 redesign source bytes/hash/line count、CSS import baseline 与 production bundle；任一漂移都必须先更新 issue/spec。
+6. `B-006` implementation 开始前必须重新验证 then-latest `origin/main` 的 redesign source bytes/hash/line count、完整 App bytes/hash、全部 `.css` lines 与 production bundle；任一漂移都必须先更新 issue/spec。
 
 ## Acceptance Criteria
 
@@ -42,7 +42,7 @@
 - `App.tsx` 用两个 direct CSS imports 替换唯一 `./redesign.css` import，并保持在 `redesign-settings.css` 之前。
 - source byte length/hash、两个 line count、App bytes/import sequence、production bundle size/hash 均由 deterministic command fail closed 验证。
 - implementation diff 仅含 tech spec allowlist 的 5 个路径；没有 CSS semantic、config、dependency 或其他 App change。
-- implementation 不新增可执行 TS/TSX 行；当前 App 必须等于 `origin/main:src/App.tsx` 仅执行唯一 1→2 import replacement 后的 computed expected。禁止为制造 measurable coverage 添加 dummy runtime code。
+- implementation 不新增可执行 TS/TSX 行；preflight 必须先证明 baseline App 为 26,016 bytes/SHA exact，当前 App 再必须等于该 `origin/main:src/App.tsx` 仅执行唯一 1→2 import replacement 后的 computed expected。全部含 `.css` 的 App lines 还必须与 exact expected line array 完全相等；禁止为制造 measurable coverage 添加 dummy runtime code。
 
 ## Boundary Checklist
 
