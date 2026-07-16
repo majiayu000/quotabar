@@ -103,7 +103,8 @@ export {
   getClaudeTrayUsedPercent,
 } from './services/app_state';
 
-type ToastSetter = (message: string | null) => void;
+type ToastValue = string | null;
+type ToastSetter = (value: ToastValue | ((current: ToastValue) => ToastValue)) => void;
 type ToastScheduler = (callback: () => void, delayMs: number) => void;
 
 const SWITCHER_GUARD_MESSAGE = 'At least one provider must stay in the switcher';
@@ -150,7 +151,16 @@ export default function App() {
   const [theme, setTheme] = useState<ThemeName>(getSavedTheme);
   const [dockHidden, setDockHidden] = useState<boolean>(getSavedDockHidden);
   const [trayEnabled, setTrayEnabled] = useState<TrayEnabledState>(getInitialTrayEnabledState);
-  const [toast, setToast] = useState<string | null>(null);
+  const [toast, setToastState] = useState<ToastValue>(null);
+  const switcherGuardTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const setToast = useCallback<ToastSetter>((value) => {
+    setToastState((current) => {
+      const next = typeof value === 'function' ? value(current) : value;
+      return next === null && current === SWITCHER_GUARD_MESSAGE && switcherGuardTimerRef.current !== null
+        ? current
+        : next;
+    });
+  }, []);
   const [activeView, setActiveView] = useState<AppViewName>(() =>
     getSavedSettingsExpanded() ? 'settings' : getSavedTab(),
   );
@@ -170,7 +180,6 @@ export default function App() {
   const containerRef = useRef<HTMLDivElement>(null);
   const windowVisible = usePopoverWindow(containerRef, [activeView, quota, connected]);
   const lastTrayIconRequestRef = useRef<Partial<Record<TrayServiceName, TrayIconRequest>>>({});
-  const switcherGuardTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const setServiceConnected = useCallback((service: TrayServiceName, value: boolean) => {
     setConnected((prev) => (prev[service] === value ? prev : { ...prev, [service]: value }));
@@ -220,22 +229,16 @@ export default function App() {
 
   const showStorageWriteFailure = useCallback(() => {
     setToast(STORAGE_WRITE_FAILURE_MESSAGE);
-    setTimeout(() => setToast((current) => current === STORAGE_WRITE_FAILURE_MESSAGE ? null : current), TRAY_GUARD_TOAST_MS);
+    setTimeout(() => setToast(null), TRAY_GUARD_TOAST_MS);
   }, []);
 
   useEffect(() => {
     return subscribeStorageWriteFailures(showStorageWriteFailure);
   }, [showStorageWriteFailure]);
 
-  const setStorageReadToast = useCallback<ToastSetter>((message) => {
-    if (message !== null) {
-      setToast(message);
-      return;
-    }
-    setToast((current) => current === STORAGE_READ_FAILURE_MESSAGE ? null : current);
-  }, []);
-
-  useEffect(() => subscribeStorageReadFailureToast(setStorageReadToast), [setStorageReadToast]);
+  useEffect(() => {
+    return subscribeStorageReadFailureToast(setToast);
+  }, [setToast]);
 
   const setAndPersistTab = useCallback((tab: TabName) => {
     setActiveView(tab);
@@ -461,7 +464,7 @@ export default function App() {
 
   const showTrayGuardToast = useCallback(() => {
     setToast(TRAY_GUARD_MESSAGE);
-    setTimeout(() => setToast((current) => current === TRAY_GUARD_MESSAGE ? null : current), TRAY_GUARD_TOAST_MS);
+    setTimeout(() => setToast(null), TRAY_GUARD_TOAST_MS);
   }, []);
 
   const handleTrayToggle = useCallback((service: TrayServiceName) => {
@@ -573,7 +576,7 @@ export default function App() {
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to open dashboard';
       setToast(message);
-      setTimeout(() => setToast((current) => current === message ? null : current), 2000);
+      setTimeout(() => setToast(null), 2000);
     }
   }, [activeProvider]);
 
