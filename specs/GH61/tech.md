@@ -49,11 +49,14 @@ const wouldHideLast = !nextValue
 
 `wouldHideLast` 时立即：
 
+- 通过 module-local fixed message 与 `switcherGuardTimerRef` 清除前一个 owned timer（若存在）；
 - `setToast('At least one provider must stay in the switcher')` exactly once；
-- `setTimeout(() => setToast(null), TRAY_GUARD_TOAST_MS)` exactly once；
+- 创建一个新的 `TRAY_GUARD_TOAST_MS` timer 并保存 ownership；
 - return，不调用 state setter 或 persistence。
 
-state 因未提交 transition 而保持完整 snapshot。不得把 toast/timer 放回 state updater 或 render path。
+timer callback 只在当前 toast 仍等于 fixed switcher guard 时清空，不能覆盖后来出现的 storage/其他 toast；随后释放 ref ownership。component unmount cleanup 取消 pending owned timer 并清空 ref，保证零 post-unmount state write。
+
+连续 blocked user events 的 latest event 必须拥有 timer：第二次事件 clear 第一次 timer 并从第二次事件起获得完整 delay。state 因未提交 transition 而保持完整 snapshot。不得把 toast/timer 放回 state updater 或 render path。
 
 ### 3. Accepted terminal
 
@@ -80,9 +83,9 @@ handler dependency 必须包含 `switcherVisibility`，确保每次 committed re
 - mock popover/backend 与初始 saved visibility，但 import/mount 真实 App、SettingsView 和 StrictMode；
 - 从 rendered `SettingsView` props 调用真实 callback，每次 accepted transition 后重新获取 latest instance/callback；
 - 参数化四个 only-visible blocked states；
-- 参数化 hidden→visible 与 visible-with-peer→hidden accepted states；
+- 参数化四个 service 的 hidden→visible 与 visible-with-peer→hidden accepted states，共 8 terminals；
 - spy `saveSwitcherVisibility` exact calls/arguments；
-- fake timer + timeout spy 验证 fixed delay 和 toast lifecycle；
+- fake timer + timeout/clearTimeout spy 验证 fixed delay、two-event latest ownership、non-guard preservation、unmount cleanup 与 toast lifecycle；
 - 至少一例 active hidden 后 Overview fallback。
 
 不复制 production decision helper，不依赖 wall-clock、DOM environment 或 AST-only evidence。
@@ -99,8 +102,11 @@ handler dependency 必须包含 `switcherVisibility`，确保每次 committed re
 | --- | --- |
 | callback closure becomes stale | dependency includes full visibility snapshot；每次 accepted event 后测试重新获取 committed callback。 |
 | guard only works for Claude | four-service parameterized only-visible matrix。 |
+| accepted target-specific bug escapes tests | four-service enable + four-service disable 共 8 terminal matrix。 |
 | StrictMode still duplicates storage | actual StrictMode mount + exact save count。 |
 | accepted transition mutates peers | exact full-object argument/state assertions。 |
+| earlier timer clears latest/other toast | owned timer replacement + conditional clear + two-event/non-guard tests。 |
+| timer writes after unmount | cleanup cancels owned timer + post-unmount advance assertion。 |
 | toast timer becomes flaky | fake timers + fixed delay spy，无 sleep。 |
 | storage failure routing changes | saver return contract untouched；existing global subscriber remains owner。 |
 | App scope expands | exact 3-path allowlist；不改 tray/storage/backend。 |
@@ -111,8 +117,8 @@ handler dependency 必须包含 `switcherVisibility`，确保每次 committed re
 | --- | --- |
 | `B-001` | real App/SettingsView callback capture + four service matrix |
 | `B-002` | only-visible blocked state/save/toast assertions |
-| `B-003` | timeout delay/count + pre/post-expiry toast assertions |
-| `B-004` | StrictMode accepted enable/disable state and exact saver argument/count |
+| `B-003` | timeout/clear count + two-event ownership + non-guard preservation + unmount + pre/post-expiry assertions |
+| `B-004` | StrictMode four-service enable/disable 8-terminal state and exact saver argument/count |
 | `B-005` | current implementation fails save count 2；fixed behavior exact once/zero |
 | `B-006` | active-hidden Overview fallback + unchanged boundary checks |
 | `B-007` | allowlist、coverage、full local/CI/current-head review |
