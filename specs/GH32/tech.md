@@ -47,6 +47,7 @@
 | 漏删某一层、helper 或 cache 导致编译失败或死标识符残留 | 对完整标识符集合运行 `rg` 负向检查，并执行 TypeScript build 与 Rust check。 |
 | 误删仍由 quota/reset credits 使用的 Codex import 或 helper | 删除后运行现有 Rust tests，并限制 diff 仅覆盖明确锚点。 |
 | 与 PR #31 冲突或混入无关变更 | implementation branch 在 spec 合并后的最新 `origin/main` 创建；最终 diff 必须符合 GH32 七路径精确 allowlist。 |
+| allowlist 在缺失或不可解析的 `origin/main` 上静默放行 | 显式 fetch `main` 到 remote-tracking ref，再用 `git diff --quiet` 与排除 pathspec 检查范围；缺 base、diff 错误或额外文件都返回非零。 |
 | 仓库外部调用内部 Tauri command | 当前 command 未文档化且无仓库消费者；不承诺兼容。若实现前发现正式外部契约证据，则停止并修订 spec。 |
 
 ## Product-to-Test Mapping
@@ -61,6 +62,16 @@
 ## Test Plan
 
 ```bash
+set -euo pipefail
+git fetch origin main:refs/remotes/origin/main
+git diff --quiet origin/main...HEAD -- . \
+  ':(exclude)src/types/models.ts' \
+  ':(exclude)src/services/backend.ts' \
+  ':(exclude)src-tauri/src/domain/models.rs' \
+  ':(exclude)src-tauri/src/commands.rs' \
+  ':(exclude)src-tauri/src/lib.rs' \
+  ':(exclude)src-tauri/src/services/codex.rs' \
+  ':(exclude)specs/GH32/tasks.md'
 ! rg -n "getCodexStats|get_codex_stats|CodexStats|HistoryStatsCache|HISTORY_STATS_CACHE|history_stats_cache|update_stats_from_reader|build_codex_stats|fetch_codex_stats|history\.jsonl" src src-tauri/src tests
 npm test
 npm run build
