@@ -68,10 +68,10 @@ export function shouldNotify(body: string, now: number = Date.now()): boolean {
       next[key] = value;
     }
   }
-  try {
-    localStorage.setItem(DEDUPE_STORAGE_KEY, JSON.stringify(next));
-  } catch {}
-  return true;
+  return writeStorageItem(DEDUPE_STORAGE_KEY, JSON.stringify(next), {
+    preserveSessionValue: false,
+    notifyUser: false,
+  });
 }
 
 export async function notify(title: string, body: string): Promise<void> {

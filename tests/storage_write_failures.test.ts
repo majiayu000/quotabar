@@ -10,9 +10,11 @@ import {
   saveTheme,
 } from '../src/services/app_state';
 import { getSavedMonthlyBudgets, saveMonthlyBudgets } from '../src/services/budget';
+import { getSavedEvents, recordEvent } from '../src/services/event_log';
 import {
   getSavedNotificationSettings,
   saveNotificationSettings,
+  shouldNotify,
 } from '../src/services/notifications';
 import { getSavedPanelSections, savePanelSections } from '../src/services/panel_sections';
 import {
@@ -288,4 +290,51 @@ describe('user setting savers', () => {
       expect(writeStorageItem(testCase.key, 'cleanup')).toBe(true);
     },
   );
+});
+
+describe('background storage writes', () => {
+  it('fails notification dedupe closed without shadow or user notification, then retries', () => {
+    const key = 'claude-quota-notified';
+    installMemoryStorage();
+    expect(writeStorageItem(key, '{}')).toBe(true);
+    installThrowingStorage(new Error('dedupe unavailable'));
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const listener = vi.fn();
+    const unsubscribe = subscribeStorageWriteFailures(listener);
+
+    expect(shouldNotify('quota warning', 1_000)).toBe(false);
+    expect(readStorageItem(key)).toBeNull();
+    expect(listener).not.toHaveBeenCalled();
+
+    const values = installMemoryStorage();
+    expect(shouldNotify('quota warning', 1_000)).toBe(true);
+    expect(JSON.parse(values.get(key) ?? '')).toEqual({ 'quota warning': 1_000 });
+    expect(listener).not.toHaveBeenCalled();
+    unsubscribe();
+  });
+
+  it('keeps a failed event write in the session without notifying the user', () => {
+    const key = 'claude-quota-events';
+    const error = new Error('event storage unavailable');
+    installMemoryStorage();
+    expect(writeStorageItem(key, '[]')).toBe(true);
+    installThrowingStorage(error);
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const listener = vi.fn();
+    const unsubscribe = subscribeStorageWriteFailures(listener);
+
+    const events = recordEvent([], 'warning', 'Quota warning', 1_700_000_000_000);
+
+    expect(events).toHaveLength(1);
+    expect(getSavedEvents()).toEqual(events);
+    expect(listener).not.toHaveBeenCalled();
+    expect(consoleError).toHaveBeenCalledExactlyOnceWith(
+      'Failed to persist local setting:',
+      error,
+    );
+
+    unsubscribe();
+    installMemoryStorage();
+    expect(writeStorageItem(key, '[]')).toBe(true);
+  });
 });

@@ -1,3 +1,5 @@
+import { readStorageItem, writeStorageItem } from './storage';
+
 export type EventLevel = 'info' | 'warning' | 'critical';
 
 export interface AppEvent {
@@ -14,7 +16,7 @@ const DEDUPE_WINDOW_MS = 30 * 60 * 1000;
 
 export function getSavedEvents(): AppEvent[] {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = readStorageItem(STORAGE_KEY);
     if (!raw) return [];
     const parsed: unknown = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
@@ -60,9 +62,10 @@ export function recordEvent(
     ...events,
   ].slice(0, MAX_EVENTS);
 
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-  } catch {}
+  writeStorageItem(STORAGE_KEY, JSON.stringify(next), {
+    preserveSessionValue: true,
+    notifyUser: false,
+  });
   return next;
 }
 
