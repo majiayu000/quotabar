@@ -321,7 +321,9 @@ function validate_focus_guard(source: string): void {
   const registration = registrations[0];
 
   let effect: ts.ArrowFunction | undefined;
+  let nearest_function: ts.Node | undefined;
   for (let node: ts.Node | undefined = registration.parent; node; node = node.parent) {
+    if (!nearest_function && ts.isFunctionLike(node)) nearest_function = node;
     if (ts.isArrowFunction(node)
       && ts.isCallExpression(node.parent)
       && ts.isIdentifier(node.parent.expression)
@@ -332,6 +334,25 @@ function validate_focus_guard(source: string): void {
     }
   }
   if (!effect) fail('focus registration must be inside the real visibility effect');
+  if (nearest_function !== effect) fail('focus registration must not be nested in a dead function');
+  const then_property = registration.parent;
+  const then_call = then_property.parent;
+  const statement = then_call.parent;
+  const try_block = statement.parent;
+  const try_statement = try_block.parent;
+  const direct_registration = ts.isPropertyAccessExpression(then_property)
+    && then_property.expression === registration
+    && then_property.name.text === 'then'
+    && ts.isCallExpression(then_call)
+    && then_call.expression === then_property
+    && ts.isExpressionStatement(statement)
+    && statement.expression === then_call
+    && ts.isBlock(try_block)
+    && ts.isTryStatement(try_statement)
+    && try_statement.tryBlock === try_block
+    && ts.isBlock(effect.body)
+    && try_statement.parent === effect.body;
+  if (!direct_registration) fail('focus registration must be a direct visibility-effect try statement');
   let read_calls = 0;
   let current_window_bindings = 0;
   const inspect_effect = (node: ts.Node) => {
@@ -396,6 +417,19 @@ function replace_exact(source: string, target: string, replacement: string): str
   return source.replace(target, replacement);
 }
 
+function move_registration_to_dead_branch(source: string): string {
+  const opened = replace_exact(
+    source,
+    '    try {\n      appWindow.onFocusChanged',
+    '    try {\n      if (false) {\n        appWindow.onFocusChanged',
+  );
+  return replace_exact(
+    opened,
+    '      }, handle_subscription_failure);\n    } catch {\n      handle_subscription_failure();',
+    '      }, handle_subscription_failure);\n      }\n    } catch {\n      handle_subscription_failure();',
+  );
+}
+
 describe('focus callback source gate', () => {
   const source = readFileSync(new URL('../src/hooks/use_popover_window.ts', import.meta.url), 'utf8');
 
@@ -415,7 +449,7 @@ describe('focus callback source gate', () => {
     ['else branch', replace_exact(source, guard,
       guard.replace('if (!mounted) return;', 'if (!mounted) return; else read_superseded = true;'))],
     ['wrong payload', replace_exact(source, 'setWindowVisible(focused);', 'setWindowVisible(!focused);')],
-    ['dummy registration', `${source}\nfunction dead() {\n  appWindow.onFocusChanged(({ payload: focused }) => {\n    if (!mounted) return;\n    read_superseded = true;\n    setWindowVisible(focused);\n  });\n}\n`],
+    ['dead registration', move_registration_to_dead_branch(source)],
   ] as const;
 
   it.each(fixtures)('rejects %s', (_name, mutated_source) => {
