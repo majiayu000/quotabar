@@ -141,7 +141,6 @@ export default function App() {
   const [notifSettings, setNotifSettings] = useState<NotificationSettings>(getSavedNotificationSettings);
   const [switcherVisibility, setSwitcherVisibility] = useState<SwitcherVisibility>(getSavedSwitcherVisibility);
   const containerRef = useRef<HTMLDivElement>(null);
-  const storageFailureToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const windowVisible = usePopoverWindow(containerRef, [activeView, quota, connected]);
   const lastTrayIconRequestRef = useRef<Partial<Record<TrayServiceName, TrayIconRequest>>>({});
 
@@ -193,24 +192,12 @@ export default function App() {
 
   const showStorageWriteFailure = useCallback(() => {
     setToast(STORAGE_WRITE_FAILURE_MESSAGE);
-    if (storageFailureToastTimerRef.current) {
-      clearTimeout(storageFailureToastTimerRef.current);
-    }
-    storageFailureToastTimerRef.current = setTimeout(() => {
-      setToast(null);
-      storageFailureToastTimerRef.current = null;
-    }, TRAY_GUARD_TOAST_MS);
+    setTimeout(() => setToast(null), TRAY_GUARD_TOAST_MS);
   }, []);
 
   useEffect(() => {
     return subscribeStorageWriteFailures(showStorageWriteFailure);
   }, [showStorageWriteFailure]);
-
-  useEffect(() => () => {
-    if (storageFailureToastTimerRef.current) {
-      clearTimeout(storageFailureToastTimerRef.current);
-    }
-  }, []);
 
   const setAndPersistTab = useCallback((tab: TabName) => {
     setActiveView(tab);

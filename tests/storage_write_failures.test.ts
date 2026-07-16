@@ -1,4 +1,7 @@
+import { createElement } from 'react';
+import { renderToString } from 'react-dom/server';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import App from '../src/App';
 import {
   getSavedDockHidden,
   getSavedSettingsExpanded,
@@ -336,5 +339,15 @@ describe('background storage writes', () => {
     unsubscribe();
     installMemoryStorage();
     expect(writeStorageItem(key, '[]')).toBe(true);
+  });
+});
+
+describe('App storage wiring', () => {
+  it('renders with the migrated storage-backed settings', () => {
+    installMemoryStorage();
+
+    const html = renderToString(createElement(App));
+
+    expect(html).toContain('class="app theme-light"');
   });
 });
