@@ -21,6 +21,7 @@ const owner_configs = [
     loading: true,
     loading_setter: 'setLoading',
     await_kind: 'promise_all',
+    promise_all_kind: 'array',
   },
   {
     path: 'src/components/CursorPanel.tsx',
@@ -51,6 +52,7 @@ const owner_configs = [
     loading: true,
     loading_setter: 'setLoading',
     await_kind: 'promise_all',
+    promise_all_kind: 'map',
   },
   {
     path: 'src/components/CostSummarySection.tsx',
@@ -60,6 +62,7 @@ const owner_configs = [
     backend_methods: ['getCostDaily'],
     loading: false,
     await_kind: 'promise_all',
+    promise_all_kind: 'map',
   },
 ];
 
@@ -182,8 +185,28 @@ function validate_await_operand(await_expression, await_statement, config) {
   ensure(promise_all !== null, `${config.path}:${config.function_name} must await Promise.all`);
   ensure(promise_all.owner_name === 'Promise' && promise_all.method_name === 'all', `${config.path}:${config.function_name} must await Promise.all`);
   ensure(await_expression.expression.arguments.length === 1, `${config.path}:${config.function_name} Promise.all argument count is wrong`);
-  const operand_methods = backend_method_calls_in(await_expression.expression.arguments[0]).sort();
-  ensure(same_strings(operand_methods, expected_methods), `${config.path}:${config.function_name} Promise.all backend dataflow is wrong`);
+  const promise_all_argument = await_expression.expression.arguments[0];
+
+  if (config.promise_all_kind === 'array') {
+    ensure(ts.isArrayLiteralExpression(promise_all_argument), `${config.path}:${config.function_name} Promise.all must receive a direct array`);
+    const element_methods = promise_all_argument.elements.map((element) => {
+      const parts = property_call_parts(element);
+      ensure(parts !== null && parts.owner_name === 'backend', `${config.path}:${config.function_name} Promise.all array elements must be direct backend calls`);
+      return parts.method_name;
+    }).sort();
+    ensure(same_strings(element_methods, expected_methods), `${config.path}:${config.function_name} Promise.all array dataflow is wrong`);
+    return;
+  }
+
+  const map_call = property_call_parts(promise_all_argument);
+  ensure(map_call !== null, `${config.path}:${config.function_name} Promise.all must receive sources.map`);
+  ensure(map_call.owner_name === 'sources' && map_call.method_name === 'map', `${config.path}:${config.function_name} Promise.all must receive sources.map`);
+  ensure(promise_all_argument.arguments.length === 1, `${config.path}:${config.function_name} sources.map callback count is wrong`);
+  const callback = promise_all_argument.arguments[0];
+  ensure(ts.isArrowFunction(callback), `${config.path}:${config.function_name} sources.map callback must be an arrow function`);
+  const callback_call = property_call_parts(callback.body);
+  ensure(callback_call !== null && callback_call.owner_name === 'backend', `${config.path}:${config.function_name} sources.map callback must directly return a backend call`);
+  ensure(same_strings([callback_call.method_name], expected_methods), `${config.path}:${config.function_name} sources.map backend dataflow is wrong`);
 }
 
 function validate_owner(component_body, config) {

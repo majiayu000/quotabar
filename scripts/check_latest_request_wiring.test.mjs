@@ -240,6 +240,24 @@ test('rejects an expected backend call discarded inside the await operand', () =
   );
 });
 
+test('rejects a Codex backend call discarded inside a Promise.all array element', () => {
+  rejects_change(
+    paths.codex,
+    '        backend.getCodexInfo(),',
+    '        (backend.getCodexInfo(), Promise.resolve({ connected: true })),',
+    /array elements must be direct backend calls/,
+  );
+});
+
+test('rejects a Cost backend call discarded inside the sources.map callback', () => {
+  rejects_change(
+    paths.cost,
+    'sources.map((item) => backend.getCostOverview(item, force))',
+    'sources.map((item) => (backend.getCostOverview(item, force), Promise.resolve(null)))',
+    /map callback must directly return a backend call/,
+  );
+});
+
 test('rejects a missing Cost lane invalidation', () => {
   rejects_change(paths.cost, '      daily_generation.invalidate();\n', '', /invalidate both lanes/);
 });
