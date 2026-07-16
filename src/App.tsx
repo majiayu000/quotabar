@@ -52,7 +52,8 @@ import type { QuotaData } from './types/models';
 import './styles/foundation.css';
 import './styles/content.css';
 import './styles/views.css';
-import './redesign.css';
+import './redesign/shell.css';
+import './redesign/panels.css';
 import './redesign-settings.css';
 
 import {
