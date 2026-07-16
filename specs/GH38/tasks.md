@@ -18,7 +18,7 @@
 ## Verification Tasks
 
 - [x] `SP38-T6` Owner: codex. Dependencies: `SP38-T1`~`SP38-T5`. Covers: `B-001`~`B-007`. Done when: 最终 implementation HEAD 上完整 `npm test`、build、Rust fmt/check/test 新鲜通过。 Verify: `npm test && npm run build && cargo fmt --manifest-path src-tauri/Cargo.toml --check && cargo check --manifest-path src-tauri/Cargo.toml && cargo test --manifest-path src-tauri/Cargo.toml`.
-- [ ] `SP38-T7` Owner: codex. Dependencies: `SP38-T6`. Covers: none（handoff）. Done when: implementation PR 以 `Closes #38` 链接 issue，正文写明原因、三态、startup pending、dedupe safety、风险、coverage、rollback 与验证证据，并接受 implementation-vs-spec review、current-head connector/CI/reviewThreads gate。 Verify: `gh pr view --json body,headRefOid,statusCheckRollup,mergeStateStatus,url`.
+- [x] `SP38-T7` Owner: codex. Dependencies: `SP38-T6`. Covers: none（handoff）. Done when: implementation PR 以 `Closes #38` 链接 issue，正文写明原因、三态、startup pending、dedupe safety、风险、coverage、rollback 与验证证据，并接受 implementation-vs-spec review、current-head connector/CI/reviewThreads gate。 Verify: `gh pr view --json body,headRefOid,statusCheckRollup,mergeStateStatus,url`.
 
 ## Handoff Notes
 
