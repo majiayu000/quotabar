@@ -9,13 +9,13 @@
 
 ## Implementation Tasks
 
-- [ ] `SP55-T1` Owner: codex. Dependencies: merged spec. Covers: `B-001`~`B-007`. Done when: effect-owned mounted/focus precedence/listener ownership state machine 接入真实 hook；read/subscription throw/reject 使用固定安全 error 并 fail closed；cleanup terminal 零副作用。 Verify: targeted real-hook lifecycle tests。
-- [ ] `SP55-T2` Owner: codex. Dependencies: T1. Covers: `B-001`~`B-007`. Done when: browser、initial、focus、failure、ordering、cleanup 与 safe-log deterministic matrix 全部通过；normal/late unlisten counts exact；真实 focus callback 的 mounted-first fail-closed TypeScript AST gate 及 adversarial fixtures 通过；无 wall-clock sleep。 Verify: `tests/popover_window_visibility.test.tsx`。
-- [ ] `SP55-T3` Owner: codex. Dependencies: T1-T2. Covers: `B-008`. Done when: exact 3-path allowlist；renderer dev-only exact version；overall executable diff ≥80%；hook critical diff 100%；full frontend/build/Rust pass。 Verify: tech Test Plan。
+- [x] `SP55-T1` Owner: codex. Dependencies: merged spec. Covers: `B-001`~`B-007`. Done when: effect-owned mounted/focus precedence/listener ownership state machine 接入真实 hook；read/subscription throw/reject 使用固定安全 error 并 fail closed；cleanup terminal 零副作用。 Verify: targeted real-hook lifecycle tests。
+- [x] `SP55-T2` Owner: codex. Dependencies: T1. Covers: `B-001`~`B-007`. Done when: browser、initial、focus、failure、ordering、cleanup 与 safe-log deterministic matrix 全部通过；normal/late unlisten counts exact；真实 focus callback 的 mounted-first fail-closed TypeScript AST gate 及 adversarial fixtures 通过；无 wall-clock sleep。 Verify: `tests/popover_window_visibility.test.tsx`。
+- [x] `SP55-T3` Owner: codex. Dependencies: T1-T2. Covers: `B-008`. Done when: exact 3-path allowlist；renderer dev-only exact version；overall executable diff ≥80%；hook critical diff 100%；full frontend/build/Rust pass。 Verify: tech Test Plan。
 
 ## Handoff
 
-- [ ] `SP55-T4` Owner: codex. Dependencies: T3. Done when: implementation PR `Closes #55`，正文记录 reproduction、state/ordering model、safe errors、cleanup ownership、coverage、dependency boundary 与 rollback，并通过 implementation-vs-spec、current-head connector/CI/reviewThreads gate。
+- [x] `SP55-T4` Owner: codex. Dependencies: T3. Done when: implementation PR `Closes #55`，正文记录 reproduction、state/ordering model、safe errors、cleanup ownership、coverage、dependency boundary 与 rollback，并通过 implementation-vs-spec、current-head connector/CI/reviewThreads gate。
 
 ## Handoff Notes
 
