@@ -2,6 +2,9 @@ import { useEffect, useState, type RefObject } from 'react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { backend } from '../services/backend';
 
+const VISIBILITY_READ_ERROR_MESSAGE = 'Failed to read popover window visibility';
+const FOCUS_SUBSCRIPTION_ERROR_MESSAGE = 'Failed to subscribe to popover focus changes';
+
 /**
  * Tracks popover window visibility (via focus events) and keeps the
  * window height in sync with the rendered content while visible.
@@ -57,40 +60,56 @@ export function usePopoverWindow(
 
     const appWindow = getCurrentWindow();
     let mounted = true;
+    let read_superseded = false;
     let unlisten: (() => void) | null = null;
 
-    appWindow.isVisible()
-      .then((visible) => {
-        if (mounted) {
+    const handle_read_failure = () => {
+      if (!mounted) return;
+      console.error(VISIBILITY_READ_ERROR_MESSAGE);
+      if (!read_superseded) {
+        setWindowVisible(false);
+      }
+    };
+
+    const handle_subscription_failure = () => {
+      if (!mounted) return;
+      read_superseded = true;
+      console.error(FOCUS_SUBSCRIPTION_ERROR_MESSAGE);
+      setWindowVisible(false);
+    };
+
+    try {
+      appWindow.isVisible().then((visible) => {
+        if (mounted && !read_superseded) {
           setWindowVisible(visible);
         }
-      })
-      .catch(() => {
-        if (mounted) {
-          setWindowVisible(true);
-        }
-      });
+      }, handle_read_failure);
+    } catch {
+      handle_read_failure();
+    }
 
-    appWindow.onFocusChanged(({ payload: focused }) => {
-      setWindowVisible(focused);
-    })
-      .then((stopListening) => {
+    try {
+      appWindow.onFocusChanged(({ payload: focused }) => {
+        if (!mounted) return;
+        read_superseded = true;
+        setWindowVisible(focused);
+      }).then((stopListening) => {
         if (mounted) {
           unlisten = stopListening;
           return;
         }
         stopListening();
-      })
-      .catch(() => {
-        if (mounted) {
-          setWindowVisible(true);
-        }
-      });
+      }, handle_subscription_failure);
+    } catch {
+      handle_subscription_failure();
+    }
 
     return () => {
       mounted = false;
-      if (unlisten) {
-        unlisten();
+      const stop_listening = unlisten;
+      unlisten = null;
+      if (stop_listening) {
+        stop_listening();
       }
     };
   }, []);
