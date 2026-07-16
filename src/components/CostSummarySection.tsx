@@ -3,6 +3,7 @@ import { backend } from '../services/backend';
 import { getBudgetForSources, getSavedMonthlyBudgets } from '../services/budget';
 import type { CostDailyPoint, CostDailySeries, CostOverview, CostRangeSummary, CostSource } from '../types/models';
 import { getProgressStyle } from '../utils/quota_format';
+import { useLatestRequestGeneration } from '../hooks/use_latest_request_generation';
 
 interface CostSummarySectionProps {
   source: CostSource | readonly CostSource[];
@@ -212,47 +213,46 @@ export default function CostSummarySection({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const sourceKey = Array.isArray(source) ? source.join(',') : source;
+  const overview_generation = useLatestRequestGeneration();
+  const daily_generation = useLatestRequestGeneration();
 
   useEffect(() => {
-    let cancelled = false;
     let interval: number | undefined;
 
     const loadCost = async (force: boolean) => {
+      const generation = overview_generation.begin();
       try {
         setLoading(true);
         setError(null);
         const sources = Array.isArray(source) ? source : [source];
         const overviews = await Promise.all(sources.map((item) => backend.getCostOverview(item, force)));
+        if (!overview_generation.isCurrent(generation)) return;
         const data = mergeCostOverviews(overviews);
-        if (!cancelled) {
-          setOverview(data);
-        }
+        setOverview(data);
       } catch (err) {
-        if (!cancelled) {
-          setError(getCostSummaryErrorMessage(err));
-        }
+        if (!overview_generation.isCurrent(generation)) return;
+        setError(getCostSummaryErrorMessage(err));
       } finally {
-        if (!cancelled) {
+        if (overview_generation.isCurrent(generation)) {
           setLoading(false);
         }
       }
     };
 
     const loadDaily = async (force: boolean) => {
+      const generation = daily_generation.begin();
       try {
         const sources = Array.isArray(source) ? source : [source];
         const seriesList = await Promise.all(
           sources.map((item) => backend.getCostDaily(item, DAILY_SERIES_DAYS, force)),
         );
-        if (!cancelled) {
-          setDaily(mergeDailySeries(seriesList));
-        }
+        if (!daily_generation.isCurrent(generation)) return;
+        setDaily(mergeDailySeries(seriesList));
       } catch (err) {
+        if (!daily_generation.isCurrent(generation)) return;
         // The trend falls back to per-model bars; surface why in the console.
         console.error('Failed to load daily cost series:', err);
-        if (!cancelled) {
-          setDaily(null);
-        }
+        setDaily(null);
       }
     };
 
@@ -264,12 +264,13 @@ export default function CostSummarySection({
     });
 
     return () => {
-      cancelled = true;
+      overview_generation.invalidate();
+      daily_generation.invalidate();
       if (interval !== undefined) {
         clearInterval(interval);
       }
     };
-  }, [sourceKey, refreshKey, autoRefreshIntervalMs]);
+  }, [sourceKey, refreshKey, autoRefreshIntervalMs, overview_generation, daily_generation]);
 
   const primaryRange = useMemo(() => pickPrimaryRange(overview), [overview]);
   const topModels = primaryRange?.models.slice(0, 3) ?? [];

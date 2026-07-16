@@ -21,8 +21,10 @@
     "@tauri-apps/cli": "2.10.0",
     "@types/react": "^19.1.8",
     "@types/react-dom": "^19.1.6",
+    "@types/react-test-renderer": "19.1.0",
     "@vitejs/plugin-react": "^4.6.0",
     "@vitest/coverage-v8": "4.1.6",
+    "react-test-renderer": "19.2.6",
     "typescript": "~5.8.3",
     "vite": "^7.0.4",
     "vitest": "4.1.6"

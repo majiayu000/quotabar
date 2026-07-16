@@ -91,6 +91,7 @@ import {
 } from './services/storage';
 import { useServiceEvents } from './hooks/use_service_events';
 import { usePopoverWindow } from './hooks/use_popover_window';
+import { useLatestRequestGeneration } from './hooks/use_latest_request_generation';
 
 // Re-exported for existing tests/importers.
 export {
@@ -128,6 +129,7 @@ export default function App() {
   const [claudeError, setClaudeError] = useState<string | null>(null);
   const [claudeCostRefreshNonce, setClaudeCostRefreshNonce] = useState(0);
   const claudeIntervalRef = useRef(AUTO_REFRESH_INTERVAL_MS);
+  const claude_request_generation = useLatestRequestGeneration();
 
   // Per-service connection + usage state (set via Panel callbacks)
   const [connected, setConnected] = useState<ServiceMap<boolean>>(() => defaultServiceMap(false));
@@ -262,10 +264,12 @@ export default function App() {
 
   // Fetch Claude quota for startup/manual/background refresh.
   const fetchClaudeQuota = useCallback(async () => {
+    const generation = claude_request_generation.begin();
     try {
       setClaudeLoading(true);
       setClaudeError(null);
       const data = await backend.getQuota();
+      if (!claude_request_generation.isCurrent(generation)) return;
 
       if (data.error) {
         setClaudeError(data.error);
@@ -280,14 +284,17 @@ export default function App() {
       }
       setServiceConnected('claude', data.connected);
     } catch (err) {
+      if (!claude_request_generation.isCurrent(generation)) return;
       const message = err instanceof Error ? err.message : 'Unknown error';
       setClaudeError(message);
       claudeIntervalRef.current = getClaudeRefreshIntervalMs(message);
       setServiceConnected('claude', false);
     } finally {
-      setClaudeLoading(false);
+      if (claude_request_generation.isCurrent(generation)) {
+        setClaudeLoading(false);
+      }
     }
-  }, [setServiceConnected]);
+  }, [claude_request_generation, setServiceConnected]);
 
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | null = null;
