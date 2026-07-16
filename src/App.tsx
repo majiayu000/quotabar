@@ -56,10 +56,6 @@ import './redesign-settings.css';
 import {
   AUTO_REFRESH_INTERVAL_MS,
   BACKGROUND_REFRESH_INTERVAL_MS,
-  SETTINGS_EXPANDED_KEY,
-  TAB_STORAGE_KEY,
-  THEME_STORAGE_KEY,
-  DOCK_HIDDEN_KEY,
   TRAY_CYCLE_INTERVAL_MS,
   TRAY_GUARD_MESSAGE,
   TRAY_GUARD_TOAST_MS,
@@ -74,11 +70,19 @@ import {
   getSavedTab,
   getSavedTheme,
   isMacOSPlatform,
+  saveActiveTab,
+  saveDockHidden,
+  saveSettingsExpanded,
+  saveTheme,
   type ServiceMap,
   type TrayEnabledState,
   type TrayIconRequest,
   type TrayServiceActivatedPayload,
 } from './services/app_state';
+import {
+  STORAGE_WRITE_FAILURE_MESSAGE,
+  subscribeStorageWriteFailures,
+} from './services/storage';
 import { useServiceEvents } from './hooks/use_service_events';
 import { usePopoverWindow } from './hooks/use_popover_window';
 
@@ -137,6 +141,7 @@ export default function App() {
   const [notifSettings, setNotifSettings] = useState<NotificationSettings>(getSavedNotificationSettings);
   const [switcherVisibility, setSwitcherVisibility] = useState<SwitcherVisibility>(getSavedSwitcherVisibility);
   const containerRef = useRef<HTMLDivElement>(null);
+  const storageFailureToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const windowVisible = usePopoverWindow(containerRef, [activeView, quota, connected]);
   const lastTrayIconRequestRef = useRef<Partial<Record<TrayServiceName, TrayIconRequest>>>({});
 
@@ -186,15 +191,34 @@ export default function App() {
     return setters;
   }, []);
 
+  const showStorageWriteFailure = useCallback(() => {
+    setToast(STORAGE_WRITE_FAILURE_MESSAGE);
+    if (storageFailureToastTimerRef.current) {
+      clearTimeout(storageFailureToastTimerRef.current);
+    }
+    storageFailureToastTimerRef.current = setTimeout(() => {
+      setToast(null);
+      storageFailureToastTimerRef.current = null;
+    }, TRAY_GUARD_TOAST_MS);
+  }, []);
+
+  useEffect(() => {
+    return subscribeStorageWriteFailures(showStorageWriteFailure);
+  }, [showStorageWriteFailure]);
+
+  useEffect(() => () => {
+    if (storageFailureToastTimerRef.current) {
+      clearTimeout(storageFailureToastTimerRef.current);
+    }
+  }, []);
+
   const setAndPersistTab = useCallback((tab: TabName) => {
     setActiveView(tab);
     if (isProviderTab(tab)) {
       setLastProviderTab(tab);
     }
-    try {
-      localStorage.setItem(TAB_STORAGE_KEY, tab);
-      localStorage.setItem(SETTINGS_EXPANDED_KEY, 'false');
-    } catch {}
+    saveActiveTab(tab);
+    saveSettingsExpanded(false);
   }, []);
 
   const updateTrayIcon = useCallback(async (
@@ -377,9 +401,7 @@ export default function App() {
 
   const handleThemeChange = useCallback((newTheme: ThemeName) => {
     setTheme(newTheme);
-    try {
-      localStorage.setItem(THEME_STORAGE_KEY, newTheme);
-    } catch {}
+    saveTheme(newTheme);
   }, []);
 
   useEffect(() => {
@@ -391,9 +413,7 @@ export default function App() {
   const handleDockToggle = useCallback(() => {
     setDockHidden((prev) => {
       const newValue = !prev;
-      try {
-        localStorage.setItem(DOCK_HIDDEN_KEY, String(newValue));
-      } catch {}
+      saveDockHidden(newValue);
       return newValue;
     });
   }, []);
@@ -519,17 +539,13 @@ export default function App() {
   const handleSettingsViewToggle = useCallback(() => {
     setActiveView((prev) => {
       const opening = prev !== 'settings';
-      try {
-        localStorage.setItem(SETTINGS_EXPANDED_KEY, String(opening));
-      } catch {}
+      saveSettingsExpanded(opening);
       return opening ? 'settings' : getSavedTab();
     });
   }, []);
 
   const handleCloseSettings = useCallback(() => {
-    try {
-      localStorage.setItem(SETTINGS_EXPANDED_KEY, 'false');
-    } catch {}
+    saveSettingsExpanded(false);
     setActiveView(getSavedTab());
   }, []);
 
