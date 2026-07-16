@@ -12,14 +12,14 @@ QuotaBar 当前有 15 次 `localStorage.setItem` 位于 14 个空 `catch` 块中
 ## Goals
 
 - 让全部现有 localStorage 写入使用统一、显式、可测试的成功/失败契约。
-- 设置写失败时保留当前会话的可用性，同时明确告知用户该变化没有持久化。
+- 设置写失败时用进程内 write shadow 保留当前会话的最新值，同时明确告知用户该变化没有持久化。
 - notification dedupe 无法持久化时 fail closed，不发送无法可靠去重的通知。
 - event log 等后台写失败必须以 error 级别暴露，不得继续使用空 `catch`。
 - 保持写成功时的现有 storage keys、序列化格式和用户行为。
 
 ## Non-Goals
 
-- 不改变 localStorage 读取失败、缺值或无效 JSON 时的默认策略；现有读取路径将在独立审计项中处理。
+- 不改变 localStorage 读取失败、缺值或无效 JSON 时的默认策略；getter 仅在存在失败写入的 session shadow 时优先读取该值，原有异常 catch/default 保持不变。
 - 不迁移到 Tauri Store、数据库或其他持久化后端。
 - 不将多次 localStorage 写入包装成事务；浏览器 storage 不提供事务语义。
 - 不重做 Settings UI，不修改 PR #31 的 cost/pricing 范围，也不顺带处理与 storage 无关的空 `catch`。
@@ -27,7 +27,7 @@ QuotaBar 当前有 15 次 `localStorage.setItem` 位于 14 个空 `catch` 块中
 ## Behavior Invariants
 
 1. `B-001` 写入成功时，全部现有设置键、值格式、notification dedupe 窗口、event log 顺序与用户可见行为保持不变。
-2. `B-002` 用户触发的设置写失败时，当前会话可以继续采用用户选择，但必须显示准确提示：变化仅对当前会话生效且未保存；不得无提示地伪装持久化成功。
+2. `B-002` 用户触发的设置写失败时，当前会话必须继续采用用户最新选择（包括 budget 消费者与关闭 Settings 后的 tab 恢复），同时显示准确提示：变化仅对当前会话生效且未保存；不得无提示地伪装持久化成功。
 3. `B-003` notification dedupe 写失败时，`shouldNotify` 必须返回不发送，避免在无法记录去重状态时重复通知。
 4. `B-004` event log 写失败时，本会话内的新事件仍可返回和展示，但失败必须通过统一 adapter 以 `console.error` 暴露。
 5. `B-005` `src/` 中全部 15 个现有写点必须经过同一个 storage write adapter；除 adapter 外不得直接调用 `localStorage.setItem`，不得存在写入后的空 `catch`。
@@ -35,13 +35,15 @@ QuotaBar 当前有 15 次 `localStorage.setItem` 位于 14 个空 `catch` 块中
 
 ## Acceptance Criteria
 
-- `localStorage.setItem` 只存在于统一 adapter；adapter 对成功返回 `true`，对异常执行 `console.error` 并返回 `false`。
+- `localStorage.setItem` 只存在于统一 adapter；adapter 对成功返回 `true` 并清除旧 shadow，对异常记录本次值到 session shadow、执行 `console.error` 并返回 `false`。
+- storage getter 在 session shadow 存在时返回最新失败写入值，否则沿用原 localStorage 读取与 catch/default；budget 与 tab 的失败写入必须通过该规则在本会话后续读取中保持。
 - budget、notification settings、panel sections、switcher visibility、tray cycle、tray style、tray visibility 的保存 API 都返回显式结果，调用方检查失败并显示统一 toast。
 - tab、theme、dock、settings open/close 的直接写入迁移到 adapter，任一写失败都会显示同一准确 toast。
 - notification dedupe 写失败时不会调用系统通知发送路径。
 - event log 写失败仍返回本会话事件，并产生 error 级证据。
-- 测试用抛出异常的 storage stub 覆盖全部 service 写入口；storage adapter 的成功/失败关键分支达到 100% line/branch coverage。
-- implementation PR 仅修改 tech spec allowlist 中的路径，不混入读取策略或其他优化项。
+- 测试用抛出异常的 storage stub 覆盖全部 service 写入口、budget/tab session shadow、可见失败 callback 与 notification fail-closed。
+- LCOV 与 fail-closed diff coverage checker 必须证明相对 `origin/main` 的新增 TypeScript/TSX 可执行行总体覆盖率至少 80%，且 storage adapter、notifications 与 event log 的新增失败路径为 100%；coverage checker 本身使用 Node test coverage 达到 100% lines/functions/branches。没有可计量新增行、缺 LCOV、缺 base 或解析错误均不得放行。
+- implementation PR 仅修改 tech spec allowlist 中的路径，不混入 localStorage 读取失败/default 策略或其他优化项。
 
 ## Boundary Checklist
 
