@@ -321,17 +321,12 @@ function is_value_binding_identifier(node) {
   return false;
 }
 
-function validate_no_shadowing(source_file, component_body, path) {
-  const component_protected = new Set(['backend', 'useLatestRequestGeneration', 'useEffect', 'useCallback']);
-  const component_shadows = collect_nodes(component_body, is_value_binding_identifier)
+function validate_no_shadowing(source_file, path) {
+  const protected_names = new Set(['backend', 'useLatestRequestGeneration', 'useEffect', 'useCallback', 'Promise']);
+  const shadows = collect_nodes(source_file, is_value_binding_identifier)
     .map(identifier_name)
-    .filter((name) => component_protected.has(name));
-  ensure(component_shadows.length === 0, `${path} protected component binding is shadowed`);
-
-  const promise_shadows = collect_nodes(source_file, is_value_binding_identifier)
-    .map(identifier_name)
-    .filter((name) => name === 'Promise');
-  ensure(promise_shadows.length === 0, `${path} global Promise binding is shadowed`);
+    .filter((name) => protected_names.has(name));
+  ensure(shadows.length === 0, `${path} protected binding is shadowed`);
 }
 
 function direct_hook_blocks(component_body, hook_name) {
@@ -465,7 +460,7 @@ export function check_latest_request_wiring(sources = read_owner_sources()) {
     if (configs.some((config) => config.target_scope === 'component')) {
       validate_named_import(source_file, path, 'react', 'useCallback');
     }
-    validate_no_shadowing(source_file, component_body, path);
+    validate_no_shadowing(source_file, path);
     validate_hook_bindings(component_body, path, configs);
     const target_body = get_target_body(component_body, path, configs);
     for (const config of configs) validate_owner(target_body, config);

@@ -110,7 +110,7 @@ for (const [name, declaration] of protected_shadow_fixtures) {
       paths.cursor,
       '  const request_generation = useLatestRequestGeneration();',
       `${declaration}\n  const request_generation = useLatestRequestGeneration();`,
-      /protected component binding is shadowed/,
+      /protected binding is shadowed/,
     );
   });
 }
@@ -120,7 +120,7 @@ test('rejects a shadowed global Promise binding', () => {
     paths.codex,
     '  const request_generation = useLatestRequestGeneration();',
     '  const Promise = fake_promise;\n  const request_generation = useLatestRequestGeneration();',
-    /global Promise binding is shadowed/,
+    /protected binding is shadowed/,
   );
 });
 
@@ -129,9 +129,24 @@ test('rejects a module-scope global Promise binding', () => {
     paths.codex,
     "import { useLatestRequestGeneration } from '../hooks/use_latest_request_generation';",
     "import { useLatestRequestGeneration } from '../hooks/use_latest_request_generation';\nfunction Promise() {}",
-    /global Promise binding is shadowed/,
+    /protected binding is shadowed/,
   );
 });
+
+const module_shadow_fixtures = [
+  ['backend', 'const backend = fake_backend;'],
+  ['generation hook', 'function useLatestRequestGeneration() { return fake_generation; }'],
+];
+for (const [name, declaration] of module_shadow_fixtures) {
+  test(`rejects a module-scope ${name} shadow beside the real import`, () => {
+    rejects_change(
+      paths.cursor,
+      "import { useLatestRequestGeneration } from '../hooks/use_latest_request_generation';",
+      `import { useLatestRequestGeneration } from '../hooks/use_latest_request_generation';\n${declaration}`,
+      /protected binding is shadowed/,
+    );
+  });
+}
 
 test('rejects a dummy hook and fake generation object', () => {
   rejects_change(
