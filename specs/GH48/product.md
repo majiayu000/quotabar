@@ -38,9 +38,10 @@
 - `shouldNotify(body, now)` 变为 read-only，不再调用 `localStorage.setItem`。
 - `notify` 返回 discriminated union `sent | skipped | failure`；公开类型无 `any`。
 - failure message 只使用固定常量，不包含 title/body、storage key、原始 exception 或 token。
+- notification dedupe 的 post-send storage write failure 只输出固定 `Failed to persist local setting.`，不得把原始 storage `Error` 对象或 message 传给 console；其他 storage callers 的既有 logging contract 不变。
 - App bonus 与 service 80%/95% 三个 callers 全部通过同一 tested failure-options helper 传入 `on_failure`；TypeScript AST gate 证明三个 callsite 的第三参数 exact，helper callback 只调用 `logEvent('critical', fixedMessage)` 且零递归 notify。
 - deterministic tests 覆盖 success/deduped/different body、denial、permission throw、send throw、concurrency、read failure、malformed state、post-send write failure/session shadow、failure callback 与 retry。
-- implementation 仅含 tech spec 8-path allowlist；新增 executable TS/TSX ≥80%，`notifications.ts` 新增 critical paths 100%。
+- implementation 仅含 tech spec 9-path allowlist；新增 executable TS/TSX ≥80%，`notifications.ts` 新增 critical paths 100%。
 
 ## Boundary Checklist
 
@@ -50,7 +51,7 @@
 | Permission | denied/throw 均不得 commit；later retry eligible。 |
 | Delivery | send throw 不 commit；success 后才 commit。 |
 | Concurrency | same body at most one send；finally release。 |
-| Persistence | post-send write failure uses session shadow；restart may retry but current session不重复。 |
+| Persistence | post-send write failure uses session shadow；restart may retry但 current session不重复；notification path 仅固定安全日志。 |
 | Compatibility | window/body identity/settings/defaults unchanged。 |
 | Degradation | 禁止 console-only catch + fake dedupe success。 |
 | Evidence | failure matrix、coverage、full local/CI/current-head review。 |
