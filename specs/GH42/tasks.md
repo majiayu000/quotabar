@@ -16,7 +16,7 @@
 
 ## Verification Tasks
 
-- [ ] `SP42-T5` Owner: codex. Dependencies: `SP42-T1`~`SP42-T4`. Covers: `B-001`~`B-006`. Done when: final implementation HEAD 上 source/import/bundle parity、`npm test`、build、Rust fmt/check/test 全部新鲜通过。 Verify: 执行 tech spec 完整 Test Plan。
+- [x] `SP42-T5` Owner: codex. Dependencies: `SP42-T1`~`SP42-T4`. Covers: `B-001`~`B-006`. Done when: final implementation HEAD 上 source/import/bundle parity、`npm test`、build、Rust fmt/check/test 全部新鲜通过。 Verify: 执行 tech spec 完整 Test Plan。
 - [ ] `SP42-T6` Owner: codex. Dependencies: `SP42-T5`. Covers: none（handoff）. Done when: implementation PR 以 `Closes #42` 链接 issue，正文写明原因、机械边界、source/bundle parity、风险、rollback 与验证证据，并接受 implementation-vs-spec、current-head connector/CI/reviewThreads gate。 Verify: `gh pr view --json body,headRefOid,statusCheckRollup,mergeStateStatus,url`。
 
 ## Handoff Notes
