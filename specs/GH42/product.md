@@ -42,7 +42,7 @@
 - `App.tsx` 用三个 direct JS CSS import 替换原 `./styles.css` import，并保持在两个 redesign imports 之前。
 - source concatenation hash、三个 line count、App import sequence 与 production bundle hash/size 均由 deterministic command fail closed 验证。
 - implementation diff 仅含 tech spec allowlist 的 6 个路径；没有 CSS semantic diff、build config 或依赖变化。
-- implementation 不新增可执行 TS/TSX 行；App 仅替换 CSS import declaration，CSS bytes 由 source/import/bundle parity 覆盖。禁止为制造 measurable coverage 添加 dummy runtime code。
+- implementation 不新增可执行 TS/TSX 行；以 `origin/main:src/App.tsx` 为 baseline，只允许把唯一 `./styles.css` import byte-exact 替换为三个 direct imports，当前 App 必须与 computed expected 完全相等。CSS bytes 由 source/import/bundle parity 覆盖；禁止混入其他 App edit 或为制造 measurable coverage 添加 dummy runtime code。
 
 ## Boundary Checklist
 
