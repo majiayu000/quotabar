@@ -28,9 +28,9 @@
 
 1. `B-001` eligibility 必须只读；missing/expired 为 eligible，recent 为 duplicate，access/decode failure 为 failure，均不得在 send 前写 dedupe。
 2. `B-002` permission denied、permission API/plugin/send failure 必须返回 typed failure、零 dedupe commit、释放 in-flight；下一次同 body 可重新尝试。
-3. `B-003` 只有 `sendNotification` 无异常返回后才记录 body timestamp；窗口内同 body duplicate 不发送，不同 body 独立。
+3. `B-003` 只有 `sendNotification` 无异常返回后才记录 body timestamp；commit 必须 fresh read/merge/prune，防止不同 body 并发 lost update。窗口内同 body duplicate 不发送，不同 body 独立且最终都保留。
 4. `B-004` 同 body 并发调用由 in-flight guard 合并为至多一次 send；不同 body 不互相阻塞；所有 terminal path 都释放 guard。
-5. `B-005` post-send persistent write failure 使用 storage session shadow 保持本 session dedupe；delivery outcome 仍为 sent，既不伪称未送达也不重复发送。
+5. `B-005` module-local session timestamp map 在成功 send 后立即记录并按窗口 pruning；post-send fresh-read 或 persistent write failure 时仍保持本 session dedupe，delivery outcome 为 sent，既不伪称未送达也不重复发送。
 6. `B-006` backend unavailable/recent duplicate 返回 typed skipped；permission/dedupe/delivery failure 返回固定无敏感信息的 failure，并通过 `on_failure` 写入 event feed；全量、coverage 与 PR gates 通过。
 
 ## Acceptance Criteria
@@ -38,7 +38,7 @@
 - `shouldNotify(body, now)` 变为 read-only，不再调用 `localStorage.setItem`。
 - `notify` 返回 discriminated union `sent | skipped | failure`；公开类型无 `any`。
 - failure message 只使用固定常量，不包含 title/body、storage key、原始 exception 或 token。
-- App bonus 与 service threshold callers 传入 `on_failure`，只调用 `logEvent('critical', fixedMessage)`，不递归 notify。
+- App bonus 与 service 80%/95% 三个 callers 全部通过同一 tested failure-options helper 传入 `on_failure`；TypeScript AST gate 证明三个 callsite 的第三参数 exact，helper callback 只调用 `logEvent('critical', fixedMessage)` 且零递归 notify。
 - deterministic tests 覆盖 success/deduped/different body、denial、permission throw、send throw、concurrency、read failure、malformed state、post-send write failure/session shadow、failure callback 与 retry。
 - implementation 仅含 tech spec 8-path allowlist；新增 executable TS/TSX ≥80%，`notifications.ts` 新增 critical paths 100%。
 
