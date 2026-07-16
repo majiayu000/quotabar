@@ -33,6 +33,10 @@ const STORAGE_KEY = 'claude-quota-notifications';
 /** One system notification per unique body within this window. */
 const NOTIFY_DEDUPE_WINDOW_MS = 12 * 60 * 60 * 1000;
 const DEDUPE_STORAGE_KEY = 'claude-quota-notified';
+const deliveredThisSession = new Map<string, number>();
+const notificationsInFlight = new Set<string>();
+type NotificationPlugin = typeof import('@tauri-apps/plugin-notification');
+let notificationPluginPromise: Promise<NotificationPlugin> | undefined;
 
 export function defaultNotificationSettings(): NotificationSettings {
   return { q80: true, q95: true, bonus: true };
@@ -80,7 +84,23 @@ function loadNotified() {
 
 type NotificationEligibility = 'eligible' | 'duplicate' | 'failure';
 
+function pruneDeliveredThisSession(now: number): void {
+  for (const [body, deliveredAt] of deliveredThisSession) {
+    if (now - deliveredAt >= NOTIFY_DEDUPE_WINDOW_MS) {
+      deliveredThisSession.delete(body);
+    }
+  }
+}
+
 function getNotificationEligibility(body: string, now: number): NotificationEligibility {
+  pruneDeliveredThisSession(now);
+  const deliveredThisSessionAt = deliveredThisSession.get(body);
+  if (
+    typeof deliveredThisSessionAt === 'number'
+    && now - deliveredThisSessionAt < NOTIFY_DEDUPE_WINDOW_MS
+  ) {
+    return 'duplicate';
+  }
   const result = loadNotified();
   if (result.status === 'failure') return 'failure';
   const notified = result.status === 'value' ? result.value : {};
@@ -95,6 +115,8 @@ export function shouldNotify(body: string, now: number = Date.now()): boolean {
 }
 
 function commitNotificationDelivery(body: string, now: number): void {
+  pruneDeliveredThisSession(now);
+  deliveredThisSession.set(body, now);
   const result = loadNotified();
   if (result.status === 'failure') return;
   const notified = result.status === 'value' ? result.value : {};
@@ -122,6 +144,16 @@ function notificationFailure(
   return { status: 'failure', message };
 }
 
+async function loadNotificationPlugin(): Promise<NotificationPlugin> {
+  notificationPluginPromise ??= import('@tauri-apps/plugin-notification');
+  try {
+    return await notificationPluginPromise;
+  } catch (error: unknown) {
+    notificationPluginPromise = undefined;
+    throw error;
+  }
+}
+
 export async function notify(
   title: string,
   body: string,
@@ -130,6 +162,9 @@ export async function notify(
   if (!hasTauriBackend()) {
     return { status: 'skipped', reason: 'backend_unavailable' };
   }
+  if (notificationsInFlight.has(body)) {
+    return { status: 'skipped', reason: 'in_flight' };
+  }
   const eligibility = getNotificationEligibility(body, Date.now());
   if (eligibility === 'failure') {
     return notificationFailure(NOTIFICATION_DEDUPE_FAILURE_MESSAGE, options);
@@ -137,11 +172,11 @@ export async function notify(
   if (eligibility === 'duplicate') {
     return { status: 'skipped', reason: 'duplicate' };
   }
+  notificationsInFlight.add(body);
   try {
     // Dynamic import keeps the plugin out of the startup module graph.
-    const { isPermissionGranted, requestPermission, sendNotification } = await import(
-      '@tauri-apps/plugin-notification'
-    );
+    const { isPermissionGranted, requestPermission, sendNotification } =
+      await loadNotificationPlugin();
     let granted = await isPermissionGranted();
     if (!granted) {
       granted = (await requestPermission()) === 'granted';
@@ -155,5 +190,7 @@ export async function notify(
   } catch {
     console.error(NOTIFICATION_DELIVERY_FAILURE_MESSAGE);
     return notificationFailure(NOTIFICATION_DELIVERY_FAILURE_MESSAGE, options);
+  } finally {
+    notificationsInFlight.delete(body);
   }
 }
