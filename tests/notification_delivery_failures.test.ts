@@ -244,9 +244,7 @@ describe('notification delivery commit', () => {
     expect(JSON.stringify(consoleError.mock.calls)).not.toContain('plugin-token');
 
     vi.doMock('@tauri-apps/plugin-notification', () => notificationPlugin);
-    vi.resetModules();
-    const recoveredModule = await import('../src/services/notifications');
-    await expect(recoveredModule.notify('QuotaBar', 'retry plugin')).resolves.toEqual({
+    await expect(failedModule.notify('QuotaBar', 'retry plugin')).resolves.toEqual({
       status: 'sent',
     });
     expect(notificationPlugin.sendNotification).toHaveBeenCalledTimes(1);
