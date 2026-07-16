@@ -49,7 +49,9 @@ import {
   type QuotaWindowSummary,
 } from './services/provider_summary';
 import type { QuotaData } from './types/models';
-import './styles.css';
+import './styles/foundation.css';
+import './styles/content.css';
+import './styles/views.css';
 import './redesign.css';
 import './redesign-settings.css';
 
