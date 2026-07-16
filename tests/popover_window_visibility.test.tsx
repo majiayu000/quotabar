@@ -417,16 +417,16 @@ function replace_exact(source: string, target: string, replacement: string): str
   return source.replace(target, replacement);
 }
 
-function move_registration_to_dead_branch(source: string): string {
-  const opened = replace_exact(
+function replace_live_registration_with_dead_decoy(source: string): string {
+  const computed_live_path = replace_exact(
     source,
-    '    try {\n      appWindow.onFocusChanged',
-    '    try {\n      if (false) {\n        appWindow.onFocusChanged',
+    '      appWindow.onFocusChanged(({ payload: focused }) => {\n        if (!mounted) return;',
+    "      appWindow['onFocusChanged'](({ payload: focused }) => {\n        setWindowVisible(focused);",
   );
   return replace_exact(
-    opened,
-    '      }, handle_subscription_failure);\n    } catch {\n      handle_subscription_failure();',
-    '      }, handle_subscription_failure);\n      }\n    } catch {\n      handle_subscription_failure();',
+    computed_live_path,
+    "    try {\n      appWindow['onFocusChanged']",
+    '    if (false) {\n      appWindow.onFocusChanged(({ payload: focused }) => {\n        if (!mounted) return;\n        read_superseded = true;\n        setWindowVisible(focused);\n      });\n    }\n\n    try {\n      appWindow[\'onFocusChanged\']',
   );
 }
 
@@ -449,7 +449,7 @@ describe('focus callback source gate', () => {
     ['else branch', replace_exact(source, guard,
       guard.replace('if (!mounted) return;', 'if (!mounted) return; else read_superseded = true;'))],
     ['wrong payload', replace_exact(source, 'setWindowVisible(focused);', 'setWindowVisible(!focused);')],
-    ['dead registration', move_registration_to_dead_branch(source)],
+    ['computed live registration with dead direct decoy', replace_live_registration_with_dead_decoy(source)],
   ] as const;
 
   it.each(fixtures)('rejects %s', (_name, mutated_source) => {
