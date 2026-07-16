@@ -11,6 +11,8 @@ const owner_configs = [
     loading: true,
     loading_setter: 'setClaudeLoading',
     await_kind: 'direct',
+    target_scope: 'component',
+    backend_arguments: { getQuota: [] },
   },
   {
     path: 'src/components/CodexPanel.tsx',
@@ -22,6 +24,12 @@ const owner_configs = [
     loading_setter: 'setLoading',
     await_kind: 'promise_all',
     promise_all_kind: 'array',
+    target_scope: 'component',
+    backend_arguments: {
+      getCodexInfo: [],
+      getCodexRateLimits: [],
+      getCodexResetCredits: [],
+    },
   },
   {
     path: 'src/components/CursorPanel.tsx',
@@ -32,6 +40,8 @@ const owner_configs = [
     loading: true,
     loading_setter: 'setLoading',
     await_kind: 'direct',
+    target_scope: 'component',
+    backend_arguments: { getCursorInfo: [] },
   },
   {
     path: 'src/components/AntigravityPanel.tsx',
@@ -42,6 +52,8 @@ const owner_configs = [
     loading: true,
     loading_setter: 'setLoading',
     await_kind: 'direct',
+    target_scope: 'component',
+    backend_arguments: { getAntigravityInfo: [] },
   },
   {
     path: 'src/components/CostSummarySection.tsx',
@@ -53,6 +65,8 @@ const owner_configs = [
     loading_setter: 'setLoading',
     await_kind: 'promise_all',
     promise_all_kind: 'map',
+    target_scope: 'cost_effect',
+    backend_arguments: { getCostOverview: ['item', 'force'] },
   },
   {
     path: 'src/components/CostSummarySection.tsx',
@@ -63,6 +77,8 @@ const owner_configs = [
     loading: false,
     await_kind: 'promise_all',
     promise_all_kind: 'map',
+    target_scope: 'cost_effect',
+    backend_arguments: { getCostDaily: ['item', 'DAILY_SERIES_DAYS', 'force'] },
   },
 ];
 
@@ -168,16 +184,28 @@ function same_strings(left, right) {
   return left.every((value, index) => value === right[index]);
 }
 
+function call_argument_names(call) {
+  return call.arguments.map(identifier_name);
+}
+
+function validate_backend_call(call, method_name, config) {
+  const parts = property_call_parts(call);
+  ensure(parts !== null && parts.owner_name === 'backend', `${config.path}:${config.function_name} backend call owner is wrong`);
+  ensure(parts.method_name === method_name, `${config.path}:${config.function_name} backend call method is wrong`);
+  ensure(
+    same_strings(call_argument_names(call), config.backend_arguments[method_name]),
+    `${config.path}:${config.function_name} backend call arguments are wrong`,
+  );
+}
+
 function validate_await_operand(await_expression, await_statement, config) {
   const expected_methods = [...config.backend_methods].sort();
   const statement_methods = backend_method_calls_in(await_statement).sort();
   ensure(same_strings(statement_methods, expected_methods), `${config.path}:${config.function_name} backend call count or placement is wrong`);
 
   if (config.await_kind === 'direct') {
-    const parts = property_call_parts(await_expression.expression);
-    ensure(parts !== null, `${config.path}:${config.function_name} must directly await its backend call`);
-    ensure(parts.owner_name === 'backend', `${config.path}:${config.function_name} must directly await its backend owner`);
-    ensure(same_strings([parts.method_name], expected_methods), `${config.path}:${config.function_name} direct backend await mapping is wrong`);
+    ensure(ts.isCallExpression(await_expression.expression), `${config.path}:${config.function_name} must directly await its backend call`);
+    validate_backend_call(await_expression.expression, expected_methods[0], config);
     return;
   }
 
@@ -192,6 +220,7 @@ function validate_await_operand(await_expression, await_statement, config) {
     const element_methods = promise_all_argument.elements.map((element) => {
       const parts = property_call_parts(element);
       ensure(parts !== null && parts.owner_name === 'backend', `${config.path}:${config.function_name} Promise.all array elements must be direct backend calls`);
+      validate_backend_call(element, parts.method_name, config);
       return parts.method_name;
     }).sort();
     ensure(same_strings(element_methods, expected_methods), `${config.path}:${config.function_name} Promise.all array dataflow is wrong`);
@@ -204,15 +233,22 @@ function validate_await_operand(await_expression, await_statement, config) {
   ensure(promise_all_argument.arguments.length === 1, `${config.path}:${config.function_name} sources.map callback count is wrong`);
   const callback = promise_all_argument.arguments[0];
   ensure(ts.isArrowFunction(callback), `${config.path}:${config.function_name} sources.map callback must be an arrow function`);
+  ensure(callback.parameters.length === 1 && identifier_name(callback.parameters[0].name) === 'item', `${config.path}:${config.function_name} sources.map callback parameter is wrong`);
   const callback_call = property_call_parts(callback.body);
   ensure(callback_call !== null && callback_call.owner_name === 'backend', `${config.path}:${config.function_name} sources.map callback must directly return a backend call`);
   ensure(same_strings([callback_call.method_name], expected_methods), `${config.path}:${config.function_name} sources.map backend dataflow is wrong`);
+  validate_backend_call(callback.body, callback_call.method_name, config);
 }
 
-function validate_owner(component_body, config) {
-  const declarations = collect_nodes(component_body, (node) => (
-    ts.isVariableDeclaration(node) && identifier_name(node.name) === config.function_name
-  ));
+function direct_variable_declarations(block, name) {
+  return block.statements.flatMap((statement) => {
+    if (!ts.isVariableStatement(statement)) return [];
+    return statement.declarationList.declarations.filter((declaration) => identifier_name(declaration.name) === name);
+  });
+}
+
+function validate_owner(target_body, config) {
+  const declarations = direct_variable_declarations(target_body, config.function_name);
   ensure(declarations.length === 1, `${config.path}:${config.function_name} target count is not one`);
   const body = get_function_body(declarations[0], config);
   ensure(body.statements.length > 1, `${config.path}:${config.function_name} body is incomplete`);
@@ -249,6 +285,86 @@ function validate_owner(component_body, config) {
   }
 }
 
+function named_import_bindings(source_file) {
+  return source_file.statements.flatMap((statement) => {
+    if (!ts.isImportDeclaration(statement) || !ts.isStringLiteral(statement.moduleSpecifier)) return [];
+    const named_bindings = statement.importClause?.namedBindings;
+    if (!named_bindings || !ts.isNamedImports(named_bindings)) return [];
+    return named_bindings.elements.map((element) => ({
+      module_name: statement.moduleSpecifier.text,
+      imported_name: identifier_name(element.propertyName ?? element.name),
+      local_name: identifier_name(element.name),
+    }));
+  });
+}
+
+function validate_named_import(source_file, path, module_name, binding_name) {
+  const relevant = named_import_bindings(source_file).filter((binding) => (
+    binding.imported_name === binding_name || binding.local_name === binding_name
+  ));
+  ensure(relevant.length === 1, `${path} ${binding_name} import binding count is wrong`);
+  const binding = relevant[0];
+  ensure(
+    binding.module_name === module_name
+      && binding.imported_name === binding_name
+      && binding.local_name === binding_name,
+    `${path} ${binding_name} import provenance is wrong`,
+  );
+}
+
+function is_value_binding_identifier(node) {
+  if (!ts.isIdentifier(node)) return false;
+  const parent = node.parent;
+  if (ts.isVariableDeclaration(parent) || ts.isParameter(parent) || ts.isBindingElement(parent)) return parent.name === node;
+  if (ts.isFunctionDeclaration(parent) || ts.isFunctionExpression(parent)) return parent.name === node;
+  if (ts.isClassDeclaration(parent) || ts.isClassExpression(parent) || ts.isEnumDeclaration(parent)) return parent.name === node;
+  return false;
+}
+
+function validate_no_shadowing(source_file, component_body, path) {
+  const component_protected = new Set(['backend', 'useLatestRequestGeneration', 'useEffect', 'useCallback']);
+  const component_shadows = collect_nodes(component_body, is_value_binding_identifier)
+    .map(identifier_name)
+    .filter((name) => component_protected.has(name));
+  ensure(component_shadows.length === 0, `${path} protected component binding is shadowed`);
+
+  const promise_shadows = collect_nodes(source_file, is_value_binding_identifier)
+    .map(identifier_name)
+    .filter((name) => name === 'Promise');
+  ensure(promise_shadows.length === 0, `${path} global Promise binding is shadowed`);
+}
+
+function direct_hook_blocks(component_body, hook_name) {
+  return component_body.statements.flatMap((statement) => {
+    if (!ts.isExpressionStatement(statement) || !is_identifier_call(statement.expression, hook_name)) return [];
+    const callback = statement.expression.arguments[0];
+    ensure(callback && ts.isArrowFunction(callback) && ts.isBlock(callback.body), `${hook_name} callback must be a block arrow function`);
+    return [callback.body];
+  });
+}
+
+function get_target_body(component_body, path, configs) {
+  if (configs.every((config) => config.target_scope === 'component')) return component_body;
+  ensure(configs.every((config) => config.target_scope === 'cost_effect'), `${path} target scope mapping is inconsistent`);
+  const candidates = direct_hook_blocks(component_body, 'useEffect').filter((block) => (
+    configs.every((config) => direct_variable_declarations(block, config.function_name).length === 1)
+  ));
+  ensure(candidates.length === 1, `${path} owning effect count is wrong`);
+  return candidates[0];
+}
+
+function validate_expected_backend_method_ownership(component_body, path, configs) {
+  for (const config of configs) {
+    for (const method_name of config.backend_methods) {
+      const calls = collect_nodes(component_body, (node) => {
+        const parts = property_call_parts(node);
+        return parts !== null && parts.owner_name === 'backend' && parts.method_name === method_name;
+      });
+      ensure(calls.length === 1, `${path} ${method_name} component call count is wrong`);
+    }
+  }
+}
+
 function validate_hook_bindings(component_body, path, configs) {
   const hook_calls = collect_nodes(component_body, (node) => is_identifier_call(node, 'useLatestRequestGeneration'));
   ensure(hook_calls.length === configs.length, `${path} hook call count is wrong`);
@@ -278,19 +394,8 @@ function get_component_body(source_file, path, configs) {
   return components[0].body;
 }
 
-function validate_cost_cleanup(source_file) {
-  const effects = collect_nodes(source_file, (node) => {
-    if (!is_identifier_call(node, 'useEffect')) return false;
-    return collect_nodes(node, (child) => (
-      ts.isVariableDeclaration(child)
-      && (identifier_name(child.name) === 'loadCost' || identifier_name(child.name) === 'loadDaily')
-    )).length === 2;
-  });
-  ensure(effects.length === 1, 'CostSummarySection owning effect count is wrong');
-  const effect_function = effects[0].arguments[0];
-  ensure(ts.isArrowFunction(effect_function), 'CostSummarySection owning effect is not an arrow function');
-  ensure(ts.isBlock(effect_function.body), 'CostSummarySection owning effect has no block body');
-  const returns = effect_function.body.statements.filter(ts.isReturnStatement);
+function validate_cost_cleanup(target_body) {
+  const returns = target_body.statements.filter(ts.isReturnStatement);
   ensure(returns.length === 1, 'CostSummarySection owning effect cleanup count is wrong');
   const cleanup = returns[0].expression;
   ensure(cleanup !== undefined && ts.isArrowFunction(cleanup), 'CostSummarySection cleanup is not an arrow function');
@@ -304,17 +409,18 @@ function validate_cost_cleanup(source_file) {
   ensure(same_strings(invalidated, ['daily_generation', 'overview_generation']), 'CostSummarySection cleanup must invalidate both lanes exactly');
 }
 
-function validate_antigravity_pause(source_file) {
-  const effects = collect_nodes(source_file, (node) => {
-    if (!is_identifier_call(node, 'useEffect')) return false;
-    const has_fetch = collect_nodes(node, (child) => is_identifier_call(child, 'fetchData')).length > 0;
-    const has_interval = collect_nodes(node, (child) => is_identifier_call(child, 'setInterval')).length > 0;
+function validate_antigravity_pause(component_body) {
+  const effects = direct_hook_blocks(component_body, 'useEffect').filter((block) => {
+    const has_fetch = block.statements.some((statement) => (
+      ts.isExpressionStatement(statement) && is_identifier_call(statement.expression, 'fetchData')
+    ));
+    const has_interval = block.statements.some((statement) => (
+      collect_nodes(statement, (node) => is_identifier_call(node, 'setInterval')).length > 0
+    ));
     return has_fetch && has_interval;
   });
   ensure(effects.length === 1, 'Antigravity polling effect count is wrong');
-  const effect_function = effects[0].arguments[0];
-  ensure(ts.isArrowFunction(effect_function) && ts.isBlock(effect_function.body), 'Antigravity polling effect has no block body');
-  const statements = effect_function.body.statements;
+  const statements = effects[0].statements;
   const pause_index = statements.findIndex((statement) => {
     if (!ts.isIfStatement(statement) || !ts.isBinaryExpression(statement.expression)) return false;
     const expression = statement.expression;
@@ -346,19 +452,27 @@ export function check_latest_request_wiring(sources = read_owner_sources()) {
     configs_by_path.set(config.path, configs);
   }
 
-  const source_files = new Map();
   for (const [path, configs] of configs_by_path) {
     const source = sources.get(path);
     ensure(typeof source === 'string', `${path} source is missing`);
     const source_file = ts.createSourceFile(path, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
-    source_files.set(path, source_file);
+    ensure(source_file.parseDiagnostics.length === 0, `${path} source has parse errors`);
     const component_body = get_component_body(source_file, path, configs);
+    const component_prefix = path === 'src/App.tsx' ? '.' : '..';
+    validate_named_import(source_file, path, `${component_prefix}/services/backend`, 'backend');
+    validate_named_import(source_file, path, `${component_prefix}/hooks/use_latest_request_generation`, 'useLatestRequestGeneration');
+    validate_named_import(source_file, path, 'react', 'useEffect');
+    if (configs.some((config) => config.target_scope === 'component')) {
+      validate_named_import(source_file, path, 'react', 'useCallback');
+    }
+    validate_no_shadowing(source_file, component_body, path);
     validate_hook_bindings(component_body, path, configs);
-    for (const config of configs) validate_owner(component_body, config);
+    const target_body = get_target_body(component_body, path, configs);
+    for (const config of configs) validate_owner(target_body, config);
+    validate_expected_backend_method_ownership(component_body, path, configs);
+    if (path === 'src/components/CostSummarySection.tsx') validate_cost_cleanup(target_body);
+    if (path === 'src/components/AntigravityPanel.tsx') validate_antigravity_pause(component_body);
   }
-
-  validate_cost_cleanup(source_files.get('src/components/CostSummarySection.tsx'));
-  validate_antigravity_pause(source_files.get('src/components/AntigravityPanel.tsx'));
 }
 
 check_latest_request_wiring();

@@ -44,6 +44,95 @@ test('rejects a missing owner source', () => {
   assert.throws(() => check_latest_request_wiring(sources), /source is missing/);
 });
 
+test('rejects malformed owner source before structural checks', () => {
+  rejects_change(paths.cursor, 'export default function CursorPanel({', 'export default function CursorPanel((', /parse errors/);
+});
+
+const import_provenance_fixtures = [
+  [
+    'fake backend definition',
+    "import { backend } from '../services/backend';",
+    'const backend = fake_backend;',
+    /backend import binding count/,
+  ],
+  [
+    'wrong backend module',
+    "import { backend } from '../services/backend';",
+    "import { backend } from '../services/fake_backend';",
+    /backend import provenance/,
+  ],
+  [
+    'aliased backend import',
+    "import { backend } from '../services/backend';",
+    "import { backend as backend_alias } from '../services/backend';",
+    /backend import provenance/,
+  ],
+  [
+    'fake generation hook definition',
+    "import { useLatestRequestGeneration } from '../hooks/use_latest_request_generation';",
+    'const useLatestRequestGeneration = fake_hook;',
+    /useLatestRequestGeneration import binding count/,
+  ],
+  [
+    'wrong generation hook module',
+    "import { useLatestRequestGeneration } from '../hooks/use_latest_request_generation';",
+    "import { useLatestRequestGeneration } from '../hooks/fake_generation';",
+    /useLatestRequestGeneration import provenance/,
+  ],
+  [
+    'wrong React hook module',
+    "import { useEffect, useState, useCallback } from 'react';",
+    "import { useEffect, useState, useCallback } from 'fake-react';",
+    /useEffect import provenance/,
+  ],
+];
+for (const [name, from, to, message] of import_provenance_fixtures) {
+  test(`rejects import provenance bypass: ${name}`, () => {
+    rejects_change(paths.cursor, from, to, message);
+  });
+}
+
+const protected_shadow_fixtures = [
+  ['backend variable', '  const backend = fake_backend;'],
+  ['generation hook variable', '  const useLatestRequestGeneration = fake_hook;'],
+  ['React effect variable', '  const useEffect = fake_effect;'],
+  ['React callback parameter', '  function shadow(useCallback) { return useCallback; }'],
+  ['backend destructuring binding', '  const { backend } = fake_bindings;'],
+  ['generation hook function', '  function useLatestRequestGeneration() { return fake_generation; }'],
+  ['React effect named function expression', '  const shadow_holder = function useEffect() {};'],
+  ['backend class', '  class backend {}'],
+  ['backend named class expression', '  const shadow_holder = class backend {};'],
+  ['React effect enum', '  enum useEffect { fake }'],
+];
+for (const [name, declaration] of protected_shadow_fixtures) {
+  test(`rejects protected component shadow: ${name}`, () => {
+    rejects_change(
+      paths.cursor,
+      '  const request_generation = useLatestRequestGeneration();',
+      `${declaration}\n  const request_generation = useLatestRequestGeneration();`,
+      /protected component binding is shadowed/,
+    );
+  });
+}
+
+test('rejects a shadowed global Promise binding', () => {
+  rejects_change(
+    paths.codex,
+    '  const request_generation = useLatestRequestGeneration();',
+    '  const Promise = fake_promise;\n  const request_generation = useLatestRequestGeneration();',
+    /global Promise binding is shadowed/,
+  );
+});
+
+test('rejects a module-scope global Promise binding', () => {
+  rejects_change(
+    paths.codex,
+    "import { useLatestRequestGeneration } from '../hooks/use_latest_request_generation';",
+    "import { useLatestRequestGeneration } from '../hooks/use_latest_request_generation';\nfunction Promise() {}",
+    /global Promise binding is shadowed/,
+  );
+});
+
 test('rejects a dummy hook and fake generation object', () => {
   rejects_change(
     paths.cursor,
@@ -222,12 +311,98 @@ test('rejects a wrong backend await mapping', () => {
   rejects_change(paths.cursor, 'backend.getCursorInfo()', 'backend.getQuota()', /backend call count|await mapping/);
 });
 
+const attached_alias_call_fixtures = [
+  [
+    'direct',
+    paths.cursor,
+    'backend.getCursorInfo()',
+    'backend.getCursorInfo(backend_alias.getCursorInfo())',
+  ],
+  [
+    'Promise.all array',
+    paths.codex,
+    'backend.getCodexInfo()',
+    'backend.getCodexInfo(backend_alias.getCodexInfo())',
+  ],
+  [
+    'sources.map callback',
+    paths.cost,
+    'backend.getCostOverview(item, force)',
+    'backend.getCostOverview(item, force, backend_alias.getCostOverview(item, force))',
+  ],
+];
+for (const [name, path, from, to] of attached_alias_call_fixtures) {
+  test(`rejects an attached backend alias call in ${name}`, () => {
+    rejects_change(path, from, to, /backend call arguments/);
+  });
+}
+
+test('rejects a wrong sources.map callback parameter', () => {
+  rejects_change(
+    paths.cost,
+    'sources.map((item) => backend.getCostOverview(item, force))',
+    'sources.map((wrong_item) => backend.getCostOverview(item, force))',
+    /callback parameter/,
+  );
+});
+
+test('rejects a malformed direct effect callback', () => {
+  rejects_change(
+    paths.cost,
+    '  useEffect(() => {',
+    '  useEffect(not_a_callback);\n  useEffect(() => {',
+    /callback must be a block arrow function/,
+  );
+});
+
+test('rejects a duplicate expected backend method outside the owner target', () => {
+  rejects_change(
+    paths.cursor,
+    '  const request_generation = useLatestRequestGeneration();',
+    '  void backend.getCursorInfo();\n  const request_generation = useLatestRequestGeneration();',
+    /component call count/,
+  );
+});
+
+test('rejects a nested dead compliant target in place of the direct owner target', () => {
+  rejects_change(
+    paths.cursor,
+    '  const fetchData = useCallback(async () => {',
+    `  if (false) {
+    const fetchData = useCallback(async () => {
+      const generation = request_generation.begin();
+      try {
+        const data = await backend.getCursorInfo();
+        if (!request_generation.isCurrent(generation)) return;
+        void data;
+      } catch (err) {
+        if (!request_generation.isCurrent(generation)) return;
+        void err;
+      } finally {
+        if (request_generation.isCurrent(generation)) { setLoading(false); }
+      }
+    }, []);
+  }
+  const unsafeFetchData = useCallback(async () => {`,
+    /target count is not one/,
+  );
+});
+
 test('rejects an expected backend call that is not awaited', () => {
   rejects_change(
     paths.cursor,
     'const data = await backend.getCursorInfo();',
     'const data = (backend.getCursorInfo(), await Promise.resolve({ connected: true }));',
-    /directly await/,
+    /backend call owner/,
+  );
+});
+
+test('rejects an identifier await operand with an attached backend call', () => {
+  rejects_change(
+    paths.cursor,
+    'const data = await backend.getCursorInfo();',
+    'const data = await getData(backend.getCursorInfo());',
+    /backend call owner/,
   );
 });
 
