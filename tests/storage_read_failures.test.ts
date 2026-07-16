@@ -260,6 +260,18 @@ describe('user-visible storage readers', () => {
     expect(listener).toHaveBeenCalledTimes(1);
     unsubscribe();
   });
+
+  it('rejects a non-object notification settings root', () => {
+    installMemoryStorage({ 'claude-quota-notifications': '[]' });
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const listener = vi.fn();
+    const unsubscribe = subscribeStorageReadFailures(listener);
+
+    expect(getSavedNotificationSettings()).toEqual(defaultNotificationSettings());
+    expect(consoleError).toHaveBeenCalledExactlyOnceWith('Failed to decode local storage value.');
+    expect(listener).toHaveBeenCalledTimes(1);
+    unsubscribe();
+  });
 });
 
 describe('notification dedupe storage reader', () => {
@@ -298,7 +310,7 @@ describe('notification dedupe storage reader', () => {
     unsubscribe();
   });
 
-  it.each(['{bad-json', JSON.stringify({ warning: 'recent' })])(
+  it.each(['{bad-json', '[]', JSON.stringify({ warning: 'recent' })])(
     'fails closed with zero write on malformed dedupe data: %s',
     (malformedRaw) => {
       installMemoryStorage({ 'claude-quota-notified': malformedRaw });
