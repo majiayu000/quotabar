@@ -87,6 +87,7 @@ Decoder 规则：
 - event mixed-invalid array 整项返回 `[]` 并通知一次。
 
 更新 `tests/storage_write_failures.test.ts` 适配 typed reader，并完整重跑 GH35 测试，禁止削弱断言。
+更新 `tests/budget.test.ts` 中旧的“丢弃非法字段并接受其余字段”断言，使其验证本 spec 要求的 known-field schema failure 整项拒绝；保留合法 round-trip 与预算求和断言。
 
 复用 GH35 已合并的 diff coverage checker：新增 TS/TSX 可执行行总体至少 80%；`storage.ts`、`notifications.ts`、`event_log.ts` 新增行各 100%。checker 自身既有 100% 测试继续通过。
 
@@ -104,6 +105,7 @@ Decoder 规则：
 - `src/App.tsx`
 - `tests/storage_read_failures.test.ts`
 - `tests/storage_write_failures.test.ts`
+- `tests/budget.test.ts`
 - `specs/GH38/tasks.md`
 
 ## Risks and Mitigations
@@ -116,7 +118,7 @@ Decoder 规则：
 | access/decoder error 泄漏 key 或 raw value | 两类 log 均为固定文案，不传原 error/key/value；exception/raw sentinel 测试。 |
 | dedupe 读失败后仍写/发送 | failure early return；setItem 零次与 recovery 专测。 |
 | GH35 write shadow 被 typed read 破坏 | shadow-first adapter tests + 全量 storage_write_failures regression。 |
-| 与其他优化冲突 | implementation 从 spec 合并后的最新 origin/main 创建；13-path allowlist。 |
+| 与其他优化冲突 | implementation 从 spec 合并后的最新 origin/main 创建；14-path allowlist。 |
 
 ## Product-to-Test Mapping
 
@@ -148,6 +150,7 @@ git diff --quiet origin/main...HEAD -- . \
   ':(exclude)src/App.tsx' \
   ':(exclude)tests/storage_read_failures.test.ts' \
   ':(exclude)tests/storage_write_failures.test.ts' \
+  ':(exclude)tests/budget.test.ts' \
   ':(exclude)specs/GH38/tasks.md'
 test -z "$(rg -l 'readStorageItem' src tests)"
 test "$(rg -l 'localStorage\.getItem' src)" = "src/services/storage.ts"
