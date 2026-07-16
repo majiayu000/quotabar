@@ -1,7 +1,11 @@
 import { useEffect, useRef } from 'react';
 import { SERVICE_META, SERVICES } from '../services/service_meta';
 import { getClaudeTrayUsedPercent, type ServiceMap } from '../services/app_state';
-import { notify, type NotificationSettings } from '../services/notifications';
+import {
+  createNotificationFailureOptions,
+  notify,
+  type NotificationSettings,
+} from '../services/notifications';
 import type { EventLevel } from '../services/event_log';
 import type { QuotaData } from '../types/models';
 
@@ -53,12 +57,20 @@ export function useServiceEvents(
         if (before.used < 95 && after.used >= 95) {
           logEvent('critical', `${label} usage crossed 95%`);
           if (notifSettings.q95) {
-            void notify('QuotaBar', `${label} usage crossed 95%`);
+            void notify(
+              'QuotaBar',
+              `${label} usage crossed 95%`,
+              createNotificationFailureOptions(logEvent),
+            );
           }
         } else if (before.used < 80 && after.used >= 80) {
           logEvent('warning', `${label} usage crossed 80%`);
           if (notifSettings.q80) {
-            void notify('QuotaBar', `${label} usage crossed 80%`);
+            void notify(
+              'QuotaBar',
+              `${label} usage crossed 80%`,
+              createNotificationFailureOptions(logEvent),
+            );
           }
         }
       }

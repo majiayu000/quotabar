@@ -287,7 +287,7 @@ describe('notification dedupe storage reader', () => {
 
     installMemoryStorage();
     expect(shouldNotify('warning', 1_000)).toBe(true);
-    expect(localStorage.setItem).toHaveBeenCalledTimes(1);
+    expect(localStorage.setItem).not.toHaveBeenCalled();
     expect(listener).not.toHaveBeenCalled();
     unsubscribe();
   });
@@ -305,7 +305,7 @@ describe('notification dedupe storage reader', () => {
 
     installMemoryStorage();
     expect(shouldNotify('warning', 1_000)).toBe(true);
-    expect(localStorage.setItem).toHaveBeenCalledTimes(1);
+    expect(localStorage.setItem).not.toHaveBeenCalled();
     expect(listener).not.toHaveBeenCalled();
     unsubscribe();
   });

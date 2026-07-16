@@ -15,6 +15,7 @@ export interface StorageReadOptions {
 export interface StorageWriteOptions {
   preserveSessionValue: boolean;
   notifyUser: boolean;
+  logErrorDetails?: boolean;
 }
 
 type StorageWriteFailureListener = () => void;
@@ -114,7 +115,11 @@ export function writeStorageItem(
       }
     }
 
-    console.error('Failed to persist local setting:', error);
+    if (options.logErrorDetails === false) {
+      console.error('Failed to persist local setting.');
+    } else {
+      console.error('Failed to persist local setting:', error);
+    }
     return false;
   }
 }
