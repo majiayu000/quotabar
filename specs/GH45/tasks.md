@@ -17,7 +17,7 @@
 ## Verification Tasks
 
 - [x] `SP45-T5` Owner: codex. Dependencies: `SP45-T1`~`SP45-T4`. Covers: `B-001`~`B-006`. Done when: final implementation HEAD 上 source/App/import/bundle parity、`git diff --check`、`npm test`、build、Rust fmt/check/test 全部新鲜通过。 Verify: 执行 tech spec 完整 Test Plan。
-- [ ] `SP45-T6` Owner: codex. Dependencies: `SP45-T5`. Covers: none（handoff）. Done when: implementation PR 以 `Closes #45` 链接 issue，正文记录原因、边界、parity、coverage applicability、风险、rollback 与验证，并接受 implementation-vs-spec、current-head connector/CI/reviewThreads gate。 Verify: `gh pr view --json body,headRefOid,statusCheckRollup,mergeStateStatus,url`。
+- [x] `SP45-T6` Owner: codex. Dependencies: `SP45-T5`. Covers: none（handoff）. Done when: implementation PR 以 `Closes #45` 链接 issue，正文记录原因、边界、parity、coverage applicability、风险、rollback 与验证，并接受 implementation-vs-spec、current-head connector/CI/reviewThreads gate。 Verify: `gh pr view --json body,headRefOid,statusCheckRollup,mergeStateStatus,url`。
 
 ## Handoff Notes
 
