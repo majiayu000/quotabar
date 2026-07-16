@@ -40,7 +40,6 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::get_quota,
             commands::get_codex_info,
-            commands::get_codex_stats,
             commands::get_codex_rate_limits,
             commands::get_codex_reset_credits,
             commands::get_cursor_info,

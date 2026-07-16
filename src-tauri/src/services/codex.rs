@@ -1,32 +1,12 @@
 use crate::domain::models::{
     CodexCredits, CodexData, CodexRateLimitWindow, CodexRateLimits, CodexResetCredit,
-    CodexResetCredits, CodexStats,
+    CodexResetCredits,
 };
 use crate::services::http::{is_transient_os_error, shared_http_client};
 use base64::{engine::general_purpose::STANDARD_NO_PAD, Engine as _};
-use chrono::{DateTime, NaiveDate, Utc};
 use std::fs;
-use std::io::{BufRead, BufReader, Seek, SeekFrom};
 use std::path::PathBuf;
 use std::sync::{Mutex, OnceLock};
-use std::time::SystemTime;
-
-#[derive(Clone)]
-struct HistoryStatsCache {
-    history_file: PathBuf,
-    file_size: u64,
-    modified_at: Option<SystemTime>,
-    day: NaiveDate,
-    total_sessions: u32,
-    today_sessions: u32,
-    last_ts: Option<i64>,
-}
-
-static HISTORY_STATS_CACHE: OnceLock<Mutex<Option<HistoryStatsCache>>> = OnceLock::new();
-
-fn history_stats_cache() -> &'static Mutex<Option<HistoryStatsCache>> {
-    HISTORY_STATS_CACHE.get_or_init(|| Mutex::new(None))
-}
 
 /// Most recent successful fetch results, retained without TTL so we can
 /// short-circuit transient OS errors (EMFILE etc.) without flashing UI.
@@ -104,43 +84,6 @@ fn parse_rate_limit_window(window: &serde_json::Value) -> Option<CodexRateLimitW
     })
 }
 
-fn update_stats_from_reader<R: BufRead>(
-    reader: R,
-    today: NaiveDate,
-    total_sessions: &mut u32,
-    today_sessions: &mut u32,
-    last_ts: &mut Option<i64>,
-) {
-    for line in reader.lines().map_while(Result::ok) {
-        if let Ok(entry) = serde_json::from_str::<serde_json::Value>(&line) {
-            *total_sessions = total_sessions.saturating_add(1);
-            if let Some(ts) = entry["ts"].as_i64() {
-                if let Some(dt) = DateTime::from_timestamp(ts, 0) {
-                    if dt.date_naive() == today {
-                        *today_sessions = today_sessions.saturating_add(1);
-                    }
-                }
-
-                if last_ts.is_none_or(|current| ts > current) {
-                    *last_ts = Some(ts);
-                }
-            }
-        }
-    }
-}
-
-fn build_codex_stats(total_sessions: u32, today_sessions: u32, last_ts: Option<i64>) -> CodexStats {
-    let last_activity = last_ts
-        .and_then(|ts| DateTime::from_timestamp(ts, 0))
-        .map(|dt| dt.format("%Y-%m-%d %H:%M").to_string());
-
-    CodexStats {
-        total_sessions,
-        today_sessions,
-        last_activity,
-    }
-}
-
 fn fallback_or_disconnected_info(error: String) -> CodexData {
     if is_transient_os_error(&error) {
         if let Ok(guard) = last_good_info().lock() {
@@ -189,109 +132,6 @@ pub async fn fetch_codex_info() -> CodexData {
         *guard = Some(info.clone());
     }
     info
-}
-
-pub async fn fetch_codex_stats() -> CodexStats {
-    let codex_home = match get_codex_home() {
-        Some(path) => path,
-        None => return CodexStats::empty(),
-    };
-
-    let history_file = codex_home.join("history.jsonl");
-    if !history_file.exists() {
-        if let Ok(mut guard) = history_stats_cache().lock() {
-            *guard = None;
-        }
-        return CodexStats::empty();
-    }
-
-    let metadata = match fs::metadata(&history_file) {
-        Ok(metadata) => metadata,
-        Err(_) => return CodexStats::empty(),
-    };
-
-    let current_size = metadata.len();
-    let current_modified = metadata.modified().ok();
-    let today = Utc::now().date_naive();
-
-    let mut total_sessions = 0u32;
-    let mut today_sessions = 0u32;
-    let mut last_ts: Option<i64> = None;
-    let mut offset = 0u64;
-    let mut can_incrementally_scan = false;
-
-    if let Ok(guard) = history_stats_cache().lock() {
-        if let Some(cache) = guard.as_ref() {
-            let same_file = cache.history_file == history_file;
-            let same_day = cache.day == today;
-            let file_grew = current_size >= cache.file_size;
-            let modified_is_not_older = match (current_modified, cache.modified_at) {
-                (Some(now), Some(cached)) => now >= cached,
-                _ => true,
-            };
-
-            if same_file && same_day && file_grew && modified_is_not_older {
-                total_sessions = cache.total_sessions;
-                today_sessions = cache.today_sessions;
-                last_ts = cache.last_ts;
-                offset = cache.file_size;
-                can_incrementally_scan = true;
-            }
-        }
-    }
-
-    if can_incrementally_scan {
-        let mut file = match fs::File::open(&history_file) {
-            Ok(file) => file,
-            Err(_) => return CodexStats::empty(),
-        };
-
-        if file.seek(SeekFrom::Start(offset)).is_ok() {
-            let reader = BufReader::new(file);
-            update_stats_from_reader(
-                reader,
-                today,
-                &mut total_sessions,
-                &mut today_sessions,
-                &mut last_ts,
-            );
-        } else {
-            can_incrementally_scan = false;
-        }
-    }
-
-    if !can_incrementally_scan {
-        total_sessions = 0;
-        today_sessions = 0;
-        last_ts = None;
-
-        let file = match fs::File::open(&history_file) {
-            Ok(file) => file,
-            Err(_) => return CodexStats::empty(),
-        };
-        let reader = BufReader::new(file);
-        update_stats_from_reader(
-            reader,
-            today,
-            &mut total_sessions,
-            &mut today_sessions,
-            &mut last_ts,
-        );
-    }
-
-    if let Ok(mut guard) = history_stats_cache().lock() {
-        *guard = Some(HistoryStatsCache {
-            history_file,
-            file_size: current_size,
-            modified_at: current_modified,
-            day: today,
-            total_sessions,
-            today_sessions,
-            last_ts,
-        });
-    }
-
-    build_codex_stats(total_sessions, today_sessions, last_ts)
 }
 
 fn fallback_or_disconnected_limits(error: String) -> CodexRateLimits {
