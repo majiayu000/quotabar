@@ -55,7 +55,7 @@
 | Behavior invariant | Implementation area | Verification |
 | --- | --- | --- |
 | `B-001` 现有用户行为不变 | 所有删除点；保留现有 provider/cost/tray paths | `npm test`; `npm run build`; `cargo test --manifest-path src-tauri/Cargo.toml` |
-| `B-002` stats 能力完全移除 | `src/types/models.ts`, `src/services/backend.ts`, `src-tauri/src/domain/models.rs`, `src-tauri/src/commands.rs`, `src-tauri/src/lib.rs`, `src-tauri/src/services/codex.rs` | `! rg -n "getCodexStats|get_codex_stats|CodexStats|HistoryStatsCache|HISTORY_STATS_CACHE|history_stats_cache|update_stats_from_reader|build_codex_stats|fetch_codex_stats|history\\.jsonl" src src-tauri/src tests` |
+| `B-002` stats 能力完全移除 | `src/types/models.ts`, `src/services/backend.ts`, `src-tauri/src/domain/models.rs`, `src-tauri/src/commands.rs`, `src-tauri/src/lib.rs`, `src-tauri/src/services/codex.rs` | `if rg -n "getCodexStats|get_codex_stats|CodexStats|HistoryStatsCache|HISTORY_STATS_CACHE|history_stats_cache|update_stats_from_reader|build_codex_stats|fetch_codex_stats|history\\.jsonl" src src-tauri/src tests; then false; else rg_status=$?; test "$rg_status" -eq 1; fi` |
 | `B-003` 仍在使用的 Codex paths 不变且无 shim | `src-tauri/src/services/codex.rs`, command registry, backend facade | `git diff origin/main...HEAD -- src-tauri/src/services/codex.rs src-tauri/src/commands.rs src-tauri/src/lib.rs src/services/backend.ts`; `cargo test --manifest-path src-tauri/Cargo.toml` |
 | `B-004` 完成证据完整 | implementation PR verification record | 连续执行本 spec 的完整 Test Plan 并记录退出码为 0 |
 
@@ -72,7 +72,12 @@ git diff --quiet origin/main...HEAD -- . \
   ':(exclude)src-tauri/src/lib.rs' \
   ':(exclude)src-tauri/src/services/codex.rs' \
   ':(exclude)specs/GH32/tasks.md'
-! rg -n "getCodexStats|get_codex_stats|CodexStats|HistoryStatsCache|HISTORY_STATS_CACHE|history_stats_cache|update_stats_from_reader|build_codex_stats|fetch_codex_stats|history\.jsonl" src src-tauri/src tests
+if rg -n "getCodexStats|get_codex_stats|CodexStats|HistoryStatsCache|HISTORY_STATS_CACHE|history_stats_cache|update_stats_from_reader|build_codex_stats|fetch_codex_stats|history\.jsonl" src src-tauri/src tests; then
+  false
+else
+  rg_status=$?
+  test "$rg_status" -eq 1
+fi
 npm test
 npm run build
 cargo fmt --manifest-path src-tauri/Cargo.toml --check
