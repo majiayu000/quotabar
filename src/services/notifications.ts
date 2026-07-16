@@ -145,6 +145,12 @@ function notificationFailure(
   return { status: 'failure', message };
 }
 
+export function createNotificationFailureOptions(
+  log_event: (level: 'critical', message: string) => void,
+): NotificationDeliveryOptions {
+  return { on_failure: (message) => log_event('critical', message) };
+}
+
 async function loadNotificationPlugin(): Promise<NotificationPlugin> {
   notificationPluginPromise ??= import('@tauri-apps/plugin-notification');
   try {

@@ -33,6 +33,7 @@ import {
   type SwitcherVisibility,
 } from './services/switcher_providers';
 import {
+  createNotificationFailureOptions,
   getSavedNotificationSettings,
   notify,
   saveNotificationSettings,
@@ -394,7 +395,7 @@ export default function App() {
       : `Codex bonus reset expires in ${daysLeft}d`;
     logEvent('warning', text);
     if (notifSettings.bonus) {
-      void notify('QuotaBar', text);
+      void notify('QuotaBar', text, createNotificationFailureOptions(logEvent));
     }
   }, [logEvent, notifSettings.bonus]);
 

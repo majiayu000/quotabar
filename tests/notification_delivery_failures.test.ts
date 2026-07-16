@@ -3,6 +3,7 @@ import {
   NOTIFICATION_DEDUPE_FAILURE_MESSAGE,
   NOTIFICATION_DELIVERY_FAILURE_MESSAGE,
   NOTIFICATION_PERMISSION_DENIED_MESSAGE,
+  createNotificationFailureOptions,
   notify,
   shouldNotify,
 } from '../src/services/notifications';
@@ -103,6 +104,18 @@ afterEach(() => {
 });
 
 describe('notification delivery commit', () => {
+  it('creates a failure callback that writes one critical event', () => {
+    const logEvent = vi.fn();
+    const options = createNotificationFailureOptions(logEvent);
+
+    options.on_failure?.(NOTIFICATION_DELIVERY_FAILURE_MESSAGE);
+
+    expect(logEvent).toHaveBeenCalledExactlyOnceWith(
+      'critical',
+      NOTIFICATION_DELIVERY_FAILURE_MESSAGE,
+    );
+  });
+
   it('commits the dedupe timestamp only after a successful send', async () => {
     const values = installMemoryStorage();
 
