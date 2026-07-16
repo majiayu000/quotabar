@@ -15,7 +15,7 @@
 
 ## Handoff
 
-- [ ] `SP55-T4` Owner: codex. Dependencies: T3. Done when: implementation PR `Closes #55`，正文记录 reproduction、state/ordering model、safe errors、cleanup ownership、coverage、dependency boundary 与 rollback，并通过 implementation-vs-spec、current-head connector/CI/reviewThreads gate。
+- [x] `SP55-T4` Owner: codex. Dependencies: T3. Done when: implementation PR `Closes #55`，正文记录 reproduction、state/ordering model、safe errors、cleanup ownership、coverage、dependency boundary 与 rollback，并通过 implementation-vs-spec、current-head connector/CI/reviewThreads gate。
 
 ## Handoff Notes
 
