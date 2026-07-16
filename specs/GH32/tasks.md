@@ -16,7 +16,7 @@
 ## Verification Tasks
 
 - [x] `SP32-T4` Owner: codex. Dependencies: `SP32-T1`, `SP32-T2`, `SP32-T3`. Covers: `B-001`, `B-003`, `B-004`. Done when: 完整前端与 Rust 验证在 implementation branch 的最终 HEAD 上新鲜通过。 Verify: `npm test && npm run build && cargo fmt --manifest-path src-tauri/Cargo.toml --check && cargo check --manifest-path src-tauri/Cargo.toml && cargo test --manifest-path src-tauri/Cargo.toml`.
-- [ ] `SP32-T5` Owner: codex. Dependencies: `SP32-T4`. Covers: none（PR handoff housekeeping，不实现新的行为 invariant）. Done when: implementation PR 链接 issue #32、列出删除原因、风险、完整验证证据并接受 SpecRail 对照与 PR gate。 Verify: `gh pr view --json body,statusCheckRollup,reviewDecision,mergeStateStatus,url`.
+- [x] `SP32-T5` Owner: codex. Dependencies: `SP32-T4`. Covers: none（PR handoff housekeeping，不实现新的行为 invariant）. Done when: implementation PR 链接 issue #32、列出删除原因、风险、完整验证证据并接受 SpecRail 对照与 PR gate。 Verify: `gh pr view --json body,statusCheckRollup,reviewDecision,mergeStateStatus,url`.
 
 ## Handoff Notes
 
