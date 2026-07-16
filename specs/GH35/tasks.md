@@ -18,7 +18,7 @@
 ## Verification Tasks
 
 - [x] `SP35-T6` Owner: codex. Dependencies: `SP35-T1`~`SP35-T5`. Covers: `B-001`, `B-006`. Done when: 完整前端与 Rust 验证在 implementation branch 最终 HEAD 上新鲜通过。 Verify: `npm test && npm run build && cargo fmt --manifest-path src-tauri/Cargo.toml --check && cargo check --manifest-path src-tauri/Cargo.toml && cargo test --manifest-path src-tauri/Cargo.toml`.
-- [ ] `SP35-T7` Owner: codex. Dependencies: `SP35-T6`. Covers: none（PR handoff housekeeping）. Done when: implementation PR 以 `Closes #35` 链接 issue，列出失败语义、风险、rollback、coverage 和全量验证证据，并接受 SpecRail 对照与最终 PR gate。 Verify: `gh pr view --json body,statusCheckRollup,reviewDecision,mergeStateStatus,url`.
+- [x] `SP35-T7` Owner: codex. Dependencies: `SP35-T6`. Covers: none（PR handoff housekeeping）. Done when: implementation PR 以 `Closes #35` 链接 issue，列出失败语义、风险、rollback、coverage 和全量验证证据，并接受 SpecRail 对照与最终 PR gate。 Verify: `gh pr view --json body,statusCheckRollup,reviewDecision,mergeStateStatus,url`.
 
 ## Handoff Notes
 
