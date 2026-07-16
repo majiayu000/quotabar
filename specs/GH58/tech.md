@@ -7,7 +7,7 @@
 
 ## Root Cause
 
-入口 module 的 `reportFatalError(source, error)` 在任何保护逻辑前读取/转换 raw error，随后把 raw identity 交给 `console.error`，把 message/stack 写入 DOM。三类 callbacks 还主动读取 `event.error`、`event.message` 与 `event.reason`。DOM mutation 使用每次新建/append node 的无所有权模型，且 empty catch 吞掉 reporter failure。因此 confidentiality、reporter liveness、single-surface ownership 与 failure observability 同时缺失。
+入口 module 的 `reportFatalError(source, error)` 在任何保护逻辑前读取/转换 raw error，随后把 raw identity 交给 `console.error`，把 message/stack 写入 DOM。三类 callbacks 还主动读取 `event.error`、`event.message` 与 `event.reason`；两个 cancelable global events 未调用 `preventDefault()`，平台默认处理仍可能把 raw Error/reason 输出到 WebView console。DOM mutation 使用每次新建/append node 的无所有权模型，且 empty catch 吞掉 reporter failure。因此 confidentiality、reporter liveness、single-surface ownership 与 failure observability 同时缺失。
 
 ## Preflight Contract
 
@@ -34,7 +34,7 @@ const FATAL_SURFACE_ERROR_MESSAGE = 'Failed to display fatal frontend error.';
 const FATAL_SURFACE_ID = 'quotabar-fatal-error';
 ```
 
-`report_fatal_error(source: FatalErrorSource): void` 不接收 raw value。三个 callbacks 都忽略全部 callback arguments，只传 literal source；禁止读取 `event.error`、`event.message`、`event.reason`，禁止 Error narrowing、`String`、JSON serialization 或 raw console argument。
+`report_fatal_error(source: FatalErrorSource): void` 不接收 raw value。React callback 忽略全部 callback arguments，只传 literal source。window/promise callbacks 接收 event wrapper，但只允许调用 `event.preventDefault()` exactly once 后传 literal source；禁止读取 `event.error`、`event.message`、`event.reason`，禁止 Error narrowing、`String`、JSON serialization 或 raw console argument。取消默认动作属于 confidentiality contract，不能省略或延后到可能失败的 reporter DOM path。
 
 每次调用先执行一次下列 primary diagnostic；只有一个 string argument：
 
@@ -65,8 +65,8 @@ console.error(FATAL_SURFACE_ERROR_MESSAGE);
 
 ### 4. Entry wiring
 
-- `window.addEventListener('error', () => report_fatal_error('window'))`
-- `window.addEventListener('unhandledrejection', () => report_fatal_error('promise'))`
+- `window.addEventListener('error', (event) => { event.preventDefault(); report_fatal_error('window'); })`
+- `window.addEventListener('unhandledrejection', (event) => { event.preventDefault(); report_fatal_error('promise'); })`
 - React root option `onUncaughtError: () => report_fatal_error('react')`
 
 root element lookup、StrictMode、App 与 render count 不变。函数与常量保持 module-local，不新增 public API。
@@ -77,9 +77,9 @@ root element lookup、StrictMode、App 与 render count 不变。函数与常量
 
 | Case group | Required cases |
 | --- | --- |
-| Wiring | 两个 window listeners exactly once；root element/options/render exactly once |
-| Channels | window Error、promise object、React Error；fixed source-specific log/text |
-| Raw safety | raw identity/message/stack/nested marker absent；throwing getters/toString never evaluated |
+| Wiring | 两个 window listeners exactly once；global preventDefault each exactly once；root element/options/render exactly once |
+| Channels | window Error、promise object、React Error；fixed source-specific log/text；global default reports canceled |
+| Raw safety | raw identity/message/stack/nested marker absent；throwing error/message/reason getters与toString never evaluated |
 | Ownership | first create/append once；three channels reuse one ID surface；existing surface path zero create/append |
 | DOM terminals | lookup、create、id、style、text、append 各自 throw；primary/secondary exact counts、zero throw/raw |
 | Injection | HTML-like marker absent；innerHTML setter never called；actual callbacks never access raw getters |
@@ -101,6 +101,7 @@ root element lookup、StrictMode、App 与 render count 不变。函数与常量
 | reporter crashes on hostile payload | callbacks discard arguments；throwing getter/toString test。 |
 | DOM stub passes while real wiring drifts | import real entry module and capture actual registered callbacks/root options。 |
 | innerHTML introduces injection | textContent exact assertion + innerHTML runtime trap。 |
+| platform default action leaks raw fatal data | real global callbacks assert preventDefault exactly once before fixed reporting。 |
 | DOM failure becomes silent | fixed secondary diagnostic exact-count matrix。 |
 | scope expands into global error UI | exact 3-path allowlist。 |
 
@@ -109,11 +110,11 @@ root element lookup、StrictMode、App 与 render count 不变。函数与常量
 | Invariant | Verification |
 | --- | --- |
 | `B-001` | entry wiring/root render exact-count tests |
-| `B-002` | three channel safe primary logs + raw negative assertions |
+| `B-002` | three channel safe primary logs + two preventDefault exact-once + raw negative assertions |
 | `B-003` | exact fixed surface text per source |
 | `B-004` | first/existing/repeated single-surface matrix |
 | `B-005` | six DOM operation failure terminals |
-| `B-006` | throwing getter/toString payload cases |
+| `B-006` | throwing error/message/reason getter and toString payload cases |
 | `B-007` | innerHTML trap + DOM failure observability + no empty catch |
 | `B-008` | allowlist、coverage、full local/CI/current-head review |
 
