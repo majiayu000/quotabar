@@ -98,6 +98,20 @@ describe('storage write adapter', () => {
     );
   });
 
+  it('supports a fixed failure log without changing the shadow or outcome', () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    installThrowingStorage(new Error('sensitive-storage-message'));
+
+    expect(writeStorageItem('safe-log-key', 'session-value', {
+      preserveSessionValue: true,
+      notifyUser: false,
+      logErrorDetails: false,
+    })).toBe(false);
+    expect(readStoredString('safe-log-key')).toBe('session-value');
+    expect(consoleError).toHaveBeenCalledExactlyOnceWith('Failed to persist local setting.');
+    expect(String(consoleError.mock.calls.flat())).not.toContain('sensitive-storage-message');
+  });
+
   it('clears a stale shadow after storage recovers', () => {
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
     installThrowingStorage(new Error('quota exceeded'));

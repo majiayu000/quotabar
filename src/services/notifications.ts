@@ -129,6 +129,7 @@ function commitNotificationDelivery(body: string, now: number): void {
   writeStorageItem(DEDUPE_STORAGE_KEY, JSON.stringify(next), {
     preserveSessionValue: true,
     notifyUser: false,
+    logErrorDetails: false,
   });
 }
 

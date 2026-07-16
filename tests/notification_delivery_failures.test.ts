@@ -333,11 +333,8 @@ describe('notification delivery commit', () => {
     });
     expect(notificationPlugin.sendNotification).toHaveBeenCalledTimes(1);
     expect(setItem).toHaveBeenCalledTimes(1);
-    expect(consoleError).toHaveBeenCalledExactlyOnceWith(
-      'Failed to persist local setting:',
-      expect.any(Error),
-    );
-    expect(JSON.stringify(consoleError.mock.calls)).not.toContain('post-send-write-token');
+    expect(consoleError).toHaveBeenCalledExactlyOnceWith('Failed to persist local setting.');
+    expect(String(consoleError.mock.calls.flat())).not.toContain('post-send-write-token');
 
     await expect(notify('QuotaBar', 'post-send write failure')).resolves.toEqual({
       status: 'skipped',
