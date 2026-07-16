@@ -19,6 +19,40 @@ implementation branch 必须从 spec/amend PR 合并后的 then-latest `origin/m
 
 任一条件不符表示 main 已漂移；必须停止机械 split 并先更新 GH42 spec，不能调整边界后静默继续。
 
+### Preflight Commands（任何 edit 前执行）
+
+```bash
+set -euo pipefail
+git fetch origin main:refs/remotes/origin/main
+test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)"
+node --input-type=module -e "
+  import { createHash } from 'node:crypto';
+  import { readFileSync } from 'node:fs';
+  const css = readFileSync('src/styles.css');
+  const lines = css.toString('utf8').split('\n').length - 1;
+  const hash = createHash('sha256').update(css).digest('hex');
+  if (lines !== 1906 || hash !== 'b641fb7125c42c89b71f224151f990917743f82a182b08b397ccd436eecd15ac') process.exit(1);
+"
+node --input-type=module -e "
+  import { readFileSync } from 'node:fs';
+  const source = readFileSync('src/App.tsx', 'utf8');
+  const actual = [...source.matchAll(/^import '(.+\.css)';$/gm)].map((match) => match[1]);
+  const expected = ['./styles.css', './redesign.css', './redesign-settings.css'];
+  if (JSON.stringify(actual) !== JSON.stringify(expected)) process.exit(1);
+"
+npm ci
+npm run build
+node --input-type=module -e "
+  import { createHash } from 'node:crypto';
+  import { readFileSync, readdirSync } from 'node:fs';
+  const assets = readdirSync('dist/assets').filter((name) => name.endsWith('.css'));
+  if (assets.length !== 1) process.exit(1);
+  const css = readFileSync('dist/assets/' + assets[0]);
+  const hash = createHash('sha256').update(css).digest('hex');
+  if (css.length !== 52095 || hash !== 'd7f90db387af5a7e53c340b02890f40f0f407def247a3cceacf6dfdad473b955') process.exit(1);
+"
+```
+
 ## Proposed Design
 
 ### 1. 精确文件边界
