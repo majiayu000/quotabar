@@ -17,7 +17,7 @@
 
 ## Handoff
 
-- [ ] `SP48-T6` Owner: codex. Dependencies: T5. Done when: implementation PR `Closes #48`，正文记录 root cause/state machine/failure semantics/concurrency/coverage/rollback，并通过 implementation-vs-spec、current-head connector/CI/reviewThreads gate。
+- [x] `SP48-T6` Owner: codex. Dependencies: T5. Done when: implementation PR `Closes #48`，正文记录 root cause/state machine/failure semantics/concurrency/coverage/rollback，并通过 implementation-vs-spec、current-head connector/CI/reviewThreads gate。
 
 ## Handoff Notes
 
