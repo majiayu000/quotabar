@@ -41,7 +41,7 @@ QuotaBar 当前有 15 次 `localStorage.setItem` 位于 14 个空 `catch` 块中
 - tab、theme、dock、settings open/close 的直接写入收敛为 `app_state` 内部 saver；App 订阅一次统一 storage failure channel，任一 user-notifying write 失败都会显示同一准确 toast。
 - notification dedupe 写失败时不会调用系统通知发送路径，不写 session shadow；storage 恢复后可重试。
 - event log 写失败仍返回本会话事件，并产生 error 级证据。
-- 测试用内存/抛错/恢复 storage stub 覆盖全部 service 与 App-owned saver 的成功 round-trip、失败结果、budget/tab session shadow、统一失败 subscriber 与 notification fail-closed/retry。
+- 测试用内存/抛错/恢复 storage stub 覆盖全部 service 与 App-owned saver 的成功 round-trip、失败结果、budget/tab session shadow、统一失败 subscriber 与 notification fail-closed/retry；每个 user-setting saver 的失败用例必须安装 subscriber 并断言恰好通知一次，event log 与 notification dedupe 失败必须断言通知零次。
 - LCOV 与 fail-closed diff coverage checker 必须证明相对 `origin/main` 的新增 TypeScript/TSX 可执行行总体覆盖率至少 80%，且 storage adapter、notifications 与 event log 的新增失败路径为 100%；coverage checker 本身使用 Node test coverage 达到 100% lines/functions/branches。没有可计量新增行、缺 LCOV、缺 base 或解析错误均不得放行。
 - implementation PR 仅修改 tech spec allowlist 中的路径，不混入 localStorage 读取失败/default 策略或其他优化项。
 
