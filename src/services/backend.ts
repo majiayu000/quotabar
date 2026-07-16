@@ -4,7 +4,6 @@ import type {
   CodexData,
   CodexRateLimits,
   CodexResetCredits,
-  CodexStats,
   CostDailySeries,
   CostOverview,
   CostSource,
@@ -35,10 +34,6 @@ export const backend = {
 
   getCodexInfo() {
     return invokeBackend<CodexData>('get_codex_info');
-  },
-
-  getCodexStats() {
-    return invokeBackend<CodexStats>('get_codex_stats');
   },
 
   getCodexRateLimits() {

@@ -25,12 +25,6 @@ export interface CodexData {
   error?: string;
 }
 
-export interface CodexStats {
-  totalSessions: number;
-  todaySessions: number;
-  lastActivity?: string;
-}
-
 export interface CodexRateLimitWindow {
   usedPercent: number;
   windowMinutes?: number;
