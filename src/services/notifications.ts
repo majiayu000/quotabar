@@ -5,6 +5,24 @@ export type NotificationKey = 'q80' | 'q95' | 'bonus';
 
 export type NotificationSettings = Record<NotificationKey, boolean>;
 
+export type NotificationDeliveryResult =
+  | { status: 'sent' }
+  | { status: 'skipped'; reason: 'backend_unavailable' | 'duplicate' | 'in_flight' }
+  | { status: 'failure'; message: string };
+
+export interface NotificationDeliveryOptions {
+  on_failure?: (message: string) => void;
+}
+
+export const NOTIFICATION_DEDUPE_FAILURE_MESSAGE =
+  'Notification delivery could not verify recent delivery history.';
+export const NOTIFICATION_PERMISSION_DENIED_MESSAGE =
+  'Notification permission was denied.';
+export const NOTIFICATION_DELIVERY_FAILURE_MESSAGE =
+  'System notification delivery failed.';
+const NOTIFICATION_FAILURE_REPORTING_MESSAGE =
+  'Failed to report notification delivery failure.';
+
 export const NOTIFICATION_ROWS: Array<{ key: NotificationKey; label: string }> = [
   { key: 'q80', label: 'Alert at 80% used' },
   { key: 'q95', label: 'Critical alert at 95%' },
@@ -60,12 +78,20 @@ function loadNotified() {
   }, { notifyUser: false });
 }
 
-export function shouldNotify(body: string, now: number = Date.now()): boolean {
+type NotificationEligibility = 'eligible' | 'duplicate' | 'failure';
+
+function getNotificationEligibility(body: string, now: number): NotificationEligibility {
   const result = loadNotified();
-  if (result.status === 'failure') return false;
+  if (result.status === 'failure') return 'failure';
   const notified = result.status === 'value' ? result.value : {};
   const last = notified[body];
-  return !(typeof last === 'number' && now - last < NOTIFY_DEDUPE_WINDOW_MS);
+  return typeof last === 'number' && now - last < NOTIFY_DEDUPE_WINDOW_MS
+    ? 'duplicate'
+    : 'eligible';
+}
+
+export function shouldNotify(body: string, now: number = Date.now()): boolean {
+  return getNotificationEligibility(body, now) === 'eligible';
 }
 
 function commitNotificationDelivery(body: string, now: number): void {
@@ -84,9 +110,33 @@ function commitNotificationDelivery(body: string, now: number): void {
   });
 }
 
-export async function notify(title: string, body: string): Promise<void> {
-  if (!hasTauriBackend()) return;
-  if (!shouldNotify(body)) return;
+function notificationFailure(
+  message: string,
+  options: NotificationDeliveryOptions,
+): NotificationDeliveryResult {
+  try {
+    options.on_failure?.(message);
+  } catch {
+    console.error(NOTIFICATION_FAILURE_REPORTING_MESSAGE);
+  }
+  return { status: 'failure', message };
+}
+
+export async function notify(
+  title: string,
+  body: string,
+  options: NotificationDeliveryOptions = {},
+): Promise<NotificationDeliveryResult> {
+  if (!hasTauriBackend()) {
+    return { status: 'skipped', reason: 'backend_unavailable' };
+  }
+  const eligibility = getNotificationEligibility(body, Date.now());
+  if (eligibility === 'failure') {
+    return notificationFailure(NOTIFICATION_DEDUPE_FAILURE_MESSAGE, options);
+  }
+  if (eligibility === 'duplicate') {
+    return { status: 'skipped', reason: 'duplicate' };
+  }
   try {
     // Dynamic import keeps the plugin out of the startup module graph.
     const { isPermissionGranted, requestPermission, sendNotification } = await import(
@@ -96,11 +146,14 @@ export async function notify(title: string, body: string): Promise<void> {
     if (!granted) {
       granted = (await requestPermission()) === 'granted';
     }
-    if (granted) {
-      sendNotification({ title, body });
-      commitNotificationDelivery(body, Date.now());
+    if (!granted) {
+      return notificationFailure(NOTIFICATION_PERMISSION_DENIED_MESSAGE, options);
     }
-  } catch (err) {
-    console.error('Failed to send notification:', err);
+    sendNotification({ title, body });
+    commitNotificationDelivery(body, Date.now());
+    return { status: 'sent' };
+  } catch {
+    console.error(NOTIFICATION_DELIVERY_FAILURE_MESSAGE);
+    return notificationFailure(NOTIFICATION_DELIVERY_FAILURE_MESSAGE, options);
   }
 }
