@@ -1,6 +1,6 @@
 [package]
 name = "quotabar"
-version = "0.2.0"
+version = "0.3.0"
 description = "Quota and cost monitor for Claude Code and Codex"
 authors = ["QuotaBar Contributors"]
 edition = "2021"
