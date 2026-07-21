@@ -2,30 +2,21 @@ use crate::domain::models::{
     CodexCredits, CodexData, CodexRateLimitWindow, CodexRateLimits, CodexResetCredit,
     CodexResetCredits,
 };
+use crate::services::codex_cache::{self, AuthFileStamp};
 use crate::services::http::{is_transient_os_error, shared_http_client};
 use base64::{engine::general_purpose::STANDARD_NO_PAD, Engine as _};
 use std::fs::{self, OpenOptions};
 use std::io::Write;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::{Mutex, OnceLock};
 use std::time::Instant;
 
 /// Most recent successful fetch results, retained without TTL so a transient
 /// polling failure does not erase quota that was already displayed.
 static LAST_GOOD_INFO: OnceLock<Mutex<Option<CodexData>>> = OnceLock::new();
-static LAST_GOOD_LIMITS: OnceLock<Mutex<Option<CachedCodexRateLimits>>> = OnceLock::new();
-
-struct CachedCodexRateLimits {
-    account_id: String,
-    limits: CodexRateLimits,
-}
 
 fn last_good_info() -> &'static Mutex<Option<CodexData>> {
     LAST_GOOD_INFO.get_or_init(|| Mutex::new(None))
-}
-
-fn last_good_limits() -> &'static Mutex<Option<CachedCodexRateLimits>> {
-    LAST_GOOD_LIMITS.get_or_init(|| Mutex::new(None))
 }
 
 fn log_msg(msg: &str) {
@@ -91,13 +82,45 @@ fn decode_jwt_payload(token: &str) -> Option<serde_json::Value> {
         .and_then(|json| serde_json::from_str(&json).ok())
 }
 
-fn read_auth_json() -> Result<serde_json::Value, String> {
+fn auth_file_path() -> Result<PathBuf, String> {
     let codex_home = get_codex_home().ok_or_else(|| "Could not find home directory".to_string())?;
     let auth_file = codex_home.join("auth.json");
     if !auth_file.exists() {
         return Err("Codex not configured. Please run 'codex' to login.".to_string());
     }
+    Ok(auth_file)
+}
 
+fn auth_file_stamp(auth_file: &Path) -> Result<AuthFileStamp, String> {
+    let metadata =
+        fs::metadata(auth_file).map_err(|error| format!("Failed to inspect auth.json: {error}"))?;
+    let modified = metadata
+        .modified()
+        .map_err(|error| format!("Failed to inspect auth.json modification time: {error}"))?;
+    Ok(AuthFileStamp {
+        len: metadata.len(),
+        modified,
+    })
+}
+
+fn read_auth_json_with_stamp() -> Result<(serde_json::Value, AuthFileStamp), String> {
+    let auth_file = auth_file_path()?;
+    let stamp_before = auth_file_stamp(&auth_file)?;
+
+    let content =
+        fs::read_to_string(&auth_file).map_err(|e| format!("Failed to read auth.json: {e}"))?;
+    let stamp_after = auth_file_stamp(&auth_file)?;
+    if stamp_before != stamp_after {
+        return Err("auth.json changed while it was being read".to_string());
+    }
+
+    serde_json::from_str(&content)
+        .map(|auth_json| (auth_json, stamp_after))
+        .map_err(|e| format!("Failed to parse auth.json: {e}"))
+}
+
+fn read_auth_json() -> Result<serde_json::Value, String> {
+    let auth_file = auth_file_path()?;
     let content =
         fs::read_to_string(&auth_file).map_err(|e| format!("Failed to read auth.json: {e}"))?;
     serde_json::from_str(&content).map_err(|e| format!("Failed to parse auth.json: {e}"))
@@ -175,29 +198,25 @@ pub async fn fetch_codex_info() -> CodexData {
 }
 
 fn transient_failure_limits(account_id: Option<&str>, error: String) -> CodexRateLimits {
-    match last_good_limits().lock() {
-        Ok(guard) => retain_limits_or_disconnect(guard.as_ref(), account_id, error),
+    match codex_cache::retain_for_account(account_id, error.clone()) {
+        Ok(limits) => limits,
         Err(lock_error) => {
-            log_msg(&format!(
-                "[RateLimits] last-good cache lock poisoned: {lock_error}"
-            ));
+            log_msg(&format!("[RateLimits] {lock_error}"));
             CodexRateLimits::disconnected(error)
         }
     }
 }
 
-fn retain_limits_or_disconnect(
-    cached: Option<&CachedCodexRateLimits>,
-    account_id: Option<&str>,
-    error: String,
-) -> CodexRateLimits {
-    match (cached, account_id) {
-        (Some(stale), Some(current_account_id)) if stale.account_id == current_account_id => {
-            let mut result = stale.limits.clone();
-            result.error = Some(error);
-            result
+fn transient_auth_failure_limits(error: String) -> CodexRateLimits {
+    let auth_stamp = auth_file_path()
+        .and_then(|auth_file| auth_file_stamp(&auth_file))
+        .ok();
+    match codex_cache::retain_for_auth_stamp(auth_stamp.as_ref(), error.clone()) {
+        Ok(limits) => limits,
+        Err(lock_error) => {
+            log_msg(&format!("[RateLimits] {lock_error}"));
+            CodexRateLimits::disconnected(error)
         }
-        _ => CodexRateLimits::disconnected(error),
     }
 }
 
@@ -214,11 +233,15 @@ fn should_preserve_transport_failure(
 }
 
 pub async fn fetch_codex_rate_limits() -> CodexRateLimits {
-    let auth_json = match read_auth_json() {
-        Ok(v) => v,
+    let (auth_json, auth_stamp) = match read_auth_json_with_stamp() {
+        Ok(auth) => auth,
         Err(error) => {
             log_msg(&format!("[RateLimits] auth read failed: {error}"));
-            return CodexRateLimits::disconnected(error);
+            return if is_transient_os_error(&error) {
+                transient_auth_failure_limits(error)
+            } else {
+                CodexRateLimits::disconnected(error)
+            };
         }
     };
 
@@ -288,6 +311,11 @@ pub async fn fetch_codex_rate_limits() -> CodexRateLimits {
     if status.as_u16() == 401 || status.as_u16() == 403 {
         let error = "Token expired. Please run 'codex' to re-login.";
         log_msg(&format!("[RateLimits] auth failure: status={status}"));
+        if let Err(cache_error) = codex_cache::invalidate(&auth_stamp, account_id.as_deref()) {
+            log_msg(&format!(
+                "[RateLimits] failed to invalidate last-good cache: {cache_error}"
+            ));
+        }
         return CodexRateLimits::disconnected(error);
     }
 
@@ -300,9 +328,24 @@ pub async fn fetch_codex_rate_limits() -> CodexRateLimits {
     let data = match response.json::<serde_json::Value>().await {
         Ok(data) => data,
         Err(err) => {
-            let error = format!("Failed to parse response: {err}");
-            log_msg(&format!("[RateLimits] {error}"));
-            return CodexRateLimits::disconnected(error);
+            let should_preserve = should_preserve_transport_failure(
+                err.is_timeout(),
+                err.is_connect(),
+                is_transient_os_error(&err.to_string()),
+            );
+            let error = if should_preserve {
+                format!("Failed to read response body: {err}")
+            } else {
+                format!("Failed to parse response: {err}")
+            };
+            log_msg(&format!(
+                "[RateLimits] body read failed: preservable={should_preserve}, error={error}"
+            ));
+            return if should_preserve {
+                transient_failure_limits(account_id.as_deref(), error)
+            } else {
+                CodexRateLimits::disconnected(error)
+            };
         }
     };
 
@@ -345,17 +388,13 @@ pub async fn fetch_codex_rate_limits() -> CodexRateLimits {
     };
 
     match account_id {
-        Some(account_id) => match last_good_limits().lock() {
-            Ok(mut guard) => {
-                *guard = Some(CachedCodexRateLimits {
-                    account_id,
-                    limits: limits.clone(),
-                });
+        Some(account_id) => {
+            if let Err(error) = codex_cache::store(account_id, auth_stamp, limits.clone()) {
+                log_msg(&format!(
+                    "[RateLimits] failed to update last-good cache: {error}"
+                ));
             }
-            Err(error) => log_msg(&format!(
-                "[RateLimits] failed to update last-good cache: {error}"
-            )),
-        },
+        }
         None => log_msg("[RateLimits] account ID missing; last-good cache not updated"),
     }
     log_msg(&format!(
@@ -452,89 +491,10 @@ pub async fn fetch_codex_reset_credits() -> CodexResetCredits {
 #[cfg(test)]
 mod tests {
     use super::{
-        parse_rate_limit_window, parse_reset_credit, retain_limits_or_disconnect,
-        should_preserve_for_status, should_preserve_transport_failure, CachedCodexRateLimits,
+        parse_rate_limit_window, parse_reset_credit, should_preserve_for_status,
+        should_preserve_transport_failure,
     };
-    use crate::domain::models::{CodexRateLimitWindow, CodexRateLimits};
     use serde_json::json;
-
-    fn sample_rate_limits() -> CodexRateLimits {
-        CodexRateLimits {
-            connected: true,
-            plan_type: Some("pro".to_string()),
-            primary: Some(CodexRateLimitWindow {
-                used_percent: 39.0,
-                window_minutes: Some(300),
-                resets_at: Some(1_781_000_000),
-            }),
-            secondary: None,
-            credits: None,
-            error: None,
-        }
-    }
-
-    #[test]
-    fn transient_network_failure_preserves_last_good_limits_and_surfaces_error() {
-        let cached = CachedCodexRateLimits {
-            account_id: "account-a".to_string(),
-            limits: sample_rate_limits(),
-        };
-        let result = retain_limits_or_disconnect(
-            Some(&cached),
-            Some("account-a"),
-            "Network error: operation timed out".to_string(),
-        );
-
-        assert!(result.connected);
-        assert_eq!(
-            result.primary.as_ref().map(|window| window.used_percent),
-            Some(39.0)
-        );
-        assert_eq!(
-            result.error.as_deref(),
-            Some("Network error: operation timed out")
-        );
-    }
-
-    #[test]
-    fn transient_failure_without_cached_limits_stays_disconnected() {
-        let result = retain_limits_or_disconnect(
-            None,
-            Some("account-a"),
-            "Network error: operation timed out".to_string(),
-        );
-
-        assert!(!result.connected);
-        assert!(result.primary.is_none());
-        assert_eq!(
-            result.error.as_deref(),
-            Some("Network error: operation timed out")
-        );
-    }
-
-    #[test]
-    fn transient_failure_never_reuses_another_accounts_limits() {
-        let cached = CachedCodexRateLimits {
-            account_id: "account-a".to_string(),
-            limits: sample_rate_limits(),
-        };
-
-        let switched_account = retain_limits_or_disconnect(
-            Some(&cached),
-            Some("account-b"),
-            "Network error: operation timed out".to_string(),
-        );
-        let unknown_account = retain_limits_or_disconnect(
-            Some(&cached),
-            None,
-            "Network error: operation timed out".to_string(),
-        );
-
-        assert!(!switched_account.connected);
-        assert!(switched_account.primary.is_none());
-        assert!(!unknown_account.connected);
-        assert!(unknown_account.primary.is_none());
-    }
 
     #[test]
     fn only_rate_limiting_is_a_preservable_http_failure() {
