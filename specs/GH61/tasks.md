@@ -9,9 +9,9 @@
 
 ## Implementation Tasks
 
-- [ ] `SP61-T1` Owner: codex. Dependencies: merged spec. Covers: `B-001`~`B-006`. Done when: `handleSwitcherToggle` 从 current render snapshot 同步决定 terminal；blocked 零 state/save、latest-event owned timer、conditional clear 与 unmount cleanup；四 service accepted exact next state/save once；functional updater 无 side effect。 Verify: targeted real-App tests。
-- [ ] `SP61-T2` Owner: codex. Dependencies: T1. Covers: `B-001`~`B-006`. Done when: StrictMode real App/SettingsView callback、四 service blocked matrix、四 enable + 四 disable accepted terminals、peer preservation、exact saver、two-event timer ownership、non-guard preservation、unmount cleanup、toast lifecycle 与 Overview fallback deterministic 通过；无 copied helper/wall-clock/DOM dependency。 Verify: `tests/switcher_visibility_transactions.test.tsx`。
-- [ ] `SP61-T3` Owner: codex. Dependencies: T1-T2. Covers: `B-007`. Done when: exact 3-path allowlist；overall executable diff ≥80%；`src/App.tsx` critical changed lines 100%；full frontend/build/Rust pass。 Verify: tech Test Plan。
+- [x] `SP61-T1` Owner: codex. Dependencies: merged spec. Covers: `B-001`~`B-006`. Done when: `handleSwitcherToggle` 从 current render snapshot 同步决定 terminal；blocked 零 state/save、latest-event owned timer、conditional clear 与 unmount cleanup；四 service accepted exact next state/save once；functional updater 无 side effect。 Verify: targeted real-App tests。
+- [x] `SP61-T2` Owner: codex. Dependencies: T1. Covers: `B-001`~`B-006`. Done when: StrictMode real App/SettingsView callback、四 service blocked matrix、四 enable + 四 disable accepted terminals、peer preservation、exact saver、two-event timer ownership、non-guard preservation、unmount cleanup、toast lifecycle 与 Overview fallback deterministic 通过；无 copied helper/wall-clock/DOM dependency。 Verify: `tests/switcher_visibility_transactions.test.tsx`。
+- [x] `SP61-T3` Owner: codex. Dependencies: T1-T2. Covers: `B-007`. Done when: exact 3-path allowlist；overall executable diff ≥80%；`src/App.tsx` critical changed lines 100%；full frontend/build/Rust pass。 Verify: tech Test Plan。
 
 ## Handoff
 

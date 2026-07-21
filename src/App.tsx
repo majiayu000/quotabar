@@ -103,8 +103,11 @@ export {
   getClaudeTrayUsedPercent,
 } from './services/app_state';
 
-type ToastSetter = (message: string | null) => void;
+type ToastValue = string | null;
+type ToastSetter = (value: ToastValue | ((current: ToastValue) => ToastValue)) => void;
 type ToastScheduler = (callback: () => void, delayMs: number) => void;
+
+const SWITCHER_GUARD_MESSAGE = 'At least one provider must stay in the switcher';
 
 const scheduleToastClear: ToastScheduler = (callback, delayMs) => {
   setTimeout(callback, delayMs);
@@ -148,7 +151,16 @@ export default function App() {
   const [theme, setTheme] = useState<ThemeName>(getSavedTheme);
   const [dockHidden, setDockHidden] = useState<boolean>(getSavedDockHidden);
   const [trayEnabled, setTrayEnabled] = useState<TrayEnabledState>(getInitialTrayEnabledState);
-  const [toast, setToast] = useState<string | null>(null);
+  const [toast, setToastState] = useState<ToastValue>(null);
+  const switcherGuardTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const setToast = useCallback<ToastSetter>((value) => {
+    setToastState((current) => {
+      const next = typeof value === 'function' ? value(current) : value;
+      return next === null && current === SWITCHER_GUARD_MESSAGE && switcherGuardTimerRef.current !== null
+        ? current
+        : next;
+    });
+  }, []);
   const [activeView, setActiveView] = useState<AppViewName>(() =>
     getSavedSettingsExpanded() ? 'settings' : getSavedTab(),
   );
@@ -226,7 +238,7 @@ export default function App() {
 
   useEffect(() => {
     return subscribeStorageReadFailureToast(setToast);
-  }, []);
+  }, [setToast]);
 
   const setAndPersistTab = useCallback((tab: TabName) => {
     setActiveView(tab);
@@ -363,23 +375,34 @@ export default function App() {
 
   useServiceEvents(quota, connected, usedPercent, notifSettings, logEvent);
 
-  const handleSwitcherToggle = useCallback((service: TrayServiceName) => {
-    let blocked = false;
-    setSwitcherVisibility((prev) => {
-      const nextValue = !prev[service];
-      if (!nextValue && !SERVICES.some((other) => other !== service && prev[other])) {
-        blocked = true;
-        return prev;
-      }
-      const next = { ...prev, [service]: nextValue };
-      saveSwitcherVisibility(next);
-      return next;
-    });
-    if (blocked) {
-      setToast('At least one provider must stay in the switcher');
-      setTimeout(() => setToast(null), TRAY_GUARD_TOAST_MS);
+  const showSwitcherGuardToast = useCallback(() => {
+    if (switcherGuardTimerRef.current !== null) {
+      clearTimeout(switcherGuardTimerRef.current);
+    }
+    setToast(SWITCHER_GUARD_MESSAGE);
+    switcherGuardTimerRef.current = setTimeout(() => {
+      switcherGuardTimerRef.current = null;
+      setToast((current) => current === SWITCHER_GUARD_MESSAGE ? null : current);
+    }, TRAY_GUARD_TOAST_MS);
+  }, []);
+
+  useEffect(() => () => {
+    if (switcherGuardTimerRef.current !== null) {
+      clearTimeout(switcherGuardTimerRef.current);
+      switcherGuardTimerRef.current = null;
     }
   }, []);
+
+  const handleSwitcherToggle = useCallback((service: TrayServiceName) => {
+    const nextValue = !switcherVisibility[service];
+    if (!nextValue && !SERVICES.some((other) => other !== service && switcherVisibility[other])) {
+      showSwitcherGuardToast();
+      return;
+    }
+    const next = { ...switcherVisibility, [service]: nextValue };
+    setSwitcherVisibility(next);
+    saveSwitcherVisibility(next);
+  }, [showSwitcherGuardToast, switcherVisibility]);
 
   // If the active provider tab gets hidden from the switcher, fall back to Overview.
   useEffect(() => {
