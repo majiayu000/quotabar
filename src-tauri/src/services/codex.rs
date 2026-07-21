@@ -2,23 +2,54 @@ use crate::domain::models::{
     CodexCredits, CodexData, CodexRateLimitWindow, CodexRateLimits, CodexResetCredit,
     CodexResetCredits,
 };
+use crate::services::codex_cache::{self, AuthFileStamp};
 use crate::services::http::{is_transient_os_error, shared_http_client};
 use base64::{engine::general_purpose::STANDARD_NO_PAD, Engine as _};
-use std::fs;
-use std::path::PathBuf;
+use std::fs::{self, OpenOptions};
+use std::io::Write;
+use std::path::{Path, PathBuf};
 use std::sync::{Mutex, OnceLock};
+use std::time::Instant;
 
-/// Most recent successful fetch results, retained without TTL so we can
-/// short-circuit transient OS errors (EMFILE etc.) without flashing UI.
+/// Most recent successful fetch results, retained without TTL so a transient
+/// polling failure does not erase quota that was already displayed.
 static LAST_GOOD_INFO: OnceLock<Mutex<Option<CodexData>>> = OnceLock::new();
-static LAST_GOOD_LIMITS: OnceLock<Mutex<Option<CodexRateLimits>>> = OnceLock::new();
 
 fn last_good_info() -> &'static Mutex<Option<CodexData>> {
     LAST_GOOD_INFO.get_or_init(|| Mutex::new(None))
 }
 
-fn last_good_limits() -> &'static Mutex<Option<CodexRateLimits>> {
-    LAST_GOOD_LIMITS.get_or_init(|| Mutex::new(None))
+fn log_msg(msg: &str) {
+    let timestamp = chrono::Local::now().format("%Y-%m-%d %H:%M:%S%.3f");
+    let line = format!("[{timestamp}] {msg}\n");
+
+    print!("{line}");
+
+    let home_dir = match dirs::home_dir() {
+        Some(path) => path,
+        None => {
+            eprintln!("[CodexLog] failed to resolve home directory");
+            return;
+        }
+    };
+    let log_dir = home_dir.join("Library/Logs/quotabar");
+    if let Err(error) = fs::create_dir_all(&log_dir) {
+        eprintln!("[CodexLog] failed to create log directory: {error}");
+        return;
+    }
+
+    match OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(log_dir.join("codex.log"))
+    {
+        Ok(mut file) => {
+            if let Err(error) = file.write_all(line.as_bytes()) {
+                eprintln!("[CodexLog] failed to write log: {error}");
+            }
+        }
+        Err(error) => eprintln!("[CodexLog] failed to open log file: {error}"),
+    }
 }
 
 fn get_codex_home() -> Option<PathBuf> {
@@ -51,13 +82,67 @@ fn decode_jwt_payload(token: &str) -> Option<serde_json::Value> {
         .and_then(|json| serde_json::from_str(&json).ok())
 }
 
-fn read_auth_json() -> Result<serde_json::Value, String> {
+fn auth_file_path() -> Result<PathBuf, String> {
     let codex_home = get_codex_home().ok_or_else(|| "Could not find home directory".to_string())?;
     let auth_file = codex_home.join("auth.json");
     if !auth_file.exists() {
         return Err("Codex not configured. Please run 'codex' to login.".to_string());
     }
+    Ok(auth_file)
+}
 
+fn auth_file_stamp(auth_file: &Path) -> Result<AuthFileStamp, String> {
+    let metadata =
+        fs::metadata(auth_file).map_err(|error| format!("Failed to inspect auth.json: {error}"))?;
+    let modified = metadata
+        .modified()
+        .map_err(|error| format!("Failed to inspect auth.json modification time: {error}"))?;
+    Ok(AuthFileStamp {
+        len: metadata.len(),
+        modified,
+    })
+}
+
+struct StampedAuthReadError {
+    message: String,
+    pre_read_stamp: Option<AuthFileStamp>,
+}
+
+fn read_auth_json_with_stamp() -> Result<(serde_json::Value, AuthFileStamp), StampedAuthReadError> {
+    let auth_file = auth_file_path().map_err(|message| StampedAuthReadError {
+        message,
+        pre_read_stamp: None,
+    })?;
+    let stamp_before = auth_file_stamp(&auth_file).map_err(|message| StampedAuthReadError {
+        message,
+        pre_read_stamp: None,
+    })?;
+
+    let content = fs::read_to_string(&auth_file).map_err(|error| StampedAuthReadError {
+        message: format!("Failed to read auth.json: {error}"),
+        pre_read_stamp: Some(stamp_before.clone()),
+    })?;
+    let stamp_after = auth_file_stamp(&auth_file).map_err(|message| StampedAuthReadError {
+        message,
+        pre_read_stamp: Some(stamp_before.clone()),
+    })?;
+    if stamp_before != stamp_after {
+        return Err(StampedAuthReadError {
+            message: "auth.json changed while it was being read".to_string(),
+            pre_read_stamp: None,
+        });
+    }
+
+    serde_json::from_str(&content)
+        .map(|auth_json| (auth_json, stamp_after))
+        .map_err(|error| StampedAuthReadError {
+            message: format!("Failed to parse auth.json: {error}"),
+            pre_read_stamp: None,
+        })
+}
+
+fn read_auth_json() -> Result<serde_json::Value, String> {
+    let auth_file = auth_file_path()?;
     let content =
         fs::read_to_string(&auth_file).map_err(|e| format!("Failed to read auth.json: {e}"))?;
     serde_json::from_str(&content).map_err(|e| format!("Failed to parse auth.json: {e}"))
@@ -134,26 +219,61 @@ pub async fn fetch_codex_info() -> CodexData {
     info
 }
 
-fn fallback_or_disconnected_limits(error: String) -> CodexRateLimits {
-    if is_transient_os_error(&error) {
-        if let Ok(guard) = last_good_limits().lock() {
-            if let Some(stale) = guard.as_ref() {
-                return stale.clone();
-            }
+fn transient_failure_limits(account_id: Option<&str>, error: String) -> CodexRateLimits {
+    match codex_cache::retain_for_account(account_id, error.clone()) {
+        Ok(limits) => limits,
+        Err(lock_error) => {
+            log_msg(&format!("[RateLimits] {lock_error}"));
+            CodexRateLimits::disconnected(error)
         }
     }
-    CodexRateLimits::disconnected(error)
+}
+
+fn transient_auth_failure_limits(
+    auth_stamp: Option<&AuthFileStamp>,
+    error: String,
+) -> CodexRateLimits {
+    match codex_cache::retain_for_auth_stamp(auth_stamp, error.clone()) {
+        Ok(limits) => limits,
+        Err(lock_error) => {
+            log_msg(&format!("[RateLimits] {lock_error}"));
+            CodexRateLimits::disconnected(error)
+        }
+    }
+}
+
+fn should_preserve_for_status(status: reqwest::StatusCode) -> bool {
+    status == reqwest::StatusCode::TOO_MANY_REQUESTS
+}
+
+fn should_preserve_transport_failure(
+    is_timeout: bool,
+    is_connect: bool,
+    is_transient_os_error: bool,
+) -> bool {
+    is_timeout || is_connect || is_transient_os_error
 }
 
 pub async fn fetch_codex_rate_limits() -> CodexRateLimits {
-    let auth_json = match read_auth_json() {
-        Ok(v) => v,
-        Err(error) => return fallback_or_disconnected_limits(error),
+    let (auth_json, auth_stamp) = match read_auth_json_with_stamp() {
+        Ok(auth) => auth,
+        Err(error) => {
+            log_msg(&format!("[RateLimits] auth read failed: {}", error.message));
+            return if is_transient_os_error(&error.message) {
+                transient_auth_failure_limits(error.pre_read_stamp.as_ref(), error.message)
+            } else {
+                CodexRateLimits::disconnected(error.message)
+            };
+        }
     };
 
     let access_token = match auth_json["tokens"]["access_token"].as_str() {
         Some(token) => token,
-        None => return CodexRateLimits::disconnected("No access_token found in auth.json"),
+        None => {
+            let error = "No access_token found in auth.json";
+            log_msg(&format!("[RateLimits] {error}"));
+            return CodexRateLimits::disconnected(error);
+        }
     };
 
     let account_id = auth_json["tokens"]["id_token"]
@@ -164,6 +284,7 @@ pub async fn fetch_codex_rate_limits() -> CodexRateLimits {
                 .as_str()
                 .map(ToString::to_string)
         });
+    let request_sequence = codex_cache::next_request_sequence();
 
     let client = shared_http_client();
     let mut request = client
@@ -172,27 +293,82 @@ pub async fn fetch_codex_rate_limits() -> CodexRateLimits {
         .header("User-Agent", "codex-cli")
         .timeout(std::time::Duration::from_secs(10));
 
-    if let Some(account_id) = account_id {
+    if let Some(account_id) = account_id.as_deref() {
         request = request.header("ChatGPT-Account-Id", account_id);
     }
 
+    let started_at = Instant::now();
     let response = match request.send().await {
         Ok(resp) => resp,
-        Err(err) => return CodexRateLimits::disconnected(format!("Network error: {err}")),
+        Err(err) => {
+            let error = format!("Network error: {err}");
+            let should_preserve = should_preserve_transport_failure(
+                err.is_timeout(),
+                err.is_connect(),
+                is_transient_os_error(&error),
+            );
+            log_msg(&format!(
+                "[RateLimits] request failed: latency={:.1}s, preservable={should_preserve}, error={error}",
+                started_at.elapsed().as_secs_f64(),
+            ));
+            return if should_preserve {
+                transient_failure_limits(account_id.as_deref(), error)
+            } else {
+                CodexRateLimits::disconnected(error)
+            };
+        }
     };
 
-    if response.status().as_u16() == 401 || response.status().as_u16() == 403 {
-        return CodexRateLimits::disconnected("Token expired. Please run 'codex' to re-login.");
+    let status = response.status();
+    log_msg(&format!(
+        "[RateLimits] response: status={status}, latency={:.1}s",
+        started_at.elapsed().as_secs_f64()
+    ));
+
+    if should_preserve_for_status(status) {
+        let error = format!("API error: {status}");
+        log_msg("[RateLimits] rate limited; retaining last successful quota if available");
+        return transient_failure_limits(account_id.as_deref(), error);
     }
 
-    if !response.status().is_success() {
-        return CodexRateLimits::disconnected(format!("API error: {}", response.status()));
+    if status.as_u16() == 401 || status.as_u16() == 403 {
+        let error = "Token expired. Please run 'codex' to re-login.";
+        log_msg(&format!("[RateLimits] auth failure: status={status}"));
+        if let Err(cache_error) = codex_cache::invalidate(account_id.as_deref(), request_sequence) {
+            log_msg(&format!(
+                "[RateLimits] failed to invalidate last-good cache: {cache_error}"
+            ));
+        }
+        return CodexRateLimits::disconnected(error);
+    }
+
+    if !status.is_success() {
+        let error = format!("API error: {status}");
+        log_msg(&format!("[RateLimits] non-success response: {status}"));
+        return CodexRateLimits::disconnected(error);
     }
 
     let data = match response.json::<serde_json::Value>().await {
         Ok(data) => data,
         Err(err) => {
-            return CodexRateLimits::disconnected(format!("Failed to parse response: {err}"))
+            let should_preserve = should_preserve_transport_failure(
+                err.is_timeout(),
+                err.is_connect(),
+                is_transient_os_error(&err.to_string()),
+            );
+            let error = if should_preserve {
+                format!("Failed to read response body: {err}")
+            } else {
+                format!("Failed to parse response: {err}")
+            };
+            log_msg(&format!(
+                "[RateLimits] body read failed: preservable={should_preserve}, error={error}"
+            ));
+            return if should_preserve {
+                transient_failure_limits(account_id.as_deref(), error)
+            } else {
+                CodexRateLimits::disconnected(error)
+            };
         }
     };
 
@@ -205,9 +381,9 @@ pub async fn fetch_codex_rate_limits() -> CodexRateLimits {
         .and_then(parse_rate_limit_window);
 
     if primary.is_none() && secondary.is_none() {
-        return CodexRateLimits::disconnected(
-            "Failed to parse response: no numeric Codex rate limit usage fields",
-        );
+        let error = "Failed to parse response: no numeric Codex rate limit usage fields";
+        log_msg(&format!("[RateLimits] {error}"));
+        return CodexRateLimits::disconnected(error);
     }
 
     let credits = data["credits"].as_object().map(|credits| CodexCredits {
@@ -234,9 +410,23 @@ pub async fn fetch_codex_rate_limits() -> CodexRateLimits {
         error: None,
     };
 
-    if let Ok(mut guard) = last_good_limits().lock() {
-        *guard = Some(limits.clone());
+    match account_id {
+        Some(account_id) => {
+            match codex_cache::store(account_id, auth_stamp, request_sequence, limits.clone()) {
+                Ok(true) => {}
+                Ok(false) => log_msg("[RateLimits] ignored out-of-order response"),
+                Err(error) => log_msg(&format!(
+                    "[RateLimits] failed to update last-good cache: {error}"
+                )),
+            }
+        }
+        None => log_msg("[RateLimits] account ID missing; last-good cache not updated"),
     }
+    log_msg(&format!(
+        "[RateLimits] parsed: primary_used={:?}, secondary_used={:?}",
+        limits.primary.as_ref().map(|window| window.used_percent),
+        limits.secondary.as_ref().map(|window| window.used_percent)
+    ));
     limits
 }
 
@@ -325,8 +515,32 @@ pub async fn fetch_codex_reset_credits() -> CodexResetCredits {
 
 #[cfg(test)]
 mod tests {
-    use super::{parse_rate_limit_window, parse_reset_credit};
+    use super::{
+        parse_rate_limit_window, parse_reset_credit, should_preserve_for_status,
+        should_preserve_transport_failure,
+    };
     use serde_json::json;
+
+    #[test]
+    fn only_rate_limiting_is_a_preservable_http_failure() {
+        assert!(should_preserve_for_status(
+            reqwest::StatusCode::TOO_MANY_REQUESTS
+        ));
+        assert!(!should_preserve_for_status(
+            reqwest::StatusCode::UNAUTHORIZED
+        ));
+        assert!(!should_preserve_for_status(
+            reqwest::StatusCode::INTERNAL_SERVER_ERROR
+        ));
+    }
+
+    #[test]
+    fn only_explicitly_transient_transport_failures_are_preservable() {
+        assert!(should_preserve_transport_failure(true, false, false));
+        assert!(should_preserve_transport_failure(false, true, false));
+        assert!(should_preserve_transport_failure(false, false, true));
+        assert!(!should_preserve_transport_failure(false, false, false));
+    }
 
     #[test]
     fn parse_reset_credit_requires_status() {
