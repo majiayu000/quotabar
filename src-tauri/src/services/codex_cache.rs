@@ -52,9 +52,10 @@ impl CodexRateLimitCache {
 
     fn invalidate(&mut self, auth_stamp: &AuthFileStamp, account_id: Option<&str>) {
         let should_clear = self.cached.as_ref().is_some_and(|cached| {
-            cached.auth_stamp == *auth_stamp
-                && account_id
-                    .is_none_or(|current_account_id| cached.account_id == current_account_id)
+            account_id.map_or_else(
+                || cached.auth_stamp == *auth_stamp,
+                |current_account_id| cached.account_id == current_account_id,
+            )
         });
         if should_clear {
             self.cached = None;
@@ -212,10 +213,22 @@ mod tests {
     }
 
     #[test]
-    fn old_authentication_failure_does_not_clear_a_new_accounts_cache() {
+    fn authentication_failure_clears_same_account_after_auth_file_changes() {
         let mut cache = populated_cache();
 
-        cache.invalidate(&auth_stamp(511, 99), Some("account-a"));
+        cache.invalidate(&auth_stamp(513, 101), Some("account-a"));
+        let result = cache.retain_for_account(
+            Some("account-a"),
+            "Network error: operation timed out".to_string(),
+        );
+
+        assert!(!result.connected);
+    }
+
+    #[test]
+    fn old_authentication_failure_does_not_clear_a_different_accounts_cache() {
+        let mut cache = populated_cache();
+
         cache.invalidate(&auth_stamp(512, 100), Some("account-b"));
         let result = cache.retain_for_account(
             Some("account-a"),

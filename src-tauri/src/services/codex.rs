@@ -103,20 +103,42 @@ fn auth_file_stamp(auth_file: &Path) -> Result<AuthFileStamp, String> {
     })
 }
 
-fn read_auth_json_with_stamp() -> Result<(serde_json::Value, AuthFileStamp), String> {
-    let auth_file = auth_file_path()?;
-    let stamp_before = auth_file_stamp(&auth_file)?;
+struct StampedAuthReadError {
+    message: String,
+    pre_read_stamp: Option<AuthFileStamp>,
+}
 
-    let content =
-        fs::read_to_string(&auth_file).map_err(|e| format!("Failed to read auth.json: {e}"))?;
-    let stamp_after = auth_file_stamp(&auth_file)?;
+fn read_auth_json_with_stamp() -> Result<(serde_json::Value, AuthFileStamp), StampedAuthReadError> {
+    let auth_file = auth_file_path().map_err(|message| StampedAuthReadError {
+        message,
+        pre_read_stamp: None,
+    })?;
+    let stamp_before = auth_file_stamp(&auth_file).map_err(|message| StampedAuthReadError {
+        message,
+        pre_read_stamp: None,
+    })?;
+
+    let content = fs::read_to_string(&auth_file).map_err(|error| StampedAuthReadError {
+        message: format!("Failed to read auth.json: {error}"),
+        pre_read_stamp: Some(stamp_before.clone()),
+    })?;
+    let stamp_after = auth_file_stamp(&auth_file).map_err(|message| StampedAuthReadError {
+        message,
+        pre_read_stamp: None,
+    })?;
     if stamp_before != stamp_after {
-        return Err("auth.json changed while it was being read".to_string());
+        return Err(StampedAuthReadError {
+            message: "auth.json changed while it was being read".to_string(),
+            pre_read_stamp: None,
+        });
     }
 
     serde_json::from_str(&content)
         .map(|auth_json| (auth_json, stamp_after))
-        .map_err(|e| format!("Failed to parse auth.json: {e}"))
+        .map_err(|error| StampedAuthReadError {
+            message: format!("Failed to parse auth.json: {error}"),
+            pre_read_stamp: None,
+        })
 }
 
 fn read_auth_json() -> Result<serde_json::Value, String> {
@@ -207,11 +229,11 @@ fn transient_failure_limits(account_id: Option<&str>, error: String) -> CodexRat
     }
 }
 
-fn transient_auth_failure_limits(error: String) -> CodexRateLimits {
-    let auth_stamp = auth_file_path()
-        .and_then(|auth_file| auth_file_stamp(&auth_file))
-        .ok();
-    match codex_cache::retain_for_auth_stamp(auth_stamp.as_ref(), error.clone()) {
+fn transient_auth_failure_limits(
+    auth_stamp: Option<&AuthFileStamp>,
+    error: String,
+) -> CodexRateLimits {
+    match codex_cache::retain_for_auth_stamp(auth_stamp, error.clone()) {
         Ok(limits) => limits,
         Err(lock_error) => {
             log_msg(&format!("[RateLimits] {lock_error}"));
@@ -236,11 +258,11 @@ pub async fn fetch_codex_rate_limits() -> CodexRateLimits {
     let (auth_json, auth_stamp) = match read_auth_json_with_stamp() {
         Ok(auth) => auth,
         Err(error) => {
-            log_msg(&format!("[RateLimits] auth read failed: {error}"));
-            return if is_transient_os_error(&error) {
-                transient_auth_failure_limits(error)
+            log_msg(&format!("[RateLimits] auth read failed: {}", error.message));
+            return if is_transient_os_error(&error.message) {
+                transient_auth_failure_limits(error.pre_read_stamp.as_ref(), error.message)
             } else {
-                CodexRateLimits::disconnected(error)
+                CodexRateLimits::disconnected(error.message)
             };
         }
     };
