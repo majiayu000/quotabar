@@ -124,7 +124,7 @@ fn read_auth_json_with_stamp() -> Result<(serde_json::Value, AuthFileStamp), Sta
     })?;
     let stamp_after = auth_file_stamp(&auth_file).map_err(|message| StampedAuthReadError {
         message,
-        pre_read_stamp: None,
+        pre_read_stamp: Some(stamp_before.clone()),
     })?;
     if stamp_before != stamp_after {
         return Err(StampedAuthReadError {
@@ -284,6 +284,7 @@ pub async fn fetch_codex_rate_limits() -> CodexRateLimits {
                 .as_str()
                 .map(ToString::to_string)
         });
+    let request_sequence = codex_cache::next_request_sequence();
 
     let client = shared_http_client();
     let mut request = client
@@ -333,7 +334,7 @@ pub async fn fetch_codex_rate_limits() -> CodexRateLimits {
     if status.as_u16() == 401 || status.as_u16() == 403 {
         let error = "Token expired. Please run 'codex' to re-login.";
         log_msg(&format!("[RateLimits] auth failure: status={status}"));
-        if let Err(cache_error) = codex_cache::invalidate(&auth_stamp, account_id.as_deref()) {
+        if let Err(cache_error) = codex_cache::invalidate(account_id.as_deref(), request_sequence) {
             log_msg(&format!(
                 "[RateLimits] failed to invalidate last-good cache: {cache_error}"
             ));
@@ -411,10 +412,12 @@ pub async fn fetch_codex_rate_limits() -> CodexRateLimits {
 
     match account_id {
         Some(account_id) => {
-            if let Err(error) = codex_cache::store(account_id, auth_stamp, limits.clone()) {
-                log_msg(&format!(
+            match codex_cache::store(account_id, auth_stamp, request_sequence, limits.clone()) {
+                Ok(true) => {}
+                Ok(false) => log_msg("[RateLimits] ignored out-of-order response"),
+                Err(error) => log_msg(&format!(
                     "[RateLimits] failed to update last-good cache: {error}"
-                ));
+                )),
             }
         }
         None => log_msg("[RateLimits] account ID missing; last-good cache not updated"),
