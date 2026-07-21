@@ -13,13 +13,18 @@ use std::time::Instant;
 /// Most recent successful fetch results, retained without TTL so a transient
 /// polling failure does not erase quota that was already displayed.
 static LAST_GOOD_INFO: OnceLock<Mutex<Option<CodexData>>> = OnceLock::new();
-static LAST_GOOD_LIMITS: OnceLock<Mutex<Option<CodexRateLimits>>> = OnceLock::new();
+static LAST_GOOD_LIMITS: OnceLock<Mutex<Option<CachedCodexRateLimits>>> = OnceLock::new();
+
+struct CachedCodexRateLimits {
+    account_id: String,
+    limits: CodexRateLimits,
+}
 
 fn last_good_info() -> &'static Mutex<Option<CodexData>> {
     LAST_GOOD_INFO.get_or_init(|| Mutex::new(None))
 }
 
-fn last_good_limits() -> &'static Mutex<Option<CodexRateLimits>> {
+fn last_good_limits() -> &'static Mutex<Option<CachedCodexRateLimits>> {
     LAST_GOOD_LIMITS.get_or_init(|| Mutex::new(None))
 }
 
@@ -169,16 +174,9 @@ pub async fn fetch_codex_info() -> CodexData {
     info
 }
 
-fn fallback_or_disconnected_limits(error: String) -> CodexRateLimits {
-    if is_transient_os_error(&error) {
-        return transient_failure_limits(error);
-    }
-    CodexRateLimits::disconnected(error)
-}
-
-fn transient_failure_limits(error: String) -> CodexRateLimits {
+fn transient_failure_limits(account_id: Option<&str>, error: String) -> CodexRateLimits {
     match last_good_limits().lock() {
-        Ok(guard) => retain_limits_or_disconnect(guard.as_ref(), error),
+        Ok(guard) => retain_limits_or_disconnect(guard.as_ref(), account_id, error),
         Err(lock_error) => {
             log_msg(&format!(
                 "[RateLimits] last-good cache lock poisoned: {lock_error}"
@@ -188,14 +186,18 @@ fn transient_failure_limits(error: String) -> CodexRateLimits {
     }
 }
 
-fn retain_limits_or_disconnect(cached: Option<&CodexRateLimits>, error: String) -> CodexRateLimits {
-    match cached {
-        Some(stale) => {
-            let mut result = stale.clone();
+fn retain_limits_or_disconnect(
+    cached: Option<&CachedCodexRateLimits>,
+    account_id: Option<&str>,
+    error: String,
+) -> CodexRateLimits {
+    match (cached, account_id) {
+        (Some(stale), Some(current_account_id)) if stale.account_id == current_account_id => {
+            let mut result = stale.limits.clone();
             result.error = Some(error);
             result
         }
-        None => CodexRateLimits::disconnected(error),
+        _ => CodexRateLimits::disconnected(error),
     }
 }
 
@@ -216,7 +218,7 @@ pub async fn fetch_codex_rate_limits() -> CodexRateLimits {
         Ok(v) => v,
         Err(error) => {
             log_msg(&format!("[RateLimits] auth read failed: {error}"));
-            return fallback_or_disconnected_limits(error);
+            return CodexRateLimits::disconnected(error);
         }
     };
 
@@ -245,7 +247,7 @@ pub async fn fetch_codex_rate_limits() -> CodexRateLimits {
         .header("User-Agent", "codex-cli")
         .timeout(std::time::Duration::from_secs(10));
 
-    if let Some(account_id) = account_id {
+    if let Some(account_id) = account_id.as_deref() {
         request = request.header("ChatGPT-Account-Id", account_id);
     }
 
@@ -264,7 +266,7 @@ pub async fn fetch_codex_rate_limits() -> CodexRateLimits {
                 started_at.elapsed().as_secs_f64(),
             ));
             return if should_preserve {
-                transient_failure_limits(error)
+                transient_failure_limits(account_id.as_deref(), error)
             } else {
                 CodexRateLimits::disconnected(error)
             };
@@ -280,7 +282,7 @@ pub async fn fetch_codex_rate_limits() -> CodexRateLimits {
     if should_preserve_for_status(status) {
         let error = format!("API error: {status}");
         log_msg("[RateLimits] rate limited; retaining last successful quota if available");
-        return transient_failure_limits(error);
+        return transient_failure_limits(account_id.as_deref(), error);
     }
 
     if status.as_u16() == 401 || status.as_u16() == 403 {
@@ -342,11 +344,19 @@ pub async fn fetch_codex_rate_limits() -> CodexRateLimits {
         error: None,
     };
 
-    match last_good_limits().lock() {
-        Ok(mut guard) => *guard = Some(limits.clone()),
-        Err(error) => log_msg(&format!(
-            "[RateLimits] failed to update last-good cache: {error}"
-        )),
+    match account_id {
+        Some(account_id) => match last_good_limits().lock() {
+            Ok(mut guard) => {
+                *guard = Some(CachedCodexRateLimits {
+                    account_id,
+                    limits: limits.clone(),
+                });
+            }
+            Err(error) => log_msg(&format!(
+                "[RateLimits] failed to update last-good cache: {error}"
+            )),
+        },
+        None => log_msg("[RateLimits] account ID missing; last-good cache not updated"),
     }
     log_msg(&format!(
         "[RateLimits] parsed: primary_used={:?}, secondary_used={:?}",
@@ -443,7 +453,7 @@ pub async fn fetch_codex_reset_credits() -> CodexResetCredits {
 mod tests {
     use super::{
         parse_rate_limit_window, parse_reset_credit, retain_limits_or_disconnect,
-        should_preserve_for_status, should_preserve_transport_failure,
+        should_preserve_for_status, should_preserve_transport_failure, CachedCodexRateLimits,
     };
     use crate::domain::models::{CodexRateLimitWindow, CodexRateLimits};
     use serde_json::json;
@@ -465,9 +475,13 @@ mod tests {
 
     #[test]
     fn transient_network_failure_preserves_last_good_limits_and_surfaces_error() {
-        let cached = sample_rate_limits();
+        let cached = CachedCodexRateLimits {
+            account_id: "account-a".to_string(),
+            limits: sample_rate_limits(),
+        };
         let result = retain_limits_or_disconnect(
             Some(&cached),
+            Some("account-a"),
             "Network error: operation timed out".to_string(),
         );
 
@@ -484,8 +498,11 @@ mod tests {
 
     #[test]
     fn transient_failure_without_cached_limits_stays_disconnected() {
-        let result =
-            retain_limits_or_disconnect(None, "Network error: operation timed out".to_string());
+        let result = retain_limits_or_disconnect(
+            None,
+            Some("account-a"),
+            "Network error: operation timed out".to_string(),
+        );
 
         assert!(!result.connected);
         assert!(result.primary.is_none());
@@ -493,6 +510,30 @@ mod tests {
             result.error.as_deref(),
             Some("Network error: operation timed out")
         );
+    }
+
+    #[test]
+    fn transient_failure_never_reuses_another_accounts_limits() {
+        let cached = CachedCodexRateLimits {
+            account_id: "account-a".to_string(),
+            limits: sample_rate_limits(),
+        };
+
+        let switched_account = retain_limits_or_disconnect(
+            Some(&cached),
+            Some("account-b"),
+            "Network error: operation timed out".to_string(),
+        );
+        let unknown_account = retain_limits_or_disconnect(
+            Some(&cached),
+            None,
+            "Network error: operation timed out".to_string(),
+        );
+
+        assert!(!switched_account.connected);
+        assert!(switched_account.primary.is_none());
+        assert!(!unknown_account.connected);
+        assert!(unknown_account.primary.is_none());
     }
 
     #[test]
