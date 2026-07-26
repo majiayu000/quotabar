@@ -61,6 +61,7 @@ import {
   AUTO_REFRESH_INTERVAL_MS,
   BACKGROUND_REFRESH_INTERVAL_MS,
   TRAY_CYCLE_INTERVAL_MS,
+  TRAY_FORCE_SYNC_INTERVAL_MS,
   TRAY_GUARD_MESSAGE,
   TRAY_GUARD_TOAST_MS,
   TRAY_SERVICE_ACTIVATED_EVENT,
@@ -357,7 +358,7 @@ export default function App() {
   useEffect(() => {
     const interval = setInterval(() => {
       syncTrayIcons(true);
-    }, 5000);
+    }, TRAY_FORCE_SYNC_INTERVAL_MS);
     return () => clearInterval(interval);
   }, [syncTrayIcons]);
 
