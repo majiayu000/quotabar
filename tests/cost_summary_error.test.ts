@@ -22,7 +22,7 @@ describe('startCostSummaryAutoRefresh', () => {
     vi.useRealTimers();
   });
 
-  test('refreshes with force enabled on interval ticks', () => {
+  test('refreshes without force on interval ticks so the backend cache is used', () => {
     vi.useFakeTimers();
     const loadCost = vi.fn();
     const interval = startCostSummaryAutoRefresh(1000, loadCost);
@@ -30,7 +30,7 @@ describe('startCostSummaryAutoRefresh', () => {
     vi.advanceTimersByTime(1000);
 
     expect(loadCost).toHaveBeenCalledTimes(1);
-    expect(loadCost).toHaveBeenCalledWith(true);
+    expect(loadCost).toHaveBeenCalledWith(false);
     if (interval !== undefined) clearInterval(interval);
   });
 

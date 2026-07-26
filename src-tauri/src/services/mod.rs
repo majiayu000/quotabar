@@ -3,6 +3,7 @@ pub mod claude;
 pub mod codex;
 mod codex_cache;
 pub mod cost;
+mod cost_disk_cache;
 pub mod cursor;
 pub mod http;
 pub mod link;
