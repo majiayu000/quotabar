@@ -4,17 +4,18 @@ use ccstats::{
     summarize_cost_ranges, CostSummary, ModelCostSummary, MultiCostSummary, MultiSummaryOptions,
     TokenBreakdown, UsageRange, UsageSource,
 };
+use super::cost_disk_cache::{self as disk, SnapshotUse};
 use chrono::{Days, Local, NaiveDate};
 use once_cell::sync::Lazy;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     str::FromStr,
     sync::Mutex,
     time::{Duration, Instant},
 };
 
-const CACHE_TTL: Duration = Duration::from_secs(300);
+const CACHE_TTL: Duration = Duration::from_secs(1200);
 const MAX_DAILY_DAYS: u32 = 60;
 
 static COST_CACHE: Lazy<Mutex<HashMap<String, CachedOverview>>> =
@@ -22,6 +23,9 @@ static COST_CACHE: Lazy<Mutex<HashMap<String, CachedOverview>>> =
 
 static DAILY_CACHE: Lazy<Mutex<HashMap<String, CachedDaily>>> =
     Lazy::new(|| Mutex::new(HashMap::new()));
+
+/// Cache keys whose expired disk snapshot was already handed out once.
+static STALE_SERVED: Lazy<Mutex<HashSet<String>>> = Lazy::new(|| Mutex::new(HashSet::new()));
 
 #[derive(Clone)]
 struct CachedOverview {
@@ -35,7 +39,7 @@ struct CachedDaily {
     series: CostDailySeries,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CostOverview {
     pub source: String,
@@ -46,7 +50,7 @@ pub struct CostOverview {
     pub ranges: Vec<CostRangeSummary>,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CostRangeSummary {
     pub range: String,
@@ -63,7 +67,7 @@ pub struct CostRangeSummary {
     pub elapsed_ms: f64,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CostTokenBreakdown {
     pub input_tokens: i64,
@@ -74,7 +78,7 @@ pub struct CostTokenBreakdown {
     pub total_tokens: i64,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CostModelSummary {
     pub model: String,
@@ -83,7 +87,7 @@ pub struct CostModelSummary {
     pub tokens: CostTokenBreakdown,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CostDailySeries {
     pub source: String,
@@ -93,7 +97,7 @@ pub struct CostDailySeries {
     pub days: Vec<CostDailyPoint>,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CostDailyPoint {
     pub date: String,
@@ -143,6 +147,9 @@ fn build_cost_daily(
     if !force {
         if let Some(cached) = get_cached_daily(&cache_key)? {
             return Ok(cached);
+        }
+        if let Some(series) = load_daily_snapshot(&cache_key) {
+            return Ok(series);
         }
     }
 
@@ -233,6 +240,7 @@ fn get_cached_daily(cache_key: &str) -> Result<Option<CostDailySeries>, String> 
 }
 
 fn set_cached_daily(cache_key: String, series: CostDailySeries) -> Result<(), String> {
+    disk::write_snapshot(&cache_key, &series);
     let mut cache = DAILY_CACHE.lock().map_err(|err| err.to_string())?;
     cache.insert(
         cache_key,
@@ -242,6 +250,45 @@ fn set_cached_daily(cache_key: String, series: CostDailySeries) -> Result<(), St
         },
     );
     Ok(())
+}
+
+/// Serves a disk snapshot after a memory-cache miss: fresh snapshots act like a
+/// cache hit; expired ones are handed out once per key so a cold start can
+/// paint immediately while the next poll triggers a real parse.
+fn load_daily_snapshot(cache_key: &str) -> Option<CostDailySeries> {
+    let (age, mut series): (Duration, CostDailySeries) = disk::read_snapshot(cache_key)?;
+    match disk::classify_snapshot(age, CACHE_TTL, stale_already_served(cache_key)) {
+        SnapshotUse::Fresh => {}
+        SnapshotUse::ServeStaleOnce => mark_stale_served(cache_key),
+        SnapshotUse::Ignore => return None,
+    }
+    series.cached = true;
+    Some(series)
+}
+
+fn load_overview_snapshot(cache_key: &str) -> Option<CostOverview> {
+    let (age, mut overview): (Duration, CostOverview) = disk::read_snapshot(cache_key)?;
+    match disk::classify_snapshot(age, CACHE_TTL, stale_already_served(cache_key)) {
+        SnapshotUse::Fresh => {}
+        SnapshotUse::ServeStaleOnce => mark_stale_served(cache_key),
+        SnapshotUse::Ignore => return None,
+    }
+    overview.cached = true;
+    Some(overview)
+}
+
+fn stale_already_served(cache_key: &str) -> bool {
+    match STALE_SERVED.lock() {
+        Ok(served) => served.contains(cache_key),
+        // Poisoned lock: err on the side of not serving stale data again.
+        Err(_) => true,
+    }
+}
+
+fn mark_stale_served(cache_key: &str) {
+    if let Ok(mut served) = STALE_SERVED.lock() {
+        served.insert(cache_key.to_string());
+    }
 }
 
 pub async fn get_cost_overview(
@@ -295,6 +342,9 @@ fn build_cost_overview(
     if !force {
         if let Some(cached) = get_cached_overview(&cache_key)? {
             return Ok(cached);
+        }
+        if let Some(overview) = load_overview_snapshot(&cache_key) {
+            return Ok(overview);
         }
     }
 
@@ -405,6 +455,7 @@ fn get_cached_overview(cache_key: &str) -> Result<Option<CostOverview>, String> 
 }
 
 fn set_cached_overview(cache_key: String, overview: CostOverview) -> Result<(), String> {
+    disk::write_snapshot(&cache_key, &overview);
     let mut cache = COST_CACHE.lock().map_err(|err| err.to_string())?;
     cache.insert(
         cache_key,

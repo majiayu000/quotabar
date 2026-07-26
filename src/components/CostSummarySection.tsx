@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { backend } from '../services/backend';
 import { getBudgetForSources, getSavedMonthlyBudgets } from '../services/budget';
 import type { CostDailyPoint, CostDailySeries, CostOverview, CostRangeSummary, CostSource } from '../types/models';
@@ -47,8 +47,10 @@ export function startCostSummaryAutoRefresh(
   loadCost: (force: boolean) => void | Promise<void>,
 ): ReturnType<typeof setInterval> | undefined {
   if (autoRefreshIntervalMs <= 0) return undefined;
+  // Non-forced so the backend cache TTL governs how often local logs are
+  // re-parsed; only a manual refresh bypasses it.
   return setInterval(() => {
-    void loadCost(true);
+    void loadCost(false);
   }, autoRefreshIntervalMs);
 }
 
@@ -215,6 +217,7 @@ export default function CostSummarySection({
   const sourceKey = Array.isArray(source) ? source.join(',') : source;
   const overview_generation = useLatestRequestGeneration();
   const daily_generation = useLatestRequestGeneration();
+  const lastRefreshKeyRef = useRef(refreshKey);
 
   useEffect(() => {
     let interval: number | undefined;
@@ -256,8 +259,12 @@ export default function CostSummarySection({
       }
     };
 
-    loadCost(refreshKey > 0);
-    void loadDaily(refreshKey > 0);
+    // Force only when the manual-refresh nonce actually advanced; otherwise a
+    // single manual refresh would make every later effect run bypass the cache.
+    const manualRefresh = refreshKey > lastRefreshKeyRef.current;
+    lastRefreshKeyRef.current = refreshKey;
+    loadCost(manualRefresh);
+    void loadDaily(manualRefresh);
     interval = startCostSummaryAutoRefresh(autoRefreshIntervalMs, (force) => {
       void loadCost(force);
       void loadDaily(force);
