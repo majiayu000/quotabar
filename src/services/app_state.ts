@@ -17,6 +17,9 @@ export const BACKGROUND_REFRESH_INTERVAL_MS = 5 * 60 * 1000;
 export const TRAY_SERVICE_ACTIVATED_EVENT = 'tray-service-activated';
 export const TRAY_GUARD_TOAST_MS = 2000;
 export const TRAY_CYCLE_INTERVAL_MS = 15 * 1000;
+// Forced resync only repairs a desynced tray runtime; quota data changes at
+// most every AUTO_REFRESH_INTERVAL_MS, so forcing faster than that is waste.
+export const TRAY_FORCE_SYNC_INTERVAL_MS = 60 * 1000;
 export const TRAY_GUARD_MESSAGE = 'At least one tray must remain enabled';
 export const VALID_TABS = new Set<string>(['all', ...SERVICES]);
 
