@@ -61,7 +61,10 @@ pub fn write_snapshot<T: Serialize>(cache_key: &str, payload: &T) {
     write_snapshot_in(&base_dir, cache_key, payload);
 }
 
-fn read_snapshot_in<T: DeserializeOwned>(base_dir: &Path, cache_key: &str) -> Option<(Duration, T)> {
+fn read_snapshot_in<T: DeserializeOwned>(
+    base_dir: &Path,
+    cache_key: &str,
+) -> Option<(Duration, T)> {
     let path = snapshot_path(base_dir, cache_key);
     let bytes = match fs::read(&path) {
         Ok(bytes) => bytes,
@@ -108,10 +111,7 @@ fn write_snapshot_in<T: Serialize>(base_dir: &Path, cache_key: &str, payload: &T
     };
 
     if let Err(err) = fs::create_dir_all(base_dir) {
-        eprintln!(
-            "[CostCache] failed to create {}: {err}",
-            base_dir.display()
-        );
+        eprintln!("[CostCache] failed to create {}: {err}", base_dir.display());
         return;
     }
     let path = snapshot_path(base_dir, cache_key);
