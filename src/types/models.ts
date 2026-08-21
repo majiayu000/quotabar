@@ -60,6 +60,24 @@ export interface CodexResetCredits {
   error?: string;
 }
 
+export type CodexQuotaStatus = 'on_track' | 'watch' | 'likely_exhausted' | 'exhausted';
+
+export interface CodexWeeklyQuota {
+  observedAt: string;
+  resetsAt: string;
+  estimatedDepletionAt?: string;
+  windowMinutes: number;
+  usedPct: number;
+  remainingPct: number;
+  projectedPctAtReset: number;
+  status: CodexQuotaStatus;
+}
+
+export interface CodexWeeklyQuotaData {
+  quota?: CodexWeeklyQuota;
+  error?: string;
+}
+
 export interface CursorData {
   connected: boolean;
   planType?: string;

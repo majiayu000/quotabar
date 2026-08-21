@@ -6,9 +6,11 @@ import ResetTimeline from './ResetTimeline';
 import SmartTip from './SmartTip';
 import type {
   CodexData,
+  CodexRateLimitWindow,
   CodexRateLimits,
   CodexResetCredit,
   CodexResetCredits,
+  CodexWeeklyQuota,
 } from '../types/models';
 import { buildCodexQuotaWindows, sortMostConstrained, type QuotaWindowSummary } from '../services/provider_summary';
 import { getAvailableResetCredits, getHighUsageTip } from '../services/detail_helpers';
@@ -89,6 +91,73 @@ function formatGrantDate(value?: string): string {
   });
 }
 
+function formatWeeklyQuotaStatus(status: CodexWeeklyQuota['status']): string {
+  switch (status) {
+    case 'on_track':
+      return 'On track';
+    case 'watch':
+      return 'Watch pace';
+    case 'likely_exhausted':
+      return 'Likely to exhaust';
+    case 'exhausted':
+      return 'Exhausted';
+  }
+}
+
+function formatProjectionTime(value?: string): string | null {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toLocaleString('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}
+
+function validateWeeklyQuotaWindow(
+  quota: CodexWeeklyQuota,
+  official?: CodexRateLimits['secondary'],
+): string | null {
+  if (!official) return 'The official weekly quota window is unavailable.';
+  if (!Number.isFinite(official.windowMinutes) || (official.windowMinutes ?? 0) <= 0) {
+    return 'The official weekly window length is unavailable.';
+  }
+  if (official.windowMinutes !== quota.windowMinutes) {
+    return 'The local pace snapshot does not match the official weekly window.';
+  }
+  const officialReset = official.resetsAt;
+  if (!Number.isFinite(officialReset) || (officialReset ?? 0) <= 0) {
+    return 'The official weekly reset time is unavailable.';
+  }
+  const localReset = Date.parse(quota.resetsAt) / 1000;
+  if (!Number.isFinite(localReset) || localReset <= 0) {
+    return 'The local pace snapshot has an invalid reset time.';
+  }
+  if (Math.abs(localReset - (officialReset ?? 0)) > 5 * 60) {
+    return 'The local pace snapshot does not match the current official reset.';
+  }
+  return null;
+}
+
+function selectOfficialWeeklyWindow(
+  limits: CodexRateLimits | null,
+  quota: CodexWeeklyQuota | null,
+): CodexRateLimitWindow | undefined {
+  const candidates = [limits?.secondary, limits?.primary].filter(
+    (window): window is CodexRateLimitWindow => window != null,
+  );
+  if (quota) {
+    const exact = candidates.find((window) => window.windowMinutes === quota.windowMinutes);
+    if (exact) return exact;
+  }
+  return candidates.find((window) => window.windowMinutes === 10_080)
+    ?? limits?.secondary
+    ?? limits?.primary;
+}
+
 const BONUS_EXPIRY_REMINDER_DAYS = 3;
 
 function getDaysLeft(value?: string): number | null {
@@ -148,15 +217,35 @@ export default function CodexPanel({
   const [codexData, setCodexData] = useState<CodexData | null>(null);
   const [rateLimits, setRateLimits] = useState<CodexRateLimits | null>(null);
   const [resetCredits, setResetCredits] = useState<CodexResetCredits | null>(null);
+  const [weeklyQuota, setWeeklyQuota] = useState<CodexWeeklyQuota | null>(null);
+  const [weeklyQuotaError, setWeeklyQuotaError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const request_generation = useLatestRequestGeneration();
+  const weekly_request_generation = useLatestRequestGeneration();
+
+  const fetchWeeklyQuota = useCallback(async () => {
+    const generation = weekly_request_generation.begin();
+    try {
+      const weekly = await backend.getCodexWeeklyQuota();
+      if (!weekly_request_generation.isCurrent(generation)) return;
+      setWeeklyQuota(weekly.quota ?? null);
+      setWeeklyQuotaError(weekly.error ?? null);
+    } catch (err) {
+      if (!weekly_request_generation.isCurrent(generation)) return;
+      setWeeklyQuota(null);
+      setWeeklyQuotaError(
+        err instanceof Error ? err.message : 'Failed to load local weekly pace',
+      );
+    }
+  }, [weekly_request_generation]);
 
   const fetchData = useCallback(async () => {
     const generation = request_generation.begin();
     try {
       setLoading(true);
       setError(null);
+      void fetchWeeklyQuota();
 
       const [info, limits, credits] = await Promise.all([
         backend.getCodexInfo(),
@@ -193,7 +282,7 @@ export default function CodexPanel({
         setLoading(false);
       }
     }
-  }, [onConnectionChange, onQuotaWindowsChange, onUsageChange, request_generation]);
+  }, [fetchWeeklyQuota, onConnectionChange, onQuotaWindowsChange, onUsageChange, request_generation]);
 
   useEffect(() => {
     fetchData();
@@ -238,6 +327,38 @@ export default function CodexPanel({
   const topWindow = sortMostConstrained(windows)[0];
   const availableResetCredits = getAvailableResetCredits(resetCredits);
   const bonusGrantGroups = buildBonusGrantGroups(availableResetCredits);
+  const officialWeeklyWindow = selectOfficialWeeklyWindow(rateLimits, weeklyQuota);
+  const weeklyQuotaValidationError = weeklyQuota
+    ? validateWeeklyQuotaWindow(weeklyQuota, officialWeeklyWindow)
+    : null;
+  const displayedWeeklyQuota = weeklyQuotaValidationError ? null : weeklyQuota;
+  const displayedWeeklyQuotaError = weeklyQuotaValidationError ?? weeklyQuotaError;
+  const renderWeeklyPace = (window: CodexRateLimitWindow) => {
+    if (window !== officialWeeklyWindow) return null;
+    const depletionTime = formatProjectionTime(displayedWeeklyQuota?.estimatedDepletionAt);
+    return (
+      <>
+        {displayedWeeklyQuota && (
+          <>
+            <span className={`quota-pace ${displayedWeeklyQuota.status !== 'on_track' ? 'warning' : ''}`}>
+              Local pace: {formatWeeklyQuotaStatus(displayedWeeklyQuota.status)} · projected{' '}
+              {Math.round(displayedWeeklyQuota.projectedPctAtReset)}% at reset
+            </span>
+            {depletionTime && (
+              <span className="quota-pace warning">
+                Estimated depletion: {depletionTime}
+              </span>
+            )}
+          </>
+        )}
+        {!displayedWeeklyQuota && displayedWeeklyQuotaError && (
+          <span className="quota-pace warning">
+            Local pace unavailable: {displayedWeeklyQuotaError}
+          </span>
+        )}
+      </>
+    );
+  };
 
   return (
     <div className="codex-panel">
@@ -297,6 +418,7 @@ export default function CodexPanel({
                         </span>
                       ) : null;
                     })()}
+                    {renderWeeklyPace(rateLimits.primary)}
                   </div>
                 )}
 
@@ -322,6 +444,7 @@ export default function CodexPanel({
                         <span>{formatResetAt(rateLimits.secondary.resetsAt)}</span>
                       </div>
                     )}
+                    {renderWeeklyPace(rateLimits.secondary)}
                   </div>
                 )}
 

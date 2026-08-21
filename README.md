@@ -14,7 +14,7 @@ QuotaBar is a Tauri v2 menubar app for monitoring Claude Code, Codex, Cursor, an
 - Overview: glass popover shell with provider summary tiles and real-data quota windows.
 - Provider switcher: overview plus full-name cards for Claude, Codex, Cursor, and Antigravity.
 - Claude quota: 5-hour, 7-day, Opus, Sonnet, and Claude Design windows.
-- Codex quota: short and weekly ChatGPT usage windows, with reset times shown as days plus hours when available.
+- Codex quota: short and weekly ChatGPT usage windows, plus a local weekly pace projection sourced from Codex CLI session data.
 - Cursor quota: signed-in Cursor usage and request-limit windows when session data is available.
 - Antigravity panel: placeholder provider status while quota tracking is pending.
 - Local cost tracking: today, week, and month estimates for Claude Code, Codex, and Cursor.

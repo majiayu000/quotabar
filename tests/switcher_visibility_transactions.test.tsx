@@ -129,6 +129,7 @@ beforeEach(() => {
   vi.spyOn(backend, 'getCodexInfo').mockResolvedValue({ connected: true });
   vi.spyOn(backend, 'getCodexRateLimits').mockResolvedValue({ connected: true });
   vi.spyOn(backend, 'getCodexResetCredits').mockResolvedValue({ connected: true, availableCount: 0, credits: [] });
+  vi.spyOn(backend, 'getCodexWeeklyQuota').mockResolvedValue({});
   vi.spyOn(backend, 'getCursorInfo').mockResolvedValue({ connected: true });
   vi.spyOn(backend, 'getAntigravityInfo').mockResolvedValue({ connected: false, status: 'pending' });
   vi.spyOn(backend, 'getCostOverview').mockImplementation(async (source) => ({

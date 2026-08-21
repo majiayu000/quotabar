@@ -2,7 +2,8 @@ use tauri::{AppHandle, State};
 
 use crate::{
     domain::models::{
-        AntigravityData, CodexData, CodexRateLimits, CodexResetCredits, CursorData, QuotaData,
+        AntigravityData, CodexData, CodexRateLimits, CodexResetCredits, CodexWeeklyQuotaData,
+        CursorData, QuotaData,
     },
     services::{antigravity, claude, codex, cost, cursor, link, tray, tray_icon, window},
 };
@@ -25,6 +26,24 @@ pub async fn get_codex_rate_limits() -> Result<CodexRateLimits, String> {
 #[tauri::command]
 pub async fn get_codex_reset_credits() -> Result<CodexResetCredits, String> {
     Ok(codex::fetch_codex_reset_credits().await)
+}
+
+#[tauri::command]
+pub async fn get_codex_weekly_quota() -> Result<CodexWeeklyQuotaData, String> {
+    let Some(codex_home) = codex::get_codex_home() else {
+        return Ok(CodexWeeklyQuotaData::unavailable(
+            "Could not find the Codex home directory",
+        ));
+    };
+    let result = tauri::async_runtime::spawn_blocking(move || {
+        ccstats_quota::load_codex_weekly_quota(Some(&codex_home))
+    })
+    .await
+    .map_err(|err| format!("Codex weekly quota task failed: {err}"))?;
+    Ok(match result {
+        Ok(quota) => CodexWeeklyQuotaData::available(quota),
+        Err(err) => CodexWeeklyQuotaData::unavailable(err.to_string()),
+    })
 }
 
 #[tauri::command]
