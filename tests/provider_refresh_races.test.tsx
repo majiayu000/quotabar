@@ -12,6 +12,7 @@ import type {
   CodexData,
   CodexRateLimits,
   CodexResetCredits,
+  CodexWeeklyQuotaData,
   CostDailySeries,
   CostOverview,
   CursorData,
@@ -120,6 +121,7 @@ function codex_requests(): PanelRequests & { reject_member(index: number, member
   vi.spyOn(backend, 'getCodexInfo').mockImplementation(() => get_bundle(info_index++).info.promise);
   vi.spyOn(backend, 'getCodexRateLimits').mockImplementation(() => get_bundle(limits_index++).limits.promise);
   vi.spyOn(backend, 'getCodexResetCredits').mockImplementation(() => get_bundle(credits_index++).credits.promise);
+  vi.spyOn(backend, 'getCodexWeeklyQuota').mockResolvedValue({});
   return {
     reject: (index, reason) => get_bundle(index).info.reject(reason),
     reject_member: (index, member, reason) => get_bundle(index)[member].reject(reason),
@@ -283,11 +285,204 @@ describe('Codex atomic bundle failures', () => {
   }
 });
 
+describe('Codex weekly pace', () => {
+  async function render_codex(
+    weekly: CodexWeeklyQuotaData | Error,
+    secondary: CodexRateLimits['secondary'] | null = {
+      usedPercent: 40,
+      windowMinutes: 10_080,
+      resetsAt: 1_787_961_600,
+    },
+    primary?: CodexRateLimits['primary'],
+  ): Promise<ReactTestRenderer> {
+    vi.spyOn(backend, 'getCodexInfo').mockResolvedValue({ connected: true });
+    vi.spyOn(backend, 'getCodexRateLimits').mockResolvedValue({
+      connected: true,
+      primary,
+      secondary: secondary ?? undefined,
+    });
+    vi.spyOn(backend, 'getCodexResetCredits').mockResolvedValue({
+      connected: true,
+      availableCount: 0,
+      credits: [],
+    });
+    const weeklyRequest = vi.spyOn(backend, 'getCodexWeeklyQuota');
+    if (weekly instanceof Error) weeklyRequest.mockRejectedValue(weekly);
+    else weeklyRequest.mockResolvedValue(weekly);
+    let renderer!: ReactTestRenderer;
+    await act(async () => {
+      renderer = create(createElement(CodexPanel, {
+        autoRefreshIntervalMs: 0,
+        showCostSummary: false,
+      }));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    return renderer;
+  }
+
+  it('renders the ccstats projection in the weekly quota card', async () => {
+    const renderer = await render_codex({
+      quota: {
+        observedAt: new Date().toISOString(),
+        resetsAt: '2026-08-29T00:00:00Z',
+        estimatedDepletionAt: '2026-08-27T12:00:00Z',
+        windowMinutes: 10_080,
+        usedPct: 40,
+        remainingPct: 60,
+        projectedPctAtReset: 112.4,
+        status: 'likely_exhausted',
+      },
+    });
+
+    expect(rendered_text(renderer)).toContain('Likely to exhaust');
+    expect(rendered_text(renderer)).toContain('projected');
+    expect(rendered_text(renderer)).toContain('112');
+    expect(rendered_text(renderer)).toContain('% at reset');
+    expect(rendered_text(renderer)).toContain('Estimated depletion');
+    await unmount(renderer);
+  });
+
+  it('shows a local pace error without hiding official quota data', async () => {
+    const renderer = await render_codex({ error: 'Start a Codex CLI session to refresh rate-limit data.' });
+
+    expect(rendered_text(renderer)).toContain('40%');
+    expect(rendered_text(renderer)).toContain('Local pace unavailable');
+    expect(rendered_text(renderer)).toContain('Start a Codex CLI session');
+    await unmount(renderer);
+  });
+
+  it('isolates a weekly IPC rejection from official quota data', async () => {
+    const renderer = await render_codex(new Error('weekly IPC failed'));
+
+    expect(rendered_text(renderer)).toContain('40%');
+    expect(rendered_text(renderer)).toContain('Local pace unavailable');
+    expect(rendered_text(renderer)).toContain('weekly IPC failed');
+    await unmount(renderer);
+  });
+
+  it('fails closed when official weekly timing metadata is missing', async () => {
+    const renderer = await render_codex({
+      quota: {
+        observedAt: new Date().toISOString(),
+        resetsAt: '2026-08-29T00:00:00Z',
+        windowMinutes: 10_080,
+        usedPct: 40,
+        remainingPct: 60,
+        projectedPctAtReset: 90,
+        status: 'on_track',
+      },
+    }, { usedPercent: 40 });
+
+    expect(rendered_text(renderer)).toContain('40%');
+    expect(rendered_text(renderer)).toContain('official weekly window length is unavailable');
+    expect(rendered_text(renderer)).not.toContain('projected');
+    await unmount(renderer);
+  });
+
+  it('fails closed when the official weekly reset is missing', async () => {
+    const renderer = await render_codex({
+      quota: {
+        observedAt: new Date().toISOString(),
+        resetsAt: '2026-08-29T00:00:00Z',
+        windowMinutes: 10_080,
+        usedPct: 40,
+        remainingPct: 60,
+        projectedPctAtReset: 90,
+        status: 'on_track',
+      },
+    }, { usedPercent: 40, windowMinutes: 10_080 });
+
+    expect(rendered_text(renderer)).toContain('official weekly reset time is unavailable');
+    expect(rendered_text(renderer)).not.toContain('projected');
+    await unmount(renderer);
+  });
+
+  it('renders weekly pace on a primary-slot weekly window', async () => {
+    const renderer = await render_codex({
+      quota: {
+        observedAt: new Date().toISOString(),
+        resetsAt: '2026-08-29T00:00:00Z',
+        windowMinutes: 10_080,
+        usedPct: 40,
+        remainingPct: 60,
+        projectedPctAtReset: 75,
+        status: 'on_track',
+      },
+    }, null, {
+      usedPercent: 40,
+      windowMinutes: 10_080,
+      resetsAt: 1_787_961_600,
+    });
+
+    expect(rendered_text(renderer)).toContain('Local pace');
+    expect(rendered_text(renderer)).toContain('75');
+    expect(rendered_text(renderer)).toContain('% at reset');
+    await unmount(renderer);
+  });
+
+  it('rejects a stale local reset without hiding official quota data', async () => {
+    const renderer = await render_codex({
+      quota: {
+        observedAt: new Date().toISOString(),
+        resetsAt: '2026-08-30T00:00:00Z',
+        windowMinutes: 10_080,
+        usedPct: 40,
+        remainingPct: 60,
+        projectedPctAtReset: 90,
+        status: 'on_track',
+      },
+    });
+
+    expect(rendered_text(renderer)).toContain('40%');
+    expect(rendered_text(renderer)).toContain('does not match the current official reset');
+    expect(rendered_text(renderer)).not.toContain('projected');
+    await unmount(renderer);
+  });
+
+  it('rejects a stale local observation', async () => {
+    const renderer = await render_codex({
+      quota: {
+        observedAt: new Date(Date.now() - 31 * 60 * 1000).toISOString(),
+        resetsAt: '2026-08-29T00:00:00Z',
+        windowMinutes: 10_080,
+        usedPct: 40,
+        remainingPct: 60,
+        projectedPctAtReset: 75,
+        status: 'on_track',
+      },
+    });
+
+    expect(rendered_text(renderer)).toContain('older than 30 minutes');
+    expect(rendered_text(renderer)).not.toContain('projected');
+    await unmount(renderer);
+  });
+
+  it('rejects local usage that diverges from official usage', async () => {
+    const renderer = await render_codex({
+      quota: {
+        observedAt: new Date().toISOString(),
+        resetsAt: '2026-08-29T00:00:00Z',
+        windowMinutes: 10_080,
+        usedPct: 30,
+        remainingPct: 70,
+        projectedPctAtReset: 60,
+        status: 'on_track',
+      },
+    });
+
+    expect(rendered_text(renderer)).toContain('does not match the current official usage');
+    expect(rendered_text(renderer)).not.toContain('projected');
+    await unmount(renderer);
+  });
+});
+
 function install_app_backend(quota_requests: Array<Deferred<QuotaData>>): void {
   vi.spyOn(backend, 'getQuota').mockImplementation(() => quota_requests.shift()!.promise);
   vi.spyOn(backend, 'getCodexInfo').mockResolvedValue({ connected: true });
   vi.spyOn(backend, 'getCodexRateLimits').mockResolvedValue({ connected: true });
   vi.spyOn(backend, 'getCodexResetCredits').mockResolvedValue({ connected: true, availableCount: 0, credits: [] });
+  vi.spyOn(backend, 'getCodexWeeklyQuota').mockResolvedValue({});
   vi.spyOn(backend, 'getCursorInfo').mockResolvedValue({ connected: true });
   vi.spyOn(backend, 'getAntigravityInfo').mockResolvedValue({ connected: false, status: 'pending' });
   vi.spyOn(backend, 'setDockVisibility').mockResolvedValue(undefined);

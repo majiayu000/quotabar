@@ -52,8 +52,12 @@ fn log_msg(msg: &str) {
     }
 }
 
-fn get_codex_home() -> Option<PathBuf> {
-    dirs::home_dir().map(|home| home.join(".codex"))
+pub(crate) fn get_codex_home() -> Option<PathBuf> {
+    match std::env::var_os("CODEX_HOME") {
+        Some(home) if !home.is_empty() => Some(PathBuf::from(home)),
+        Some(_) => None,
+        None => dirs::home_dir().map(|home| home.join(".codex")),
+    }
 }
 
 fn decode_jwt_payload(token: &str) -> Option<serde_json::Value> {

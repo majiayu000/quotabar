@@ -148,6 +148,62 @@ pub struct CodexResetCredits {
     pub error: Option<String>,
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct CodexWeeklyQuota {
+    #[serde(rename = "observedAt")]
+    pub observed_at: String,
+    #[serde(rename = "resetsAt")]
+    pub resets_at: String,
+    #[serde(rename = "estimatedDepletionAt")]
+    pub estimated_depletion_at: Option<String>,
+    #[serde(rename = "windowMinutes")]
+    pub window_minutes: i64,
+    #[serde(rename = "usedPct")]
+    pub used_pct: f64,
+    #[serde(rename = "remainingPct")]
+    pub remaining_pct: f64,
+    #[serde(rename = "projectedPctAtReset")]
+    pub projected_pct_at_reset: f64,
+    pub status: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct CodexWeeklyQuotaData {
+    pub quota: Option<CodexWeeklyQuota>,
+    pub error: Option<String>,
+}
+
+impl CodexWeeklyQuotaData {
+    pub fn available(quota: ccstats_quota::CodexWeeklyQuota) -> Self {
+        Self {
+            quota: Some(CodexWeeklyQuota::from(quota)),
+            error: None,
+        }
+    }
+
+    pub fn unavailable(error: impl Into<String>) -> Self {
+        Self {
+            quota: None,
+            error: Some(error.into()),
+        }
+    }
+}
+
+impl From<ccstats_quota::CodexWeeklyQuota> for CodexWeeklyQuota {
+    fn from(quota: ccstats_quota::CodexWeeklyQuota) -> Self {
+        Self {
+            observed_at: quota.observed_at.to_rfc3339(),
+            resets_at: quota.resets_at.to_rfc3339(),
+            estimated_depletion_at: quota.estimated_depletion_at.map(|value| value.to_rfc3339()),
+            window_minutes: quota.window_minutes,
+            used_pct: quota.used_pct,
+            remaining_pct: quota.remaining_pct,
+            projected_pct_at_reset: quota.projected_pct_at_reset,
+            status: quota.status.as_str().to_string(),
+        }
+    }
+}
+
 impl CodexResetCredits {
     pub fn disconnected(error: impl Into<String>) -> Self {
         Self {

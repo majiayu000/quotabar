@@ -4,6 +4,7 @@ import type {
   CodexData,
   CodexRateLimits,
   CodexResetCredits,
+  CodexWeeklyQuotaData,
   CostDailySeries,
   CostOverview,
   CostSource,
@@ -42,6 +43,10 @@ export const backend = {
 
   getCodexResetCredits() {
     return invokeBackend<CodexResetCredits>('get_codex_reset_credits');
+  },
+
+  getCodexWeeklyQuota() {
+    return invokeBackend<CodexWeeklyQuotaData>('get_codex_weekly_quota');
   },
 
   getCursorInfo() {

@@ -32,6 +32,17 @@ const owner_configs = [
     },
   },
   {
+    path: 'src/components/CodexPanel.tsx',
+    component_name: 'CodexPanel',
+    function_name: 'fetchWeeklyQuota',
+    owner_name: 'weekly_request_generation',
+    backend_methods: ['getCodexWeeklyQuota'],
+    loading: false,
+    await_kind: 'direct',
+    target_scope: 'component',
+    backend_arguments: { getCodexWeeklyQuota: [] },
+  },
+  {
     path: 'src/components/CursorPanel.tsx',
     component_name: 'CursorPanel',
     function_name: 'fetchData',
