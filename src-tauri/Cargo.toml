@@ -29,7 +29,7 @@ base64 = "0.22"
 dirs = "5"
 image = { version = "0.25", default-features = false, features = ["png"] }
 once_cell = "1.19"
-ccstats = { git = "https://github.com/majiayu000/ccstats.git", rev = "7dbfad0ffc29277da22cd095db067e88982f3f12" }
+ccstats = { git = "https://github.com/majiayu000/ccstats.git", rev = "16d06637c5dff8cf1d7c5b77b9d0168d26bc640f" }
 tauri-plugin-notification = "2.3.3"
 
 [target.'cfg(unix)'.dependencies]
