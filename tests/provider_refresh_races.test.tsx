@@ -324,7 +324,7 @@ describe('Codex weekly pace', () => {
   it('renders the ccstats projection in the weekly quota card', async () => {
     const renderer = await render_codex({
       quota: {
-        observedAt: '2026-08-22T00:00:00Z',
+        observedAt: new Date().toISOString(),
         resetsAt: '2026-08-29T00:00:00Z',
         estimatedDepletionAt: '2026-08-27T12:00:00Z',
         windowMinutes: 10_080,
@@ -364,7 +364,7 @@ describe('Codex weekly pace', () => {
   it('fails closed when official weekly timing metadata is missing', async () => {
     const renderer = await render_codex({
       quota: {
-        observedAt: '2026-08-22T00:00:00Z',
+        observedAt: new Date().toISOString(),
         resetsAt: '2026-08-29T00:00:00Z',
         windowMinutes: 10_080,
         usedPct: 40,
@@ -383,7 +383,7 @@ describe('Codex weekly pace', () => {
   it('fails closed when the official weekly reset is missing', async () => {
     const renderer = await render_codex({
       quota: {
-        observedAt: '2026-08-22T00:00:00Z',
+        observedAt: new Date().toISOString(),
         resetsAt: '2026-08-29T00:00:00Z',
         windowMinutes: 10_080,
         usedPct: 40,
@@ -401,7 +401,7 @@ describe('Codex weekly pace', () => {
   it('renders weekly pace on a primary-slot weekly window', async () => {
     const renderer = await render_codex({
       quota: {
-        observedAt: '2026-08-22T00:00:00Z',
+        observedAt: new Date().toISOString(),
         resetsAt: '2026-08-29T00:00:00Z',
         windowMinutes: 10_080,
         usedPct: 40,
@@ -424,7 +424,7 @@ describe('Codex weekly pace', () => {
   it('rejects a stale local reset without hiding official quota data', async () => {
     const renderer = await render_codex({
       quota: {
-        observedAt: '2026-08-22T00:00:00Z',
+        observedAt: new Date().toISOString(),
         resetsAt: '2026-08-30T00:00:00Z',
         windowMinutes: 10_080,
         usedPct: 40,
@@ -436,6 +436,42 @@ describe('Codex weekly pace', () => {
 
     expect(rendered_text(renderer)).toContain('40%');
     expect(rendered_text(renderer)).toContain('does not match the current official reset');
+    expect(rendered_text(renderer)).not.toContain('projected');
+    await unmount(renderer);
+  });
+
+  it('rejects a stale local observation', async () => {
+    const renderer = await render_codex({
+      quota: {
+        observedAt: new Date(Date.now() - 31 * 60 * 1000).toISOString(),
+        resetsAt: '2026-08-29T00:00:00Z',
+        windowMinutes: 10_080,
+        usedPct: 40,
+        remainingPct: 60,
+        projectedPctAtReset: 75,
+        status: 'on_track',
+      },
+    });
+
+    expect(rendered_text(renderer)).toContain('older than 30 minutes');
+    expect(rendered_text(renderer)).not.toContain('projected');
+    await unmount(renderer);
+  });
+
+  it('rejects local usage that diverges from official usage', async () => {
+    const renderer = await render_codex({
+      quota: {
+        observedAt: new Date().toISOString(),
+        resetsAt: '2026-08-29T00:00:00Z',
+        windowMinutes: 10_080,
+        usedPct: 30,
+        remainingPct: 70,
+        projectedPctAtReset: 60,
+        status: 'on_track',
+      },
+    });
+
+    expect(rendered_text(renderer)).toContain('does not match the current official usage');
     expect(rendered_text(renderer)).not.toContain('projected');
     await unmount(renderer);
   });

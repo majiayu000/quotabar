@@ -139,6 +139,20 @@ function validateWeeklyQuotaWindow(
   if (Math.abs(localReset - (officialReset ?? 0)) > 5 * 60) {
     return 'The local pace snapshot does not match the current official reset.';
   }
+  const observedAt = Date.parse(quota.observedAt);
+  const now = Date.now();
+  if (!Number.isFinite(observedAt)) {
+    return 'The local pace snapshot has an invalid observation time.';
+  }
+  if (observedAt > now + 5 * 60 * 1000) {
+    return 'The local pace snapshot is dated in the future.';
+  }
+  if (now - observedAt > 30 * 60 * 1000) {
+    return 'The local pace snapshot is older than 30 minutes.';
+  }
+  if (Math.abs(quota.usedPct - official.usedPercent) > 1) {
+    return 'The local pace usage does not match the current official usage.';
+  }
   return null;
 }
 
