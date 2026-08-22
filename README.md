@@ -29,7 +29,7 @@ QuotaBar is a Tauri v2 menubar app for monitoring Claude Code, Codex, Cursor, an
 
 ![QuotaBar browser preview without provider credentials](docs/assets/quotabar-no-provider-preview.png)
 
-This `v0.3.0` screenshot was refreshed on 2026-08-22 from the production React UI in browser preview without a Tauri desktop backend. It intentionally shows the default unavailable-backend state and includes no provider quota values, account identifiers, tokens, cookies, or sessions. Desktop widget and notification visuals are static design previews only until a runtime implementation ships. See `docs/demo-proof.md` for the capture scope and refresh steps.
+This `v0.3.1` screenshot was refreshed on 2026-08-22 from the production React UI in browser preview without a Tauri desktop backend. It intentionally shows the default unavailable-backend state and includes no provider quota values, account identifiers, tokens, cookies, or sessions. Desktop widget and notification visuals are static design previews only until a runtime implementation ships. See `docs/demo-proof.md` for the capture scope and refresh steps.
 
 ## Quota Semantics
 
@@ -129,9 +129,9 @@ Expected output locations:
 
 ## Release Artifacts
 
-The latest published release is [QuotaBar v0.3.0](https://github.com/majiayu000/quotabar/releases/tag/v0.3.0).
+The latest published release is available from [GitHub Releases](https://github.com/majiayu000/quotabar/releases/latest).
 
-The v0.3.0 macOS artifact is unsigned and not notarized. macOS may require users to approve the app in Privacy & Security before first launch.
+The v0.3.1 macOS artifact is unsigned and not notarized. macOS may require users to approve the app in Privacy & Security before first launch.
 
 Release candidates should be built by the `release-artifacts` GitHub Actions workflow or from a clean checkout, then attached manually to the matching GitHub release only after final human approval. The workflow uploads build artifacts for inspection; it does not publish a GitHub Release. See [docs/release.md](docs/release.md) for the release checklist.
 
