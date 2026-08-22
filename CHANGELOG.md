@@ -6,7 +6,7 @@ All notable QuotaBar changes should be summarized here before a release is cut.
 
 - None.
 
-## 0.3.0 - 2026-08-22
+## 0.3.1 - 2026-08-22
 
 - Added a validated Codex weekly quota pace projection, including projected usage at reset, risk status, and estimated depletion time from the ccstats SDK.
 - Kept weekly pace failures isolated from official Codex quota data and rejected stale, cross-window, or divergent local snapshots instead of displaying misleading projections.
@@ -15,7 +15,7 @@ All notable QuotaBar changes should be summarized here before a release is cut.
 - Reduced repeated local cost parsing with multi-range summaries and cached snapshots.
 - Removed sensitive Claude credential fragments from diagnostics and improved explicit browser-preview/backend error reporting.
 - Split legacy and redesigned stylesheets into smaller modules without changing their rendered output.
-- Updated the application version to 0.3.0 and refreshed macOS and Windows release artifacts.
+- Updated the application version to 0.3.1 and refreshed macOS and Windows release artifacts.
 
 ## 0.2.0 - 2026-07-06
 
