@@ -129,7 +129,7 @@ Expected output locations:
 
 ## Release Artifacts
 
-The latest published release is [QuotaBar v0.3.1](https://github.com/majiayu000/quotabar/releases/tag/v0.3.1).
+The latest published release is available from [GitHub Releases](https://github.com/majiayu000/quotabar/releases/latest).
 
 The v0.3.1 macOS artifact is unsigned and not notarized. macOS may require users to approve the app in Privacy & Security before first launch.
 
