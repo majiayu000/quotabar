@@ -92,19 +92,6 @@ function formatGrantDate(value?: string): string {
   });
 }
 
-function formatWeeklyQuotaStatus(status: CodexWeeklyQuota['status']): string {
-  switch (status) {
-    case 'on_track':
-      return 'On track';
-    case 'watch':
-      return 'Watch pace';
-    case 'likely_exhausted':
-      return 'Likely to exhaust';
-    case 'exhausted':
-      return 'Exhausted';
-  }
-}
-
 const USD_FORMAT = new Intl.NumberFormat('en-US', {
   style: 'currency',
   currency: 'USD',
@@ -414,21 +401,14 @@ export default function CodexPanel({
     ?? weeklyValueEstimateError;
   const renderWeeklyPace = (window: CodexRateLimitWindow) => {
     if (window !== officialWeeklyWindow) return null;
-    return (
-      <>
-        {displayedWeeklyQuota && (
-          <span className={`quota-pace ${displayedWeeklyQuota.status !== 'on_track' ? 'warning' : ''}`}>
-            Local pace: {formatWeeklyQuotaStatus(displayedWeeklyQuota.status)} · projected{' '}
-            {Math.round(displayedWeeklyQuota.projectedPctAtReset)}% at reset
-          </span>
-        )}
-        {!displayedWeeklyQuota && displayedWeeklyQuotaError && (
-          <span className="quota-pace warning">
-            Local pace unavailable: {displayedWeeklyQuotaError}
-          </span>
-        )}
-      </>
-    );
+    if (!displayedWeeklyQuota && displayedWeeklyQuotaError) {
+      return (
+        <span className="quota-pace warning">
+          Local pace unavailable: {displayedWeeklyQuotaError}
+        </span>
+      );
+    }
+    return null;
   };
 
   return (
