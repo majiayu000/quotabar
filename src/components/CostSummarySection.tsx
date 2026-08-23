@@ -297,8 +297,11 @@ export default function CostSummarySection({
   return (
     <div className="section cost-section">
       <div className="cost-title-row">
-        <span className="section-title">Local cost</span>
-        {overview && <span className="cost-note">{formatCostNote(primaryRange)}</span>}
+        <span className="section-title">API-equivalent usage</span>
+        <span className="cost-title-meta">
+          <span className="cost-estimate-badge">Local estimate</span>
+          {overview && <span className="cost-note">{formatCostNote(primaryRange)}</span>}
+        </span>
       </div>
 
       {loading && !overview && (
@@ -337,7 +340,15 @@ export default function CostSummarySection({
                       {formatMoney(monthlyBudget, monthRange?.currency ?? 'USD')}
                     </strong>
                   </div>
-                  <div className="budget-track">
+                  <div
+                    className="budget-track"
+                    role="progressbar"
+                    aria-label="Monthly API-equivalent budget used"
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    aria-valuenow={Math.min(100, Math.round(budgetPercent))}
+                    aria-valuetext={`${Math.round(budgetPercent)}% of monthly budget used`}
+                  >
                     <div className="budget-fill" style={getProgressStyle(budgetPercent)} />
                   </div>
                 </div>
@@ -355,16 +366,20 @@ export default function CostSummarySection({
                           const height = maxCost > 0 ? Math.max(8, (value / maxCost) * 100) : 8;
                           const isHovered = hoveredDay?.date === day.date;
                           return (
-                            <div
+                            <button
+                              type="button"
                               className={`spark-bar-hit ${isHovered ? 'hovered' : ''}`}
                               key={day.date}
                               onMouseEnter={() => setHoveredDay(day)}
+                              onFocus={() => setHoveredDay(day)}
+                              onBlur={() => setHoveredDay(null)}
+                              aria-label={`${day.date}: ${formatMoney(value, primaryRange.currency)}`}
                             >
                               <div
                                 className={`spark-bar ${index === sparkDays.length - 1 ? 'latest' : ''} ${isHovered ? 'hovered' : ''}`}
                                 style={{ height: `${height}%` }}
                               />
-                            </div>
+                            </button>
                           );
                         })}
                       </div>
