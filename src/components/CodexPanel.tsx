@@ -12,6 +12,7 @@ import type {
   CodexResetCredit,
   CodexResetCredits,
   CodexWeeklyQuota,
+  CodexWeeklyValueEstimate,
 } from '../types/models';
 import { buildCodexQuotaWindows, sortMostConstrained, type QuotaWindowSummary } from '../services/provider_summary';
 import { getAvailableResetCredits, getHighUsageTip } from '../services/detail_helpers';
@@ -105,17 +106,56 @@ function formatWeeklyQuotaStatus(status: CodexWeeklyQuota['status']): string {
   }
 }
 
-function formatProjectionTime(value?: string): string | null {
-  if (!value) return null;
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return null;
-  return date.toLocaleString('en-US', {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  });
+const USD_FORMAT = new Intl.NumberFormat('en-US', {
+  style: 'currency',
+  currency: 'USD',
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
+const COMPACT_TOKEN_FORMAT = new Intl.NumberFormat('en-US', {
+  notation: 'compact',
+  maximumFractionDigits: 1,
+});
+
+function validateWeeklyValueEstimate(
+  estimate: CodexWeeklyValueEstimate,
+  quota: CodexWeeklyQuota,
+): string | null {
+  if (
+    !Number.isFinite(estimate.observedCostUsd)
+    || estimate.observedCostUsd <= 0
+    || !Number.isFinite(estimate.estimatedWeeklyValueUsd)
+    || estimate.estimatedWeeklyValueUsd <= 0
+    || !Number.isFinite(estimate.observedTokens)
+    || estimate.observedTokens <= 0
+    || !Number.isFinite(estimate.estimatedWeeklyTokens)
+    || estimate.estimatedWeeklyTokens <= 0
+  ) {
+    return 'The local weekly value estimate contains invalid totals.';
+  }
+  if (Math.abs(estimate.usedPct - quota.usedPct) > 5) {
+    return 'The local weekly value estimate does not match the quota usage.';
+  }
+  const estimateObservedAt = Date.parse(estimate.observedAt);
+  const now = Date.now();
+  if (
+    !Number.isFinite(estimateObservedAt)
+    || estimateObservedAt > now + 5 * 60 * 1000
+    || now - estimateObservedAt > 10 * 60 * 1000
+  ) {
+    return 'The local weekly value estimate is stale or has an invalid observation time.';
+  }
+  const estimateReset = Date.parse(estimate.resetsAt);
+  const quotaReset = Date.parse(quota.resetsAt);
+  if (
+    !Number.isFinite(estimateReset)
+    || !Number.isFinite(quotaReset)
+    || Math.abs(estimateReset - quotaReset) > 5 * 60 * 1000
+  ) {
+    return 'The local weekly value estimate does not match the quota reset.';
+  }
+  return null;
 }
 
 function validateWeeklyQuotaWindow(
@@ -234,6 +274,8 @@ export default function CodexPanel({
   const [resetCredits, setResetCredits] = useState<CodexResetCredits | null>(null);
   const [weeklyQuota, setWeeklyQuota] = useState<CodexWeeklyQuota | null>(null);
   const [weeklyQuotaError, setWeeklyQuotaError] = useState<string | null>(null);
+  const [weeklyValueEstimate, setWeeklyValueEstimate] = useState<CodexWeeklyValueEstimate | null>(null);
+  const [weeklyValueEstimateError, setWeeklyValueEstimateError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [rateLimitsError, setRateLimitsError] = useState<string | null>(null);
@@ -248,12 +290,16 @@ export default function CodexPanel({
       if (!weekly_request_generation.isCurrent(generation)) return;
       setWeeklyQuota(weekly.quota ?? null);
       setWeeklyQuotaError(weekly.error ?? null);
+      setWeeklyValueEstimate(weekly.valueEstimate ?? null);
+      setWeeklyValueEstimateError(weekly.valueEstimateError ?? null);
     } catch (err) {
       if (!weekly_request_generation.isCurrent(generation)) return;
       setWeeklyQuota(null);
       setWeeklyQuotaError(
         err instanceof Error ? err.message : 'Failed to load local weekly pace',
       );
+      setWeeklyValueEstimate(null);
+      setWeeklyValueEstimateError(null);
     }
   }, [weekly_request_generation]);
 
@@ -359,23 +405,23 @@ export default function CodexPanel({
     : null;
   const displayedWeeklyQuota = weeklyQuotaValidationError ? null : weeklyQuota;
   const displayedWeeklyQuotaError = weeklyQuotaValidationError ?? weeklyQuotaError;
+  const weeklyValueValidationError = displayedWeeklyQuota && weeklyValueEstimate
+    ? validateWeeklyValueEstimate(weeklyValueEstimate, displayedWeeklyQuota)
+    : null;
+  const displayedWeeklyValueEstimate = weeklyValueValidationError
+    ? null
+    : weeklyValueEstimate;
+  const displayedWeeklyValueEstimateError = weeklyValueValidationError
+    ?? weeklyValueEstimateError;
   const renderWeeklyPace = (window: CodexRateLimitWindow) => {
     if (window !== officialWeeklyWindow) return null;
-    const depletionTime = formatProjectionTime(displayedWeeklyQuota?.estimatedDepletionAt);
     return (
       <>
         {displayedWeeklyQuota && (
-          <>
-            <span className={`quota-pace ${displayedWeeklyQuota.status !== 'on_track' ? 'warning' : ''}`}>
-              Local pace: {formatWeeklyQuotaStatus(displayedWeeklyQuota.status)} · projected{' '}
-              {Math.round(displayedWeeklyQuota.projectedPctAtReset)}% at reset
-            </span>
-            {depletionTime && (
-              <span className="quota-pace warning">
-                Estimated depletion: {depletionTime}
-              </span>
-            )}
-          </>
+          <span className={`quota-pace ${displayedWeeklyQuota.status !== 'on_track' ? 'warning' : ''}`}>
+            Local pace: {formatWeeklyQuotaStatus(displayedWeeklyQuota.status)} · projected{' '}
+            {Math.round(displayedWeeklyQuota.projectedPctAtReset)}% at reset
+          </span>
         )}
         {!displayedWeeklyQuota && displayedWeeklyQuotaError && (
           <span className="quota-pace warning">
@@ -507,6 +553,36 @@ export default function CodexPanel({
                     </div>
                   </div>
                 )}
+              </div>
+            </div>
+          )}
+
+          {displayedWeeklyQuota
+            && (displayedWeeklyValueEstimate || displayedWeeklyValueEstimateError) && (
+            <div className="section weekly-value-section">
+              <div className="quota-group">
+                <div className="quota-card weekly-value-card">
+                  {displayedWeeklyValueEstimate ? (
+                    <>
+                      <div className="quota-header">
+                        <span className="quota-label">API-equivalent week</span>
+                        <span className="quota-value">
+                          ≈{USD_FORMAT.format(displayedWeeklyValueEstimate.estimatedWeeklyValueUsd)}
+                        </span>
+                      </div>
+                      <span className="quota-estimate-tokens">
+                        ≈{COMPACT_TOKEN_FORMAT.format(displayedWeeklyValueEstimate.estimatedWeeklyTokens)} tokens at current mix
+                      </span>
+                      <span className="quota-estimate-note">
+                        Estimated from local usage · not an official allowance
+                      </span>
+                    </>
+                  ) : (
+                    <span className="quota-pace warning">
+                      Weekly value unavailable: {displayedWeeklyValueEstimateError}
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
           )}

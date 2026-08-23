@@ -2,6 +2,7 @@ pub mod antigravity;
 pub mod claude;
 pub mod codex;
 mod codex_cache;
+pub mod codex_weekly;
 pub mod cost;
 mod cost_disk_cache;
 pub mod cursor;

@@ -73,8 +73,21 @@ export interface CodexWeeklyQuota {
   status: CodexQuotaStatus;
 }
 
+export interface CodexWeeklyValueEstimate {
+  observedAt: string;
+  windowStartedAt: string;
+  resetsAt: string;
+  usedPct: number;
+  observedCostUsd: number;
+  estimatedWeeklyValueUsd: number;
+  observedTokens: number;
+  estimatedWeeklyTokens: number;
+}
+
 export interface CodexWeeklyQuotaData {
   quota?: CodexWeeklyQuota;
+  valueEstimate?: CodexWeeklyValueEstimate;
+  valueEstimateError?: string;
   error?: string;
 }
 

@@ -168,15 +168,48 @@ pub struct CodexWeeklyQuota {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct CodexWeeklyValueEstimate {
+    #[serde(rename = "observedAt")]
+    pub observed_at: String,
+    #[serde(rename = "windowStartedAt")]
+    pub window_started_at: String,
+    #[serde(rename = "resetsAt")]
+    pub resets_at: String,
+    #[serde(rename = "usedPct")]
+    pub used_pct: f64,
+    #[serde(rename = "observedCostUsd")]
+    pub observed_cost_usd: f64,
+    #[serde(rename = "estimatedWeeklyValueUsd")]
+    pub estimated_weekly_value_usd: f64,
+    #[serde(rename = "observedTokens")]
+    pub observed_tokens: i64,
+    #[serde(rename = "estimatedWeeklyTokens")]
+    pub estimated_weekly_tokens: f64,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct CodexWeeklyQuotaData {
     pub quota: Option<CodexWeeklyQuota>,
+    #[serde(rename = "valueEstimate")]
+    pub value_estimate: Option<CodexWeeklyValueEstimate>,
+    #[serde(rename = "valueEstimateError")]
+    pub value_estimate_error: Option<String>,
     pub error: Option<String>,
 }
 
 impl CodexWeeklyQuotaData {
-    pub fn available(quota: ccstats_quota::CodexWeeklyQuota) -> Self {
+    pub fn available(
+        quota: ccstats_quota::CodexWeeklyQuota,
+        value_estimate: Result<ccstats_quota::CodexWeeklyValueEstimate, String>,
+    ) -> Self {
+        let (value_estimate, value_estimate_error) = match value_estimate {
+            Ok(estimate) => (Some(CodexWeeklyValueEstimate::from(estimate)), None),
+            Err(error) => (None, Some(error.to_string())),
+        };
         Self {
             quota: Some(CodexWeeklyQuota::from(quota)),
+            value_estimate,
+            value_estimate_error,
             error: None,
         }
     }
@@ -184,7 +217,24 @@ impl CodexWeeklyQuotaData {
     pub fn unavailable(error: impl Into<String>) -> Self {
         Self {
             quota: None,
+            value_estimate: None,
+            value_estimate_error: None,
             error: Some(error.into()),
+        }
+    }
+}
+
+impl From<ccstats_quota::CodexWeeklyValueEstimate> for CodexWeeklyValueEstimate {
+    fn from(estimate: ccstats_quota::CodexWeeklyValueEstimate) -> Self {
+        Self {
+            observed_at: estimate.observed_at.to_rfc3339(),
+            window_started_at: estimate.window_started_at.to_rfc3339(),
+            resets_at: estimate.resets_at.to_rfc3339(),
+            used_pct: estimate.used_pct,
+            observed_cost_usd: estimate.observed_cost_usd,
+            estimated_weekly_value_usd: estimate.estimated_weekly_value_usd,
+            observed_tokens: estimate.observed_tokens,
+            estimated_weekly_tokens: estimate.estimated_weekly_tokens,
         }
     }
 }

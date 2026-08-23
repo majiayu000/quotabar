@@ -366,13 +366,91 @@ describe('Codex weekly pace', () => {
         projectedPctAtReset: 112.4,
         status: 'likely_exhausted',
       },
+      valueEstimate: {
+        observedAt: new Date().toISOString(),
+        windowStartedAt: '2026-08-22T00:00:00Z',
+        resetsAt: '2026-08-29T00:00:00Z',
+        usedPct: 40,
+        observedCostUsd: 80,
+        estimatedWeeklyValueUsd: 200,
+        observedTokens: 1_600_000,
+        estimatedWeeklyTokens: 4_000_000,
+      },
     });
 
     expect(rendered_text(renderer)).toContain('Likely to exhaust');
     expect(rendered_text(renderer)).toContain('projected');
     expect(rendered_text(renderer)).toContain('112');
     expect(rendered_text(renderer)).toContain('% at reset');
-    expect(rendered_text(renderer)).toContain('Estimated depletion');
+    expect(rendered_text(renderer)).toContain('API-equivalent week');
+    expect(rendered_text(renderer)).toContain('$200.00');
+    expect(rendered_text(renderer)).toContain('4M');
+    expect(rendered_text(renderer)).toContain('tokens at current mix');
+    expect(rendered_text(renderer)).toContain('not an official allowance');
+    expect(rendered_text(renderer)).not.toContain('Estimated depletion');
+    const weekly_value_card = renderer.root.findByProps({
+      className: 'quota-card weekly-value-card',
+    });
+    expect(weekly_value_card.parent?.props.className).toBe('quota-group');
+    expect(weekly_value_card.parent?.children).toHaveLength(1);
+    await unmount(renderer);
+  });
+
+  it.each([
+    ['invalid totals', { estimatedWeeklyValueUsd: 0 }, 'contains invalid totals'],
+    ['usage mismatch', { usedPct: 55 }, 'does not match the quota usage'],
+    ['reset mismatch', { resetsAt: '2026-09-05T00:00:00Z' }, 'does not match the quota reset'],
+    [
+      'stale observation',
+      { observedAt: new Date(Date.now() - 11 * 60 * 1000).toISOString() },
+      'is stale or has an invalid observation time',
+    ],
+  ])('rejects a weekly value estimate with %s', async (_case, override, expected_error) => {
+    const renderer = await render_codex({
+      quota: {
+        observedAt: new Date().toISOString(),
+        resetsAt: '2026-08-29T00:00:00Z',
+        windowMinutes: 10_080,
+        usedPct: 40,
+        remainingPct: 60,
+        projectedPctAtReset: 90,
+        status: 'on_track',
+      },
+      valueEstimate: {
+        observedAt: new Date().toISOString(),
+        windowStartedAt: '2026-08-22T00:00:00Z',
+        resetsAt: '2026-08-29T00:00:00Z',
+        usedPct: 40,
+        observedCostUsd: 80,
+        estimatedWeeklyValueUsd: 200,
+        observedTokens: 1_600_000,
+        estimatedWeeklyTokens: 4_000_000,
+        ...override,
+      },
+    });
+
+    expect(rendered_text(renderer)).toContain(expected_error);
+    expect(rendered_text(renderer)).not.toContain('API-equivalent week');
+    await unmount(renderer);
+  });
+
+  it('keeps weekly pace visible when the value estimate is unavailable', async () => {
+    const renderer = await render_codex({
+      quota: {
+        observedAt: new Date().toISOString(),
+        resetsAt: '2026-08-29T00:00:00Z',
+        windowMinutes: 10_080,
+        usedPct: 40,
+        remainingPct: 60,
+        projectedPctAtReset: 90,
+        status: 'on_track',
+      },
+      valueEstimateError: 'no matching local token usage',
+    });
+
+    expect(rendered_text(renderer)).toContain('On track');
+    expect(rendered_text(renderer)).toContain('Weekly value unavailable');
+    expect(rendered_text(renderer)).toContain('no matching local token usage');
     await unmount(renderer);
   });
 
