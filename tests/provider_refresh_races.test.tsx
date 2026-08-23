@@ -378,10 +378,9 @@ describe('Codex weekly pace', () => {
       },
     });
 
-    expect(rendered_text(renderer)).toContain('Likely to exhaust');
-    expect(rendered_text(renderer)).toContain('projected');
-    expect(rendered_text(renderer)).toContain('112');
-    expect(rendered_text(renderer)).toContain('% at reset');
+    expect(rendered_text(renderer)).not.toContain('Local pace:');
+    expect(rendered_text(renderer)).not.toContain('Likely to exhaust');
+    expect(rendered_text(renderer)).not.toContain('% at reset');
     expect(rendered_text(renderer)).toContain('API-equivalent week');
     expect(rendered_text(renderer)).toContain('$200.00');
     expect(rendered_text(renderer)).toContain('4M');
@@ -439,7 +438,7 @@ describe('Codex weekly pace', () => {
     await unmount(renderer);
   });
 
-  it('keeps weekly pace visible when the value estimate is unavailable', async () => {
+  it('keeps the value estimate error visible without a redundant pace summary', async () => {
     const renderer = await render_codex({
       quota: {
         observedAt: new Date().toISOString(),
@@ -453,7 +452,7 @@ describe('Codex weekly pace', () => {
       valueEstimateError: 'no matching local token usage',
     });
 
-    expect(rendered_text(renderer)).toContain('On track');
+    expect(rendered_text(renderer)).not.toContain('Local pace:');
     expect(rendered_text(renderer)).toContain('Weekly value unavailable');
     expect(rendered_text(renderer)).toContain('no matching local token usage');
     await unmount(renderer);
@@ -514,7 +513,7 @@ describe('Codex weekly pace', () => {
     await unmount(renderer);
   });
 
-  it('renders weekly pace on a primary-slot weekly window', async () => {
+  it('keeps only the standard pace hint on a primary-slot weekly window', async () => {
     const renderer = await render_codex({
       quota: {
         observedAt: new Date().toISOString(),
@@ -531,9 +530,9 @@ describe('Codex weekly pace', () => {
       resetsAt: 1_787_961_600,
     });
 
-    expect(rendered_text(renderer)).toContain('Local pace');
-    expect(rendered_text(renderer)).toContain('75');
-    expect(rendered_text(renderer)).toContain('% at reset');
+    expect(rendered_text(renderer)).toContain('At current pace');
+    expect(rendered_text(renderer)).not.toContain('Local pace:');
+    expect(rendered_text(renderer)).not.toContain('% at reset');
     await unmount(renderer);
   });
 
