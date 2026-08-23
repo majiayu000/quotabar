@@ -331,6 +331,34 @@
   }
 }
 
+.weekly-value-section {
+  margin-top: 8px;
+}
+
+.weekly-value-card .quota-header {
+  margin-bottom: 4px;
+}
+
+.weekly-value-card .quota-value {
+  color: var(--accent);
+}
+
+.quota-estimate-tokens,
+.quota-estimate-note {
+  display: block;
+  color: var(--sub);
+  font-size: 10px;
+  line-height: 1.3;
+}
+
+.quota-estimate-note {
+  margin-top: 2px;
+}
+
+.quota-estimate-tokens {
+  font-family: var(--metric-font);
+}
+
 .smart-tip {
   display: flex;
   align-items: baseline;
