@@ -5,6 +5,7 @@ interface QuotaCardProps {
   percentage: number;
   resetsIn: string;
   pace?: string | null;
+  featured?: boolean;
 }
 
 function getStatusColor(percentage: number): string {
@@ -13,17 +14,24 @@ function getStatusColor(percentage: number): string {
   return 'good';
 }
 
-export default function QuotaCard({ label, percentage, resetsIn, pace }: QuotaCardProps) {
+export default function QuotaCard({ label, percentage, resetsIn, pace, featured = false }: QuotaCardProps) {
   const status = getStatusColor(percentage);
 
   return (
-    <div className="quota-card">
+    <div className={`quota-card${featured ? ' featured' : ''}`}>
       <div className="quota-header">
         <span className="quota-label">{label}</span>
         <span className="quota-percentage">{percentage}%</span>
       </div>
 
-      <div className="progress-bar">
+      <div
+        className="progress-bar"
+        role="progressbar"
+        aria-label={`${label} usage`}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={percentage}
+      >
         <div
           className={`progress-fill ${status}`}
           style={getProgressStyle(percentage)}

@@ -11,11 +11,23 @@
 .provider-detail-header {
   display: flex;
   align-items: center;
-  gap: 7px;
-  padding: 8px 10px 0;
+  gap: 8px;
+  min-height: 24px;
+  padding: 9px 10px 1px;
   border: 0;
   background: transparent;
   box-shadow: none;
+}
+
+.provider-detail-identity,
+.provider-detail-meta {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.provider-detail-identity {
+  gap: 6px;
 }
 
 .provider-detail-name {
@@ -31,20 +43,64 @@
   border-radius: 50%;
   flex: 0 0 auto;
   background: var(--target-green);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--target-green) 13%, transparent);
+}
+
+.provider-detail-dot.offline,
+.provider-detail-dot.pending,
+.provider-detail-dot.error {
+  box-shadow: none;
 }
 
 .provider-detail-dot.offline {
   background: var(--track);
 }
 
+.provider-detail-dot.pending {
+  background: #ff9500;
+}
+
+.provider-detail-dot.error {
+  background: #ff3b30;
+}
+
+.provider-detail-state {
+  overflow: hidden;
+  color: var(--sub);
+  font-size: 10.5px;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .provider-detail-spacer {
   flex: 1;
 }
 
-.provider-detail-status {
+.provider-detail-meta {
+  justify-content: flex-end;
+  gap: 4px;
+  max-width: 58%;
   color: var(--sub);
   font-size: 11px;
   font-weight: 500;
+  white-space: nowrap;
+}
+
+.provider-detail-plan {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.provider-detail-divider {
+  opacity: 0.55;
+}
+
+.provider-detail-status {
+  flex: 0 0 auto;
+  color: var(--text);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
 }
 
 .section {
@@ -108,6 +164,69 @@
 .overview-quota-row:hover {
   box-shadow: none;
   border-color: var(--line);
+}
+
+.overview-quota-row {
+  position: relative;
+  cursor: pointer;
+}
+
+.overview-quota-row.primary {
+  margin: 3px 0;
+  padding: 11px 10px 10px;
+  overflow: hidden;
+  border: 0;
+  border-radius: 9px;
+  background:
+    linear-gradient(105deg, color-mix(in srgb, var(--acc) 10%, transparent), transparent 72%),
+    color-mix(in srgb, var(--card) 96%, var(--acc));
+  box-shadow: inset 0 0 0 0.5px color-mix(in srgb, var(--acc) 24%, var(--line));
+}
+
+.overview-quota-row.primary + .overview-quota-row {
+  border-top: 0;
+}
+
+.quota-card.featured {
+  margin: 3px 0;
+  padding: 11px 10px 10px;
+  border: 0;
+  border-radius: 9px;
+  background:
+    linear-gradient(105deg, color-mix(in srgb, var(--acc) 9%, transparent), transparent 72%),
+    color-mix(in srgb, var(--card) 96%, var(--acc));
+  box-shadow: inset 0 0 0 0.5px color-mix(in srgb, var(--acc) 22%, var(--line));
+}
+
+.quota-card.featured + .quota-card {
+  border-top: 0;
+}
+
+.account-strip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 6px 2px 0;
+  padding: 5px 10px;
+  color: var(--sub);
+  font-size: 10.5px;
+}
+
+.account-strip-label {
+  flex: 0 0 auto;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.account-strip-value {
+  min-width: 0;
+  margin-left: auto;
+  overflow: hidden;
+  color: var(--text);
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .quota-header {
@@ -178,6 +297,35 @@
 
 .quota-pace.warning {
   color: #e8850c;
+}
+
+.error-context {
+  display: block;
+  margin-top: 2px;
+  color: color-mix(in srgb, currentColor 72%, var(--text));
+  font-size: 10.5px;
+  font-weight: 500;
+}
+
+.offline-panel.connected {
+  background:
+    linear-gradient(145deg, color-mix(in srgb, var(--target-green) 9%, transparent), transparent 66%),
+    var(--card);
+}
+
+.offline-panel.connected .offline-tile {
+  background: linear-gradient(145deg, #37c982, #0a84ff);
+}
+
+.antigravity-error {
+  margin-top: 8px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .progress-fill,
+  .budget-fill {
+    transition: none;
+  }
 }
 
 .smart-tip {

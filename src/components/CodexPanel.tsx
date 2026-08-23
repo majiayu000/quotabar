@@ -408,7 +408,14 @@ export default function CodexPanel({
                         {Math.round(rateLimits.primary.usedPercent)}%
                       </span>
                     </div>
-                    <div className="progress-bar">
+                    <div
+                      className="progress-bar"
+                      role="progressbar"
+                      aria-label={`${formatWindowLabel(rateLimits.primary.windowMinutes, 'primary')} usage`}
+                      aria-valuemin={0}
+                      aria-valuemax={100}
+                      aria-valuenow={Math.round(rateLimits.primary.usedPercent)}
+                    >
                       <div
                         className="progress-fill"
                         style={getProgressStyle(rateLimits.primary.usedPercent)}
@@ -446,7 +453,14 @@ export default function CodexPanel({
                         {Math.round(rateLimits.secondary.usedPercent)}%
                       </span>
                     </div>
-                    <div className="progress-bar">
+                    <div
+                      className="progress-bar"
+                      role="progressbar"
+                      aria-label={`${formatWindowLabel(rateLimits.secondary.windowMinutes, 'secondary')} usage`}
+                      aria-valuemin={0}
+                      aria-valuemax={100}
+                      aria-valuenow={Math.round(rateLimits.secondary.usedPercent)}
+                    >
                       <div
                         className="progress-fill"
                         style={getProgressStyle(rateLimits.secondary.usedPercent)}

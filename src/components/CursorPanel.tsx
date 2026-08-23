@@ -112,6 +112,9 @@ export default function CursorPanel({
   const resetLabel = formatResetDate(cursorData?.resetAt);
   const windows = buildCursorQuotaWindows(cursorData);
   const topWindow = sortMostConstrained(windows)[0];
+  const includedRequestValue = cursorData?.fastUsed != null && cursorData.fastLimit != null
+    ? `${cursorData.fastUsed} / ${cursorData.fastLimit}${percentage != null ? ` · ${Math.round(percentage)}%` : ''}`
+    : null;
 
   return (
     <div className="codex-panel">
@@ -139,12 +142,17 @@ export default function CursorPanel({
                 <div className="quota-card">
                   <div className="quota-header">
                     <span className="quota-label">Included requests</span>
-                    <span className="quota-value">
-                      {percentage != null ? `${Math.round(percentage)}%` : `${cursorData.fastUsed} / ${cursorData.fastLimit}`}
-                    </span>
+                    <span className="quota-value">{includedRequestValue}</span>
                   </div>
                   {percentage != null && (
-                    <div className="progress-bar">
+                    <div
+                      className="progress-bar"
+                      role="progressbar"
+                      aria-label="Cursor included request usage"
+                      aria-valuemin={0}
+                      aria-valuemax={100}
+                      aria-valuenow={Math.round(percentage)}
+                    >
                       <div className="progress-fill" style={getProgressStyle(percentage)} />
                     </div>
                   )}
@@ -161,15 +169,14 @@ export default function CursorPanel({
                 </div>
               )}
 
-              {cursorData.email && (
-                <div className="quota-card">
-                  <div className="quota-header">
-                    <span className="quota-label">Account</span>
-                    <span className="quota-value email">{cursorData.email}</span>
-                  </div>
-                </div>
-              )}
             </div>
+
+            {cursorData.email && (
+              <div className="account-strip">
+                <span className="account-strip-label">Account</span>
+                <span className="account-strip-value" title={cursorData.email}>{cursorData.email}</span>
+              </div>
+            )}
           </div>
 
           {sections.tips && <SmartTip message={getHighUsageTip(windows)} />}

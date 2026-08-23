@@ -3,25 +3,49 @@ import type { TrayServiceName } from '../services/tray_visibility';
 
 interface ProviderDetailHeaderProps {
   service: TrayServiceName;
+  label?: string;
   status: string;
   plan?: string;
   usedPercent?: number | null;
+  tone?: 'online' | 'offline' | 'pending' | 'error';
+}
+
+function inferTone(status: string): NonNullable<ProviderDetailHeaderProps['tone']> {
+  const normalized = status.toLowerCase();
+  if (normalized.includes('error') || normalized.includes('unavailable')) return 'error';
+  if (normalized.includes('offline') || normalized.includes('not connected')) return 'offline';
+  if (normalized.includes('pending') || normalized.includes('checking') || normalized.includes('stale')) return 'pending';
+  return 'online';
 }
 
 export default function ProviderDetailHeader({
   service,
+  label,
   status,
   plan,
-  usedPercent: _usedPercent,
+  usedPercent,
+  tone = inferTone(status),
 }: ProviderDetailHeaderProps) {
   const meta = SERVICE_META[service];
+  const usage = typeof usedPercent === 'number' && Number.isFinite(usedPercent)
+    ? `${Math.round(usedPercent)}% used`
+    : null;
 
   return (
     <div className="provider-detail-header">
-      <span className="provider-detail-name">{meta.label}</span>
-      <span className={`provider-detail-dot ${status === 'Offline' || status === 'Pending' ? 'offline' : ''}`} />
+      <div className="provider-detail-identity">
+        <span className="provider-detail-name">{label ?? meta.label}</span>
+        <span className={`provider-detail-dot ${tone}`} aria-hidden="true" />
+        <span className="provider-detail-state">{status}</span>
+      </div>
       <span className="provider-detail-spacer" />
-      <span className="provider-detail-status">{plan || status}</span>
+      {(plan || usage) && (
+        <div className="provider-detail-meta">
+          {plan && <span className="provider-detail-plan">{plan}</span>}
+          {plan && usage && <span className="provider-detail-divider" aria-hidden="true">·</span>}
+          {usage && <span className="provider-detail-status">{usage}</span>}
+        </div>
+      )}
     </div>
   );
 }
