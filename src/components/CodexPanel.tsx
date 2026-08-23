@@ -1,5 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
-import { useRef } from 'react';
+import { useEffect, useState, useCallback, useRef, type CSSProperties } from 'react';
 import { backend } from '../services/backend';
 import CostSummarySection from './CostSummarySection';
 import ProviderDetailHeader from './ProviderDetailHeader';
@@ -564,18 +563,43 @@ export default function CodexPanel({
                 <div className="quota-card weekly-value-card">
                   {displayedWeeklyValueEstimate ? (
                     <>
-                      <div className="quota-header">
-                        <span className="quota-label">API-equivalent week</span>
-                        <span className="quota-value">
-                          ≈{USD_FORMAT.format(displayedWeeklyValueEstimate.estimatedWeeklyValueUsd)}
+                      <div className="weekly-value-topline">
+                        <span className="weekly-value-title">
+                          <span className="weekly-value-dot" />
+                          API-equivalent week
                         </span>
+                        <span className="weekly-value-badge">Local estimate</span>
                       </div>
-                      <span className="quota-estimate-tokens">
-                        ≈{COMPACT_TOKEN_FORMAT.format(displayedWeeklyValueEstimate.estimatedWeeklyTokens)} tokens at current mix
-                      </span>
-                      <span className="quota-estimate-note">
-                        Estimated from local usage · not an official allowance
-                      </span>
+                      <div className="weekly-value-body">
+                        <div className="weekly-value-metrics">
+                          <span className="weekly-value-amount">
+                          ≈{USD_FORMAT.format(displayedWeeklyValueEstimate.estimatedWeeklyValueUsd)}
+                          </span>
+                          <span className="weekly-value-token-row">
+                            <strong>
+                              ≈{COMPACT_TOKEN_FORMAT.format(displayedWeeklyValueEstimate.estimatedWeeklyTokens)}
+                            </strong>
+                            <span>tokens at current mix</span>
+                          </span>
+                        </div>
+                        <div
+                          className="weekly-value-gauge"
+                          role="img"
+                          aria-label={`Estimate based on ${Math.round(displayedWeeklyValueEstimate.usedPct)}% used`}
+                          style={{
+                            '--weekly-value-used': `${Math.min(Math.max(displayedWeeklyValueEstimate.usedPct, 0), 100)}%`,
+                          } as CSSProperties}
+                        >
+                          <span className="weekly-value-gauge-center">
+                            <strong>{Math.round(displayedWeeklyValueEstimate.usedPct)}%</strong>
+                            <small>used</small>
+                          </span>
+                        </div>
+                      </div>
+                      <div className="weekly-value-footer">
+                        <span>Projected from local usage</span>
+                        <span>Not an official allowance</span>
+                      </div>
                     </>
                   ) : (
                     <span className="quota-pace warning">

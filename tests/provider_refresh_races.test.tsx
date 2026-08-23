@@ -386,7 +386,12 @@ describe('Codex weekly pace', () => {
     expect(rendered_text(renderer)).toContain('$200.00');
     expect(rendered_text(renderer)).toContain('4M');
     expect(rendered_text(renderer)).toContain('tokens at current mix');
-    expect(rendered_text(renderer)).toContain('not an official allowance');
+    expect(rendered_text(renderer)).toContain('Local estimate');
+    expect(rendered_text(renderer)).toContain('Projected from local usage');
+    expect(rendered_text(renderer)).toContain('Not an official allowance');
+    expect(renderer.root.findByProps({
+      'aria-label': 'Estimate based on 40% used',
+    })).toBeDefined();
     expect(rendered_text(renderer)).not.toContain('Estimated depletion');
     const weekly_value_card = renderer.root.findByProps({
       className: 'quota-card weekly-value-card',
