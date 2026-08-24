@@ -74,6 +74,7 @@ export default function ClaudePanel({
             status={error ? 'Stale data' : quota.connected ? 'Connected' : 'Offline'}
             plan="Claude Code"
             usedPercent={topWindow?.usedPercent ?? null}
+            usageLabel={topWindow?.label}
             tone={error ? 'pending' : quota.connected ? 'online' : 'offline'}
           />
 

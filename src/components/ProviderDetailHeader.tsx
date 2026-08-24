@@ -7,6 +7,7 @@ interface ProviderDetailHeaderProps {
   status: string;
   plan?: string;
   usedPercent?: number | null;
+  usageLabel?: string;
   tone?: 'online' | 'offline' | 'pending' | 'error';
 }
 
@@ -24,11 +25,12 @@ export default function ProviderDetailHeader({
   status,
   plan,
   usedPercent,
+  usageLabel,
   tone = inferTone(status),
 }: ProviderDetailHeaderProps) {
   const meta = SERVICE_META[service];
   const usage = typeof usedPercent === 'number' && Number.isFinite(usedPercent)
-    ? `${Math.round(usedPercent)}% used`
+    ? `${usageLabel ? `${usageLabel} · ` : ''}${Math.round(usedPercent)}% used`
     : null;
 
   return (

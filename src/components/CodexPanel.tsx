@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import { useRef } from 'react';
 import { backend } from '../services/backend';
 import CostSummarySection from './CostSummarySection';
 import ProviderDetailHeader from './ProviderDetailHeader';
@@ -14,7 +15,7 @@ import type {
 } from '../types/models';
 import { buildCodexQuotaWindows, sortMostConstrained, type QuotaWindowSummary } from '../services/provider_summary';
 import { getAvailableResetCredits, getHighUsageTip } from '../services/detail_helpers';
-import { formatPaceText, formatPlanType, formatResetTime, getProgressStyle } from '../utils/quota_format';
+import { clampProgressValue, formatPaceText, formatPlanType, formatResetTime, getProgressStyle } from '../utils/quota_format';
 import { defaultPanelSections, type PanelSectionVisibility } from '../services/panel_sections';
 import { useLatestRequestGeneration } from '../hooks/use_latest_request_generation';
 
@@ -235,6 +236,8 @@ export default function CodexPanel({
   const [weeklyQuotaError, setWeeklyQuotaError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [rateLimitsError, setRateLimitsError] = useState<string | null>(null);
+  const hasResolvedData = useRef(false);
   const request_generation = useLatestRequestGeneration();
   const weekly_request_generation = useLatestRequestGeneration();
 
@@ -259,6 +262,7 @@ export default function CodexPanel({
     try {
       setLoading(true);
       setError(null);
+      setRateLimitsError(null);
       void fetchWeeklyQuota();
 
       const [info, limits, credits] = await Promise.all([
@@ -268,6 +272,7 @@ export default function CodexPanel({
       ]);
       if (!request_generation.isCurrent(generation)) return;
 
+      hasResolvedData.current = true;
       setCodexData(info);
       setRateLimits(limits);
       onQuotaWindowsChange?.(buildCodexQuotaWindows(limits));
@@ -275,6 +280,7 @@ export default function CodexPanel({
 
       if (limits.error) {
         setError(limits.error);
+        setRateLimitsError(limits.error);
       } else if (info.error) {
         setError(info.error);
       }
@@ -287,10 +293,14 @@ export default function CodexPanel({
       onUsageChange?.(getTrayUsedPercent(limits));
     } catch (err) {
       if (!request_generation.isCurrent(generation)) return;
-      setError(err instanceof Error ? err.message : 'Failed to fetch Codex data');
-      onConnectionChange?.(false);
-      onUsageChange?.(null);
-      onQuotaWindowsChange?.([]);
+      const message = err instanceof Error ? err.message : 'Failed to fetch Codex data';
+      setError(message);
+      setRateLimitsError(message);
+      if (!hasResolvedData.current) {
+        onConnectionChange?.(false);
+        onUsageChange?.(null);
+        onQuotaWindowsChange?.([]);
+      }
     } finally {
       if (request_generation.isCurrent(generation)) {
         setLoading(false);
@@ -334,11 +344,13 @@ export default function CodexPanel({
     );
   }
 
-  const hasRateLimits = rateLimits?.primary || rateLimits?.secondary;
+  const hasRateLimits = Boolean(rateLimits?.primary || rateLimits?.secondary);
   const connected = rateLimits?.connected || codexData?.connected;
   const planType = rateLimits?.planType || codexData?.planType;
   const windows = buildCodexQuotaWindows(rateLimits);
   const topWindow = sortMostConstrained(windows)[0];
+  const showingStaleLimits = Boolean(rateLimitsError && hasRateLimits);
+  const quotaUnavailable = Boolean(rateLimitsError && !hasRateLimits);
   const availableResetCredits = getAvailableResetCredits(resetCredits);
   const bonusGrantGroups = buildBonusGrantGroups(availableResetCredits);
   const officialWeeklyWindow = selectOfficialWeeklyWindow(rateLimits, weeklyQuota);
@@ -379,7 +391,10 @@ export default function CodexPanel({
       {error && (
         <div className="error-banner">
           <span className="error-icon">!</span>
-          <span className="error-text">{error}</span>
+          <span className="error-text">
+            {error}
+            {showingStaleLimits && <span className="error-context">Showing last known data.</span>}
+          </span>
         </div>
       )}
 
@@ -387,9 +402,11 @@ export default function CodexPanel({
         <div className="codex-content">
           <ProviderDetailHeader
             service="codex"
-            status={connected ? 'Connected' : 'Offline'}
+            status={showingStaleLimits ? 'Stale data' : quotaUnavailable ? 'Quota unavailable' : connected ? 'Connected' : 'Offline'}
             plan={formatCodexPlan(planType)}
             usedPercent={topWindow?.usedPercent ?? null}
+            usageLabel={topWindow?.label}
+            tone={showingStaleLimits ? 'pending' : quotaUnavailable ? 'error' : connected ? 'online' : 'offline'}
           />
 
           {/* Rate Limits Section */}
@@ -414,7 +431,8 @@ export default function CodexPanel({
                       aria-label={`${formatWindowLabel(rateLimits.primary.windowMinutes, 'primary')} usage`}
                       aria-valuemin={0}
                       aria-valuemax={100}
-                      aria-valuenow={Math.round(rateLimits.primary.usedPercent)}
+                      aria-valuenow={clampProgressValue(rateLimits.primary.usedPercent)}
+                      aria-valuetext={`${Math.round(rateLimits.primary.usedPercent)}% used`}
                     >
                       <div
                         className="progress-fill"
@@ -459,7 +477,8 @@ export default function CodexPanel({
                       aria-label={`${formatWindowLabel(rateLimits.secondary.windowMinutes, 'secondary')} usage`}
                       aria-valuemin={0}
                       aria-valuemax={100}
-                      aria-valuenow={Math.round(rateLimits.secondary.usedPercent)}
+                      aria-valuenow={clampProgressValue(rateLimits.secondary.usedPercent)}
+                      aria-valuetext={`${Math.round(rateLimits.secondary.usedPercent)}% used`}
                     >
                       <div
                         className="progress-fill"
