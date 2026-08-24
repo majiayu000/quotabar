@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>QuotaBar — AI quota, right in your menu bar</title>
+<meta name="description" content="QuotaBar is a lightweight menubar app that tracks live usage quota for Claude Code, Codex, Cursor, and Antigravity — with per-provider tray indicators and local cost estimates." />
+<link rel="icon" type="image/svg+xml" href="assets/app-icon.svg" />
+<style>
+  :root {
+    --bg: #0b1220;
+    --bg-soft: #101a2e;
+    --card: #131f36;
+    --card-border: #223152;
+    --text: #e6edf7;
+    --text-dim: #93a4bd;
+    --text-faint: #64748b;
+    --accent: #38bdf8;
+    --green: #22c55e;
+    --amber: #f59e0b;
+    --red: #ef4444;
+    --violet: #a78bfa;
+    --radius: 16px;
+    --maxw: 1080px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI",
+      Roboto, "Helvetica Neue", Arial, sans-serif;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  .wrap { max-width: var(--maxw); margin: 0 auto; padding: 0 24px; }
+
+  /* ---------- Nav ---------- */
+  nav {
+    position: sticky; top: 0; z-index: 50;
+    backdrop-filter: blur(14px);
+    background: rgba(11, 18, 32, 0.72);
+    border-bottom: 1px solid rgba(148, 163, 184, 0.08);
+  }
+  nav .wrap {
+    display: flex; align-items: center; gap: 10px;
+    height: 60px;
+  }
+  nav img { width: 28px; height: 28px; }
+  nav .brand { font-weight: 700; font-size: 17px; letter-spacing: 0.2px; }
+  nav .spacer { flex: 1; }
+  nav .links { display: flex; gap: 22px; align-items: center; font-size: 14px; }
+  nav .links a { color: var(--text-dim); }
+  nav .links a:hover { color: var(--text); text-decoration: none; }
+  .gh-btn {
+    display: inline-flex; align-items: center; gap: 7px;
+    border: 1px solid var(--card-border);
+    border-radius: 999px;
+    padding: 6px 14px;
+    color: var(--text) !important;
+    font-weight: 600;
+    background: var(--bg-soft);
+    transition: border-color 0.15s ease;
+  }
+  .gh-btn:hover { border-color: var(--accent); text-decoration: none; }
+  .gh-btn svg { width: 16px; height: 16px; fill: currentColor; }
+
+  /* ---------- Hero ---------- */
+  header.hero {
+    position: relative;
+    overflow: hidden;
+    padding: 96px 0 80px;
+  }
+  header.hero::before {
+    content: "";
+    position: absolute; inset: -40% -20% auto;
+    height: 640px;
+    background:
+      radial-gradient(520px 320px at 28% 30%, rgba(56, 189, 248, 0.16), transparent 70%),
+      radial-gradient(480px 300px at 74% 24%, rgba(167, 139, 250, 0.13), transparent 70%);
+    pointer-events: none;
+  }
+  .hero-grid {
+    position: relative;
+    display: grid;
+    grid-template-columns: 1.15fr 0.85fr;
+    gap: 56px;
+    align-items: center;
+  }
+  .badge {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: 13px; color: var(--text-dim);
+    border: 1px solid var(--card-border);
+    background: rgba(19, 31, 54, 0.7);
+    padding: 5px 12px; border-radius: 999px;
+    margin-bottom: 22px;
+  }
+  .badge .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); }
+  h1 {
+    font-size: clamp(34px, 5vw, 52px);
+    line-height: 1.12;
+    letter-spacing: -0.02em;
+    margin-bottom: 18px;
+  }
+  h1 .grad {
+    background: linear-gradient(92deg, #38bdf8, #a78bfa 70%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .hero p.lede {
+    font-size: 17px; color: var(--text-dim);
+    max-width: 520px; margin-bottom: 30px;
+  }
+  .cta-row { display: flex; gap: 14px; flex-wrap: wrap; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 9px;
+    padding: 12px 22px; border-radius: 12px;
+    font-weight: 650; font-size: 15px;
+    transition: transform 0.12s ease, box-shadow 0.12s ease;
+  }
+  .btn:hover { text-decoration: none; transform: translateY(-1px); }
+  .btn-primary {
+    background: linear-gradient(180deg, #38bdf8, #0ea5e9);
+    color: #04121f;
+    box-shadow: 0 8px 24px rgba(14, 165, 233, 0.35);
+  }
+  .btn-ghost {
+    border: 1px solid var(--card-border);
+    color: var(--text);
+    background: var(--bg-soft);
+  }
+  .hero .meta {
+    margin-top: 26px; font-size: 13px; color: var(--text-faint);
+    display: flex; gap: 18px; flex-wrap: wrap;
+  }
+  .hero .meta span { display: inline-flex; align-items: center; gap: 6px; }
+
+  /* ---------- Popover mockup ---------- */
+  .popover {
+    position: relative;
+    background: linear-gradient(180deg, rgba(30, 41, 59, 0.85), rgba(15, 23, 42, 0.92));
+    border: 1px solid rgba(148, 163, 184, 0.16);
+    border-radius: 22px;
+    padding: 18px;
+    box-shadow: 0 30px 80px rgba(2, 6, 17, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(10px);
+    transform: rotate(1.2deg);
+  }
+  .popover .tiles {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;
+    margin-bottom: 16px;
+  }
+  .tile {
+    background: rgba(148, 163, 184, 0.08);
+    border: 1px solid rgba(148, 163, 184, 0.12);
+    border-radius: 14px;
+    padding: 10px 8px 12px;
+    text-align: center;
+  }
+  .tile .ico {
+    width: 34px; height: 34px; margin: 0 auto 8px;
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 17px; font-weight: 700; color: #0b1220;
+  }
+  .tile .val { font-size: 15px; font-weight: 700; }
+  .tile .bar {
+    margin-top: 7px; height: 4px; border-radius: 4px;
+    background: rgba(148, 163, 184, 0.18); overflow: hidden;
+  }
+  .tile .bar i { display: block; height: 100%; border-radius: 4px; }
+  .tile.active { outline: 2px solid rgba(56, 189, 248, 0.5); }
+
+  .quota-card {
+    background: rgba(2, 6, 23, 0.45);
+    border: 1px solid rgba(148, 163, 184, 0.1);
+    border-radius: 16px;
+    padding: 14px 16px;
+  }
+  .quota-card h4 { font-size: 13px; color: var(--text-dim); font-weight: 600; margin-bottom: 12px; }
+  .qrow { margin-bottom: 12px; }
+  .qrow:last-child { margin-bottom: 0; }
+  .qrow .lbl {
+    display: flex; justify-content: space-between;
+    font-size: 12.5px; color: var(--text-dim); margin-bottom: 5px;
+  }
+  .qrow .lbl b { color: var(--text); font-variant-numeric: tabular-nums; }
+  .qrow .track {
+    height: 6px; border-radius: 6px;
+    background: rgba(148, 163, 184, 0.15); overflow: hidden;
+  }
+  .qrow .track i { display: block; height: 100%; border-radius: 6px; }
+
+  .popover .foot {
+    display: flex; align-items: center; gap: 14px;
+    margin-top: 14px; padding-top: 12px;
+    border-top: 1px solid rgba(148, 163, 184, 0.1);
+    font-size: 12.5px; color: var(--text-faint);
+  }
+  .popover .foot .cost { margin-left: auto; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+
+  /* ---------- Sections ---------- */
+  section { padding: 84px 0; }
+  section + section { border-top: 1px solid rgba(148, 163, 184, 0.07); }
+  .kicker {
+    font-size: 13px; font-weight: 700; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--accent); margin-bottom: 12px;
+  }
+  h2 { font-size: clamp(26px, 3.4vw, 36px); letter-spacing: -0.02em; margin-bottom: 14px; }
+  .section-lede { color: var(--text-dim); max-width: 640px; margin-bottom: 44px; }
+
+  .grid { display: grid; gap: 18px; }
+  .grid.cols-3 { grid-template-columns: repeat(3, 1fr); }
+  .grid.cols-2 { grid-template-columns: repeat(2, 1fr); }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius);
+    padding: 24px;
+    transition: border-color 0.15s ease, transform 0.15s ease;
+  }
+  .card:hover { border-color: #33507f; transform: translateY(-2px); }
+  .card .glyph {
+    width: 42px; height: 42px; border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px; margin-bottom: 16px;
+    background: rgba(56, 189, 248, 0.12);
+  }
+  .card h3 { font-size: 17px; margin-bottom: 8px; }
+  .card p { font-size: 14.5px; color: var(--text-dim); }
+
+  /* providers */
+  .provider { display: flex; flex-direction: column; gap: 10px; }
+  .provider .head { display: flex; align-items: center; gap: 12px; }
+  .provider .p-ico {
+    width: 40px; height: 40px; border-radius: 11px;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 800; font-size: 16px; color: #0b1220;
+  }
+  .provider h3 { font-size: 16px; margin: 0; }
+  .provider .tag {
+    font-size: 11px; color: var(--text-faint);
+    border: 1px solid var(--card-border); border-radius: 999px;
+    padding: 2px 9px; margin-left: auto;
+  }
+  .provider ul { list-style: none; font-size: 13.5px; color: var(--text-dim); }
+  .provider li { padding: 3px 0 3px 18px; position: relative; }
+  .provider li::before { content: "—"; position: absolute; left: 0; color: var(--text-faint); }
+
+  .bg-claude { background: linear-gradient(135deg, #fb923c, #ea580c); }
+  .bg-codex { background: linear-gradient(135deg, #4ade80, #16a34a); }
+  .bg-cursor { background: linear-gradient(135deg, #93c5fd, #3b82f6); }
+  .bg-anti { background: linear-gradient(135deg, #c4b5fd, #8b5cf6); }
+
+  /* tray strip */
+  .tray-strip {
+    display: flex; align-items: center; gap: 10px;
+    background: rgba(2, 6, 23, 0.6);
+    border: 1px solid var(--card-border);
+    border-radius: 999px;
+    padding: 10px 18px;
+    width: max-content; max-width: 100%;
+    margin: 0 auto 40px;
+    font-size: 13px; color: var(--text-dim);
+    box-shadow: 0 -14px 40px rgba(2, 6, 17, 0.45);
+    flex-wrap: wrap; justify-content: center;
+  }
+  .tray-pill {
+    display: inline-flex; align-items: center; gap: 7px;
+    background: rgba(148, 163, 184, 0.1);
+    border-radius: 999px; padding: 4px 12px;
+    font-variant-numeric: tabular-nums; font-weight: 600; color: var(--text);
+  }
+  .tray-pill .sw { width: 9px; height: 9px; border-radius: 3px; }
+
+  /* steps */
+  .steps { counter-reset: step; display: grid; gap: 14px; }
+  .step {
+    display: flex; gap: 18px; align-items: flex-start;
+    background: var(--card); border: 1px solid var(--card-border);
+    border-radius: var(--radius); padding: 20px 24px;
+  }
+  .step::before {
+    counter-increment: step; content: counter(step);
+    flex: 0 0 34px; height: 34px; border-radius: 50%;
+    background: rgba(56, 189, 248, 0.14); color: var(--accent);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 800; font-size: 15px;
+  }
+  .step h3 { font-size: 15.5px; margin-bottom: 4px; }
+  .step p { font-size: 14px; color: var(--text-dim); }
+  .step code, .inline-code {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 12.5px;
+    background: rgba(148, 163, 184, 0.12);
+    border: 1px solid rgba(148, 163, 184, 0.14);
+    padding: 2px 7px; border-radius: 7px;
+    color: #bae6fd;
+  }
+
+  pre.term {
+    background: #060b16;
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius);
+    padding: 20px 22px;
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 13.5px; line-height: 1.8;
+    overflow-x: auto;
+    color: #cbd5e1;
+  }
+  pre.term .c { color: var(--text-faint); }
+  pre.term .p { color: var(--accent); }
+
+  /* footer */
+  footer {
+    border-top: 1px solid rgba(148, 163, 184, 0.08);
+    padding: 40px 0 56px;
+    color: var(--text-faint); font-size: 13.5px;
+  }
+  footer .wrap { display: flex; gap: 24px; align-items: center; flex-wrap: wrap; }
+  footer img { width: 26px; height: 26px; opacity: 0.85; }
+  footer .right { margin-left: auto; display: flex; gap: 20px; }
+
+  @media (max-width: 900px) {
+    .hero-grid { grid-template-columns: 1fr; }
+    .popover { transform: none; max-width: 480px; }
+    .grid.cols-3 { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 620px) {
+    .grid.cols-3, .grid.cols-2 { grid-template-columns: 1fr; }
+    nav .links a:not(.gh-btn) { display: none; }
+    section { padding: 60px 0; }
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <img src="assets/app-icon.svg" alt="QuotaBar logo" />
+    <span class="brand">QuotaBar</span>
+    <span class="spacer"></span>
+    <div class="links">
+      <a href="#features">Features</a>
+      <a href="#providers">Providers</a>
+      <a href="#install">Install</a>
+      <a class="gh-btn" href="https://github.com/majiayu000/quotabar">
+        <svg viewBox="0 0 16 16"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>
+        GitHub
+      </a>
+    </div>
+  </div>
+</nav>
+
+<header class="hero">
+  <div class="wrap hero-grid">
+    <div>
+      <span class="badge"><span class="dot"></span> v0.2.0 · macOS &amp; Windows · MIT</span>
+      <h1>Your AI quota,<br /><span class="grad">right in the menu bar.</span></h1>
+      <p class="lede">
+        QuotaBar is a lightweight Tauri menubar app that watches your Claude Code,
+        Codex, Cursor, and Antigravity usage — live quota windows, per-provider tray
+        indicators, and local cost estimates computed on-device.
+      </p>
+      <div class="cta-row">
+        <a class="btn btn-primary" href="https://github.com/majiayu000/quotabar/releases/latest">
+          ↓ Download latest release
+        </a>
+        <a class="btn btn-ghost" href="https://github.com/majiayu000/quotabar">View on GitHub</a>
+      </div>
+      <div class="meta">
+        <span>✦ No account data leaves your machine</span>
+        <span>✦ Read-only OAuth</span>
+        <span>✦ 60s background refresh</span>
+      </div>
+    </div>
+
+    <!-- Pure-CSS preview of the popover UI -->
+    <div class="popover" aria-hidden="true">
+      <div class="tiles">
+        <div class="tile">
+          <div class="ico bg-claude">C</div>
+          <div class="val">42%</div>
+          <div class="bar"><i style="width:42%;background:var(--green)"></i></div>
+        </div>
+        <div class="tile active">
+          <div class="ico bg-codex">⌘</div>
+          <div class="val">67%</div>
+          <div class="bar"><i style="width:67%;background:var(--amber)"></i></div>
+        </div>
+        <div class="tile">
+          <div class="ico bg-cursor">▣</div>
+          <div class="val">18%</div>
+          <div class="bar"><i style="width:18%;background:var(--green)"></i></div>
+        </div>
+        <div class="tile">
+          <div class="ico bg-anti">✦</div>
+          <div class="val">—</div>
+          <div class="bar"><i style="width:0%"></i></div>
+        </div>
+      </div>
+      <div class="quota-card">
+        <h4>Codex · usage windows</h4>
+        <div class="qrow">
+          <div class="lbl"><span>5-hour window</span><b>67% · resets in 2h 14m</b></div>
+          <div class="track"><i style="width:67%;background:var(--amber)"></i></div>
+        </div>
+        <div class="qrow">
+          <div class="lbl"><span>Weekly window</span><b>31% · resets in 4d 6h</b></div>
+          <div class="track"><i style="width:31%;background:var(--green)"></i></div>
+        </div>
+      </div>
+      <div class="foot">
+        <span>⟳ Refresh</span><span>Dashboard ↗</span><span>⚙</span>
+        <span class="cost">Today ≈ $3.42 · Week ≈ $21.07</span>
+      </div>
+    </div>
+  </div>
+</header>
+
+<section id="features">
+  <div class="wrap">
+    <p class="kicker">Features</p>
+    <h2>Everything you need to not hit the wall</h2>
+    <p class="section-lede">
+      QuotaBar polls your providers in the background, keeps the numbers in your menu
+      bar, and estimates what your usage costs — all from local data.
+    </p>
+    <div class="grid cols-3">
+      <div class="card">
+        <div class="glyph">📊</div>
+        <h3>Live quota windows</h3>
+        <p>Real-data 5-hour, 7-day, Opus, Sonnet, and weekly windows per provider, with reset times shown as days plus hours when available.</p>
+      </div>
+      <div class="card">
+        <div class="glyph">🖥</div>
+        <h3>Per-provider tray icons</h3>
+        <p>Independent menu bar indicators for each provider. Enable or hide each tray while keeping at least one entry point.</p>
+      </div>
+      <div class="card">
+        <div class="glyph">💰</div>
+        <h3>Local cost estimates</h3>
+        <p>Today, week, and month cost estimates for Claude Code, Codex, and Cursor — derived offline from on-device logs.</p>
+      </div>
+      <div class="card">
+        <div class="glyph">🔒</div>
+        <h3>Read-only credentials</h3>
+        <p>Reads Claude Code OAuth credentials without ever refreshing or writing tokens. Your auth material stays untouched.</p>
+      </div>
+      <div class="card">
+        <div class="glyph">⏱</div>
+        <h3>Smart polling</h3>
+        <p>Refreshes every 60 seconds, backs off to 5 minutes on 429 rate limits and to 1 hour on auth failures, serving stale cache in between.</p>
+      </div>
+      <div class="card">
+        <div class="glyph">🪟</div>
+        <h3>Glass popover &amp; settings</h3>
+        <p>A native-feeling popover shell with provider cards, theme options, macOS Hide Dock, and per-provider tray controls.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="providers">
+  <div class="wrap">
+    <p class="kicker">Providers</p>
+    <h2>One menu bar, four providers</h2>
+    <p class="section-lede">
+      Tray percentages always represent <em>used</em> quota, not remaining — so a full
+      bar means it's time to slow down.
+    </p>
+
+    <div class="tray-strip" aria-hidden="true">
+      <span>Menu bar:</span>
+      <span class="tray-pill"><span class="sw" style="background:#fb923c"></span>42%</span>
+      <span class="tray-pill"><span class="sw" style="background:#4ade80"></span>67%</span>
+      <span class="tray-pill"><span class="sw" style="background:#93c5fd"></span>18%</span>
+      <span class="tray-pill"><span class="sw" style="background:#c4b5fd"></span>—</span>
+    </div>
+
+    <div class="grid cols-2">
+      <div class="card provider">
+        <div class="head">
+          <div class="p-ico bg-claude">C</div>
+          <h3>Claude Code</h3>
+          <span class="tag">Keychain / env token</span>
+        </div>
+        <ul>
+          <li>5-hour, 7-day, Opus, Sonnet &amp; Design windows</li>
+          <li>Tray value prefers weekly total, with model-window fallbacks</li>
+          <li>Auth from <span class="inline-code">claude login</span> keychain entry or <span class="inline-code">CLAUDE_CODE_OAUTH_TOKEN</span></li>
+        </ul>
+      </div>
+      <div class="card provider">
+        <div class="head">
+          <div class="p-ico bg-codex">⌘</div>
+          <h3>Codex</h3>
+          <span class="tag">~/.codex/auth.json</span>
+        </div>
+        <ul>
+          <li>Short and weekly ChatGPT usage windows</li>
+          <li>Reset times shown as days plus hours when available</li>
+          <li>Tray value prefers the secondary window's used percent</li>
+        </ul>
+      </div>
+      <div class="card provider">
+        <div class="head">
+          <div class="p-ico bg-cursor">▣</div>
+          <h3>Cursor</h3>
+          <span class="tag">Sign-in / session token</span>
+        </div>
+        <ul>
+          <li>Signed-in usage and request-limit windows</li>
+          <li>Works with Cursor sign-in or <span class="inline-code">CURSOR_SESSION_TOKEN</span></li>
+          <li>Tray value uses the Cursor quota percentage</li>
+        </ul>
+      </div>
+      <div class="card provider">
+        <div class="head">
+          <div class="p-ico bg-anti">✦</div>
+          <h3>Antigravity</h3>
+          <span class="tag">Status preview</span>
+        </div>
+        <ul>
+          <li>Reports provider availability from your local install</li>
+          <li>Quota window tracking ships in a future release</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="install">
+  <div class="wrap">
+    <p class="kicker">Get started</p>
+    <h2>Up and running in a minute</h2>
+    <p class="section-lede">
+      Download the installer for your platform, or build from source with Node.js and the Rust toolchain.
+    </p>
+    <div class="grid cols-2" style="align-items:start">
+      <div class="steps">
+        <div class="step">
+          <div>
+            <h3>Download the installer</h3>
+            <p>Grab the <code>.dmg</code> for macOS or the <code>.msi</code> / <code>.exe</code> for Windows from <a href="https://github.com/majiayu000/quotabar/releases/latest">GitHub Releases</a>.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div>
+            <h3>Sign in to your providers</h3>
+            <p>QuotaBar reads existing local auth — <code>claude login</code>, <code>~/.codex/auth.json</code>, or a Cursor sign-in. It never manages login flows itself.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div>
+            <h3>Watch the menu bar</h3>
+            <p>Quota indicators appear per provider and refresh every 60 seconds. Click any icon for the full popover dashboard.</p>
+          </div>
+        </div>
+      </div>
+      <div>
+        <pre class="term"><span class="c"># Build from source</span>
+<span class="p">$</span> git clone https://github.com/majiayu000/quotabar.git
+<span class="p">$</span> cd quotabar
+<span class="p">$</span> npm ci
+<span class="p">$</span> npm run tauri dev
+
+<span class="c"># Local macOS app bundle</span>
+<span class="p">$</span> npm run tauri build -- --bundles app</pre>
+        <p style="margin-top:14px;font-size:13.5px;color:var(--text-faint)">
+          Requires macOS or Windows, Node.js with npm, the Rust toolchain, and Tauri prerequisites.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <img src="assets/app-icon.svg" alt="" />
+    <span>QuotaBar · MIT License</span>
+    <div class="right">
+      <a href="https://github.com/majiayu000/quotabar">GitHub</a>
+      <a href="https://github.com/majiayu000/quotabar/issues">Issues</a>
+      <a href="https://github.com/majiayu000/quotabar/releases">Releases</a>
+      <a href="https://github.com/majiayu000/quotabar/blob/main/CHANGELOG.md">Changelog</a>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="80" y1="48" x2="432" y2="464" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#1E293B"/>
+      <stop offset="100%" stop-color="#0F172A"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="32%" r="72%">
+      <stop offset="0%" stop-color="#334155" stop-opacity="0.62"/>
+      <stop offset="100%" stop-color="#0F172A" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="needle" x1="210" y1="300" x2="350" y2="210" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#E2E8F0"/>
+      <stop offset="100%" stop-color="#FFFFFF"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="24" y="24" width="464" height="464" rx="108" fill="url(#bg)"/>
+  <circle cx="256" cy="212" r="190" fill="url(#glow)"/>
+
+  <circle cx="256" cy="256" r="154" fill="none" stroke="#334155" stroke-width="52" stroke-linecap="round"/>
+
+  <path d="M147.106 364.894 A154 154 0 0 1 216.142 107.247" fill="none" stroke="#22C55E" stroke-width="52" stroke-linecap="round"/>
+  <path d="M256 102 A154 154 0 0 1 395.571 190.917" fill="none" stroke="#F59E0B" stroke-width="52" stroke-linecap="round"/>
+  <path d="M407.66 229.258 A154 154 0 0 1 354.989 373.971" fill="none" stroke="#EF4444" stroke-width="52" stroke-linecap="round"/>
+
+  <circle cx="256" cy="256" r="98" fill="#0B1220"/>
+  <path d="M256 256 L349 222" stroke="url(#needle)" stroke-width="20" stroke-linecap="round"/>
+  <circle cx="256" cy="256" r="24" fill="#F8FAFC"/>
+  <circle cx="256" cy="256" r="10" fill="#0F172A"/>
+</svg>
