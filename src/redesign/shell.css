@@ -192,8 +192,9 @@
 }
 
 .provider-card[data-provider="claude"] .provider-card-icon { background: linear-gradient(145deg, #e8916c, #c4552f); }
-.provider-card[data-provider="codex"] .provider-card-icon { background: linear-gradient(145deg, #2ec59a, #0d8a6a); }
+.provider-card[data-provider="codex"] .provider-card-icon { background: linear-gradient(145deg, #4aa3d4, #1f6ea3); }
 .provider-card[data-provider="cursor"] .provider-card-icon { background: linear-gradient(145deg, #52525e, #17171d); }
+.provider-card[data-provider="grok"] .provider-card-icon { background: linear-gradient(145deg, #2a2a2a, #111111); }
 .provider-card[data-provider="antigravity"] .provider-card-icon { background: linear-gradient(145deg, #5a9cff, #8a63f0); }
 .provider-card[data-provider="all"] .provider-card-icon { background: linear-gradient(145deg, #8e9bb3, #4a5568); }
 

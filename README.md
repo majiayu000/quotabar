@@ -7,15 +7,16 @@
   <img src="src-tauri/icons/app-icon.svg" alt="QuotaBar logo" width="128" />
 </p>
 
-QuotaBar is a Tauri v2 menubar app for monitoring Claude Code, Codex, Cursor, and Antigravity usage. It shows live quota windows, per-provider tray indicators, and local cost estimates from on-device logs.
+QuotaBar is a Tauri v2 menubar app for monitoring Claude Code, Codex, Cursor, Grok Build, and Antigravity usage. It shows live quota windows, per-provider tray indicators, and local cost estimates from on-device logs.
 
 ## Features
 
 - Overview: glass popover shell with provider summary tiles and real-data quota windows.
-- Provider switcher: overview plus full-name cards for Claude, Codex, Cursor, and Antigravity.
+- Provider switcher: overview plus full-name cards for Claude, Codex, Cursor, Grok, and Antigravity.
 - Claude quota: 5-hour, 7-day, Opus, Sonnet, and Claude Design windows.
 - Codex quota: short and weekly ChatGPT usage windows, plus a local weekly pace projection sourced from Codex CLI session data.
 - Cursor quota: signed-in Cursor usage and request-limit windows when session data is available.
+- Grok quota: SuperGrok weekly (or monthly) credits pool, product mix for Build/Chat/Imagine/Voice/API, and extra credits when present.
 - Antigravity panel: placeholder provider status while quota tracking is pending.
 - Local cost tracking: today, week, and month estimates for Claude Code, Codex, and Cursor.
 - Per-provider tray icons: independent menu bar indicators for supported providers.
@@ -23,6 +24,7 @@ QuotaBar is a Tauri v2 menubar app for monitoring Claude Code, Codex, Cursor, an
 - Settings view: theme, macOS Hide Dock, and per-provider tray controls keep their existing storage keys.
 - Background polling: refreshes every 60 seconds, backs off to 5 minutes on 429, and backs off to 1 hour on Claude auth failures.
 - Read-only Claude OAuth: reads Claude Code credentials from the correct source, but never refreshes or writes OAuth tokens.
+- Read-only Grok auth: reads `~/.grok/auth.json`, but never refreshes or writes tokens.
 - Hidden-window polling: disables macOS webview throttling so menubar mode keeps working.
 
 ## Demo Proof
@@ -42,6 +44,8 @@ This `v0.3.1` screenshot was refreshed on 2026-08-22 from the production React U
   - falls back to `primary_window.used_percent`
 - Cursor tray value:
   - uses Cursor quota percentage when available
+- Grok tray value:
+  - uses the shared SuperGrok credits pool percent (`creditUsagePercent`)
 - Antigravity tray value:
   - shows provider availability while usage tracking is pending
 - Tray percentages represent used quota, not remaining quota.
@@ -62,6 +66,7 @@ This `v0.3.1` screenshot was refreshed on 2026-08-22 from the production React U
   - `src-tauri/src/services/claude.rs`
   - `src-tauri/src/services/codex.rs`
   - `src-tauri/src/services/cursor.rs`
+  - `src-tauri/src/services/grok.rs`
   - `src-tauri/src/services/antigravity.rs`
   - `src-tauri/src/services/cost.rs`
   - `src-tauri/src/services/http.rs`
@@ -81,6 +86,7 @@ This `v0.3.1` screenshot was refreshed on 2026-08-22 from the production React U
 - Claude Code login for Claude quota and cost data
 - Codex login for Codex quota and cost data
 - Cursor sign-in or `CURSOR_SESSION_TOKEN` for Cursor quota data
+- Grok Build login (`grok login`) for Grok quota data
 - Antigravity installed for Antigravity provider status
 
 ## Development

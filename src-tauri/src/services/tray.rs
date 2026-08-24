@@ -26,10 +26,12 @@ struct TrayRuntimeState {
     claude_generation: u64,
     codex_generation: u64,
     cursor_generation: u64,
+    grok_generation: u64,
     antigravity_generation: u64,
     claude_snapshot: Option<TraySnapshot>,
     codex_snapshot: Option<TraySnapshot>,
     cursor_snapshot: Option<TraySnapshot>,
+    grok_snapshot: Option<TraySnapshot>,
     antigravity_snapshot: Option<TraySnapshot>,
 }
 
@@ -48,6 +50,10 @@ impl TrayRuntimeState {
                 self.cursor_generation = self.cursor_generation.saturating_add(1);
                 self.cursor_generation
             }
+            TrayService::Grok => {
+                self.grok_generation = self.grok_generation.saturating_add(1);
+                self.grok_generation
+            }
             TrayService::Antigravity => {
                 self.antigravity_generation = self.antigravity_generation.saturating_add(1);
                 self.antigravity_generation
@@ -61,6 +67,7 @@ impl TrayRuntimeState {
             TrayService::Claude => self.claude_generation,
             TrayService::Codex => self.codex_generation,
             TrayService::Cursor => self.cursor_generation,
+            TrayService::Grok => self.grok_generation,
             TrayService::Antigravity => self.antigravity_generation,
         }
     }
@@ -70,6 +77,7 @@ impl TrayRuntimeState {
             TrayService::Claude => self.claude_snapshot,
             TrayService::Codex => self.codex_snapshot,
             TrayService::Cursor => self.cursor_snapshot,
+            TrayService::Grok => self.grok_snapshot,
             TrayService::Antigravity => self.antigravity_snapshot,
         }
     }
@@ -88,6 +96,7 @@ impl TrayRuntimeState {
             TrayService::Claude => self.claude_snapshot = Some(snapshot),
             TrayService::Codex => self.codex_snapshot = Some(snapshot),
             TrayService::Cursor => self.cursor_snapshot = Some(snapshot),
+            TrayService::Grok => self.grok_snapshot = Some(snapshot),
             TrayService::Antigravity => self.antigravity_snapshot = Some(snapshot),
         }
     }
@@ -104,6 +113,7 @@ pub enum TrayService {
     Claude,
     Codex,
     Cursor,
+    Grok,
     Antigravity,
 }
 
@@ -113,6 +123,7 @@ impl TrayService {
             Self::Claude => "Claude Code",
             Self::Codex => "Codex",
             Self::Cursor => "Cursor",
+            Self::Grok => "Grok Build",
             Self::Antigravity => "Antigravity",
         }
     }
@@ -122,6 +133,7 @@ impl TrayService {
             Self::Claude => "claude-tray",
             Self::Codex => "codex-tray",
             Self::Cursor => "cursor-tray",
+            Self::Grok => "grok-tray",
             Self::Antigravity => "antigravity-tray",
         }
     }
@@ -131,6 +143,7 @@ impl TrayService {
             Self::Claude => "claude-show",
             Self::Codex => "codex-show",
             Self::Cursor => "cursor-show",
+            Self::Grok => "grok-show",
             Self::Antigravity => "antigravity-show",
         }
     }
@@ -140,6 +153,7 @@ impl TrayService {
             Self::Claude => "claude",
             Self::Codex => "codex",
             Self::Cursor => "cursor",
+            Self::Grok => "grok",
             Self::Antigravity => "antigravity",
         }
     }
@@ -149,6 +163,7 @@ impl TrayService {
             Self::Claude => "claude-quit",
             Self::Codex => "codex-quit",
             Self::Cursor => "cursor-quit",
+            Self::Grok => "grok-quit",
             Self::Antigravity => "antigravity-quit",
         }
     }
@@ -158,6 +173,7 @@ impl TrayService {
             Self::Claude => tray_icon::TrayIconIdentity::Claude,
             Self::Codex => tray_icon::TrayIconIdentity::Codex,
             Self::Cursor => tray_icon::TrayIconIdentity::Cursor,
+            Self::Grok => tray_icon::TrayIconIdentity::Grok,
             Self::Antigravity => tray_icon::TrayIconIdentity::Antigravity,
         }
     }
@@ -319,6 +335,7 @@ fn build_service_tray(app: &AppHandle, service: TrayService) -> tauri::Result<()
 
 pub fn setup_tray(app: &AppHandle) -> tauri::Result<()> {
     build_service_tray(app, TrayService::Antigravity)?;
+    build_service_tray(app, TrayService::Grok)?;
     build_service_tray(app, TrayService::Cursor)?;
     build_service_tray(app, TrayService::Codex)?;
     build_service_tray(app, TrayService::Claude)?;
@@ -332,7 +349,7 @@ pub fn setup_tray(app: &AppHandle) -> tauri::Result<()> {
         });
     }
 
-    println!("[Tray] Ready: claude/codex/cursor/antigravity trays created");
+    println!("[Tray] Ready: claude/codex/cursor/grok/antigravity trays created");
     Ok(())
 }
 

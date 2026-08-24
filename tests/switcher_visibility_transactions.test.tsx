@@ -24,6 +24,7 @@ const harness = vi.hoisted(() => ({
     claude: true,
     codex: false,
     cursor: false,
+    grok: false,
   },
   saved_tab: 'all',
   settings_expanded: true,
@@ -83,6 +84,7 @@ function visibility(
     claude: target === 'claude' ? target_value : peer === 'claude',
     codex: target === 'codex' ? target_value : peer === 'codex',
     cursor: target === 'cursor' ? target_value : peer === 'cursor',
+    grok: target === 'grok' ? target_value : peer === 'grok',
   };
 }
 
@@ -131,6 +133,7 @@ beforeEach(() => {
   vi.spyOn(backend, 'getCodexResetCredits').mockResolvedValue({ connected: true, availableCount: 0, credits: [] });
   vi.spyOn(backend, 'getCodexWeeklyQuota').mockResolvedValue({});
   vi.spyOn(backend, 'getCursorInfo').mockResolvedValue({ connected: true });
+  vi.spyOn(backend, 'getGrokInfo').mockResolvedValue({ connected: true, percentage: 4, products: [] });
   vi.spyOn(backend, 'getAntigravityInfo').mockResolvedValue({ connected: false, status: 'pending' });
   vi.spyOn(backend, 'getCostOverview').mockImplementation(async (source) => ({
     source,

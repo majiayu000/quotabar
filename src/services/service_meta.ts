@@ -11,7 +11,7 @@ export interface ServiceMeta {
   disconnectedHint: string;
 }
 
-export const SERVICES: TrayServiceName[] = ['claude', 'codex', 'cursor', 'antigravity'];
+export const SERVICES: TrayServiceName[] = ['claude', 'codex', 'cursor', 'grok', 'antigravity'];
 
 export const SERVICE_META: Record<TrayServiceName, ServiceMeta> = {
   claude: {
@@ -29,7 +29,7 @@ export const SERVICE_META: Record<TrayServiceName, ServiceMeta> = {
     shortLabel: 'Codex',
     initials: 'Co',
     trayLabel: 'Codex Tray',
-    accent: '#10A37F',
+    accent: '#267BB2',
     disconnectedHint: 'Requires Codex App or CLI login',
   },
   cursor: {
@@ -40,6 +40,15 @@ export const SERVICE_META: Record<TrayServiceName, ServiceMeta> = {
     trayLabel: 'Cursor Tray',
     accent: '#5B5BD6',
     disconnectedHint: 'Requires Cursor sign-in or CURSOR_SESSION_TOKEN',
+  },
+  grok: {
+    id: 'grok',
+    label: 'Grok',
+    shortLabel: 'Grok',
+    initials: 'Gk',
+    trayLabel: 'Grok Tray',
+    accent: '#A1A1AA',
+    disconnectedHint: 'Requires Grok Build login',
   },
   antigravity: {
     id: 'antigravity',

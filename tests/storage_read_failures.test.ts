@@ -248,6 +248,7 @@ describe('user-visible storage readers', () => {
         claude: false,
         codex: false,
         cursor: false,
+        grok: false,
         antigravity: false,
       }),
     });

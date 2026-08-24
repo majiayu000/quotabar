@@ -96,6 +96,31 @@ export interface AntigravityData {
   error?: string;
 }
 
+export interface GrokProductUsage {
+  product: string;
+  label: string;
+  usagePercent: number;
+}
+
+export interface GrokExtraCredits {
+  onDemandUsedCents: number;
+  onDemandCapCents: number;
+  prepaidBalanceCents: number;
+}
+
+export interface GrokData {
+  connected: boolean;
+  planType?: string;
+  email?: string;
+  percentage?: number;
+  resetAt?: string;
+  periodType?: string;
+  periodLabel?: string;
+  products: GrokProductUsage[];
+  extra?: GrokExtraCredits;
+  error?: string;
+}
+
 export type CostSource = 'claude' | 'codex' | 'cursor';
 
 export interface CostTokenBreakdown {

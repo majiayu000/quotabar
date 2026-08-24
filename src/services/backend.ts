@@ -9,10 +9,11 @@ import type {
   CostOverview,
   CostSource,
   CursorData,
+  GrokData,
   QuotaData,
 } from '../types/models';
 
-type TrayService = 'claude' | 'codex' | 'cursor' | 'antigravity';
+type TrayService = 'claude' | 'codex' | 'cursor' | 'grok' | 'antigravity';
 
 export const BACKEND_UNAVAILABLE_MESSAGE =
   'QuotaBar desktop backend is unavailable in browser preview';
@@ -57,6 +58,10 @@ export const backend = {
     return invokeBackend<AntigravityData>('get_antigravity_info');
   },
 
+  getGrokInfo() {
+    return invokeBackend<GrokData>('get_grok_info');
+  },
+
   getCostOverview(source: CostSource, force = false) {
     return invokeBackend<CostOverview>('get_cost_overview', {
       source,
@@ -90,6 +95,10 @@ export const backend = {
 
   openAntigravityDashboard() {
     return invokeBackend<void>('open_antigravity_dashboard');
+  },
+
+  openGrokDashboard() {
+    return invokeBackend<void>('open_grok_dashboard');
   },
 
   updateTrayIcon(

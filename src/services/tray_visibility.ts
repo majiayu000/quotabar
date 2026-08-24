@@ -1,11 +1,12 @@
 import { readStorageValue, writeStorageItem } from './storage';
 
-export type TrayServiceName = 'claude' | 'codex' | 'cursor' | 'antigravity';
+export type TrayServiceName = 'claude' | 'codex' | 'cursor' | 'grok' | 'antigravity';
 
 const TRAY_STORAGE_KEYS: Record<TrayServiceName, string> = {
   claude: 'claude-tray-enabled',
   codex: 'codex-tray-enabled',
   cursor: 'cursor-tray-enabled',
+  grok: 'grok-tray-enabled',
   antigravity: 'antigravity-tray-enabled',
 };
 
@@ -13,6 +14,7 @@ const TRAY_DEFAULT_ENABLED: Record<TrayServiceName, boolean> = {
   claude: true,
   codex: true,
   cursor: true,
+  grok: true,
   antigravity: false,
 };
 

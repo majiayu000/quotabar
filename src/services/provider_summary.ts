@@ -1,5 +1,5 @@
 import type { CSSProperties } from 'react';
-import type { CodexRateLimits, CursorData, QuotaData, UsageInfo } from '../types/models';
+import type { CodexRateLimits, CursorData, GrokData, QuotaData, UsageInfo } from '../types/models';
 import { SERVICE_META, SERVICES } from './service_meta';
 import type { TrayServiceName } from './tray_visibility';
 import { formatResetTime, getProgressStyle } from '../utils/quota_format';
@@ -139,6 +139,28 @@ export function buildCursorQuotaWindows(cursorData: CursorData | null): QuotaWin
     resetLabel: cursorData.resetAt ? formatResetTime(cursorData.resetAt, { expiredLabel: 'soon' }) : undefined,
     resetAtMs: resetAtMsFromValue(cursorData.resetAt),
   }];
+}
+
+export function buildGrokQuotaWindows(grokData: GrokData | null): QuotaWindowSummary[] {
+  if (!grokData?.connected || typeof grokData.percentage !== 'number') return [];
+  const windows: QuotaWindowSummary[] = [{
+    provider: 'grok',
+    providerLabel: SERVICE_META.grok.label,
+    label: grokData.periodLabel ? `${grokData.periodLabel} pool` : 'Usage pool',
+    usedPercent: grokData.percentage,
+    resetLabel: grokData.resetAt ? formatResetTime(grokData.resetAt, { expiredLabel: 'soon' }) : undefined,
+    resetAtMs: resetAtMsFromValue(grokData.resetAt),
+  }];
+  const extra = grokData.extra;
+  if (extra && extra.onDemandCapCents > 0) {
+    windows.push({
+      provider: 'grok',
+      providerLabel: SERVICE_META.grok.label,
+      label: 'Extra credits',
+      usedPercent: Math.min(100, (extra.onDemandUsedCents / extra.onDemandCapCents) * 100),
+    });
+  }
+  return windows;
 }
 
 export function sortMostConstrained(windows: QuotaWindowSummary[]): QuotaWindowSummary[] {
