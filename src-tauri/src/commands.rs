@@ -37,12 +37,17 @@ pub async fn get_codex_weekly_quota() -> Result<CodexWeeklyQuotaData, String> {
             "Could not find the Codex home directory",
         ));
     };
+    let official = match codex::last_good_rate_limits() {
+        Some(limits) if codex_weekly::official_weekly_window(&limits).is_some() => limits,
+        _ => codex::fetch_codex_rate_limits().await,
+    };
     let data =
         tauri::async_runtime::spawn_blocking(move || match ccstats_quota::load_codex_weekly_quota(
             Some(&codex_home),
         ) {
             Ok(quota) => {
-                let value_estimate = codex_weekly::estimate_codex_weekly_value(&codex_home, &quota);
+                let value_estimate =
+                    codex_weekly::estimate_codex_weekly_value(&codex_home, &quota, Some(&official));
                 CodexWeeklyQuotaData::available(quota, value_estimate)
             }
             Err(error) => CodexWeeklyQuotaData::unavailable(error.to_string()),

@@ -106,7 +106,7 @@ const COMPACT_TOKEN_FORMAT = new Intl.NumberFormat('en-US', {
 
 function validateWeeklyValueEstimate(
   estimate: CodexWeeklyValueEstimate,
-  quota: CodexWeeklyQuota,
+  official: CodexRateLimitWindow,
 ): string | null {
   if (
     !Number.isFinite(estimate.observedCostUsd)
@@ -120,7 +120,7 @@ function validateWeeklyValueEstimate(
   ) {
     return 'The local weekly value estimate contains invalid totals.';
   }
-  if (Math.abs(estimate.usedPct - quota.usedPct) > 5) {
+  if (Math.abs(estimate.usedPct - official.usedPercent) > 5) {
     return 'The local weekly value estimate does not match the quota usage.';
   }
   const estimateObservedAt = Date.parse(estimate.observedAt);
@@ -133,11 +133,11 @@ function validateWeeklyValueEstimate(
     return 'The local weekly value estimate is stale or has an invalid observation time.';
   }
   const estimateReset = Date.parse(estimate.resetsAt);
-  const quotaReset = Date.parse(quota.resetsAt);
+  const officialReset = (official.resetsAt ?? 0) * 1000;
   if (
     !Number.isFinite(estimateReset)
-    || !Number.isFinite(quotaReset)
-    || Math.abs(estimateReset - quotaReset) > 5 * 60 * 1000
+    || officialReset <= 0
+    || Math.abs(estimateReset - officialReset) > 5 * 60 * 1000
   ) {
     return 'The local weekly value estimate does not match the quota reset.';
   }
@@ -197,6 +197,14 @@ function selectOfficialWeeklyWindow(
   return candidates.find((window) => window.windowMinutes === 10_080)
     ?? limits?.secondary
     ?? limits?.primary;
+}
+
+function selectOfficialWeeklyLimitWindow(
+  limits: CodexRateLimits | null,
+): CodexRateLimitWindow | undefined {
+  return [limits?.secondary, limits?.primary].find(
+    (window): window is CodexRateLimitWindow => window?.windowMinutes === 10_080,
+  );
 }
 
 const BONUS_EXPIRY_REMINDER_DAYS = 3;
@@ -386,19 +394,21 @@ export default function CodexPanel({
   const availableResetCredits = getAvailableResetCredits(resetCredits);
   const bonusGrantGroups = buildBonusGrantGroups(availableResetCredits);
   const officialWeeklyWindow = selectOfficialWeeklyWindow(rateLimits, weeklyQuota);
+  const officialWeeklyLimit = selectOfficialWeeklyLimitWindow(rateLimits);
   const weeklyQuotaValidationError = weeklyQuota
     ? validateWeeklyQuotaWindow(weeklyQuota, officialWeeklyWindow)
     : null;
   const displayedWeeklyQuota = weeklyQuotaValidationError ? null : weeklyQuota;
   const displayedWeeklyQuotaError = weeklyQuotaValidationError ?? weeklyQuotaError;
-  const weeklyValueValidationError = displayedWeeklyQuota && weeklyValueEstimate
-    ? validateWeeklyValueEstimate(weeklyValueEstimate, displayedWeeklyQuota)
+  const weeklyValueValidationError = officialWeeklyLimit && weeklyValueEstimate
+    ? validateWeeklyValueEstimate(weeklyValueEstimate, officialWeeklyLimit)
     : null;
-  const displayedWeeklyValueEstimate = weeklyValueValidationError
+  const displayedWeeklyValueEstimate = weeklyValueValidationError || !officialWeeklyLimit
     ? null
     : weeklyValueEstimate;
-  const displayedWeeklyValueEstimateError = weeklyValueValidationError
-    ?? weeklyValueEstimateError;
+  const displayedWeeklyValueEstimateError = officialWeeklyLimit
+    ? (weeklyValueValidationError ?? weeklyValueEstimateError)
+    : null;
   const renderWeeklyPace = (window: CodexRateLimitWindow) => {
     if (window !== officialWeeklyWindow) return null;
     if (!displayedWeeklyQuota && displayedWeeklyQuotaError) {
@@ -536,7 +546,7 @@ export default function CodexPanel({
             </div>
           )}
 
-          {displayedWeeklyQuota
+          {officialWeeklyLimit
             && (displayedWeeklyValueEstimate || displayedWeeklyValueEstimateError) && (
             <div className="section weekly-value-section">
               <div className="quota-group">

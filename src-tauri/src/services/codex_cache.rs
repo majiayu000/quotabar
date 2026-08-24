@@ -165,6 +165,13 @@ pub(super) fn next_request_sequence() -> u64 {
     NEXT_REQUEST_SEQUENCE.fetch_add(1, Ordering::Relaxed)
 }
 
+pub(super) fn peek_limits() -> Result<Option<CodexRateLimits>, String> {
+    cache()
+        .lock()
+        .map_err(|lock_error| format!("last-good cache lock poisoned: {lock_error}"))
+        .map(|cache| cache.cached.as_ref().map(|cached| cached.limits.clone()))
+}
+
 #[cfg(test)]
 mod tests {
     use super::{AuthFileStamp, CodexRateLimitCache};

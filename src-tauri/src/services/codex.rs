@@ -60,6 +60,16 @@ pub(crate) fn get_codex_home() -> Option<PathBuf> {
     }
 }
 
+pub(crate) fn last_good_rate_limits() -> Option<CodexRateLimits> {
+    match crate::services::codex_cache::peek_limits() {
+        Ok(limits) => limits,
+        Err(error) => {
+            log_msg(&format!("[RateLimits] {error}"));
+            None
+        }
+    }
+}
+
 fn decode_jwt_payload(token: &str) -> Option<serde_json::Value> {
     let parts: Vec<&str> = token.split('.').collect();
     if parts.len() != 3 {
