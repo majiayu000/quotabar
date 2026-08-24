@@ -232,13 +232,19 @@ export default function GrokPanel({
                       <div className="weekly-value-body">
                         <div className="weekly-value-metrics">
                           <span className="weekly-value-amount">
-                          ≈{USD_FORMAT.format(displayedGrokValueEstimate.estimatedPeriodValueUsd)}
+                          ≈{USD_FORMAT.format(displayedGrokValueEstimate.observedCostUsd)}
                           </span>
                           <span className="weekly-value-token-row">
                             <strong>
-                              ≈{COMPACT_TOKEN_FORMAT.format(displayedGrokValueEstimate.estimatedPeriodTokens)}
+                              ≈{COMPACT_TOKEN_FORMAT.format(displayedGrokValueEstimate.observedTokens)}
                             </strong>
-                            <span>tokens at current mix</span>
+                            <span>API list price so far</span>
+                          </span>
+                          <span className="weekly-value-token-row">
+                            <span>Full pool</span>
+                            <strong>
+                              ≈{USD_FORMAT.format(displayedGrokValueEstimate.estimatedPeriodValueUsd)}
+                            </strong>
                           </span>
                         </div>
                         <div

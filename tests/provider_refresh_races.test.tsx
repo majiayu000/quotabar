@@ -660,8 +660,10 @@ describe('Grok period value', () => {
     });
 
     expect(rendered_text(renderer)).toContain('API-equivalent week');
+    expect(rendered_text(renderer)).toContain('$8.00');
+    expect(rendered_text(renderer)).toContain('API list price so far');
+    expect(rendered_text(renderer)).toContain('Full pool');
     expect(rendered_text(renderer)).toContain('$200.00');
-    expect(rendered_text(renderer)).toContain('50K');
     expect(rendered_text(renderer)).toContain('Local estimate');
     expect(rendered_text(renderer)).toContain('Projected from local Grok usage');
     await unmount(renderer);
