@@ -15,7 +15,7 @@ export default function TabSwitcher({
   summaries,
 }: TabSwitcherProps) {
   return (
-    <div className="provider-grid" role="tablist" aria-label="Provider views">
+    <nav className="provider-grid" aria-label="Provider views">
       {[
         {
           id: 'all' as const,
@@ -42,9 +42,7 @@ export default function TabSwitcher({
             type="button"
             className={`provider-card ${isActive ? 'active' : ''} ${summary.connected ? 'connected' : 'disconnected'}`}
             data-provider={summary.id}
-            role="tab"
-            aria-selected={isActive}
-            tabIndex={isActive ? 0 : -1}
+            aria-current={isActive ? 'page' : undefined}
             aria-label={`${summary.label}: ${statusText}`}
             title={`${summary.label} · ${statusText}`}
             onClick={() => onTabChange(summary.id)}
@@ -66,6 +64,6 @@ export default function TabSwitcher({
           </button>
         );
       })}
-    </div>
+    </nav>
   );
 }

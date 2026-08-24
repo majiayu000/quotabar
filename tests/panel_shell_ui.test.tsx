@@ -1,4 +1,5 @@
 import { createElement } from 'react';
+import { readFileSync } from 'node:fs';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
@@ -16,7 +17,7 @@ const summaries: ProviderSummary[] = [
 ];
 
 const trayEntries: TrayToggleEntry[] = [
-  { service: 'claude', label: 'Claude Tray', enabled: true, canDisable: true, connected: true, disconnectedHint: 'Sign in' },
+  { service: 'claude', label: 'Claude Tray', enabled: true, canDisable: true, connected: true, connectedHint: 'Ready', disconnectedHint: 'Sign in' },
   { service: 'codex', label: 'Codex Tray', enabled: true, canDisable: true, connected: false, disconnectedHint: 'Sign in' },
   { service: 'cursor', label: 'Cursor Tray', enabled: false, canDisable: true, connected: false, disconnectedHint: 'Sign in' },
   { service: 'antigravity', label: 'Antigravity Tray', enabled: false, canDisable: true, connected: false, disconnectedHint: 'Preview' },
@@ -44,20 +45,22 @@ afterAll(() => {
 });
 
 describe('panel shell UI', () => {
-  it('shows recognizable provider labels and tab semantics', () => {
+  it('shows recognizable provider labels as native navigation buttons', () => {
     const html = renderToStaticMarkup(
       <TabSwitcher activeTab="claude" summaries={summaries} onTabChange={() => {}} />,
     );
 
-    expect(html).toContain('role="tablist"');
-    expect(html).toContain('role="tab"');
-    expect(html).toContain('aria-selected="true"');
+    expect(html).toContain('<nav');
+    expect(html).toContain('aria-label="Provider views"');
+    expect(html).toContain('aria-current="page"');
+    expect(html).not.toContain('role="tab"');
+    expect(html).not.toContain('tabindex="-1"');
     expect(html).toContain('provider-card-label">Claude');
     expect(html).toContain('provider-card-label">Codex');
     expect(html).toContain('48%');
   });
 
-  it('hides the provider dashboard action on Overview and announces refresh status', () => {
+  it('hides the provider dashboard action and keeps passive timestamps quiet', () => {
     const html = renderToStaticMarkup(
       <ActionButtons
         onRefresh={() => {}}
@@ -71,9 +74,38 @@ describe('panel shell UI', () => {
     );
 
     expect(html).not.toContain('Dashboard');
-    expect(html).toContain('role="status"');
-    expect(html).toContain('aria-live="polite"');
+    expect(html).not.toContain('role="status"');
+    expect(html).toContain('aria-live="off"');
     expect(html).toContain('Updated now');
+  });
+
+  it('announces refresh loading without guessing its outcome', async () => {
+    let renderer!: ReactTestRenderer;
+    await act(async () => {
+      renderer = create(createElement(ActionButtons, {
+        onRefresh: vi.fn(),
+        onDashboard: vi.fn(),
+        onSettings: vi.fn(),
+        onQuit: vi.fn(),
+        loading: true,
+        statusText: 'Updating...',
+      }));
+    });
+
+    expect(renderer.root.findByProps({ role: 'status' }).children).toContain('Updating quota data');
+    await act(async () => {
+      renderer.update(createElement(ActionButtons, {
+        onRefresh: vi.fn(),
+        onDashboard: vi.fn(),
+        onSettings: vi.fn(),
+        onQuit: vi.fn(),
+        loading: false,
+        statusText: 'Updated now',
+      }));
+    });
+    expect(renderer.root.findAllByProps({ role: 'status' })).toHaveLength(0);
+    expect(renderer.root.findByProps({ className: 'action-status' }).props['aria-live']).toBe('off');
+    await act(async () => renderer.unmount());
   });
 
   it('groups settings by task and combines panel and menu visibility', () => {
@@ -108,6 +140,21 @@ describe('panel shell UI', () => {
     expect(html).toContain('aria-label="Show Claude in panel"');
     expect(html).toContain('aria-label="Show Claude in menu bar"');
     expect(html).toContain('theme-option-label">Light');
+    expect(html).toContain('>Ready<');
+    expect(html).toContain('>Sign in<');
+    expect(html).toContain('>Preview<');
+  });
+
+  it('keeps compact settings controls visually self-contained at panel width', () => {
+    const css = readFileSync(new URL('../src/redesign-settings.css', import.meta.url), 'utf8');
+
+    expect(css).toMatch(/\.settings-group \.settings-line \{[^}]*display: flex;/s);
+    expect(css).toMatch(/\.settings-group \.target-switch \{[^}]*background: var\(--track\);/s);
+    expect(css).toMatch(/\.settings-group \.target-switch span \{[^}]*border-radius: 50%;/s);
+    expect(css).toMatch(/\.settings-group \.target-switch\.on \{[^}]*background: #34c759;/s);
+    expect(css).toMatch(/\.settings-group \.settings-seg \{[^}]*display: flex;/s);
+    expect(css).toMatch(/\.settings-group \.budget-input \{[^}]*width: 64px;/s);
+    expect(css).toMatch(/\.settings-group \.event-row \{[^}]*display: flex;/s);
   });
 
   it('labels local cost as an estimate and makes the daily trend keyboard accessible', async () => {
@@ -146,7 +193,12 @@ describe('panel shell UI', () => {
       currency: 'USD',
       generatedAt: '2026-08-24T08:00:00Z',
       cached: false,
-      days: [{ date: '2026-08-24', cost: 12, costUsd: 12, totalTokens: 30 }],
+      days: Array.from({ length: 30 }, (_, index) => ({
+        date: `2026-08-${String(index + 1).padStart(2, '0')}`,
+        cost: index + 1,
+        costUsd: index + 1,
+        totalTokens: 30,
+      })),
     });
 
     let renderer!: ReactTestRenderer;
@@ -164,7 +216,46 @@ describe('panel shell UI', () => {
       && typeof node.props.className === 'string'
       && node.props.className.includes('spark-bar-hit')
     ));
-    expect(trendButtons).toHaveLength(1);
+    expect(trendButtons).toHaveLength(0);
+    const thirtyDayButton = renderer.root.findAllByType('button').find((node) => (
+      typeof node.props.className === 'string'
+      && node.props.className.includes('spark-chip')
+      && node.children.includes('30D')
+    ));
+    expect(thirtyDayButton).toBeDefined();
+    await act(async () => thirtyDayButton?.props.onClick());
+    let trend = renderer.root.findByProps({ role: 'slider' });
+    expect(trend.props.tabIndex).toBe(0);
+    expect(trend.props['aria-valuemax']).toBe(30);
+    await act(async () => trend.props.onFocus());
+    trend = renderer.root.findByProps({ role: 'slider' });
+    await act(async () => trend.props.onKeyDown({ key: 'ArrowLeft', preventDefault: vi.fn() }));
+    trend = renderer.root.findByProps({ role: 'slider' });
+    expect(trend.props['aria-valuenow']).toBe(29);
+    expect(trend.props['aria-valuetext']).toContain('2026-08-29');
+    const tenthBar = renderer.root.findAll((node) => (
+      node.type === 'span'
+      && typeof node.props.className === 'string'
+      && node.props.className.includes('spark-bar-hit')
+    ))[9];
+    await act(async () => tenthBar.props.onMouseEnter());
+    trend = renderer.root.findByProps({ role: 'slider' });
+    expect(trend.props['aria-valuenow']).toBe(10);
+    expect(trend.props['aria-valuetext']).toContain('2026-08-10');
+    await act(async () => trend.props.onKeyDown({ key: 'ArrowDown', preventDefault: vi.fn() }));
+    trend = renderer.root.findByProps({ role: 'slider' });
+    expect(trend.props['aria-valuenow']).toBe(28);
+    await act(async () => trend.props.onMouseLeave());
+    trend = renderer.root.findByProps({ role: 'slider' });
+    expect(trend.props['aria-valuenow']).toBe(28);
+    await act(async () => trend.props.onKeyDown({ key: 'ArrowUp', preventDefault: vi.fn() }));
+    trend = renderer.root.findByProps({ role: 'slider' });
+    expect(trend.props['aria-valuenow']).toBe(29);
+    await act(async () => trend.props.onKeyDown({ key: 'Home', preventDefault: vi.fn() }));
+    expect(renderer.root.findByProps({ role: 'slider' }).props['aria-valuenow']).toBe(1);
+    trend = renderer.root.findByProps({ role: 'slider' });
+    await act(async () => trend.props.onKeyDown({ key: 'End', preventDefault: vi.fn() }));
+    expect(renderer.root.findByProps({ role: 'slider' }).props['aria-valuenow']).toBe(30);
     expect(renderer.root.findAllByProps({ role: 'progressbar' })).toHaveLength(1);
     await act(async () => renderer.unmount());
   });

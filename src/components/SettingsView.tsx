@@ -162,6 +162,9 @@ export default function SettingsView({
             const panelEnabled = switcherVisibility[service];
             const panelLocked = panelEnabled && enabledSwitcherCount === 1;
             const trayLocked = !trayEntry || (trayEntry.enabled && !trayEntry.canDisable);
+            const connectionHint = trayEntry?.connected
+              ? trayEntry.connectedHint ?? 'Connected'
+              : trayEntry?.disconnectedHint ?? 'Offline';
             return (
               <div className="provider-visibility-row" key={service}>
                 <span className="provider-visibility-service">
@@ -171,7 +174,7 @@ export default function SettingsView({
                   <span>
                     <strong>{meta.label}</strong>
                     <small className={trayEntry?.connected ? 'connected' : ''}>
-                      {trayEntry?.connected ? 'Connected' : 'Offline'}
+                      {connectionHint}
                     </small>
                   </span>
                 </span>

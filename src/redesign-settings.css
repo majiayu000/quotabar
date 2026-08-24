@@ -270,9 +270,18 @@
 }
 
 .settings-group .settings-line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   min-height: 32px;
   padding: 0;
+  color: var(--text);
   font-size: 12px;
+}
+
+.settings-group .settings-line > span:first-child {
+  flex: 1;
+  min-width: 0;
 }
 
 .settings-group .settings-line + .settings-line {
@@ -282,14 +291,28 @@
 .settings-group .target-switch {
   width: 34px;
   height: 20px;
+  flex: none;
   padding: 2px;
+  border: 0;
   border-radius: 10px;
+  background: var(--track);
+  cursor: pointer;
+  appearance: none;
 }
 
 .settings-group .target-switch span {
+  display: block;
   width: 16px;
   height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  transform: translateX(0);
   transition: transform 0.14s ease;
+}
+
+.settings-group .target-switch.on {
+  background: #34c759;
 }
 
 .settings-group .target-switch.on span {
@@ -412,11 +435,39 @@
 .provider-mini-icon.provider-antigravity { background: linear-gradient(145deg, #5a9cff, #8a63f0); }
 
 .settings-group .budget-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--sub);
   font-size: 11px;
+  font-variant-numeric: tabular-nums;
 }
 
 .settings-group .budget-input {
+  width: 64px;
+  padding: 4px 7px;
+  border: 0;
+  border-radius: 7px;
+  background: var(--track);
+  box-shadow: 0 0 0 0.5px var(--line);
+  color: var(--text);
+  font: inherit;
   font-size: 11px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
+.settings-group .budget-input::-webkit-outer-spin-button,
+.settings-group .budget-input::-webkit-inner-spin-button {
+  margin: 0;
+  -webkit-appearance: none;
+}
+
+.settings-group .budget-input:focus {
+  outline: none;
+  box-shadow: 0 0 0 1.5px var(--acc, #0a6ddb);
 }
 
 .settings-group .settings-hint {
@@ -425,9 +476,31 @@
   line-height: 13px;
 }
 
+.settings-group .settings-seg {
+  display: flex;
+  padding: 2px;
+  border-radius: 8px;
+  background: var(--track);
+}
+
 .settings-group .settings-seg-btn {
+  flex: 1;
+  padding: 5px 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--sub);
+  font: inherit;
   font-size: 11px;
   font-weight: 650;
+  text-align: center;
+  cursor: pointer;
+}
+
+.settings-group .settings-seg-btn.active {
+  background: var(--seg);
+  color: var(--text);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
 }
 
 .settings-group .event-list {
@@ -438,13 +511,47 @@
 }
 
 .settings-group .event-row {
+  display: flex;
+  align-items: center;
   gap: 7px;
   padding: 6px 0;
+  color: var(--text);
   font-size: 10.5px;
 }
 
+.settings-group .event-row + .event-row {
+  border-top: 0.5px solid var(--line);
+}
+
+.settings-group .event-dot {
+  width: 6px;
+  height: 6px;
+  flex: none;
+  border-radius: 50%;
+  background: #34c759;
+}
+
+.settings-group .event-dot.warning {
+  background: #ff9500;
+}
+
+.settings-group .event-dot.critical {
+  background: #ff3b30;
+}
+
+.settings-group .event-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .settings-group .event-time {
+  flex: none;
+  color: var(--sub);
   font-size: 9px;
+  font-variant-numeric: tabular-nums;
 }
 
 @media (prefers-reduced-motion: reduce) {

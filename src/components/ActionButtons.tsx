@@ -25,6 +25,11 @@ export default function ActionButtons({
     <>
       <div className="footer-divider" />
       <div className="action-buttons" aria-busy={loading}>
+        {loading && (
+          <span className="action-announcement" role="status" aria-live="polite">
+            Updating quota data
+          </span>
+        )}
         <button
           type="button"
           className="action-btn refresh-btn"
@@ -53,8 +58,7 @@ export default function ActionButtons({
         {statusText && (
           <span
             className="action-status"
-            role="status"
-            aria-live="polite"
+            aria-live="off"
             title={statusTitle ?? statusText}
           >
             {statusText}

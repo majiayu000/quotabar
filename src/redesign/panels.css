@@ -658,6 +658,11 @@
   padding: 0 2px;
 }
 
+.spark-bars:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--acc) 72%, transparent);
+  outline-offset: 3px;
+}
+
 /* Full-height hit target so short bars are still hoverable. */
 .spark-bar-hit {
   flex: 1;
@@ -805,6 +810,17 @@
   white-space: nowrap;
   font-size: 11px;
   line-height: 14px;
+}
+
+.action-announcement {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .icon-action {
