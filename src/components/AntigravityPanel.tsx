@@ -58,31 +58,55 @@ export default function AntigravityPanel({
     }
   }, [manualRefreshNonce, fetchData]);
 
+  const isConnected = data?.connected === true;
+  const isPreview = data?.status === 'preview' && !isConnected;
+  const hasError = data?.status === 'error' && Boolean(data.error) && !loading;
+  const headerStatus = loading && !data
+    ? 'Checking'
+    : hasError
+      ? 'Unavailable'
+      : isConnected
+        ? 'CLI detected'
+        : isPreview
+          ? 'Preview'
+        : 'Not connected';
+  const panelTitle = hasError
+    ? 'Unable to check Antigravity'
+    : isConnected
+      ? 'Antigravity is connected'
+      : isPreview
+        ? 'Quota tracking is in preview'
+      : 'Antigravity is not connected';
+  const panelHint = hasError
+    ? 'Quota tracking status could not be refreshed. Try again from the footer.'
+    : isConnected
+      ? 'The CLI session is available. Quota tracking is waiting for provider support.'
+      : isPreview
+        ? data?.error ?? 'Quota tracking is waiting for a stable provider usage API.'
+      : 'Sign in to Antigravity, then check the CLI status below.';
+
   return (
     <div className="codex-panel">
       <ProviderDetailHeader
         service="antigravity"
-        status={data?.connected ? 'Preview' : 'Pending'}
-        plan="Antigravity"
+        status={headerStatus}
+        plan="Quota preview"
         usedPercent={null}
+        tone={hasError ? 'error' : loading && !data || isPreview ? 'pending' : isConnected ? 'online' : 'offline'}
       />
 
-      <div className="offline-panel">
+      <div className={`offline-panel${isConnected ? ' connected' : ''}`}>
         <div className="offline-tile">Ag</div>
-        <div className="offline-title">Antigravity is not connected</div>
-        <div className="offline-hint">
-          Antigravity quota tracking is pending provider support. Check sign-in status below.
-        </div>
-        <div className="offline-command">
-          <span>antigravity status</span>
-          <span className="offline-copy">⧉</span>
-        </div>
+        <div className="offline-title">{panelTitle}</div>
+        <div className="offline-hint">{panelHint}</div>
+        {!isConnected && !hasError && !isPreview && <code className="offline-command">antigravity status</code>}
       </div>
 
-      {data?.error && !loading && (
-        <p className="hint" style={{ marginTop: 12, fontSize: 11, opacity: 0.6 }}>
-          Backend status: {data.error}
-        </p>
+      {hasError && (
+        <div className="error-banner antigravity-error" role="alert">
+          <span className="error-icon">!</span>
+          <span className="error-text">{data?.error}</span>
+        </div>
       )}
     </div>
   );

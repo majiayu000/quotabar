@@ -134,11 +134,16 @@ fn get_stale_cached_cursor() -> Option<CursorData> {
     }
 }
 
+fn mark_cursor_data_stale(mut data: CursorData, error: String) -> CursorData {
+    data.error = Some(error);
+    data
+}
+
 fn fallback_or_disconnected(error: impl Into<String>) -> CursorData {
     let error = error.into();
     if is_transient_os_error(&error) {
         if let Some(stale) = get_stale_cached_cursor() {
-            return stale;
+            return mark_cursor_data_stale(stale, error);
         }
     }
     CursorData::disconnected(error)
@@ -305,5 +310,27 @@ mod tests {
         assert_eq!(data.fast_limit, Some(500));
         assert_eq!(data.slow_used, Some(99));
         assert!(data.percentage.unwrap() > 23.9 && data.percentage.unwrap() < 24.1);
+    }
+
+    #[test]
+    fn stale_data_keeps_usage_and_reports_refresh_error() {
+        let data = CursorData {
+            connected: true,
+            plan_type: Some("pro".to_string()),
+            email: None,
+            fast_used: Some(120),
+            fast_limit: Some(500),
+            percentage: Some(24.0),
+            slow_used: None,
+            reset_at: None,
+            error: None,
+        };
+
+        let stale = mark_cursor_data_stale(data, "Network error: timed out".to_string());
+
+        assert!(stale.connected);
+        assert_eq!(stale.fast_used, Some(120));
+        assert_eq!(stale.fast_limit, Some(500));
+        assert_eq!(stale.error.as_deref(), Some("Network error: timed out"));
     }
 }

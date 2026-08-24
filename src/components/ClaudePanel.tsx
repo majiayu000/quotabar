@@ -58,19 +58,24 @@ export default function ClaudePanel({
       )}
 
       {error && (
-        <div className="error-banner">
+        <div className="error-banner" role="alert">
           <span className="error-icon">!</span>
-          <span className="error-text">{error}</span>
+          <span className="error-text">
+            {error}
+            {quota && <span className="error-context">Showing last known data.</span>}
+          </span>
         </div>
       )}
 
-      {!error && quota && (
+      {quota && (
         <div className="detail-stack">
           <ProviderDetailHeader
             service="claude"
-            status={quota.connected ? 'Connected' : 'Offline'}
+            status={error ? 'Stale data' : quota.connected ? 'Connected' : 'Offline'}
             plan="Claude Code"
             usedPercent={topWindow?.usedPercent ?? null}
+            usageLabel={topWindow?.label}
+            tone={error ? 'pending' : quota.connected ? 'online' : 'offline'}
           />
 
           <div className="section">
@@ -97,6 +102,7 @@ export default function ClaudePanel({
                   label="All models"
                   percentage={Math.round(quota.weeklyTotal.percentage)}
                   resetsIn={formatClaudeResetTime(quota.weeklyTotal.resetTime)}
+                  featured
                 />
               )}
 
@@ -148,10 +154,10 @@ export default function ClaudePanel({
         </div>
       )}
 
-      {!error && !quota && !loading && (
+      {!quota && !loading && (
         <div className="empty-state">
           <p>Unable to load quota data</p>
-          <button onClick={onRetry} className="retry-btn">
+          <button type="button" onClick={onRetry} className="retry-btn">
             Try Again
           </button>
         </div>
