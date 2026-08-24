@@ -120,7 +120,7 @@ describe('panel shell UI', () => {
         trayCycle={false}
         events={[]}
         notificationSettings={{ q80: true, q95: true, bonus: false }}
-        switcherVisibility={{ claude: true, codex: true, cursor: true, antigravity: true }}
+        switcherVisibility={{ claude: true, codex: true, cursor: true, grok: true, antigravity: true }}
         onClose={() => {}}
         onThemeChange={() => {}}
         onDockToggle={() => {}}

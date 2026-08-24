@@ -39,7 +39,7 @@ describe('switcher provider visibility', () => {
     const store = installMemoryStorage();
     store.set(
       'claude-quota-switcher-providers',
-      JSON.stringify({ claude: false, codex: false, cursor: false, antigravity: false }),
+      JSON.stringify({ claude: false, codex: false, cursor: false, grok: false, antigravity: false }),
     );
     expect(getSavedSwitcherVisibility()).toEqual(defaultSwitcherVisibility());
   });

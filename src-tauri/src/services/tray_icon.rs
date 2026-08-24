@@ -13,13 +13,14 @@ const BADGE_TEXT: Rgba<u8> = Rgba([255, 255, 255, 255]);
 const CLAUDE_BADGE_BYTES: &[u8] = include_bytes!("../../icons/tray-badges/claude.png");
 const CODEX_BADGE_BYTES: &[u8] = include_bytes!("../../icons/tray-badges/codex.png");
 const CURSOR_BADGE_BYTES: &[u8] = include_bytes!("../../icons/tray-badges/cursor.png");
+const GROK_BADGE_BYTES: &[u8] = include_bytes!("../../icons/tray-badges/grok.png");
 const ANTIGRAVITY_BADGE_BYTES: &[u8] = include_bytes!("../../icons/tray-badges/antigravity.png");
 const LARGE_BADGE_OUTER_RADIUS: f32 = 11.2;
 const SMALL_BADGE_OUTER_RADIUS: f32 = 6.4;
 const LARGE_BADGE_BORDER_WIDTH: f32 = 1.2;
 const SMALL_BADGE_BORDER_WIDTH: f32 = 1.0;
-const LARGE_BADGE_ICON_SIZE: u32 = 17;
-const SMALL_BADGE_ICON_SIZE: u32 = 8;
+const LARGE_BADGE_ICON_SIZE: u32 = 20;
+const SMALL_BADGE_ICON_SIZE: u32 = 10;
 const LARGE_BADGE_INSET: f32 = 0.0;
 const SMALL_BADGE_INSET: f32 = 0.4;
 const LARGE_RING_WIDTH: f32 = 5.8;
@@ -49,6 +50,7 @@ pub enum TrayIconIdentity {
     Claude,
     Codex,
     Cursor,
+    Grok,
     Antigravity,
 }
 
@@ -115,9 +117,10 @@ fn neutral_color() -> (u8, u8, u8) {
 fn badge_background(identity: TrayIconIdentity) -> Rgba<u8> {
     match identity {
         TrayIconIdentity::Claude => Rgba([217, 119, 87, 255]),
-        TrayIconIdentity::Codex => Rgba([17, 24, 39, 255]),
-        TrayIconIdentity::Cursor => Rgba([55, 65, 81, 255]),
-        TrayIconIdentity::Antigravity => Rgba([66, 133, 244, 255]),
+        TrayIconIdentity::Codex => Rgba([38, 123, 178, 255]),
+        TrayIconIdentity::Cursor => Rgba([17, 17, 17, 255]),
+        TrayIconIdentity::Grok => Rgba([17, 17, 17, 255]),
+        TrayIconIdentity::Antigravity => Rgba([37, 99, 235, 255]),
     }
 }
 
@@ -131,12 +134,14 @@ fn badge_source(identity: TrayIconIdentity) -> &'static RgbaImage {
     static CLAUDE_BADGE: OnceLock<RgbaImage> = OnceLock::new();
     static CODEX_BADGE: OnceLock<RgbaImage> = OnceLock::new();
     static CURSOR_BADGE: OnceLock<RgbaImage> = OnceLock::new();
+    static GROK_BADGE: OnceLock<RgbaImage> = OnceLock::new();
     static ANTIGRAVITY_BADGE: OnceLock<RgbaImage> = OnceLock::new();
 
     match identity {
         TrayIconIdentity::Claude => CLAUDE_BADGE.get_or_init(|| decode_badge(CLAUDE_BADGE_BYTES)),
         TrayIconIdentity::Codex => CODEX_BADGE.get_or_init(|| decode_badge(CODEX_BADGE_BYTES)),
         TrayIconIdentity::Cursor => CURSOR_BADGE.get_or_init(|| decode_badge(CURSOR_BADGE_BYTES)),
+        TrayIconIdentity::Grok => GROK_BADGE.get_or_init(|| decode_badge(GROK_BADGE_BYTES)),
         TrayIconIdentity::Antigravity => {
             ANTIGRAVITY_BADGE.get_or_init(|| decode_badge(ANTIGRAVITY_BADGE_BYTES))
         }
@@ -441,6 +446,7 @@ mod tests {
             (TrayIconIdentity::Claude, "claude"),
             (TrayIconIdentity::Codex, "codex"),
             (TrayIconIdentity::Cursor, "cursor"),
+            (TrayIconIdentity::Grok, "grok"),
             (TrayIconIdentity::Antigravity, "antigravity"),
         ] {
             let bytes = generate_tray_icon(id, Some(65), 44, TrayIconStyle::Percent);

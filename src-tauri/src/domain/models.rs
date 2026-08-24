@@ -265,3 +265,56 @@ impl AntigravityData {
         }
     }
 }
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct GrokProductUsage {
+    pub product: String,
+    pub label: String,
+    #[serde(rename = "usagePercent")]
+    pub usage_percent: f64,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct GrokExtraCredits {
+    #[serde(rename = "onDemandUsedCents")]
+    pub on_demand_used_cents: i64,
+    #[serde(rename = "onDemandCapCents")]
+    pub on_demand_cap_cents: i64,
+    #[serde(rename = "prepaidBalanceCents")]
+    pub prepaid_balance_cents: i64,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct GrokData {
+    pub connected: bool,
+    #[serde(rename = "planType")]
+    pub plan_type: Option<String>,
+    pub email: Option<String>,
+    pub percentage: Option<f64>,
+    #[serde(rename = "resetAt")]
+    pub reset_at: Option<String>,
+    #[serde(rename = "periodType")]
+    pub period_type: Option<String>,
+    #[serde(rename = "periodLabel")]
+    pub period_label: Option<String>,
+    pub products: Vec<GrokProductUsage>,
+    pub extra: Option<GrokExtraCredits>,
+    pub error: Option<String>,
+}
+
+impl GrokData {
+    pub fn disconnected(error: impl Into<String>) -> Self {
+        Self {
+            connected: false,
+            plan_type: None,
+            email: None,
+            percentage: None,
+            reset_at: None,
+            period_type: None,
+            period_label: None,
+            products: Vec::new(),
+            extra: None,
+            error: Some(error.into()),
+        }
+    }
+}

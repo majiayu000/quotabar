@@ -16,7 +16,7 @@ where it happens, and the smallest reproduction that does not disclose secrets.
 
 ## In Scope
 
-- Unsafe handling of Claude Code, Codex, Cursor, or Antigravity auth state.
+- Unsafe handling of Claude Code, Codex, Cursor, Grok Build, or Antigravity auth state.
 - Release artifacts that accidentally include local credentials, logs, sessions,
   or provider account identifiers.
 - Tauri command, CSP, permission, opener, or notification behavior that exposes

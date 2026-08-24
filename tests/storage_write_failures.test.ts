@@ -189,6 +189,7 @@ const switcherVisibility = {
   claude: true,
   codex: false,
   cursor: true,
+  grok: true,
   antigravity: false,
 };
 

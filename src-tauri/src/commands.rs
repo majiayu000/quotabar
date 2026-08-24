@@ -3,9 +3,9 @@ use tauri::{AppHandle, State};
 use crate::{
     domain::models::{
         AntigravityData, CodexData, CodexRateLimits, CodexResetCredits, CodexWeeklyQuotaData,
-        CursorData, QuotaData,
+        CursorData, GrokData, QuotaData,
     },
-    services::{antigravity, claude, codex, cost, cursor, link, tray, tray_icon, window},
+    services::{antigravity, claude, codex, cost, cursor, grok, link, tray, tray_icon, window},
 };
 
 #[tauri::command]
@@ -57,6 +57,11 @@ pub async fn get_antigravity_info() -> Result<AntigravityData, String> {
 }
 
 #[tauri::command]
+pub async fn get_grok_info() -> Result<GrokData, String> {
+    Ok(grok::fetch_grok_info().await)
+}
+
+#[tauri::command]
 pub async fn get_cost_overview(
     source: String,
     currency: Option<String>,
@@ -95,6 +100,11 @@ pub fn open_cursor_dashboard() -> Result<(), String> {
 #[tauri::command]
 pub fn open_antigravity_dashboard() -> Result<(), String> {
     link::open_antigravity_dashboard()
+}
+
+#[tauri::command]
+pub fn open_grok_dashboard() -> Result<(), String> {
+    link::open_grok_dashboard()
 }
 
 #[tauri::command]

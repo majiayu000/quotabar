@@ -6,6 +6,7 @@ import AntigravityPanel from '../src/components/AntigravityPanel';
 import CodexPanel from '../src/components/CodexPanel';
 import CostSummarySection from '../src/components/CostSummarySection';
 import CursorPanel from '../src/components/CursorPanel';
+import GrokPanel from '../src/components/GrokPanel';
 import { backend } from '../src/services/backend';
 import type {
   AntigravityData,
@@ -16,6 +17,7 @@ import type {
   CostDailySeries,
   CostOverview,
   CursorData,
+  GrokData,
   QuotaData,
 } from '../src/types/models';
 
@@ -134,6 +136,23 @@ function codex_requests(): PanelRequests & { reject_member(index: number, member
   };
 }
 
+function grok_requests(): PanelRequests {
+  const active: Deferred<GrokData>[] = [];
+  vi.spyOn(backend, 'getGrokInfo').mockImplementation(() => {
+    const request = deferred<GrokData>();
+    active.push(request);
+    return request.promise;
+  });
+  return {
+    reject: (index, reason) => active[index].reject(reason),
+    resolve: (index, marker) => active[index].resolve({
+      connected: true,
+      percentage: marker,
+      products: [],
+    }),
+  };
+}
+
 function antigravity_requests(): PanelRequests {
   const active: Array<Deferred<AntigravityData>> = [];
   vi.spyOn(backend, 'getAntigravityInfo').mockImplementation(() => {
@@ -176,6 +195,20 @@ const panel_drivers: PanelDriver[] = [
       onQuotaWindowsChange: callbacks.quota_windows,
       onUsageChange: callbacks.usage,
       showCostSummary: false,
+    }),
+  },
+  {
+    name: 'Grok',
+    expected_failure_marker: null,
+    requests: grok_requests,
+    marker: (callbacks) => callbacks.usage.mock.calls.map(([value]) => value),
+    render: (nonce, callbacks) => createElement(GrokPanel, {
+      autoRefreshIntervalMs: 0,
+      manualRefreshNonce: nonce,
+      onConnectionChange: callbacks.connection,
+      onLoadingChange: callbacks.loading,
+      onQuotaWindowsChange: callbacks.quota_windows,
+      onUsageChange: callbacks.usage,
     }),
   },
   {
@@ -484,6 +517,7 @@ function install_app_backend(quota_requests: Array<Deferred<QuotaData>>): void {
   vi.spyOn(backend, 'getCodexResetCredits').mockResolvedValue({ connected: true, availableCount: 0, credits: [] });
   vi.spyOn(backend, 'getCodexWeeklyQuota').mockResolvedValue({});
   vi.spyOn(backend, 'getCursorInfo').mockResolvedValue({ connected: true });
+  vi.spyOn(backend, 'getGrokInfo').mockResolvedValue({ connected: true, percentage: 4, products: [] });
   vi.spyOn(backend, 'getAntigravityInfo').mockResolvedValue({ connected: false, status: 'pending' });
   vi.spyOn(backend, 'setDockVisibility').mockResolvedValue(undefined);
   vi.spyOn(backend, 'updateTrayIcon').mockResolvedValue(undefined);

@@ -8,6 +8,7 @@ import TabSwitcher, { TabName } from './components/TabSwitcher';
 import ClaudePanel from './components/ClaudePanel';
 import CodexPanel from './components/CodexPanel';
 import CursorPanel from './components/CursorPanel';
+import GrokPanel from './components/GrokPanel';
 import AntigravityPanel from './components/AntigravityPanel';
 import type { TrayToggleEntry } from './components/TrayToggles';
 import { backend, hasTauriBackend } from './services/backend';
@@ -570,6 +571,9 @@ export default function App() {
         case 'cursor':
           await backend.openCursorDashboard();
           break;
+        case 'grok':
+          await backend.openGrokDashboard();
+          break;
         case 'antigravity':
           await backend.openAntigravityDashboard();
           break;
@@ -621,6 +625,7 @@ export default function App() {
     claude: quota?.connected ?? false,
     codex: connected.codex,
     cursor: connected.cursor,
+    grok: connected.grok,
     antigravity: connected.antigravity,
   };
 
@@ -669,6 +674,7 @@ export default function App() {
     ...buildClaudeQuotaWindows(quota),
     ...providerQuotaWindows.codex,
     ...providerQuotaWindows.cursor,
+    ...providerQuotaWindows.grok,
   ];
   const mostConstrained = sortMostConstrained(allQuotaWindows).slice(0, 4);
   const upcomingResets = sortUpcomingResets(allQuotaWindows).slice(0, 5);
@@ -749,6 +755,18 @@ export default function App() {
                   manualRefreshNonce={refreshNonces.cursor}
                   autoRefreshIntervalMs={nonClaudeRefreshIntervalMs}
                   showCostSummary={windowVisible && activeView === 'cursor'}
+                  sections={panelSections}
+                />
+              </div>
+
+              <div style={{ display: activeView === 'grok' ? 'block' : 'none' }}>
+                <GrokPanel
+                  onConnectionChange={connectionSetters.grok}
+                  onUsageChange={usageSetters.grok}
+                  onLoadingChange={loadingSetters.grok}
+                  onQuotaWindowsChange={quotaWindowSetters.grok}
+                  manualRefreshNonce={refreshNonces.grok}
+                  autoRefreshIntervalMs={nonClaudeRefreshIntervalMs}
                   sections={panelSections}
                 />
               </div>

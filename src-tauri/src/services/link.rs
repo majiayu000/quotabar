@@ -16,3 +16,8 @@ pub fn open_antigravity_dashboard() -> Result<(), String> {
     tauri_plugin_opener::open_url("https://antigravity.google.com", None::<&str>)
         .map_err(|e| e.to_string())
 }
+
+pub fn open_grok_dashboard() -> Result<(), String> {
+    tauri_plugin_opener::open_url("https://grok.com/?_s=usage", None::<&str>)
+        .map_err(|e| e.to_string())
+}
