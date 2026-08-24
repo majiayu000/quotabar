@@ -475,7 +475,7 @@ dependencies = [
 [[package]]
 name = "ccstats"
 version = "0.5.0"
-source = "git+https://github.com/majiayu000/ccstats.git?rev=ad50478776da6d464caf5e2f7676b931acb8ff02#ad50478776da6d464caf5e2f7676b931acb8ff02"
+source = "git+https://github.com/majiayu000/ccstats.git?rev=2c67efd32508bd7e0e7c5605c9ac4ba989632818#2c67efd32508bd7e0e7c5605c9ac4ba989632818"
 dependencies = [
  "chrono",
  "chrono-tz",

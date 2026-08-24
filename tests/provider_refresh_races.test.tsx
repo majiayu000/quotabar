@@ -400,6 +400,39 @@ describe('Codex weekly pace', () => {
     await unmount(renderer);
   });
 
+  it('shows the weekly value estimate when local pace diverges from official weekly usage', async () => {
+    const renderer = await render_codex({
+      quota: {
+        observedAt: new Date().toISOString(),
+        resetsAt: '2026-08-29T00:00:00Z',
+        windowMinutes: 10_080,
+        usedPct: 0,
+        remainingPct: 100,
+        projectedPctAtReset: 0,
+        status: 'on_track',
+      },
+      valueEstimate: {
+        observedAt: new Date().toISOString(),
+        windowStartedAt: '2026-08-22T00:00:00Z',
+        resetsAt: '2026-08-29T00:00:00Z',
+        usedPct: 25,
+        observedCostUsd: 50,
+        estimatedWeeklyValueUsd: 200,
+        observedTokens: 1_000_000,
+        estimatedWeeklyTokens: 4_000_000,
+      },
+    }, null, {
+      usedPercent: 25,
+      windowMinutes: 10_080,
+      resetsAt: 1_787_961_600,
+    });
+
+    expect(rendered_text(renderer)).toContain('API-equivalent week');
+    expect(rendered_text(renderer)).toContain('$200.00');
+    expect(rendered_text(renderer)).not.toContain('Local pace:');
+    await unmount(renderer);
+  });
+
   it.each([
     ['invalid totals', { estimatedWeeklyValueUsd: 0 }, 'contains invalid totals'],
     ['usage mismatch', { usedPct: 55 }, 'does not match the quota usage'],
