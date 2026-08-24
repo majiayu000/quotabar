@@ -103,3 +103,8 @@ export function getProgressStyle(usedPercent: number): CSSProperties {
     background: `linear-gradient(90deg, ${color}bb, ${color})`,
   } as CSSProperties;
 }
+
+export function clampProgressValue(usedPercent: number): number {
+  if (!Number.isFinite(usedPercent)) return 0;
+  return Math.min(100, Math.max(0, Math.round(usedPercent)));
+}

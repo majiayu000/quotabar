@@ -3,6 +3,7 @@ import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import AntigravityPanel from '../src/components/AntigravityPanel';
 import ClaudePanel from '../src/components/ClaudePanel';
+import CodexPanel from '../src/components/CodexPanel';
 import CursorPanel from '../src/components/CursorPanel';
 import OverviewPanel from '../src/components/OverviewPanel';
 import ProviderDetailHeader from '../src/components/ProviderDetailHeader';
@@ -35,6 +36,7 @@ describe('provider status UI', () => {
         status: 'Connected',
         plan: 'Cursor Pro',
         usedPercent: 47,
+        usageLabel: 'Fast requests',
       }));
     });
 
@@ -42,6 +44,7 @@ describe('provider status UI', () => {
     expect(text).toContain('Cursor');
     expect(text).toContain('Connected');
     expect(text).toContain('Cursor Pro');
+    expect(text).toContain('Fast requests');
     expect(text).toContain('47% used');
   });
 
@@ -105,12 +108,258 @@ describe('provider status UI', () => {
     await act(async () => renderer.unmount());
   });
 
-  it('shows Cursor request counts with the percentage and separates account metadata', async () => {
+  it('treats the Antigravity placeholder as preview rather than a refresh error', async () => {
+    vi.spyOn(backend, 'getAntigravityInfo').mockResolvedValue({
+      connected: false,
+      status: 'preview',
+      error: 'Quota tracking arrives when Google ships a stable usage API.',
+    });
+    let renderer!: ReactTestRenderer;
+    await act(async () => {
+      renderer = create(createElement(AntigravityPanel, { autoRefreshIntervalMs: 0 }));
+      await Promise.resolve();
+    });
+
+    const text = renderedText(renderer);
+    expect(text).toContain('Preview');
+    expect(text).toContain('Quota tracking is in preview');
+    expect(text).toContain('stable usage API');
+    expect(text).not.toContain('Unavailable');
+    expect(renderer.root.findAllByProps({ role: 'alert' })).toHaveLength(0);
+    await act(async () => renderer.unmount());
+  });
+
+  it('labels retained Codex limits as stale when the refresh carries an error', async () => {
+    vi.spyOn(backend, 'getCodexInfo').mockResolvedValue({ connected: true, planType: 'pro' });
+    vi.spyOn(backend, 'getCodexRateLimits').mockResolvedValue({
+      connected: true,
+      planType: 'pro',
+      primary: { usedPercent: 64, windowMinutes: 300 },
+      error: 'Rate limit refresh failed',
+    });
+    vi.spyOn(backend, 'getCodexResetCredits').mockResolvedValue({
+      connected: true,
+      availableCount: 0,
+      credits: [],
+    });
+    vi.spyOn(backend, 'getCodexWeeklyQuota').mockResolvedValue({});
+    let renderer!: ReactTestRenderer;
+    await act(async () => {
+      renderer = create(createElement(CodexPanel, {
+        autoRefreshIntervalMs: 0,
+        showCostSummary: false,
+        sections: hiddenSections,
+      }));
+      await Promise.resolve();
+    });
+
+    const text = renderedText(renderer);
+    expect(text).toContain('Rate limit refresh failed');
+    expect(text).toContain('Stale data');
+    expect(text).toContain('Showing last known data');
+    expect(text).toContain('5h · 64% used');
+    await act(async () => renderer.unmount());
+  });
+
+  it('does not claim last-known Codex quota when an error response has no limits', async () => {
+    vi.spyOn(backend, 'getCodexInfo').mockResolvedValue({ connected: true, planType: 'pro' });
+    vi.spyOn(backend, 'getCodexRateLimits').mockResolvedValue({
+      connected: false,
+      error: 'Codex rate limit request failed: 401',
+    });
+    vi.spyOn(backend, 'getCodexResetCredits').mockResolvedValue({
+      connected: true,
+      availableCount: 0,
+      credits: [],
+    });
+    vi.spyOn(backend, 'getCodexWeeklyQuota').mockResolvedValue({});
+    let renderer!: ReactTestRenderer;
+    await act(async () => {
+      renderer = create(createElement(CodexPanel, {
+        autoRefreshIntervalMs: 0,
+        showCostSummary: false,
+        sections: hiddenSections,
+      }));
+      await Promise.resolve();
+    });
+
+    const text = renderedText(renderer);
+    expect(text).toContain('Quota unavailable');
+    expect(text).not.toContain('Stale data');
+    expect(text).not.toContain('Showing last known data');
+    await act(async () => renderer.unmount());
+  });
+
+  it('keeps fresh Codex limits connected when only account metadata fails', async () => {
+    vi.spyOn(backend, 'getCodexInfo').mockResolvedValue({
+      connected: false,
+      error: 'Codex ID token is unavailable',
+    });
+    vi.spyOn(backend, 'getCodexRateLimits').mockResolvedValue({
+      connected: true,
+      planType: 'pro',
+      primary: { usedPercent: 64, windowMinutes: 300 },
+    });
+    vi.spyOn(backend, 'getCodexResetCredits').mockResolvedValue({
+      connected: true,
+      availableCount: 0,
+      credits: [],
+    });
+    vi.spyOn(backend, 'getCodexWeeklyQuota').mockResolvedValue({});
+    let renderer!: ReactTestRenderer;
+    await act(async () => {
+      renderer = create(createElement(CodexPanel, {
+        autoRefreshIntervalMs: 0,
+        showCostSummary: false,
+        sections: hiddenSections,
+      }));
+      await Promise.resolve();
+    });
+
+    const text = renderedText(renderer);
+    expect(text).toContain('Codex ID token is unavailable');
+    expect(text).toContain('Connected');
+    expect(text).toContain('5h · 64% used');
+    expect(text).not.toContain('Stale data');
+    expect(text).not.toContain('Showing last known data');
+    await act(async () => renderer.unmount());
+  });
+
+  it('labels retained Cursor data as stale after a rejected refresh', async () => {
+    vi.spyOn(backend, 'getCursorInfo')
+      .mockResolvedValueOnce({ connected: true, fastUsed: 231, fastLimit: 500, percentage: 46.2 })
+      .mockRejectedValueOnce(new Error('Cursor refresh failed'));
+    const onConnectionChange = vi.fn();
+    const onUsageChange = vi.fn();
+    const onQuotaWindowsChange = vi.fn();
+    let renderer!: ReactTestRenderer;
+    await act(async () => {
+      renderer = create(createElement(CursorPanel, {
+        autoRefreshIntervalMs: 0,
+        manualRefreshNonce: 0,
+        onConnectionChange,
+        onUsageChange,
+        onQuotaWindowsChange,
+        showCostSummary: false,
+        sections: hiddenSections,
+      }));
+      await Promise.resolve();
+    });
+    onConnectionChange.mockClear();
+    onUsageChange.mockClear();
+    onQuotaWindowsChange.mockClear();
+    await act(async () => {
+      renderer.update(createElement(CursorPanel, {
+        autoRefreshIntervalMs: 0,
+        manualRefreshNonce: 1,
+        onConnectionChange,
+        onUsageChange,
+        onQuotaWindowsChange,
+        showCostSummary: false,
+        sections: hiddenSections,
+      }));
+      await Promise.resolve();
+    });
+
+    const text = renderedText(renderer);
+    expect(text).toContain('Cursor refresh failed');
+    expect(text).toContain('Stale data');
+    expect(text).toContain('Showing last known data');
+    expect(text).toContain('231 / 500 · 46%');
+    expect(onConnectionChange).not.toHaveBeenCalled();
+    expect(onUsageChange).not.toHaveBeenCalled();
+    expect(onQuotaWindowsChange).not.toHaveBeenCalled();
+    await act(async () => renderer.unmount());
+  });
+
+  it('keeps parent Codex summaries after a rejected refresh', async () => {
+    vi.spyOn(backend, 'getCodexInfo')
+      .mockResolvedValueOnce({ connected: true, planType: 'pro' })
+      .mockRejectedValueOnce(new Error('Codex refresh failed'));
+    vi.spyOn(backend, 'getCodexRateLimits').mockResolvedValue({
+      connected: true,
+      planType: 'pro',
+      primary: { usedPercent: 64, windowMinutes: 300 },
+    });
+    vi.spyOn(backend, 'getCodexResetCredits').mockResolvedValue({
+      connected: true,
+      availableCount: 0,
+      credits: [],
+    });
+    vi.spyOn(backend, 'getCodexWeeklyQuota').mockResolvedValue({});
+    const onConnectionChange = vi.fn();
+    const onUsageChange = vi.fn();
+    const onQuotaWindowsChange = vi.fn();
+    let renderer!: ReactTestRenderer;
+    await act(async () => {
+      renderer = create(createElement(CodexPanel, {
+        autoRefreshIntervalMs: 0,
+        manualRefreshNonce: 0,
+        onConnectionChange,
+        onUsageChange,
+        onQuotaWindowsChange,
+        showCostSummary: false,
+        sections: hiddenSections,
+      }));
+      await Promise.resolve();
+    });
+    onConnectionChange.mockClear();
+    onUsageChange.mockClear();
+    onQuotaWindowsChange.mockClear();
+    await act(async () => {
+      renderer.update(createElement(CodexPanel, {
+        autoRefreshIntervalMs: 0,
+        manualRefreshNonce: 1,
+        onConnectionChange,
+        onUsageChange,
+        onQuotaWindowsChange,
+        showCostSummary: false,
+        sections: hiddenSections,
+      }));
+      await Promise.resolve();
+    });
+
+    const text = renderedText(renderer);
+    expect(text).toContain('Codex refresh failed');
+    expect(text).toContain('Stale data');
+    expect(text).toContain('5h · 64% used');
+    expect(onConnectionChange).not.toHaveBeenCalled();
+    expect(onUsageChange).not.toHaveBeenCalled();
+    expect(onQuotaWindowsChange).not.toHaveBeenCalled();
+    await act(async () => renderer.unmount());
+  });
+
+  it('labels connected Cursor fallback responses as stale', async () => {
     vi.spyOn(backend, 'getCursorInfo').mockResolvedValue({
       connected: true,
       fastUsed: 231,
       fastLimit: 500,
       percentage: 46.2,
+      error: 'Cursor network refresh failed',
+    });
+    let renderer!: ReactTestRenderer;
+    await act(async () => {
+      renderer = create(createElement(CursorPanel, {
+        autoRefreshIntervalMs: 0,
+        showCostSummary: false,
+        sections: hiddenSections,
+      }));
+      await Promise.resolve();
+    });
+
+    const text = renderedText(renderer);
+    expect(text).toContain('Cursor network refresh failed');
+    expect(text).toContain('Stale data');
+    expect(text).toContain('Showing last known data');
+    await act(async () => renderer.unmount());
+  });
+
+  it('shows Cursor request counts with the percentage and separates account metadata', async () => {
+    vi.spyOn(backend, 'getCursorInfo').mockResolvedValue({
+      connected: true,
+      fastUsed: 615,
+      fastLimit: 500,
+      percentage: 123,
       email: 'developer@example.com',
     });
     let renderer!: ReactTestRenderer;
@@ -123,9 +372,11 @@ describe('provider status UI', () => {
       await Promise.resolve();
     });
 
-    expect(renderedText(renderer)).toContain('231 / 500 · 46%');
+    expect(renderedText(renderer)).toContain('615 / 500 · 123%');
     expect(renderer.root.findAllByProps({ className: 'account-strip' })).toHaveLength(1);
-    expect(renderer.root.findAllByProps({ role: 'progressbar' })).toHaveLength(1);
+    const progress = renderer.root.findByProps({ role: 'progressbar' });
+    expect(progress.props['aria-valuenow']).toBe(100);
+    expect(progress.props['aria-valuetext']).toBe('123% used');
     await act(async () => renderer.unmount());
   });
 });

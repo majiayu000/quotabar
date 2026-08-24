@@ -97,10 +97,13 @@
 }
 
 .provider-detail-status {
-  flex: 0 0 auto;
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
   color: var(--text);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
 }
 
 .section {

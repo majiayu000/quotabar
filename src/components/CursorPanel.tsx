@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import { useRef } from 'react';
 import { backend } from '../services/backend';
 import CostSummarySection from './CostSummarySection';
 import ProviderDetailHeader from './ProviderDetailHeader';
@@ -7,7 +8,7 @@ import SmartTip from './SmartTip';
 import type { CursorData } from '../types/models';
 import { buildCursorQuotaWindows, sortMostConstrained, type QuotaWindowSummary } from '../services/provider_summary';
 import { getHighUsageTip } from '../services/detail_helpers';
-import { formatPlanType, getProgressStyle } from '../utils/quota_format';
+import { clampProgressValue, formatPlanType, getProgressStyle } from '../utils/quota_format';
 import { defaultPanelSections, type PanelSectionVisibility } from '../services/panel_sections';
 import { useLatestRequestGeneration } from '../hooks/use_latest_request_generation';
 
@@ -52,6 +53,7 @@ export default function CursorPanel({
   const [cursorData, setCursorData] = useState<CursorData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const hasResolvedData = useRef(false);
   const request_generation = useLatestRequestGeneration();
 
   const fetchData = useCallback(async () => {
@@ -62,6 +64,7 @@ export default function CursorPanel({
       const data = await backend.getCursorInfo();
       if (!request_generation.isCurrent(generation)) return;
       setCursorData(data);
+      hasResolvedData.current = true;
       if (data.error) {
         setError(data.error);
       }
@@ -72,9 +75,11 @@ export default function CursorPanel({
       if (!request_generation.isCurrent(generation)) return;
       const message = err instanceof Error ? err.message : 'Failed to fetch Cursor data';
       setError(message);
-      onConnectionChange?.(false);
-      onUsageChange?.(null);
-      onQuotaWindowsChange?.([]);
+      if (!hasResolvedData.current) {
+        onConnectionChange?.(false);
+        onUsageChange?.(null);
+        onQuotaWindowsChange?.([]);
+      }
     } finally {
       if (request_generation.isCurrent(generation)) {
         setLoading(false);
@@ -121,7 +126,10 @@ export default function CursorPanel({
       {error && (
         <div className="error-banner">
           <span className="error-icon">!</span>
-          <span className="error-text">{error}</span>
+          <span className="error-text">
+            {error}
+            {cursorData?.connected && <span className="error-context">Showing last known data.</span>}
+          </span>
         </div>
       )}
 
@@ -129,9 +137,11 @@ export default function CursorPanel({
         <div className="codex-content">
           <ProviderDetailHeader
             service="cursor"
-            status="Connected"
+            status={error ? 'Stale data' : 'Connected'}
             plan={`Cursor ${formatPlanType(cursorData.planType, 'Unknown')}`}
             usedPercent={topWindow?.usedPercent ?? null}
+            usageLabel={topWindow?.label}
+            tone={error ? 'pending' : 'online'}
           />
 
           <div className="section">
@@ -151,7 +161,8 @@ export default function CursorPanel({
                       aria-label="Cursor included request usage"
                       aria-valuemin={0}
                       aria-valuemax={100}
-                      aria-valuenow={Math.round(percentage)}
+                      aria-valuenow={clampProgressValue(percentage)}
+                      aria-valuetext={`${Math.round(percentage)}% used`}
                     >
                       <div className="progress-fill" style={getProgressStyle(percentage)} />
                     </div>

@@ -1,4 +1,4 @@
-import { getProgressStyle } from '../utils/quota_format';
+import { clampProgressValue, getProgressStyle } from '../utils/quota_format';
 
 interface QuotaCardProps {
   label: string;
@@ -30,7 +30,8 @@ export default function QuotaCard({ label, percentage, resetsIn, pace, featured 
         aria-label={`${label} usage`}
         aria-valuemin={0}
         aria-valuemax={100}
-        aria-valuenow={percentage}
+        aria-valuenow={clampProgressValue(percentage)}
+        aria-valuetext={`${Math.round(percentage)}% used`}
       >
         <div
           className={`progress-fill ${status}`}

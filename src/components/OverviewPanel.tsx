@@ -1,6 +1,6 @@
 import type { ProviderSummary, QuotaWindowSummary } from '../services/provider_summary';
 import type { TrayServiceName } from '../services/tray_visibility';
-import { getProgressStyle } from '../utils/quota_format';
+import { clampProgressValue, getProgressStyle } from '../utils/quota_format';
 import CostSummarySection from './CostSummarySection';
 import ProviderDetailHeader from './ProviderDetailHeader';
 import ResetTimeline from './ResetTimeline';
@@ -35,6 +35,7 @@ export default function OverviewPanel({
         status={`${connectedCount} of ${summaries.length} connected`}
         plan="All providers"
         usedPercent={mostConstrained[0]?.usedPercent ?? null}
+        usageLabel={mostConstrained[0] ? `${mostConstrained[0].providerLabel} · ${mostConstrained[0].label}` : undefined}
         tone={connectedCount > 0 ? 'online' : 'offline'}
       />
 
@@ -59,7 +60,8 @@ export default function OverviewPanel({
                 aria-label={`${window.providerLabel} ${window.label} usage`}
                 aria-valuemin={0}
                 aria-valuemax={100}
-                aria-valuenow={Math.round(window.usedPercent)}
+                aria-valuenow={clampProgressValue(window.usedPercent)}
+                aria-valuetext={`${Math.round(window.usedPercent)}% used`}
               >
                 <div className="progress-fill" style={getProgressStyle(window.usedPercent)} />
               </div>

@@ -59,23 +59,30 @@ export default function AntigravityPanel({
   }, [manualRefreshNonce, fetchData]);
 
   const isConnected = data?.connected === true;
-  const hasError = Boolean(data?.error) && !loading;
+  const isPreview = data?.status === 'preview' && !isConnected;
+  const hasError = data?.status === 'error' && Boolean(data.error) && !loading;
   const headerStatus = loading && !data
     ? 'Checking'
     : hasError
       ? 'Unavailable'
       : isConnected
         ? 'CLI detected'
+        : isPreview
+          ? 'Preview'
         : 'Not connected';
   const panelTitle = hasError
     ? 'Unable to check Antigravity'
     : isConnected
       ? 'Antigravity is connected'
+      : isPreview
+        ? 'Quota tracking is in preview'
       : 'Antigravity is not connected';
   const panelHint = hasError
     ? 'Quota tracking status could not be refreshed. Try again from the footer.'
     : isConnected
       ? 'The CLI session is available. Quota tracking is waiting for provider support.'
+      : isPreview
+        ? data?.error ?? 'Quota tracking is waiting for a stable provider usage API.'
       : 'Sign in to Antigravity, then check the CLI status below.';
 
   return (
@@ -85,14 +92,14 @@ export default function AntigravityPanel({
         status={headerStatus}
         plan="Quota preview"
         usedPercent={null}
-        tone={hasError ? 'error' : loading && !data ? 'pending' : isConnected ? 'online' : 'offline'}
+        tone={hasError ? 'error' : loading && !data || isPreview ? 'pending' : isConnected ? 'online' : 'offline'}
       />
 
       <div className={`offline-panel${isConnected ? ' connected' : ''}`}>
         <div className="offline-tile">Ag</div>
         <div className="offline-title">{panelTitle}</div>
         <div className="offline-hint">{panelHint}</div>
-        {!isConnected && !hasError && <code className="offline-command">antigravity status</code>}
+        {!isConnected && !hasError && !isPreview && <code className="offline-command">antigravity status</code>}
       </div>
 
       {hasError && (
