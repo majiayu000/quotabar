@@ -8,7 +8,7 @@ export const PANEL_SECTION_ORDER: PanelSectionKey[] = ['timeline', 'cost', 'tren
 
 export const PANEL_SECTION_LABELS: Record<PanelSectionKey, string> = {
   timeline: 'Reset timeline',
-  cost: 'Local cost',
+  cost: 'API-equivalent usage',
   trend: 'Usage trend',
   tips: 'Smart tips',
 };

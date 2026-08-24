@@ -212,6 +212,7 @@ export default function CostSummarySection({
   const [daily, setDaily] = useState<CostDailyPoint[] | null>(null);
   const [sparkRange, setSparkRange] = useState<SparkRange>('7d');
   const [hoveredDay, setHoveredDay] = useState<CostDailyPoint | null>(null);
+  const [focusedDay, setFocusedDay] = useState<CostDailyPoint | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const sourceKey = Array.isArray(source) ? source.join(',') : source;
@@ -297,8 +298,11 @@ export default function CostSummarySection({
   return (
     <div className="section cost-section">
       <div className="cost-title-row">
-        <span className="section-title">Local cost</span>
-        {overview && <span className="cost-note">{formatCostNote(primaryRange)}</span>}
+        <span className="section-title">API-equivalent usage</span>
+        <span className="cost-title-meta">
+          <span className="cost-estimate-badge">Local estimate</span>
+          {overview && <span className="cost-note">{formatCostNote(primaryRange)}</span>}
+        </span>
       </div>
 
       {loading && !overview && (
@@ -337,7 +341,15 @@ export default function CostSummarySection({
                       {formatMoney(monthlyBudget, monthRange?.currency ?? 'USD')}
                     </strong>
                   </div>
-                  <div className="budget-track">
+                  <div
+                    className="budget-track"
+                    role="progressbar"
+                    aria-label="Monthly API-equivalent budget used"
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    aria-valuenow={Math.min(100, Math.round(budgetPercent))}
+                    aria-valuetext={`${Math.round(budgetPercent)}% of monthly budget used`}
+                  >
                     <div className="budget-fill" style={getProgressStyle(budgetPercent)} />
                   </div>
                 </div>
@@ -347,31 +359,71 @@ export default function CostSummarySection({
                 (() => {
                   const sparkDays = sliceSparkDays(daily, sparkRange);
                   const maxCost = Math.max(...sparkDays.map((day) => day.costUsd ?? day.cost ?? 0), 0);
+                  const focusedIndex = focusedDay
+                    ? sparkDays.findIndex((day) => day.date === focusedDay.date)
+                    : -1;
+                  const inspectedCandidate = hoveredDay ?? focusedDay;
+                  const inspectedIndex = inspectedCandidate
+                    ? sparkDays.findIndex((day) => day.date === inspectedCandidate.date)
+                    : -1;
+                  const inspectedDay = inspectedIndex >= 0 ? sparkDays[inspectedIndex] : null;
+                  const activeIndex = inspectedIndex >= 0 ? inspectedIndex : sparkDays.length - 1;
+                  const activeDay = sparkDays[activeIndex];
+                  const activeValue = activeDay?.costUsd ?? activeDay?.cost ?? 0;
+                  const focusDay = (index: number) => {
+                    const day = sparkDays[index];
+                    if (day) setFocusedDay(day);
+                  };
                   return (
                     <>
-                      <div className="spark-bars" onMouseLeave={() => setHoveredDay(null)}>
+                      <div
+                        className="spark-bars"
+                        role="slider"
+                        tabIndex={0}
+                        aria-label="Daily API-equivalent usage trend"
+                        aria-valuemin={1}
+                        aria-valuemax={sparkDays.length}
+                        aria-valuenow={activeIndex + 1}
+                        aria-valuetext={`${activeDay.date}: ${formatMoney(activeValue, primaryRange.currency)}`}
+                        onFocus={() => focusDay(activeIndex)}
+                        onBlur={() => setFocusedDay(null)}
+                        onMouseLeave={() => setHoveredDay(null)}
+                        onKeyDown={(event) => {
+                          const keyboardIndex = focusedIndex >= 0 ? focusedIndex : activeIndex;
+                          let nextIndex = keyboardIndex;
+                          if (event.key === 'ArrowLeft' || event.key === 'ArrowDown') nextIndex = Math.max(0, keyboardIndex - 1);
+                          else if (event.key === 'ArrowRight' || event.key === 'ArrowUp') nextIndex = Math.min(sparkDays.length - 1, keyboardIndex + 1);
+                          else if (event.key === 'Home') nextIndex = 0;
+                          else if (event.key === 'End') nextIndex = sparkDays.length - 1;
+                          else return;
+                          event.preventDefault();
+                          setHoveredDay(null);
+                          focusDay(nextIndex);
+                        }}
+                      >
                         {sparkDays.map((day, index) => {
                           const value = day.costUsd ?? day.cost ?? 0;
                           const height = maxCost > 0 ? Math.max(8, (value / maxCost) * 100) : 8;
-                          const isHovered = hoveredDay?.date === day.date;
+                          const isHovered = inspectedDay?.date === day.date;
                           return (
-                            <div
+                            <span
                               className={`spark-bar-hit ${isHovered ? 'hovered' : ''}`}
                               key={day.date}
                               onMouseEnter={() => setHoveredDay(day)}
+                              aria-hidden="true"
                             >
-                              <div
+                              <span
                                 className={`spark-bar ${index === sparkDays.length - 1 ? 'latest' : ''} ${isHovered ? 'hovered' : ''}`}
                                 style={{ height: `${height}%` }}
                               />
-                            </div>
+                            </span>
                           );
                         })}
                       </div>
                       <div className="cost-footer">
-                        <span className={hoveredDay ? 'spark-hover-label' : undefined}>
-                          {hoveredDay
-                            ? `${hoveredDay.date} · ${formatMoney(hoveredDay.costUsd ?? hoveredDay.cost ?? 0, primaryRange.currency)}`
+                        <span className={inspectedDay ? 'spark-hover-label' : undefined}>
+                          {inspectedDay
+                            ? `${inspectedDay.date} · ${formatMoney(inspectedDay.costUsd ?? inspectedDay.cost ?? 0, primaryRange.currency)}`
                             : `${sparkRange === '7d' ? 'Past 7 days' : 'Past 30 days'} · ${formatMoney(sumDailyCost(sparkDays), primaryRange.currency)}`}
                         </span>
                         <span className="spark-range-chips">

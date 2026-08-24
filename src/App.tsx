@@ -655,11 +655,10 @@ export default function App() {
   const nonClaudeRefreshIntervalMs = windowVisible
     ? AUTO_REFRESH_INTERVAL_MS
     : BACKGROUND_REFRESH_INTERVAL_MS;
-  // Keep this short: the footer status slot only fits ~8 characters.
   const footerStatus = activeLoading
     ? 'Updating...'
     : lastUpdatedAt != null
-      ? `Upd. ${formatEventTime(new Date(lastUpdatedAt).toISOString())}`
+      ? `Updated ${formatEventTime(new Date(lastUpdatedAt).toISOString())}`
       : '';
   const footerStatusTitle = lastUpdatedAt != null
     ? `Last updated ${new Date(lastUpdatedAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`
@@ -782,6 +781,7 @@ export default function App() {
               loading={activeLoading}
               statusText={footerStatus}
               statusTitle={footerStatusTitle}
+              showDashboard={providerViewActive}
             />
           </>
         )}

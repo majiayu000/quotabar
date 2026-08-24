@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import ThemeSelector, { type ThemeName } from './ThemeSelector';
-import TrayToggles, { type TrayToggleEntry } from './TrayToggles';
+import type { TrayToggleEntry } from './TrayToggles';
+import ProviderIcon from './ProviderIcon';
 import type { TrayServiceName } from '../services/tray_visibility';
 import {
   BUDGET_SOURCES,
@@ -69,6 +70,8 @@ export default function SettingsView({
   onSwitcherToggle,
 }: SettingsViewProps) {
   const [budgets, setBudgets] = useState<MonthlyBudgets>(getSavedMonthlyBudgets);
+  const enabledSwitcherCount = SERVICES.filter((service) => switcherVisibility[service]).length;
+  const trayByService = new Map(trayEntries.map((entry) => [entry.service, entry]));
 
   const handleBudgetChange = (source: CostSource, raw: string) => {
     setBudgets((prev) => {
@@ -101,13 +104,16 @@ export default function SettingsView({
         </div>
       </div>
 
-      <div className="settings-block">
-        <div className="settings-section-title">Appearance</div>
+      <section className="settings-group" aria-labelledby="settings-appearance-title">
+        <div className="settings-group-header">
+          <span className="settings-group-index">01</span>
+          <div>
+            <h2 id="settings-appearance-title">Appearance</h2>
+            <p>Theme and menu bar presentation</p>
+          </div>
+        </div>
         <ThemeSelector currentTheme={theme} onThemeChange={onThemeChange} />
-      </div>
-
-      <div className="settings-block">
-        <div className="settings-section-title">Menu bar style</div>
+        <div className="settings-subsection-title">Menu bar style</div>
         <div className="settings-seg">
           {TRAY_STYLE_OPTIONS.map((option) => (
             <button
@@ -115,6 +121,7 @@ export default function SettingsView({
               type="button"
               className={`settings-seg-btn ${trayStyle === option.id ? 'active' : ''}`}
               onClick={() => onTrayStyleChange(option.id)}
+              aria-pressed={trayStyle === option.id}
             >
               {option.label}
             </button>
@@ -133,43 +140,109 @@ export default function SettingsView({
             <span />
           </button>
         </div>
-      </div>
+      </section>
 
-      <div className="settings-block">
-        <div className="settings-section-title">Switcher providers</div>
-        {SERVICES.map((service) => (
-          <label className="settings-line" key={service}>
-            <span>{SERVICE_META[service].label}</span>
-            <input
-              className="native-switch-input"
-              type="checkbox"
-              checked={switcherVisibility[service]}
-              onChange={() => onSwitcherToggle(service)}
-            />
-            <span className={`target-switch ${switcherVisibility[service] ? 'on' : ''}`}><span /></span>
-          </label>
-        ))}
-        <div className="settings-hint">Hidden providers keep refreshing; at least one stays visible.</div>
-      </div>
+      <section className="settings-group" aria-labelledby="settings-providers-title">
+        <div className="settings-group-header">
+          <span className="settings-group-index">02</span>
+          <div>
+            <h2 id="settings-providers-title">Providers</h2>
+            <p>Choose where each service appears</p>
+          </div>
+        </div>
+        <div className="provider-visibility-grid">
+          <div className="provider-visibility-head" aria-hidden="true">
+            <span>Service</span>
+            <span>Panel</span>
+            <span>Menu</span>
+          </div>
+          {SERVICES.map((service) => {
+            const meta = SERVICE_META[service];
+            const trayEntry = trayByService.get(service);
+            const panelEnabled = switcherVisibility[service];
+            const panelLocked = panelEnabled && enabledSwitcherCount === 1;
+            const trayLocked = !trayEntry || (trayEntry.enabled && !trayEntry.canDisable);
+            const connectionHint = trayEntry?.connected
+              ? trayEntry.connectedHint ?? 'Connected'
+              : trayEntry?.disconnectedHint ?? 'Offline';
+            return (
+              <div className="provider-visibility-row" key={service}>
+                <span className="provider-visibility-service">
+                  <span className={`provider-mini-icon provider-${service}`} aria-hidden="true">
+                    <ProviderIcon service={service} />
+                  </span>
+                  <span>
+                    <strong>{meta.label}</strong>
+                    <small className={trayEntry?.connected ? 'connected' : ''}>
+                      {connectionHint}
+                    </small>
+                  </span>
+                </span>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={panelEnabled}
+                  aria-disabled={panelLocked}
+                  aria-label={`Show ${meta.label} in panel`}
+                  className={`target-switch compact ${panelEnabled ? 'on' : ''}`}
+                  disabled={panelLocked}
+                  onClick={() => onSwitcherToggle(service)}
+                >
+                  <span />
+                </button>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={trayEntry?.enabled ?? false}
+                  aria-disabled={trayLocked}
+                  aria-label={`Show ${meta.label} in menu bar`}
+                  className={`target-switch compact ${trayEntry?.enabled ? 'on' : ''}`}
+                  disabled={trayLocked}
+                  onClick={() => onTrayToggle(service)}
+                >
+                  <span />
+                </button>
+              </div>
+            );
+          })}
+        </div>
+        <div className="settings-hint">Hidden panel providers still refresh in the background.</div>
+      </section>
 
-      <div className="settings-block">
-        <div className="settings-section-title">Panel sections</div>
+      <section className="settings-group" aria-labelledby="settings-sections-title">
+        <div className="settings-group-header">
+          <span className="settings-group-index">03</span>
+          <div>
+            <h2 id="settings-sections-title">Panel content</h2>
+            <p>Show only the sections you use</p>
+          </div>
+        </div>
         {PANEL_SECTION_ORDER.map((key) => (
-          <label className="settings-line" key={key}>
+          <div className="settings-line" key={key}>
             <span>{PANEL_SECTION_LABELS[key]}</span>
-            <input
-              className="native-switch-input"
-              type="checkbox"
-              checked={panelSections[key]}
-              onChange={() => onPanelSectionToggle(key)}
-            />
-            <span className={`target-switch ${panelSections[key] ? 'on' : ''}`}><span /></span>
-          </label>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={panelSections[key]}
+              aria-label={`Show ${PANEL_SECTION_LABELS[key]}`}
+              className={`target-switch ${panelSections[key] ? 'on' : ''}`}
+              onClick={() => onPanelSectionToggle(key)}
+            >
+              <span />
+            </button>
+          </div>
         ))}
-      </div>
+      </section>
 
-      <div className="settings-block">
-        <div className="settings-section-title">Monthly budgets</div>
+      <section className="settings-group" aria-labelledby="settings-alerts-title">
+        <div className="settings-group-header">
+          <span className="settings-group-index">04</span>
+          <div>
+            <h2 id="settings-alerts-title">Limits & alerts</h2>
+            <p>Budgets and usage notifications</p>
+          </div>
+        </div>
+        <div className="settings-subsection-title">Monthly budgets</div>
         {BUDGET_SOURCES.map((source) => (
           <label className="settings-line" key={source}>
             <span>{SERVICE_META[source].label}</span>
@@ -188,32 +261,34 @@ export default function SettingsView({
             </span>
           </label>
         ))}
-        <div className="settings-hint">Shown as a budget bar in the Local cost section.</div>
-      </div>
-
-      <div className="settings-block">
-        <div className="settings-section-title">Notifications</div>
+        <div className="settings-hint">Shown in the API-equivalent usage section.</div>
+        <div className="settings-subsection-title settings-subsection-divider">Notifications</div>
         {NOTIFICATION_ROWS.map(({ key, label }) => (
-          <label className="settings-line" key={key}>
+          <div className="settings-line" key={key}>
             <span>{label}</span>
-            <input
-              className="native-switch-input"
-              type="checkbox"
-              checked={notificationSettings[key]}
-              onChange={() => onNotificationToggle(key)}
-            />
-            <span className={`target-switch ${notificationSettings[key] ? 'on' : ''}`}><span /></span>
-          </label>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={notificationSettings[key]}
+              aria-label={label}
+              className={`target-switch ${notificationSettings[key] ? 'on' : ''}`}
+              onClick={() => onNotificationToggle(key)}
+            >
+              <span />
+            </button>
+          </div>
         ))}
-      </div>
+      </section>
 
-      <div className="settings-block">
-        <div className="settings-section-title">Menu bar items</div>
-        <TrayToggles entries={trayEntries} onToggle={onTrayToggle} />
-      </div>
-
-      <div className="settings-block">
-        <div className="settings-section-title">Recent events</div>
+      <section className="settings-group" aria-labelledby="settings-system-title">
+        <div className="settings-group-header">
+          <span className="settings-group-index">05</span>
+          <div>
+            <h2 id="settings-system-title">Activity & system</h2>
+            <p>Recent status changes and app behavior</p>
+          </div>
+        </div>
+        <div className="settings-subsection-title">Recent events</div>
         {events.length > 0 ? (
           <div className="event-list">
             {events.slice(0, 6).map((event) => (
@@ -227,23 +302,26 @@ export default function SettingsView({
         ) : (
           <div className="settings-hint">No events yet.</div>
         )}
-      </div>
 
-      {isMacOS && (
-        <div className="settings-block">
-          <div className="settings-section-title">Dock</div>
-          <label className="settings-line">
-            <span>Hide Dock icon</span>
-            <input
-              className="native-switch-input"
-              type="checkbox"
-              checked={dockHidden}
-              onChange={onDockToggle}
-            />
-            <span className={`target-switch ${dockHidden ? 'on' : ''}`}><span /></span>
-          </label>
-        </div>
-      )}
+        {isMacOS && (
+          <>
+            <div className="settings-subsection-title settings-subsection-divider">Dock</div>
+            <div className="settings-line">
+              <span>Hide Dock icon</span>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={dockHidden}
+                aria-label="Hide Dock icon"
+                className={`target-switch ${dockHidden ? 'on' : ''}`}
+                onClick={onDockToggle}
+              >
+                <span />
+              </button>
+            </div>
+          </>
+        )}
+      </section>
     </div>
   );
 }
