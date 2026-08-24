@@ -30,7 +30,7 @@ dirs = "5"
 image = { version = "0.25", default-features = false, features = ["png"] }
 once_cell = "1.19"
 ccstats = { git = "https://github.com/majiayu000/ccstats.git", rev = "7dbfad0ffc29277da22cd095db067e88982f3f12" }
-ccstats-quota = { package = "ccstats", git = "https://github.com/majiayu000/ccstats.git", rev = "ad50478776da6d464caf5e2f7676b931acb8ff02" }
+ccstats-quota = { package = "ccstats", git = "https://github.com/majiayu000/ccstats.git", rev = "2c67efd32508bd7e0e7c5605c9ac4ba989632818" }
 tauri-plugin-notification = "2.3.3"
 
 [target.'cfg(unix)'.dependencies]
