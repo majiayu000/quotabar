@@ -11,11 +11,12 @@ QuotaBar tracks Claude Code, Codex, Cursor, and Antigravity. SuperGrok / X Premi
 - Show the unified weekly/monthly pool used percent and reset time as the tray value and primary panel bar.
 - Show `productUsage` as a composition of that same pool (not independent remaining quotas).
 - Show Extra credits (`onDemandUsed` / `onDemandCap` / `prepaidBalance`) only when any value is non-zero.
+- Estimate the shared pool's API-equivalent USD/token value from local Grok usage scaled by `creditUsagePercent`. Fail closed when local usage is missing or does not match the official period.
 - Wire Grok into the switcher, overview, settings trays, and per-provider tray icon.
 
 ## Non-Goals
 
-- Local Grok session cost via ccstats.
+- Calendar CostSummarySection (Today/This Week/This Month) for Grok.
 - xAI Management API / prepaid API-team spend.
 - grok.com gRPC-web / browser cookies / WKE.
 - Token refresh or `grok login` orchestration.

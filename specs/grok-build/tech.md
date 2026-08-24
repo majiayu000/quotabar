@@ -5,7 +5,8 @@
 `GrokData` from `src-tauri/src/services/grok.rs`:
 
 - Identity: `email`, `planType` from billing `subscriptionTier` (not `auth_mode`).
-- Pool: `percentage` (`creditUsagePercent`, else sum of product percents), `resetAt` (`currentPeriod.end` then `billingPeriodEnd`), `periodType` / `periodLabel`.
+- Pool: `percentage` (`creditUsagePercent`, else sum of product percents), `resetAt` (`currentPeriod.end` then `billingPeriodEnd`), `periodStartedAt` (`currentPeriod.start`), `periodType` / `periodLabel`.
+- `valueEstimate` / `valueEstimateError`: local ccstats Grok cost in `[period start, now]` scaled by official used percent. Isolated from pool % rendering.
 - `products[]`: `{ product, label, usagePercent }` mapped from `GrokBuild` / `PRODUCT_GROK_BUILD` / etc.
 - `extra`: cents for on-demand used/cap and prepaid remaining; UI hides when all zero.
 

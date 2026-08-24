@@ -6,8 +6,9 @@
 //!
 //! Credentials are read-only. QuotaBar never writes, refreshes, or logs tokens.
 
-use crate::domain::models::{GrokData, GrokExtraCredits, GrokProductUsage};
+use crate::domain::models::{GrokData, GrokExtraCredits, GrokProductUsage, GrokValueEstimate};
 use crate::services::http::{is_transient_os_error, shared_http_client};
+use ccstats_quota::{MultiSummaryOptions, UsageRange, UsageSource};
 use chrono::{DateTime, Utc};
 use std::path::PathBuf;
 use std::sync::{Mutex, OnceLock};
@@ -227,7 +228,12 @@ fn parse_products(value: &serde_json::Value) -> Vec<GrokProductUsage> {
 
 fn period_from_config(
     config: &serde_json::Value,
-) -> (Option<String>, Option<String>, Option<String>) {
+) -> (
+    Option<String>,
+    Option<String>,
+    Option<String>,
+    Option<String>,
+) {
     let period = &config["currentPeriod"];
     let raw_type = period
         .get("type")
@@ -246,12 +252,102 @@ fn period_from_config(
         ),
         None => (None, None),
     };
+    let started_at = period
+        .get("start")
+        .and_then(serde_json::Value::as_str)
+        .map(ToString::to_string);
     let reset_at = period
         .get("end")
         .and_then(serde_json::Value::as_str)
         .or_else(|| config["billingPeriodEnd"].as_str())
         .map(ToString::to_string);
-    (period_type, period_label, reset_at)
+    (period_type, period_label, started_at, reset_at)
+}
+
+fn parse_rfc3339(value: &str) -> Option<DateTime<Utc>> {
+    DateTime::parse_from_rfc3339(value)
+        .ok()
+        .map(|dt| dt.with_timezone(&Utc))
+}
+
+fn scale_observed_usage(
+    observed_cost_usd: f64,
+    observed_tokens: i64,
+    used_pct: f64,
+) -> Result<(f64, f64), String> {
+    if !used_pct.is_finite() || used_pct <= 0.0 {
+        return Err(
+            "cannot estimate Grok pool value while the provider-reported used percentage is zero"
+                .to_string(),
+        );
+    }
+    if !observed_cost_usd.is_finite() || observed_cost_usd <= 0.0 {
+        return Err(
+            "no positive API-equivalent cost was available for the active Grok period".to_string(),
+        );
+    }
+    if observed_tokens <= 0 {
+        return Err("no Grok token usage matched the active billing period".to_string());
+    }
+    let scale = 100.0 / used_pct;
+    let period_usd = observed_cost_usd * scale;
+    let period_tokens = observed_tokens as f64 * scale;
+    if !period_usd.is_finite() || !period_tokens.is_finite() {
+        return Err("the Grok pool value calculation produced a non-finite result".to_string());
+    }
+    Ok((period_usd, period_tokens))
+}
+
+fn estimate_grok_period_value(
+    used_pct: Option<f64>,
+    started_at: Option<&str>,
+    reset_at: Option<&str>,
+) -> Result<GrokValueEstimate, String> {
+    let used_pct =
+        used_pct.ok_or_else(|| "The official Grok pool usage is unavailable.".to_string())?;
+    let started = started_at
+        .and_then(parse_rfc3339)
+        .ok_or_else(|| "The official Grok period start is unavailable.".to_string())?;
+    let resets = reset_at
+        .and_then(parse_rfc3339)
+        .ok_or_else(|| "The official Grok period reset is unavailable.".to_string())?;
+    let now = Utc::now();
+    let observed_at = if now < resets { now } else { resets };
+    if started.date_naive() > observed_at.date_naive() {
+        return Err("The official Grok period window is invalid.".to_string());
+    }
+    let batch = ccstats_quota::summarize_cost_ranges(MultiSummaryOptions {
+        source: UsageSource::Grok,
+        ranges: vec![UsageRange::DateRange {
+            since: Some(started.date_naive()),
+            until: Some(observed_at.date_naive()),
+        }],
+        timezone: None,
+        offline: true,
+        strict_pricing: false,
+        currency: None,
+    })
+    .map_err(|error| error.to_string())?;
+    let summary = batch
+        .summaries
+        .into_iter()
+        .next()
+        .ok_or_else(|| "no Grok token usage matched the active billing period".to_string())?;
+    let observed_cost = summary.cost_usd.or(summary.cost).ok_or_else(|| {
+        "no positive API-equivalent cost was available for the active Grok period".to_string()
+    })?;
+    let (period_usd, period_tokens) =
+        scale_observed_usage(observed_cost, summary.tokens.total_tokens, used_pct)?;
+    Ok(GrokValueEstimate {
+        observed_at: observed_at.to_rfc3339(),
+        window_started_at: started.to_rfc3339(),
+        resets_at: resets.to_rfc3339(),
+        used_pct,
+        observed_cost_usd: observed_cost,
+        estimated_period_value_usd: period_usd,
+        observed_tokens: summary.tokens.total_tokens,
+        estimated_period_tokens: period_tokens,
+    })
 }
 
 fn parse_billing_payload(data: &serde_json::Value, email: Option<String>) -> GrokData {
@@ -271,7 +367,7 @@ fn parse_billing_payload(data: &serde_json::Value, email: Option<String>) -> Gro
             ))
         }
     });
-    let (period_type, period_label, reset_at) = period_from_config(config);
+    let (period_type, period_label, period_started_at, reset_at) = period_from_config(config);
     let extra = GrokExtraCredits {
         on_demand_used_cents: parse_cent(&config["onDemandUsed"]),
         on_demand_cap_cents: parse_cent(&config["onDemandCap"]),
@@ -303,10 +399,13 @@ fn parse_billing_payload(data: &serde_json::Value, email: Option<String>) -> Gro
         email,
         percentage,
         reset_at,
+        period_started_at,
         period_type,
         period_label,
         products,
         extra,
+        value_estimate: None,
+        value_estimate_error: None,
         error: None,
     }
 }
@@ -394,8 +493,22 @@ pub async fn fetch_grok_info() -> GrokData {
         }
     };
 
-    let result = parse_billing_payload(&data, credential.email);
+    let mut result = parse_billing_payload(&data, credential.email);
     if result.connected {
+        let used_pct = result.percentage;
+        let started_at = result.period_started_at.clone();
+        let reset_at = result.reset_at.clone();
+        match tauri::async_runtime::spawn_blocking(move || {
+            estimate_grok_period_value(used_pct, started_at.as_deref(), reset_at.as_deref())
+        })
+        .await
+        {
+            Ok(Ok(estimate)) => result.value_estimate = Some(estimate),
+            Ok(Err(error)) => result.value_estimate_error = Some(error),
+            Err(error) => {
+                result.value_estimate_error = Some(format!("Grok pool value task failed: {error}"));
+            }
+        }
         save_cache(&result);
     }
     result
@@ -454,6 +567,10 @@ mod tests {
         );
         assert_eq!(data.plan_type.as_deref(), Some("SuperGrok Heavy"));
         assert_eq!(data.email.as_deref(), Some("user@example.com"));
+        assert_eq!(
+            data.period_started_at.as_deref(),
+            Some("2026-08-23T15:25:10.879112+00:00")
+        );
         assert_eq!(data.products.len(), 2);
         assert_eq!(data.products[0].label, "Build");
         assert_eq!(data.products[0].usage_percent, 4.0);
@@ -526,6 +643,27 @@ mod tests {
         assert_eq!(cred.email.as_deref(), Some("live@example.com"));
         assert_eq!(cred.user_id.as_deref(), Some("user-1"));
         assert!(cred.key.starts_with("live-token"));
+    }
+
+    #[test]
+    fn scale_observed_usage_projects_from_official_used_percent() {
+        let (usd, tokens) = super::scale_observed_usage(8.0, 2_000, 4.0).expect("scaled");
+        assert_eq!(usd, 200.0);
+        assert_eq!(tokens, 50_000.0);
+    }
+
+    #[test]
+    fn scale_observed_usage_rejects_zero_used_percent() {
+        let error = super::scale_observed_usage(8.0, 2_000, 0.0).expect_err("zero usage");
+        assert!(error.contains("used percentage is zero"));
+    }
+
+    #[test]
+    fn estimate_requires_period_start() {
+        let error =
+            super::estimate_grok_period_value(Some(4.0), None, Some("2026-08-30T15:25:10Z"))
+                .expect_err("missing start");
+        assert!(error.contains("period start"));
     }
 
     #[test]

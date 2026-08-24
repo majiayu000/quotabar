@@ -5,6 +5,7 @@ All notable QuotaBar changes should be summarized here before a release is cut.
 ## Unreleased
 
 - Added Grok Build quota tracking: SuperGrok weekly/monthly pool, product mix, extra credits, and a per-provider tray.
+- Estimate SuperGrok pool API-equivalent USD/token value from local Grok usage scaled by the official used percent.
 - Added Codex weekly API-equivalent USD and token estimates from the ccstats SDK,
   while keeping estimate failures isolated from official quota and pace data.
 - Show the Codex weekly value estimate against the official 7-day window even

@@ -625,6 +625,87 @@ describe('Codex weekly pace', () => {
   });
 });
 
+describe('Grok period value', () => {
+  async function render_grok(data: GrokData): Promise<ReactTestRenderer> {
+    vi.spyOn(backend, 'getGrokInfo').mockResolvedValue(data);
+    let renderer!: ReactTestRenderer;
+    await act(async () => {
+      renderer = create(createElement(GrokPanel, {
+        autoRefreshIntervalMs: 0,
+      }));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    return renderer;
+  }
+
+  it('renders the local Grok pool value estimate', async () => {
+    const renderer = await render_grok({
+      connected: true,
+      percentage: 4,
+      periodType: 'weekly',
+      periodLabel: 'Weekly',
+      resetAt: '2026-08-30T15:25:10.879Z',
+      products: [{ product: 'build', label: 'Build', usagePercent: 4 }],
+      valueEstimate: {
+        observedAt: new Date().toISOString(),
+        windowStartedAt: '2026-08-23T15:25:10.879Z',
+        resetsAt: '2026-08-30T15:25:10.879Z',
+        usedPct: 4,
+        observedCostUsd: 8,
+        estimatedPeriodValueUsd: 200,
+        observedTokens: 2_000,
+        estimatedPeriodTokens: 50_000,
+      },
+    });
+
+    expect(rendered_text(renderer)).toContain('API-equivalent week');
+    expect(rendered_text(renderer)).toContain('$200.00');
+    expect(rendered_text(renderer)).toContain('50K');
+    expect(rendered_text(renderer)).toContain('Local estimate');
+    expect(rendered_text(renderer)).toContain('Projected from local Grok usage');
+    await unmount(renderer);
+  });
+
+  it('keeps the pool value error visible without hiding official usage', async () => {
+    const renderer = await render_grok({
+      connected: true,
+      percentage: 4,
+      periodType: 'weekly',
+      products: [],
+      valueEstimateError: 'no Grok token usage matched the active billing period',
+    });
+
+    expect(rendered_text(renderer)).toContain('4%');
+    expect(rendered_text(renderer)).toContain('Pool value unavailable');
+    expect(rendered_text(renderer)).toContain('no Grok token usage matched');
+    await unmount(renderer);
+  });
+
+  it('rejects a Grok pool estimate that does not match official usage', async () => {
+    const renderer = await render_grok({
+      connected: true,
+      percentage: 4,
+      resetAt: '2026-08-30T15:25:10.879Z',
+      products: [],
+      valueEstimate: {
+        observedAt: new Date().toISOString(),
+        windowStartedAt: '2026-08-23T15:25:10.879Z',
+        resetsAt: '2026-08-30T15:25:10.879Z',
+        usedPct: 40,
+        observedCostUsd: 8,
+        estimatedPeriodValueUsd: 20,
+        observedTokens: 2_000,
+        estimatedPeriodTokens: 5_000,
+      },
+    });
+
+    expect(rendered_text(renderer)).toContain('does not match the official usage');
+    expect(rendered_text(renderer)).not.toContain('API-equivalent week');
+    await unmount(renderer);
+  });
+});
+
 function install_app_backend(quota_requests: Array<Deferred<QuotaData>>): void {
   vi.spyOn(backend, 'getQuota').mockImplementation(() => quota_requests.shift()!.promise);
   vi.spyOn(backend, 'getCodexInfo').mockResolvedValue({ connected: true });
