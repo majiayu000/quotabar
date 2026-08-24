@@ -238,7 +238,7 @@ export default function GrokPanel({
                             <strong>
                               ≈{COMPACT_TOKEN_FORMAT.format(displayedGrokValueEstimate.observedTokens)}
                             </strong>
-                            <span>API list price so far</span>
+                            <span>billed so far this period</span>
                           </span>
                           <span className="weekly-value-token-row">
                             <span>Full pool</span>
