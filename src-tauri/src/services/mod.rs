@@ -7,6 +7,7 @@ pub mod cost;
 mod cost_disk_cache;
 pub mod cursor;
 pub mod grok;
+mod grok_local;
 pub mod http;
 pub mod link;
 pub mod tray;

@@ -7,8 +7,8 @@
 //! Credentials are read-only. QuotaBar never writes, refreshes, or logs tokens.
 
 use crate::domain::models::{GrokData, GrokExtraCredits, GrokProductUsage, GrokValueEstimate};
+use crate::services::grok_local;
 use crate::services::http::{is_transient_os_error, shared_http_client};
-use ccstats_quota::{MultiSummaryOptions, UsageRange, UsageSource};
 use chrono::{DateTime, Utc};
 use std::path::PathBuf;
 use std::sync::{Mutex, OnceLock};
@@ -313,39 +313,21 @@ fn estimate_grok_period_value(
         .ok_or_else(|| "The official Grok period reset is unavailable.".to_string())?;
     let now = Utc::now();
     let observed_at = if now < resets { now } else { resets };
-    if started.date_naive() > observed_at.date_naive() {
+    if started > observed_at {
         return Err("The official Grok period window is invalid.".to_string());
     }
-    let batch = ccstats_quota::summarize_cost_ranges(MultiSummaryOptions {
-        source: UsageSource::Grok,
-        ranges: vec![UsageRange::DateRange {
-            since: Some(started.date_naive()),
-            until: Some(observed_at.date_naive()),
-        }],
-        timezone: None,
-        offline: true,
-        strict_pricing: false,
-        currency: None,
-    })
-    .map_err(|error| error.to_string())?;
-    let summary = batch
-        .summaries
-        .into_iter()
-        .next()
-        .ok_or_else(|| "no Grok token usage matched the active billing period".to_string())?;
-    let observed_cost = summary.cost_usd.or(summary.cost).ok_or_else(|| {
-        "no positive API-equivalent cost was available for the active Grok period".to_string()
-    })?;
+    let home = grok_home().ok_or_else(|| "Could not find home directory".to_string())?;
+    let usage = grok_local::sum_period(&home, started, observed_at)?;
     let (period_usd, period_tokens) =
-        scale_observed_usage(observed_cost, summary.tokens.total_tokens, used_pct)?;
+        scale_observed_usage(usage.observed_cost_usd, usage.observed_tokens, used_pct)?;
     Ok(GrokValueEstimate {
         observed_at: observed_at.to_rfc3339(),
         window_started_at: started.to_rfc3339(),
         resets_at: resets.to_rfc3339(),
         used_pct,
-        observed_cost_usd: observed_cost,
+        observed_cost_usd: usage.observed_cost_usd,
         estimated_period_value_usd: period_usd,
-        observed_tokens: summary.tokens.total_tokens,
+        observed_tokens: usage.observed_tokens,
         estimated_period_tokens: period_tokens,
     })
 }
