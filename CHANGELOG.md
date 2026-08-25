@@ -4,6 +4,7 @@ All notable QuotaBar changes should be summarized here before a release is cut.
 
 ## Unreleased
 
+- Keep enabled provider trays as independent macOS menu-bar extras instead of collapsing them into one Codex slot on macOS 26.
 - Added Grok Build quota tracking: SuperGrok weekly/monthly pool, product mix, extra credits, and a per-provider tray.
 - Estimate SuperGrok pool USD value from Grok's own `costUsdTicks` on completed turns, scaled by the official used percent.
 - Added Codex weekly API-equivalent USD and token estimates from the ccstats SDK,

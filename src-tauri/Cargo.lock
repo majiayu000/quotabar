@@ -3295,6 +3295,8 @@ dependencies = [
  "dirs 5.0.1",
  "image",
  "libc",
+ "objc2-app-kit",
+ "objc2-foundation",
  "once_cell",
  "reqwest 0.12.28",
  "serde",
