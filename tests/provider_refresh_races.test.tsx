@@ -646,6 +646,7 @@ describe('Grok period value', () => {
       percentage: 4,
       periodType: 'weekly',
       periodLabel: 'Weekly',
+      periodStartedAt: '2026-08-23T15:25:10.879Z',
       resetAt: '2026-08-30T15:25:10.879Z',
       products: [{ product: 'build', label: 'Build', usagePercent: 4 }],
       valueEstimate: {
@@ -689,6 +690,7 @@ describe('Grok period value', () => {
     const renderer = await render_grok({
       connected: true,
       percentage: 4,
+      periodStartedAt: '2026-08-23T15:25:10.879Z',
       resetAt: '2026-08-30T15:25:10.879Z',
       products: [],
       valueEstimate: {
@@ -705,6 +707,30 @@ describe('Grok period value', () => {
 
     expect(rendered_text(renderer)).toContain('does not match the official usage');
     expect(rendered_text(renderer)).not.toContain('API-equivalent week');
+    await unmount(renderer);
+  });
+
+  it('rejects a Grok pool estimate from a different official period', async () => {
+    const renderer = await render_grok({
+      connected: true,
+      percentage: 4,
+      periodStartedAt: '2026-08-23T15:25:10.879Z',
+      resetAt: '2026-08-30T15:25:10.879Z',
+      products: [],
+      valueEstimate: {
+        observedAt: new Date().toISOString(),
+        windowStartedAt: '2026-08-16T15:25:10.879Z',
+        resetsAt: '2026-08-30T15:25:10.879Z',
+        usedPct: 4,
+        observedCostUsd: 8,
+        estimatedPeriodValueUsd: 200,
+        observedTokens: 2_000,
+        estimatedPeriodTokens: 50_000,
+      },
+    });
+
+    expect(rendered_text(renderer)).toContain('does not match the official period start');
+    expect(rendered_text(renderer)).not.toContain('API-equivalent period');
     await unmount(renderer);
   });
 });

@@ -83,6 +83,15 @@ function validateGrokValueEstimate(
   ) {
     return 'The local Grok pool estimate does not match the official reset.';
   }
+  const estimateStart = Date.parse(estimate.windowStartedAt);
+  const officialStart = data.periodStartedAt ? Date.parse(data.periodStartedAt) : Number.NaN;
+  if (
+    !Number.isFinite(estimateStart)
+    || !Number.isFinite(officialStart)
+    || Math.abs(estimateStart - officialStart) > 5 * 60 * 1000
+  ) {
+    return 'The local Grok pool estimate does not match the official period start.';
+  }
   return null;
 }
 
