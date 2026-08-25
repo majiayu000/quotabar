@@ -13,6 +13,7 @@ interface OverviewPanelProps {
   mostConstrained: QuotaWindowSummary[];
   upcomingResets: QuotaWindowSummary[];
   costRefreshKey: number;
+  showCostSummary?: boolean;
   onProviderSelect: (provider: TrayServiceName) => void;
   sections?: PanelSectionVisibility;
 }
@@ -22,6 +23,7 @@ export default function OverviewPanel({
   mostConstrained,
   upcomingResets,
   costRefreshKey,
+  showCostSummary = true,
   onProviderSelect,
   sections = defaultPanelSections(),
 }: OverviewPanelProps) {
@@ -74,7 +76,7 @@ export default function OverviewPanel({
       </div>
 
       {sections.timeline && <ResetTimeline windows={upcomingResets} />}
-      {sections.cost && (
+      {sections.cost && showCostSummary && (
         <CostSummarySection source={ALL_COST_SOURCES} refreshKey={costRefreshKey} showTrend={sections.trend} />
       )}
     </div>

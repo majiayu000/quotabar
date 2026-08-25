@@ -258,7 +258,7 @@ fn toggle_main_window(app: &AppHandle) {
 
 fn format_tooltip(service: TrayService, percentage: Option<u8>) -> String {
     match percentage {
-        Some(value) => format!("{}: {}% used", service.label(), value.min(100)),
+        Some(value) => format!("{}: {}% used", service.label(), value),
         None => format!("{}: unavailable", service.label()),
     }
 }
@@ -365,7 +365,7 @@ pub async fn update_tray_icon(
     let runtime = tray_state.runtime.clone();
     let style = style.unwrap_or_default();
     let snapshot = TraySnapshot {
-        percentage: percentage.map(|value| value.min(100)),
+        percentage,
         visible,
         style,
     };
@@ -476,10 +476,10 @@ mod tests {
     }
 
     #[test]
-    fn tooltip_clamps_usage() {
+    fn tooltip_preserves_over_limit_usage() {
         assert_eq!(
             format_tooltip(TrayService::Codex, Some(130)),
-            "Codex: 100% used"
+            "Codex: 130% used"
         );
     }
 

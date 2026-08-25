@@ -29,6 +29,14 @@ function invokeBackend<T>(command: string, args?: Record<string, unknown>): Prom
   return invoke<T>(command, args);
 }
 
+export function normalizeTrayIpcPercentage(percentage: number | null): number | null {
+  if (percentage == null) return null;
+  if (!Number.isFinite(percentage)) {
+    throw new Error('Tray percentage must be finite');
+  }
+  return Math.min(255, Math.max(0, Math.round(percentage)));
+}
+
 export const backend = {
   getQuota() {
     return invokeBackend<QuotaData>('get_quota');
@@ -110,7 +118,7 @@ export const backend = {
   ) {
     return invokeBackend<void>('update_tray_icon', {
       service,
-      percentage: percentage == null ? null : Math.round(percentage),
+      percentage: normalizeTrayIpcPercentage(percentage),
       visible,
       force,
       style,

@@ -7,6 +7,7 @@
 
 use crate::domain::models::CursorData;
 use crate::services::http::{is_transient_os_error, shared_http_client};
+use chrono::{DateTime, Months, NaiveDate, Utc};
 use std::path::PathBuf;
 use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant};
@@ -256,10 +257,7 @@ fn parse_usage_payload(data: &serde_json::Value) -> CursorData {
         _ => None,
     };
 
-    let reset_at = data["startOfMonth"]
-        .as_str()
-        .map(ToString::to_string)
-        .or_else(|| data["resetAt"].as_str().map(ToString::to_string));
+    let reset_at = cursor_reset_at(data);
 
     let connected = best_used.is_some() || best_limit.is_some();
 
@@ -278,6 +276,31 @@ fn parse_usage_payload(data: &serde_json::Value) -> CursorData {
             Some("Cursor API returned no usage fields.".to_string())
         },
     }
+}
+
+fn parse_cursor_timestamp(value: &str) -> Option<DateTime<Utc>> {
+    DateTime::parse_from_rfc3339(value)
+        .ok()
+        .map(|timestamp| timestamp.with_timezone(&Utc))
+        .or_else(|| {
+            NaiveDate::parse_from_str(value, "%Y-%m-%d")
+                .ok()?
+                .and_hms_opt(0, 0, 0)
+                .map(|timestamp| timestamp.and_utc())
+        })
+}
+
+fn cursor_reset_at(data: &serde_json::Value) -> Option<String> {
+    data["resetAt"]
+        .as_str()
+        .and_then(parse_cursor_timestamp)
+        .or_else(|| {
+            data["startOfMonth"]
+                .as_str()
+                .and_then(parse_cursor_timestamp)
+                .and_then(|started| started.checked_add_months(Months::new(1)))
+        })
+        .map(|reset| reset.to_rfc3339())
 }
 
 #[cfg(test)]
@@ -310,6 +333,22 @@ mod tests {
         assert_eq!(data.fast_limit, Some(500));
         assert_eq!(data.slow_used, Some(99));
         assert!(data.percentage.unwrap() > 23.9 && data.percentage.unwrap() < 24.1);
+        assert_eq!(data.reset_at.as_deref(), Some("2026-06-01T00:00:00+00:00"));
+    }
+
+    #[test]
+    fn malformed_explicit_reset_falls_back_to_period_start() {
+        let payload: serde_json::Value = serde_json::json!({
+            "fastRequestsUsed": 650,
+            "fastRequestsLimit": 500,
+            "startOfMonth": "2026-05-01",
+            "resetAt": "not-a-date"
+        });
+
+        let data = parse_usage_payload(&payload);
+
+        assert_eq!(data.percentage, Some(130.0));
+        assert_eq!(data.reset_at.as_deref(), Some("2026-06-01T00:00:00+00:00"));
     }
 
     #[test]

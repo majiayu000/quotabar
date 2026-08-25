@@ -55,6 +55,22 @@ describe('provider summary helpers', () => {
     expect(sorted[0].provider).toBe('cursor');
   });
 
+  test('preserves truthful over-limit Cursor usage in frontend summaries', () => {
+    const windows = buildCursorQuotaWindows({
+      connected: true,
+      percentage: 130,
+      resetAt: '2026-07-05T00:00:00Z',
+    });
+    const summaries = buildProviderSummaries(
+      { claude: false, codex: false, cursor: true, grok: false, antigravity: false },
+      { claude: false, codex: false, cursor: false, grok: false, antigravity: false },
+      { claude: null, codex: null, cursor: 130, grok: null, antigravity: null },
+    );
+
+    expect(windows[0].usedPercent).toBe(130);
+    expect(summaries.find((summary) => summary.id === 'cursor')?.statusText).toBe('130% used');
+  });
+
   test('builds grok weekly pool and extra-credit windows', () => {
     const windows = buildGrokQuotaWindows({
       connected: true,

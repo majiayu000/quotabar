@@ -1,4 +1,7 @@
-use std::sync::OnceLock;
+use std::{
+    collections::{HashMap, VecDeque},
+    sync::{Mutex, OnceLock},
+};
 
 use image::{
     imageops::{resize, FilterType},
@@ -31,6 +34,7 @@ const LARGE_DIGIT_OFFSET_X: i32 = -1;
 const LARGE_DIGIT_OFFSET_Y: i32 = -1;
 const SMALL_DIGIT_OFFSET_X: i32 = 0;
 const SMALL_DIGIT_OFFSET_Y: i32 = 0;
+const TRAY_ICON_CACHE_LIMIT: usize = 128;
 
 const DIGITS: [[u8; 5]; 10] = [
     [0b111, 0b101, 0b101, 0b101, 0b111],
@@ -45,7 +49,7 @@ const DIGITS: [[u8; 5]; 10] = [
     [0b111, 0b101, 0b111, 0b001, 0b111],
 ];
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum TrayIconIdentity {
     Claude,
     Codex,
@@ -55,7 +59,7 @@ pub enum TrayIconIdentity {
 }
 
 /// Menu bar rendering style, mirroring the Settings "Menu bar style" control.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Deserialize)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum TrayIconStyle {
     /// Progress ring with the usage percentage digits (default).
@@ -65,6 +69,53 @@ pub enum TrayIconStyle {
     Ring,
     /// Provider badge only.
     Icon,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+struct TrayIconCacheKey {
+    identity: TrayIconIdentity,
+    used_percent: Option<u8>,
+    size: u32,
+    style: TrayIconStyle,
+}
+
+struct CachedTrayIcon {
+    png: Vec<u8>,
+    hits: usize,
+}
+
+#[derive(Default)]
+struct TrayIconCache {
+    entries: HashMap<TrayIconCacheKey, CachedTrayIcon>,
+    insertion_order: VecDeque<TrayIconCacheKey>,
+}
+
+impl TrayIconCache {
+    fn get(&mut self, key: TrayIconCacheKey) -> Option<Vec<u8>> {
+        let cached = self.entries.get_mut(&key)?;
+        cached.hits = cached.hits.saturating_add(1);
+        Some(cached.png.clone())
+    }
+
+    fn insert(&mut self, key: TrayIconCacheKey, png: Vec<u8>) {
+        if self.entries.contains_key(&key) {
+            return;
+        }
+        while self.entries.len() >= TRAY_ICON_CACHE_LIMIT {
+            let Some(oldest) = self.insertion_order.pop_front() else {
+                self.entries.clear();
+                break;
+            };
+            self.entries.remove(&oldest);
+        }
+        self.insertion_order.push_back(key);
+        self.entries.insert(key, CachedTrayIcon { png, hits: 0 });
+    }
+}
+
+fn tray_icon_cache() -> &'static Mutex<TrayIconCache> {
+    static CACHE: OnceLock<Mutex<TrayIconCache>> = OnceLock::new();
+    CACHE.get_or_init(|| Mutex::new(TrayIconCache::default()))
 }
 
 fn draw_glyph(img: &mut RgbaImage, pattern: &[u8; 5], x: i32, y: i32, scale: u32, color: Rgba<u8>) {
@@ -286,6 +337,34 @@ pub fn generate_tray_icon(
     size: u32,
     style: TrayIconStyle,
 ) -> Vec<u8> {
+    let key = TrayIconCacheKey {
+        identity,
+        used_percent: used_percent.map(|value| value.min(100)),
+        size,
+        style,
+    };
+    if let Some(png) = tray_icon_cache()
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .get(key)
+    {
+        return png;
+    }
+
+    let png = render_tray_icon(key.identity, key.used_percent, key.size, key.style);
+    tray_icon_cache()
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .insert(key, png.clone());
+    png
+}
+
+fn render_tray_icon(
+    identity: TrayIconIdentity,
+    used_percent: Option<u8>,
+    size: u32,
+    style: TrayIconStyle,
+) -> Vec<u8> {
     let mut img: RgbaImage = ImageBuffer::new(size, size);
     let center = size as f32 / 2.0;
     let is_large = size >= 44;
@@ -378,7 +457,10 @@ pub fn generate_tray_icon(
 
 #[cfg(test)]
 mod tests {
-    use super::{generate_tray_icon, usage_color, TrayIconIdentity, TrayIconStyle};
+    use super::{
+        generate_tray_icon, tray_icon_cache, usage_color, TrayIconCache, TrayIconCacheKey,
+        TrayIconIdentity, TrayIconStyle, TRAY_ICON_CACHE_LIMIT,
+    };
 
     #[test]
     fn generate_icon_returns_png_bytes() {
@@ -437,6 +519,52 @@ mod tests {
 
         assert_ne!(ninety_nine, full);
         assert_eq!(full, over_limit);
+    }
+
+    #[test]
+    fn generated_png_is_reused_for_the_same_visual_key() {
+        let key = TrayIconCacheKey {
+            identity: TrayIconIdentity::Cursor,
+            used_percent: Some(37),
+            size: 37,
+            style: TrayIconStyle::Ring,
+        };
+        {
+            let mut cache = tray_icon_cache()
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
+            cache.entries.remove(&key);
+            cache.insertion_order.retain(|candidate| candidate != &key);
+        }
+
+        let first = generate_tray_icon(key.identity, key.used_percent, key.size, key.style);
+        let second = generate_tray_icon(key.identity, key.used_percent, key.size, key.style);
+        let hits = tray_icon_cache()
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .entries
+            .get(&key)
+            .map(|entry| entry.hits);
+
+        assert_eq!(first, second);
+        assert_eq!(hits, Some(1));
+    }
+
+    #[test]
+    fn generated_png_cache_is_bounded() {
+        let mut cache = TrayIconCache::default();
+        for size in 1..=(TRAY_ICON_CACHE_LIMIT as u32 + 1) {
+            let key = TrayIconCacheKey {
+                identity: TrayIconIdentity::Claude,
+                used_percent: Some(1),
+                size,
+                style: TrayIconStyle::Icon,
+            };
+            cache.insert(key, vec![size as u8]);
+        }
+
+        assert_eq!(cache.entries.len(), TRAY_ICON_CACHE_LIMIT);
+        assert!(!cache.entries.keys().any(|key| key.size == 1));
     }
 
     #[test]

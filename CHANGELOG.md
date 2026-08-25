@@ -10,6 +10,8 @@ All notable QuotaBar changes should be summarized here before a release is cut.
   while keeping estimate failures isolated from official quota and pace data.
 - Show the Codex weekly value estimate against the official 7-day window even
   when the local CLI snapshot reports 0% or lives in the primary slot.
+- Preserve over-limit Cursor usage while deriving truthful reset dates, normalize only the tray IPC boundary,
+  cache generated tray PNGs, and stop Overview cost work while the popover is hidden.
 
 ## 0.3.1 - 2026-08-22
 
