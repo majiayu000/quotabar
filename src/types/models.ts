@@ -121,16 +121,30 @@ export interface GrokExtraCredits {
   prepaidBalanceCents: number;
 }
 
+export interface GrokValueEstimate {
+  observedAt: string;
+  windowStartedAt: string;
+  resetsAt: string;
+  usedPct: number;
+  observedCostUsd: number;
+  estimatedPeriodValueUsd: number;
+  observedTokens: number;
+  estimatedPeriodTokens: number;
+}
+
 export interface GrokData {
   connected: boolean;
   planType?: string;
   email?: string;
   percentage?: number;
   resetAt?: string;
+  periodStartedAt?: string;
   periodType?: string;
   periodLabel?: string;
   products: GrokProductUsage[];
   extra?: GrokExtraCredits;
+  valueEstimate?: GrokValueEstimate;
+  valueEstimateError?: string;
   error?: string;
 }
 

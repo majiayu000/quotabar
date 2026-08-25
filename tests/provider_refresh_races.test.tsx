@@ -547,10 +547,11 @@ describe('Codex weekly pace', () => {
   });
 
   it('keeps only the standard pace hint on a primary-slot weekly window', async () => {
+    const resetsAt = Math.floor(Date.now() / 1000) + 5 * 24 * 60 * 60;
     const renderer = await render_codex({
       quota: {
         observedAt: new Date().toISOString(),
-        resetsAt: '2026-08-29T00:00:00Z',
+        resetsAt: new Date(resetsAt * 1000).toISOString(),
         windowMinutes: 10_080,
         usedPct: 40,
         remainingPct: 60,
@@ -560,7 +561,7 @@ describe('Codex weekly pace', () => {
     }, null, {
       usedPercent: 40,
       windowMinutes: 10_080,
-      resetsAt: 1_787_961_600,
+      resetsAt,
     });
 
     expect(rendered_text(renderer)).toContain('At current pace');
@@ -621,6 +622,115 @@ describe('Codex weekly pace', () => {
 
     expect(rendered_text(renderer)).toContain('does not match the current official usage');
     expect(rendered_text(renderer)).not.toContain('projected');
+    await unmount(renderer);
+  });
+});
+
+describe('Grok period value', () => {
+  async function render_grok(data: GrokData): Promise<ReactTestRenderer> {
+    vi.spyOn(backend, 'getGrokInfo').mockResolvedValue(data);
+    let renderer!: ReactTestRenderer;
+    await act(async () => {
+      renderer = create(createElement(GrokPanel, {
+        autoRefreshIntervalMs: 0,
+      }));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    return renderer;
+  }
+
+  it('renders the local Grok pool value estimate', async () => {
+    const renderer = await render_grok({
+      connected: true,
+      percentage: 4,
+      periodType: 'weekly',
+      periodLabel: 'Weekly',
+      periodStartedAt: '2026-08-23T15:25:10.879Z',
+      resetAt: '2026-08-30T15:25:10.879Z',
+      products: [{ product: 'build', label: 'Build', usagePercent: 4 }],
+      valueEstimate: {
+        observedAt: new Date().toISOString(),
+        windowStartedAt: '2026-08-23T15:25:10.879Z',
+        resetsAt: '2026-08-30T15:25:10.879Z',
+        usedPct: 4,
+        observedCostUsd: 8,
+        estimatedPeriodValueUsd: 200,
+        observedTokens: 2_000,
+        estimatedPeriodTokens: 50_000,
+      },
+    });
+
+    expect(rendered_text(renderer)).toContain('API-equivalent week');
+    expect(rendered_text(renderer)).toContain('$8.00');
+    expect(rendered_text(renderer)).toContain('billed so far this period');
+    expect(rendered_text(renderer)).toContain('Full pool');
+    expect(rendered_text(renderer)).toContain('$200.00');
+    expect(rendered_text(renderer)).toContain('Local estimate');
+    expect(rendered_text(renderer)).toContain('Projected from local Grok usage');
+    await unmount(renderer);
+  });
+
+  it('keeps the pool value error visible without hiding official usage', async () => {
+    const renderer = await render_grok({
+      connected: true,
+      percentage: 4,
+      periodType: 'weekly',
+      products: [],
+      valueEstimateError: 'no Grok token usage matched the active billing period',
+    });
+
+    expect(rendered_text(renderer)).toContain('4%');
+    expect(rendered_text(renderer)).toContain('Pool value unavailable');
+    expect(rendered_text(renderer)).toContain('no Grok token usage matched');
+    await unmount(renderer);
+  });
+
+  it('rejects a Grok pool estimate that does not match official usage', async () => {
+    const renderer = await render_grok({
+      connected: true,
+      percentage: 4,
+      periodStartedAt: '2026-08-23T15:25:10.879Z',
+      resetAt: '2026-08-30T15:25:10.879Z',
+      products: [],
+      valueEstimate: {
+        observedAt: new Date().toISOString(),
+        windowStartedAt: '2026-08-23T15:25:10.879Z',
+        resetsAt: '2026-08-30T15:25:10.879Z',
+        usedPct: 40,
+        observedCostUsd: 8,
+        estimatedPeriodValueUsd: 20,
+        observedTokens: 2_000,
+        estimatedPeriodTokens: 5_000,
+      },
+    });
+
+    expect(rendered_text(renderer)).toContain('does not match the official usage');
+    expect(rendered_text(renderer)).not.toContain('API-equivalent week');
+    await unmount(renderer);
+  });
+
+  it('rejects a Grok pool estimate from a different official period', async () => {
+    const renderer = await render_grok({
+      connected: true,
+      percentage: 4,
+      periodStartedAt: '2026-08-23T15:25:10.879Z',
+      resetAt: '2026-08-30T15:25:10.879Z',
+      products: [],
+      valueEstimate: {
+        observedAt: new Date().toISOString(),
+        windowStartedAt: '2026-08-16T15:25:10.879Z',
+        resetsAt: '2026-08-30T15:25:10.879Z',
+        usedPct: 4,
+        observedCostUsd: 8,
+        estimatedPeriodValueUsd: 200,
+        observedTokens: 2_000,
+        estimatedPeriodTokens: 50_000,
+      },
+    });
+
+    expect(rendered_text(renderer)).toContain('does not match the official period start');
+    expect(rendered_text(renderer)).not.toContain('API-equivalent period');
     await unmount(renderer);
   });
 });

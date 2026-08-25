@@ -1,9 +1,9 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, type CSSProperties } from 'react';
 import { backend } from '../services/backend';
 import ProviderDetailHeader from './ProviderDetailHeader';
 import ResetTimeline from './ResetTimeline';
 import SmartTip from './SmartTip';
-import type { GrokData } from '../types/models';
+import type { GrokData, GrokValueEstimate } from '../types/models';
 import { buildGrokQuotaWindows, sortMostConstrained, type QuotaWindowSummary } from '../services/provider_summary';
 import { getHighUsageTip } from '../services/detail_helpers';
 import { formatResetTime, getProgressStyle } from '../utils/quota_format';
@@ -26,6 +26,73 @@ function formatCents(cents: number): string {
 
 function poolLabel(data: GrokData): string {
   return data.periodLabel ? `${data.periodLabel} pool` : 'Usage pool';
+}
+
+const USD_FORMAT = new Intl.NumberFormat('en-US', {
+  style: 'currency',
+  currency: 'USD',
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
+const COMPACT_TOKEN_FORMAT = new Intl.NumberFormat('en-US', {
+  notation: 'compact',
+  maximumFractionDigits: 1,
+});
+
+function periodValueTitle(periodType?: string): string {
+  if (periodType === 'monthly') return 'API-equivalent month';
+  if (periodType === 'weekly') return 'API-equivalent week';
+  return 'API-equivalent period';
+}
+
+function validateGrokValueEstimate(
+  estimate: GrokValueEstimate,
+  data: GrokData,
+): string | null {
+  if (
+    !Number.isFinite(estimate.observedCostUsd)
+    || estimate.observedCostUsd <= 0
+    || !Number.isFinite(estimate.estimatedPeriodValueUsd)
+    || estimate.estimatedPeriodValueUsd <= 0
+    || !Number.isFinite(estimate.observedTokens)
+    || estimate.observedTokens <= 0
+    || !Number.isFinite(estimate.estimatedPeriodTokens)
+    || estimate.estimatedPeriodTokens <= 0
+  ) {
+    return 'The local Grok pool estimate contains invalid totals.';
+  }
+  if (data.percentage == null || Math.abs(estimate.usedPct - data.percentage) > 5) {
+    return 'The local Grok pool estimate does not match the official usage.';
+  }
+  const estimateObservedAt = Date.parse(estimate.observedAt);
+  const now = Date.now();
+  if (
+    !Number.isFinite(estimateObservedAt)
+    || estimateObservedAt > now + 5 * 60 * 1000
+    || now - estimateObservedAt > 10 * 60 * 1000
+  ) {
+    return 'The local Grok pool estimate is stale or has an invalid observation time.';
+  }
+  const estimateReset = Date.parse(estimate.resetsAt);
+  const officialReset = data.resetAt ? Date.parse(data.resetAt) : Number.NaN;
+  if (
+    !Number.isFinite(estimateReset)
+    || !Number.isFinite(officialReset)
+    || Math.abs(estimateReset - officialReset) > 5 * 60 * 1000
+  ) {
+    return 'The local Grok pool estimate does not match the official reset.';
+  }
+  const estimateStart = Date.parse(estimate.windowStartedAt);
+  const officialStart = data.periodStartedAt ? Date.parse(data.periodStartedAt) : Number.NaN;
+  if (
+    !Number.isFinite(estimateStart)
+    || !Number.isFinite(officialStart)
+    || Math.abs(estimateStart - officialStart) > 5 * 60 * 1000
+  ) {
+    return 'The local Grok pool estimate does not match the official period start.';
+  }
+  return null;
 }
 
 export default function GrokPanel({
@@ -103,6 +170,15 @@ export default function GrokPanel({
   const resetLabel = grokData?.resetAt
     ? formatResetTime(grokData.resetAt, { expiredLabel: 'soon' })
     : '';
+  const grokValueValidationError = grokData && grokData.valueEstimate
+    ? validateGrokValueEstimate(grokData.valueEstimate, grokData)
+    : null;
+  const displayedGrokValueEstimate = grokValueValidationError
+    ? null
+    : grokData?.valueEstimate ?? null;
+  const displayedGrokValueEstimateError = grokValueValidationError
+    ?? grokData?.valueEstimateError
+    ?? null;
 
   return (
     <div className="codex-panel">
@@ -148,6 +224,66 @@ export default function GrokPanel({
               )}
             </div>
           </div>
+
+          {(displayedGrokValueEstimate || displayedGrokValueEstimateError) && (
+            <div className="section weekly-value-section">
+              <div className="quota-group">
+                <div className="quota-card weekly-value-card">
+                  {displayedGrokValueEstimate ? (
+                    <>
+                      <div className="weekly-value-topline">
+                        <span className="weekly-value-title">
+                          <span className="weekly-value-dot" />
+                          {periodValueTitle(grokData.periodType)}
+                        </span>
+                        <span className="weekly-value-badge">Local estimate</span>
+                      </div>
+                      <div className="weekly-value-body">
+                        <div className="weekly-value-metrics">
+                          <span className="weekly-value-amount">
+                          ≈{USD_FORMAT.format(displayedGrokValueEstimate.observedCostUsd)}
+                          </span>
+                          <span className="weekly-value-token-row">
+                            <strong>
+                              ≈{COMPACT_TOKEN_FORMAT.format(displayedGrokValueEstimate.observedTokens)}
+                            </strong>
+                            <span>billed so far this period</span>
+                          </span>
+                          <span className="weekly-value-token-row">
+                            <span>Full pool</span>
+                            <strong>
+                              ≈{USD_FORMAT.format(displayedGrokValueEstimate.estimatedPeriodValueUsd)}
+                            </strong>
+                          </span>
+                        </div>
+                        <div
+                          className="weekly-value-gauge"
+                          role="img"
+                          aria-label={`Estimate based on ${Math.round(displayedGrokValueEstimate.usedPct)}% used`}
+                          style={{
+                            '--weekly-value-used': `${Math.min(Math.max(displayedGrokValueEstimate.usedPct, 0), 100)}%`,
+                          } as CSSProperties}
+                        >
+                          <span className="weekly-value-gauge-center">
+                            <strong>{Math.round(displayedGrokValueEstimate.usedPct)}%</strong>
+                            <small>used</small>
+                          </span>
+                        </div>
+                      </div>
+                      <div className="weekly-value-footer">
+                        <span>Projected from local Grok usage</span>
+                        <span>Not an official allowance</span>
+                      </div>
+                    </>
+                  ) : (
+                    <span className="quota-pace warning">
+                      Pool value unavailable: {displayedGrokValueEstimateError}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
 
           {products.length > 0 && (
             <div className="section">

@@ -335,6 +335,26 @@ pub struct GrokExtraCredits {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct GrokValueEstimate {
+    #[serde(rename = "observedAt")]
+    pub observed_at: String,
+    #[serde(rename = "windowStartedAt")]
+    pub window_started_at: String,
+    #[serde(rename = "resetsAt")]
+    pub resets_at: String,
+    #[serde(rename = "usedPct")]
+    pub used_pct: f64,
+    #[serde(rename = "observedCostUsd")]
+    pub observed_cost_usd: f64,
+    #[serde(rename = "estimatedPeriodValueUsd")]
+    pub estimated_period_value_usd: f64,
+    #[serde(rename = "observedTokens")]
+    pub observed_tokens: i64,
+    #[serde(rename = "estimatedPeriodTokens")]
+    pub estimated_period_tokens: f64,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct GrokData {
     pub connected: bool,
     #[serde(rename = "planType")]
@@ -343,12 +363,18 @@ pub struct GrokData {
     pub percentage: Option<f64>,
     #[serde(rename = "resetAt")]
     pub reset_at: Option<String>,
+    #[serde(rename = "periodStartedAt")]
+    pub period_started_at: Option<String>,
     #[serde(rename = "periodType")]
     pub period_type: Option<String>,
     #[serde(rename = "periodLabel")]
     pub period_label: Option<String>,
     pub products: Vec<GrokProductUsage>,
     pub extra: Option<GrokExtraCredits>,
+    #[serde(rename = "valueEstimate")]
+    pub value_estimate: Option<GrokValueEstimate>,
+    #[serde(rename = "valueEstimateError")]
+    pub value_estimate_error: Option<String>,
     pub error: Option<String>,
 }
 
@@ -360,10 +386,13 @@ impl GrokData {
             email: None,
             percentage: None,
             reset_at: None,
+            period_started_at: None,
             period_type: None,
             period_label: None,
             products: Vec::new(),
             extra: None,
+            value_estimate: None,
+            value_estimate_error: None,
             error: Some(error.into()),
         }
     }
