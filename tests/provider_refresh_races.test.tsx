@@ -547,10 +547,11 @@ describe('Codex weekly pace', () => {
   });
 
   it('keeps only the standard pace hint on a primary-slot weekly window', async () => {
+    const resetsAt = Math.floor(Date.now() / 1000) + 5 * 24 * 60 * 60;
     const renderer = await render_codex({
       quota: {
         observedAt: new Date().toISOString(),
-        resetsAt: '2026-08-29T00:00:00Z',
+        resetsAt: new Date(resetsAt * 1000).toISOString(),
         windowMinutes: 10_080,
         usedPct: 40,
         remainingPct: 60,
@@ -560,7 +561,7 @@ describe('Codex weekly pace', () => {
     }, null, {
       usedPercent: 40,
       windowMinutes: 10_080,
-      resetsAt: 1_787_961_600,
+      resetsAt,
     });
 
     expect(rendered_text(renderer)).toContain('At current pace');

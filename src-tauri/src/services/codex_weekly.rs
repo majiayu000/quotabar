@@ -1,7 +1,6 @@
 //! Cached Codex weekly value estimates powered by the `ccstats` SDK.
 
 use crate::domain::models::{CodexRateLimitWindow, CodexRateLimits};
-use ccstats_quota::{MultiSummaryOptions, UsageRange, UsageSource};
 use once_cell::sync::Lazy;
 use std::{
     path::{Path, PathBuf},
@@ -45,8 +44,26 @@ impl WeeklyQuotaIdentity {
 struct CachedWeeklyValue {
     codex_home: PathBuf,
     quota: WeeklyQuotaIdentity,
+    official: Option<OfficialWeeklyIdentity>,
     inserted_at: Instant,
     result: WeeklyValueResult,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct OfficialWeeklyIdentity {
+    used_pct_bits: u64,
+    window_minutes: Option<i64>,
+    resets_at: Option<i64>,
+}
+
+impl From<&CodexRateLimitWindow> for OfficialWeeklyIdentity {
+    fn from(window: &CodexRateLimitWindow) -> Self {
+        Self {
+            used_pct_bits: window.used_percent.to_bits(),
+            window_minutes: window.window_minutes,
+            resets_at: window.resets_at,
+        }
+    }
 }
 
 static WEEKLY_VALUE_CACHE: Lazy<Mutex<Option<CachedWeeklyValue>>> = Lazy::new(|| Mutex::new(None));
@@ -72,6 +89,9 @@ pub fn estimate_codex_weekly_value(
     official: Option<&CodexRateLimits>,
 ) -> WeeklyValueResult {
     let quota_identity = WeeklyQuotaIdentity::from(quota);
+    let official_identity = official
+        .and_then(official_weekly_window)
+        .map(OfficialWeeklyIdentity::from);
     let mut cache = WEEKLY_VALUE_CACHE
         .lock()
         .map_err(|error| format!("Codex weekly value cache unavailable: {error}"))?;
@@ -79,6 +99,7 @@ pub fn estimate_codex_weekly_value(
     if let Some(cached) = cache.as_ref() {
         if cached.codex_home == codex_home
             && cached.quota == quota_identity
+            && cached.official == official_identity
             && cached.inserted_at.elapsed() < cache_ttl(&cached.result)
         {
             return cached.result.clone();
@@ -116,6 +137,7 @@ pub fn estimate_codex_weekly_value(
     *cache = Some(CachedWeeklyValue {
         codex_home: codex_home.to_path_buf(),
         quota: quota_identity,
+        official: official_identity,
         inserted_at: Instant::now(),
         result: result.clone(),
     });
@@ -138,37 +160,8 @@ fn fallback_official_weekly_value(
     estimate_from_official_window(codex_home, window)
 }
 
-fn scale_observed_usage(
-    observed_cost_usd: f64,
-    observed_tokens: i64,
-    used_pct: f64,
-) -> Result<(f64, f64), String> {
-    if !used_pct.is_finite() || used_pct <= 0.0 {
-        return Err(
-            "cannot estimate weekly value while the provider-reported used percentage is zero"
-                .to_string(),
-        );
-    }
-    if !observed_cost_usd.is_finite() || observed_cost_usd <= 0.0 {
-        return Err(
-            "no positive API-equivalent cost was available for the active weekly window"
-                .to_string(),
-        );
-    }
-    if observed_tokens <= 0 {
-        return Err("no Codex token usage matched the active weekly quota window".to_string());
-    }
-    let scale = 100.0 / used_pct;
-    let weekly_usd = observed_cost_usd * scale;
-    let weekly_tokens = observed_tokens as f64 * scale;
-    if !weekly_usd.is_finite() || !weekly_tokens.is_finite() {
-        return Err("the weekly value calculation produced a non-finite result".to_string());
-    }
-    Ok((weekly_usd, weekly_tokens))
-}
-
 fn estimate_from_official_window(
-    _codex_home: &Path,
+    codex_home: &Path,
     window: &CodexRateLimitWindow,
 ) -> WeeklyValueResult {
     let window_minutes = window
@@ -179,45 +172,22 @@ fn estimate_from_official_window(
         .ok_or_else(|| "The official weekly reset time is unavailable.".to_string())?;
     let resets = chrono::DateTime::from_timestamp(resets_at, 0)
         .ok_or_else(|| "The official weekly reset time is unavailable.".to_string())?;
-    let started = resets - chrono::Duration::minutes(window_minutes);
     let now = chrono::Utc::now();
-    let observed_at = if now < resets { now } else { resets };
-    let batch = ccstats_quota::summarize_cost_ranges(MultiSummaryOptions {
-        source: UsageSource::Codex,
-        ranges: vec![UsageRange::DateRange {
-            since: Some(started.date_naive()),
-            until: Some(observed_at.date_naive()),
-        }],
-        timezone: None,
-        offline: true,
-        strict_pricing: false,
-        currency: None,
-    })
-    .map_err(|error| error.to_string())?;
-    let summary =
-        batch.summaries.into_iter().next().ok_or_else(|| {
-            "no Codex token usage matched the active weekly quota window".to_string()
-        })?;
-    let observed_cost = summary.cost_usd.or(summary.cost).ok_or_else(|| {
-        "no positive API-equivalent cost was available for the active weekly window".to_string()
-    })?;
-    let (weekly_usd, weekly_tokens) = scale_observed_usage(
-        observed_cost,
-        summary.tokens.total_tokens,
-        window.used_percent,
-    )?;
-    Ok(ccstats_quota::CodexWeeklyValueEstimate {
-        observed_at,
-        window_started_at: started,
-        resets_at: resets,
-        used_pct: window.used_percent,
-        observed_cost_usd: observed_cost,
-        estimated_weekly_value_usd: weekly_usd,
-        observed_tokens: summary.tokens.total_tokens,
-        estimated_weekly_tokens: weekly_tokens,
-        valid_entries: summary.valid_entries,
-        dedup_skipped_entries: summary.skipped_entries,
-    })
+    if now >= resets {
+        return Err("The official weekly quota window has expired.".to_string());
+    }
+    ccstats_quota::estimate_codex_weekly_value_for_window(
+        &ccstats_quota::CodexWeeklyValueWindow {
+            observed_at: now,
+            resets_at: resets,
+            window_minutes,
+            used_pct: window.used_percent,
+        },
+        Some(codex_home),
+        true,
+        false,
+    )
+    .map_err(|error| error.to_string())
 }
 
 #[cfg(test)]
@@ -298,15 +268,13 @@ mod tests {
     }
 
     #[test]
-    fn scale_observed_usage_projects_from_official_used_percent() {
-        let (usd, tokens) = scale_observed_usage(50.0, 1_000, 25.0).expect("scaled");
-        assert_eq!(usd, 200.0);
-        assert_eq!(tokens, 4_000.0);
-    }
+    fn official_identity_changes_with_provider_window() {
+        let first = limits_with(Some((25.0, 10_080)), None);
+        let second = limits_with(Some((30.0, 10_080)), None);
 
-    #[test]
-    fn scale_observed_usage_rejects_zero_used_percent() {
-        let error = scale_observed_usage(50.0, 1_000, 0.0).expect_err("zero usage");
-        assert!(error.contains("used percentage is zero"));
+        assert_ne!(
+            first.primary.as_ref().map(OfficialWeeklyIdentity::from),
+            second.primary.as_ref().map(OfficialWeeklyIdentity::from),
+        );
     }
 }
