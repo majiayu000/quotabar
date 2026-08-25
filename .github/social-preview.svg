@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="640" viewBox="0 0 1280 640">
+  <defs>
+    <radialGradient id="cyan-glow" cx="0" cy="0" r="1" gradientTransform="translate(242 142) rotate(36) scale(570 360)" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#38BDF8" stop-opacity="0.22"/>
+      <stop offset="1" stop-color="#38BDF8" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="violet-glow" cx="0" cy="0" r="1" gradientTransform="translate(1038 180) rotate(142) scale(530 330)" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#A78BFA" stop-opacity="0.18"/>
+      <stop offset="1" stop-color="#A78BFA" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="title" x1="470" y1="190" x2="990" y2="300" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F8FAFC"/>
+      <stop offset="0.48" stop-color="#BAE6FD"/>
+      <stop offset="1" stop-color="#DDD6FE"/>
+    </linearGradient>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M40 0H0V40" fill="none" stroke="#94A3B8" stroke-opacity="0.045"/>
+    </pattern>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="24" stdDeviation="26" flood-color="#020617" flood-opacity="0.58"/>
+    </filter>
+  </defs>
+
+  <rect width="1280" height="640" fill="#0B1220"/>
+  <rect width="1280" height="640" fill="url(#grid)"/>
+  <rect width="1280" height="640" fill="url(#cyan-glow)"/>
+  <rect width="1280" height="640" fill="url(#violet-glow)"/>
+
+  <g filter="url(#shadow)">
+    <rect x="96" y="150" width="320" height="320" rx="82" fill="#111C30" stroke="#334155" stroke-width="2"/>
+    <image href="../landing/assets/app-icon.svg" x="120" y="174" width="272" height="272"/>
+  </g>
+
+  <g font-family="Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
+    <text x="474" y="241" fill="url(#title)" font-size="88" font-weight="760" letter-spacing="-3">QuotaBar</text>
+    <text x="478" y="304" fill="#CBD5E1" font-size="31" font-weight="560">AI quota and local cost</text>
+    <text x="478" y="346" fill="#94A3B8" font-size="31" font-weight="500">right in your menu bar.</text>
+
+    <g font-size="18" font-weight="650" fill="#E2E8F0">
+      <g transform="translate(478 391)">
+        <rect width="112" height="42" rx="21" fill="#1E293B" stroke="#D97757" stroke-opacity="0.55"/>
+        <circle cx="21" cy="21" r="5" fill="#D97757"/>
+        <text x="36" y="27">Claude</text>
+      </g>
+      <g transform="translate(604 391)">
+        <rect width="105" height="42" rx="21" fill="#1E293B" stroke="#10A37F" stroke-opacity="0.55"/>
+        <circle cx="21" cy="21" r="5" fill="#10A37F"/>
+        <text x="36" y="27">Codex</text>
+      </g>
+      <g transform="translate(723 391)">
+        <rect width="112" height="42" rx="21" fill="#1E293B" stroke="#F8FAFC" stroke-opacity="0.45"/>
+        <circle cx="21" cy="21" r="5" fill="#F8FAFC"/>
+        <text x="36" y="27">Cursor</text>
+      </g>
+      <g transform="translate(849 391)">
+        <rect width="98" height="42" rx="21" fill="#1E293B" stroke="#A78BFA" stroke-opacity="0.6"/>
+        <circle cx="21" cy="21" r="5" fill="#A78BFA"/>
+        <text x="36" y="27">Grok</text>
+      </g>
+    </g>
+
+    <text x="478" y="486" fill="#64748B" font-size="18" font-weight="560" letter-spacing="0.3">TAURI v2  ·  MACOS + WINDOWS  ·  LOCAL-FIRST</text>
+  </g>
+
+  <rect x="0" y="636" width="1280" height="4" fill="#38BDF8" fill-opacity="0.58"/>
+</svg>

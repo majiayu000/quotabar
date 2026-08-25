@@ -784,7 +784,7 @@ export default function App() {
                   summaries={providerSummaries}
                   mostConstrained={mostConstrained}
                   upcomingResets={upcomingResets}
-                  costRefreshKey={overviewCostRefreshKey}
+                  costRefreshKey={overviewCostRefreshKey} showCostSummary={windowVisible}
                   onProviderSelect={setAndPersistTab}
                   sections={panelSections}
                 />
