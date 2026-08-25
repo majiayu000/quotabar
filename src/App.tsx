@@ -13,7 +13,7 @@ import AntigravityPanel from './components/AntigravityPanel';
 import type { TrayToggleEntry } from './components/TrayToggles';
 import { backend, hasTauriBackend } from './services/backend';
 import { SERVICE_META, SERVICES } from './services/service_meta';
-import { saveTrayEnabled, shouldShowTray, type TrayServiceName } from './services/tray_visibility';
+import { resolveTrayVisible, saveTrayEnabled, shouldShowTray, type TrayServiceName } from './services/tray_visibility';
 import {
   getSavedPanelSections,
   savePanelSections,
@@ -339,15 +339,10 @@ export default function App() {
       const isConnected = svc === 'claude' ? quota?.connected ?? false : connected[svc];
       return shouldShowTray(trayEnabled[svc], isConnected);
     });
-    // Cycle mode keeps a single menu bar item, rotating through the candidates.
-    const cycled = trayCycle && candidates.length > 1
-      ? candidates[trayCycleIndex % candidates.length]
-      : null;
 
     for (const svc of SERVICES) {
       const pct = svc === 'claude' ? getClaudeTrayUsedPercent(quota) : usedPercent[svc];
-      const showable = candidates.includes(svc);
-      const visible = cycled ? svc === cycled : showable;
+      const visible = resolveTrayVisible(svc, candidates, trayCycle, trayCycleIndex);
       updateTrayIcon(svc, pct, visible, force, trayStyle);
     }
   }, [quota, connected, usedPercent, trayEnabled, trayCycle, trayCycleIndex, trayStyle, updateTrayIcon]);

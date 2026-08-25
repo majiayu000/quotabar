@@ -12,7 +12,6 @@ use tauri::{
 
 const ICON_SIZE: u32 = 44;
 const TRAY_SERVICE_ACTIVATED_EVENT: &str = "tray-service-activated";
-const TRAY_HIDDEN_TOOLTIP_SUFFIX: &str = "hidden";
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 struct TraySnapshot {
@@ -138,6 +137,28 @@ impl TrayService {
         }
     }
 
+    fn extra_title(self) -> &'static str {
+        // Unique invisible titles keep macOS from coalescing extras.
+        match self {
+            Self::Claude => "\u{200b}",
+            Self::Codex => "\u{200b}\u{200b}",
+            Self::Cursor => "\u{200b}\u{200b}\u{200b}",
+            Self::Grok => "\u{200b}\u{200b}\u{200b}\u{200b}",
+            Self::Antigravity => "\u{200b}\u{200b}\u{200b}\u{200b}\u{200b}",
+        }
+    }
+
+    #[cfg(target_os = "macos")]
+    fn preferred_position(self) -> f64 {
+        match self {
+            Self::Claude => 10004.0,
+            Self::Codex => 10003.0,
+            Self::Cursor => 10002.0,
+            Self::Grok => 10001.0,
+            Self::Antigravity => 10000.0,
+        }
+    }
+
     fn show_menu_id(self) -> &'static str {
         match self {
             Self::Claude => "claude-show",
@@ -256,6 +277,35 @@ fn toggle_main_window(app: &AppHandle) {
     }
 }
 
+#[cfg(target_os = "macos")]
+fn seed_status_item_defaults(service: TrayService) {
+    use objc2_foundation::{NSString, NSUserDefaults};
+
+    let defaults = NSUserDefaults::standardUserDefaults();
+    let autosave = service.tray_id();
+    let position_key = NSString::from_str(&format!("NSStatusItem Preferred Position {autosave}"));
+    let visible_key = NSString::from_str(&format!("NSStatusItem Visible {autosave}"));
+    defaults.setDouble_forKey(service.preferred_position(), &position_key);
+    defaults.setBool_forKey(true, &visible_key);
+}
+
+#[cfg(target_os = "macos")]
+fn apply_status_item_autosave(app: AppHandle, tray_id: &'static str) {
+    std::thread::spawn(move || {
+        std::thread::sleep(std::time::Duration::from_millis(16));
+        let Some(tray) = app.tray_by_id(tray_id) else {
+            return;
+        };
+        let _ = tray.with_inner_tray_icon(move |inner| {
+            use objc2_foundation::NSString;
+            if let Some(item) = inner.ns_status_item() {
+                item.setAutosaveName(Some(&NSString::from_str(tray_id)));
+                item.setVisible(true);
+            }
+        });
+    });
+}
+
 fn format_tooltip(service: TrayService, percentage: Option<u8>) -> String {
     match percentage {
         Some(value) => format!("{}: {}% used", service.label(), value),
@@ -264,6 +314,9 @@ fn format_tooltip(service: TrayService, percentage: Option<u8>) -> String {
 }
 
 fn build_service_tray(app: &AppHandle, service: TrayService) -> tauri::Result<()> {
+    #[cfg(target_os = "macos")]
+    seed_status_item_defaults(service);
+
     let show_item =
         MenuItemBuilder::with_id(service.show_menu_id(), "Show / Hide Window").build(app)?;
     let quit_item = MenuItemBuilder::with_id(service.quit_menu_id(), "Quit").build(app)?;
@@ -283,6 +336,7 @@ fn build_service_tray(app: &AppHandle, service: TrayService) -> tauri::Result<()
     let tray = TrayIconBuilder::with_id(service.tray_id())
         .icon(icon)
         .icon_as_template(false)
+        .title(service.extra_title())
         .tooltip(service.label())
         .menu(&menu)
         .show_menu_on_left_click(false)
@@ -327,19 +381,17 @@ fn build_service_tray(app: &AppHandle, service: TrayService) -> tauri::Result<()
         })
         .build(app)?;
 
+    // Keep the NSStatusItem alive. On macOS 26, set_visible(false) removes the
+    // status item; recreating it later parks the icon under the notch instead of
+    // in the extras region, so only one provider tray remains usable.
     let _ = tray.set_visible(true);
     let _ = tray.set_icon_as_template(false);
-    let _ = tray.set_visible(false);
+    #[cfg(target_os = "macos")]
+    apply_status_item_autosave(app.clone(), service.tray_id());
     Ok(())
 }
 
 pub fn setup_tray(app: &AppHandle) -> tauri::Result<()> {
-    build_service_tray(app, TrayService::Antigravity)?;
-    build_service_tray(app, TrayService::Grok)?;
-    build_service_tray(app, TrayService::Cursor)?;
-    build_service_tray(app, TrayService::Codex)?;
-    build_service_tray(app, TrayService::Claude)?;
-
     if let Some(window) = app.get_webview_window("main") {
         let window_clone = window.clone();
         window.on_window_event(move |event| {
@@ -349,7 +401,7 @@ pub fn setup_tray(app: &AppHandle) -> tauri::Result<()> {
         });
     }
 
-    println!("[Tray] Ready: claude/codex/cursor/grok/antigravity trays created");
+    println!("[Tray] Ready: provider trays are created on first show");
     Ok(())
 }
 
@@ -395,15 +447,7 @@ pub async fn update_tray_icon(
             }
 
             if !visible {
-                if let Some(tray) = app_handle.tray_by_id(service.tray_id()) {
-                    tray.set_visible(false).map_err(|e| e.to_string())?;
-                    tray.set_tooltip(Some(format!(
-                        "{}: {}",
-                        service.label(),
-                        TRAY_HIDDEN_TOOLTIP_SUFFIX
-                    )))
-                    .map_err(|e| e.to_string())?;
-                }
+                let _ = app_handle.remove_tray_by_id(service.tray_id());
                 {
                     let mut state = runtime
                         .lock()
@@ -434,6 +478,8 @@ pub async fn update_tray_icon(
 
             tray.set_icon(Some(icon)).map_err(|e| e.to_string())?;
             tray.set_icon_as_template(false)
+                .map_err(|e| e.to_string())?;
+            tray.set_title(Some(service.extra_title()))
                 .map_err(|e| e.to_string())?;
             tray.set_tooltip(Some(format!(
                 "{}\nUpdated: {}",
@@ -514,5 +560,25 @@ mod tests {
 
         assert!(state.should_skip_update(TrayService::Claude, snapshot, false));
         assert!(!state.should_skip_update(TrayService::Claude, snapshot, true));
+    }
+
+    #[test]
+    fn extra_titles_are_unique_per_service() {
+        let titles = [
+            TrayService::Claude.extra_title(),
+            TrayService::Codex.extra_title(),
+            TrayService::Cursor.extra_title(),
+            TrayService::Grok.extra_title(),
+            TrayService::Antigravity.extra_title(),
+        ];
+        for (index, title) in titles.iter().enumerate() {
+            assert!(
+                titles
+                    .iter()
+                    .enumerate()
+                    .all(|(other, other_title)| other == index || other_title != title),
+                "tray extra titles must stay unique"
+            );
+        }
     }
 }

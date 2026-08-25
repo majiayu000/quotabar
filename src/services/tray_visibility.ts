@@ -37,3 +37,18 @@ export function saveTrayEnabled(service: TrayServiceName, enabled: boolean): boo
 export function shouldShowTray(enabled: boolean, _connected: boolean): boolean {
   return enabled;
 }
+
+export function resolveTrayVisible(
+  service: TrayServiceName,
+  candidates: readonly TrayServiceName[],
+  cycle: boolean,
+  cycleIndex: number,
+): boolean {
+  if (!candidates.includes(service)) {
+    return false;
+  }
+  if (cycle && candidates.length > 1) {
+    return service === candidates[cycleIndex % candidates.length];
+  }
+  return true;
+}
