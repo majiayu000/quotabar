@@ -496,6 +496,16 @@
   text-align: right;
 }
 
+.weekly-value-footer-basis {
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.weekly-value-footer-basis span:last-child {
+  text-align: left;
+}
+
 .smart-tip {
   display: flex;
   align-items: baseline;

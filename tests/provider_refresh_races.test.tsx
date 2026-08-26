@@ -386,7 +386,9 @@ describe('Codex weekly pace', () => {
     expect(rendered_text(renderer)).toContain('4M');
     expect(rendered_text(renderer)).toContain('tokens at current mix');
     expect(rendered_text(renderer)).toContain('Local estimate');
-    expect(rendered_text(renderer)).toContain('Projected from local usage');
+    expect(rendered_text(renderer)).toContain('Based on 40% used');
+    expect(rendered_text(renderer)).toContain('$80.00 local');
+    expect(rendered_text(renderer)).toContain('1.6M observed tokens');
     expect(rendered_text(renderer)).toContain('Not an official allowance');
     expect(renderer.root.findByProps({
       'aria-label': 'Estimate based on 40% used',

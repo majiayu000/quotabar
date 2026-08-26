@@ -9,6 +9,8 @@ use std::{
 };
 
 const WEEKLY_WINDOW_MINUTES: i64 = 10_080;
+const OFFICIAL_RESET_TOLERANCE_SECONDS: i64 = 5 * 60;
+const OFFICIAL_USED_TOLERANCE_PCT: f64 = 1.0;
 
 const SUCCESS_CACHE_TTL: Duration = Duration::from_secs(300);
 const ERROR_CACHE_TTL: Duration = Duration::from_secs(60);
@@ -56,6 +58,24 @@ struct OfficialWeeklyIdentity {
     resets_at: Option<i64>,
 }
 
+#[derive(Clone, Debug)]
+pub(crate) struct OfficialWeeklySnapshot {
+    window: CodexRateLimitWindow,
+    observed_at: chrono::DateTime<chrono::Utc>,
+}
+
+impl OfficialWeeklySnapshot {
+    pub(crate) fn from_limits(
+        limits: &CodexRateLimits,
+        observed_at: chrono::DateTime<chrono::Utc>,
+    ) -> Option<Self> {
+        official_weekly_window(limits).cloned().map(|window| Self {
+            window,
+            observed_at,
+        })
+    }
+}
+
 impl From<&CodexRateLimitWindow> for OfficialWeeklyIdentity {
     fn from(window: &CodexRateLimitWindow) -> Self {
         Self {
@@ -86,12 +106,10 @@ pub(crate) fn official_weekly_window(limits: &CodexRateLimits) -> Option<&CodexR
 pub fn estimate_codex_weekly_value(
     codex_home: &Path,
     quota: &ccstats_quota::CodexWeeklyQuota,
-    official: Option<&CodexRateLimits>,
+    official: Option<&OfficialWeeklySnapshot>,
 ) -> WeeklyValueResult {
     let quota_identity = WeeklyQuotaIdentity::from(quota);
-    let official_identity = official
-        .and_then(official_weekly_window)
-        .map(OfficialWeeklyIdentity::from);
+    let official_identity = official.map(|snapshot| OfficialWeeklyIdentity::from(&snapshot.window));
     let mut cache = WEEKLY_VALUE_CACHE
         .lock()
         .map_err(|error| format!("Codex weekly value cache unavailable: {error}"))?;
@@ -106,30 +124,20 @@ pub fn estimate_codex_weekly_value(
         }
     }
 
-    let result = if quota.used_pct > 0.0 {
-        let sdk = ccstats_quota::estimate_codex_weekly_value(Some(codex_home), true, false)
-            .map_err(|error| error.to_string())
-            .and_then(|estimate| {
-                if quota_identity.matches_estimate(&estimate) {
-                    Ok(estimate)
-                } else {
-                    Err(
-                        "Codex weekly quota changed while estimating its local value; refresh to retry"
-                            .to_string(),
-                    )
-                }
-            });
-        match sdk {
-            Ok(estimate) => Ok(estimate),
-            Err(error) if should_fallback_to_official(&error) => {
-                fallback_official_weekly_value(codex_home, official, error)
+    let result = if quota.used_pct > 0.0
+        && official.is_none_or(|snapshot| quota_matches_official(quota, &snapshot.window))
+    {
+        let local = estimate_from_local_snapshot(codex_home, &quota_identity);
+        match (local, official) {
+            (Err(error), Some(snapshot)) if should_fallback_to_official(&error) => {
+                estimate_from_official_window(codex_home, snapshot)
             }
-            Err(error) => Err(error),
+            (result, _) => result,
         }
+    } else if let Some(snapshot) = official {
+        estimate_from_official_window(codex_home, snapshot)
     } else {
-        fallback_official_weekly_value(
-            codex_home,
-            official,
+        Err(
             "cannot estimate weekly value while the provider-reported used percentage is zero"
                 .to_string(),
         )
@@ -149,42 +157,79 @@ fn should_fallback_to_official(error: &str) -> bool {
         || error.contains("no Codex token usage matched the active weekly quota window")
 }
 
-fn fallback_official_weekly_value(
-    codex_home: &Path,
-    official: Option<&CodexRateLimits>,
-    original_error: String,
-) -> WeeklyValueResult {
-    let Some(window) = official.and_then(official_weekly_window) else {
-        return Err(original_error);
+fn quota_matches_official(
+    quota: &ccstats_quota::CodexWeeklyQuota,
+    official: &CodexRateLimitWindow,
+) -> bool {
+    weekly_windows_match(
+        quota.used_pct,
+        quota.window_minutes,
+        quota.resets_at,
+        official,
+    )
+}
+
+fn weekly_windows_match(
+    used_pct: f64,
+    window_minutes: i64,
+    resets_at: chrono::DateTime<chrono::Utc>,
+    official: &CodexRateLimitWindow,
+) -> bool {
+    let Some(official_reset) = official
+        .resets_at
+        .and_then(|timestamp| chrono::DateTime::from_timestamp(timestamp, 0))
+    else {
+        return false;
     };
-    estimate_from_official_window(codex_home, window)
+    official.window_minutes == Some(window_minutes)
+        && (official_reset - resets_at).num_seconds().abs() <= OFFICIAL_RESET_TOLERANCE_SECONDS
+        && (official.used_percent - used_pct).abs() <= OFFICIAL_USED_TOLERANCE_PCT
+}
+
+fn estimate_from_local_snapshot(
+    codex_home: &Path,
+    quota_identity: &WeeklyQuotaIdentity,
+) -> WeeklyValueResult {
+    ccstats_quota::estimate_codex_weekly_value(Some(codex_home), false, false)
+        .map_err(|error| error.to_string())
+        .and_then(|estimate| {
+            if quota_identity.matches_estimate(&estimate) {
+                Ok(estimate)
+            } else {
+                Err(
+                    "Codex weekly quota changed while estimating its local value; refresh to retry"
+                        .to_string(),
+                )
+            }
+        })
 }
 
 fn estimate_from_official_window(
     codex_home: &Path,
-    window: &CodexRateLimitWindow,
+    snapshot: &OfficialWeeklySnapshot,
 ) -> WeeklyValueResult {
-    let window_minutes = window
+    let window_minutes = snapshot
+        .window
         .window_minutes
         .ok_or_else(|| "The official weekly window length is unavailable.".to_string())?;
-    let resets_at = window
+    let resets_at = snapshot
+        .window
         .resets_at
         .ok_or_else(|| "The official weekly reset time is unavailable.".to_string())?;
     let resets = chrono::DateTime::from_timestamp(resets_at, 0)
         .ok_or_else(|| "The official weekly reset time is unavailable.".to_string())?;
-    let now = chrono::Utc::now();
-    if now >= resets {
+    if snapshot.observed_at >= resets {
         return Err("The official weekly quota window has expired.".to_string());
     }
     ccstats_quota::estimate_codex_weekly_value_for_window(
         &ccstats_quota::CodexWeeklyValueWindow {
-            observed_at: now,
+            observed_at: snapshot.observed_at,
             resets_at: resets,
             window_minutes,
-            used_pct: window.used_percent,
+            used_pct: snapshot.window.used_percent,
         },
         Some(codex_home),
-        true,
+        false,
         false,
     )
     .map_err(|error| error.to_string())
@@ -276,5 +321,60 @@ mod tests {
             first.primary.as_ref().map(OfficialWeeklyIdentity::from),
             second.primary.as_ref().map(OfficialWeeklyIdentity::from),
         );
+    }
+
+    fn reset_time() -> chrono::DateTime<chrono::Utc> {
+        chrono::DateTime::UNIX_EPOCH + chrono::Duration::seconds(1_787_961_600)
+    }
+
+    #[test]
+    fn matching_official_window_keeps_the_atomic_local_snapshot() {
+        let reset = reset_time();
+        let official = CodexRateLimitWindow {
+            used_percent: 26.0,
+            window_minutes: Some(WEEKLY_WINDOW_MINUTES),
+            resets_at: Some(reset.timestamp() + OFFICIAL_RESET_TOLERANCE_SECONDS),
+        };
+
+        assert!(weekly_windows_match(
+            25.0,
+            WEEKLY_WINDOW_MINUTES,
+            reset,
+            &official
+        ));
+    }
+
+    #[test]
+    fn divergent_official_usage_requires_the_official_snapshot() {
+        let reset = reset_time();
+        let official = CodexRateLimitWindow {
+            used_percent: 26.01,
+            window_minutes: Some(WEEKLY_WINDOW_MINUTES),
+            resets_at: Some(reset.timestamp()),
+        };
+
+        assert!(!weekly_windows_match(
+            25.0,
+            WEEKLY_WINDOW_MINUTES,
+            reset,
+            &official
+        ));
+    }
+
+    #[test]
+    fn divergent_official_reset_requires_the_official_snapshot() {
+        let reset = reset_time();
+        let official = CodexRateLimitWindow {
+            used_percent: 25.0,
+            window_minutes: Some(WEEKLY_WINDOW_MINUTES),
+            resets_at: Some(reset.timestamp() + OFFICIAL_RESET_TOLERANCE_SECONDS + 1),
+        };
+
+        assert!(!weekly_windows_match(
+            25.0,
+            WEEKLY_WINDOW_MINUTES,
+            reset,
+            &official
+        ));
     }
 }

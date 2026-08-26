@@ -586,9 +586,13 @@ export default function CodexPanel({
                           </span>
                         </div>
                       </div>
-                      <div className="weekly-value-footer">
-                        <span>Projected from local usage</span>
-                        <span>Not an official allowance</span>
+                      <div className="weekly-value-footer weekly-value-footer-basis">
+                        <span>
+                          {`Based on ${Math.round(displayedWeeklyValueEstimate.usedPct)}% used · ${USD_FORMAT.format(displayedWeeklyValueEstimate.observedCostUsd)} local`}
+                        </span>
+                        <span>
+                          {`${COMPACT_TOKEN_FORMAT.format(displayedWeeklyValueEstimate.observedTokens)} observed tokens · Not an official allowance`}
+                        </span>
                       </div>
                     </>
                   ) : (
