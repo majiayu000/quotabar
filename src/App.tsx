@@ -27,7 +27,7 @@ import {
   saveTrayStyle,
   type TrayStyle,
 } from './services/tray_style';
-import { formatEventTime, getSavedEvents, recordEvent, type AppEvent, type EventLevel } from './services/event_log';
+import { getSavedEvents, recordEvent, type AppEvent, type EventLevel } from './services/event_log';
 import {
   getSavedSwitcherVisibility,
   saveSwitcherVisibility,
@@ -94,6 +94,7 @@ import {
 import { useServiceEvents } from './hooks/use_service_events';
 import { usePopoverWindow } from './hooks/use_popover_window';
 import { useLatestRequestGeneration } from './hooks/use_latest_request_generation';
+import { useFooterStatus } from './hooks/use_footer_status';
 
 // Re-exported for existing tests/importers.
 export {
@@ -171,7 +172,6 @@ export default function App() {
     return isProviderTab(saved) ? saved : 'claude';
   });
   const [lastUpdatedAt, setLastUpdatedAt] = useState<number | null>(null);
-  const [, setStatusTick] = useState(0);
   const [panelSections, setPanelSections] = useState<PanelSectionVisibility>(getSavedPanelSections);
   const [trayStyle, setTrayStyle] = useState<TrayStyle>(getSavedTrayStyle);
   const [trayCycle, setTrayCycle] = useState<boolean>(getSavedTrayCycle);
@@ -636,14 +636,6 @@ export default function App() {
     prevLoadingRef.current = activeLoading;
   }, [activeLoading]);
 
-  // Keep the relative "updated" label fresh while the panel is open.
-  useEffect(() => {
-    if (!windowVisible) return;
-    const interval = setInterval(() => setStatusTick((tick) => tick + 1), 30 * 1000);
-    return () => clearInterval(interval);
-  }, [windowVisible]);
-
-
   const serviceUsage: ServiceMap<number | null> = {
     ...usedPercent,
     claude: getClaudeTrayUsedPercent(quota),
@@ -655,14 +647,7 @@ export default function App() {
   const nonClaudeRefreshIntervalMs = windowVisible
     ? AUTO_REFRESH_INTERVAL_MS
     : BACKGROUND_REFRESH_INTERVAL_MS;
-  const footerStatus = activeLoading
-    ? 'Updating...'
-    : lastUpdatedAt != null
-      ? `Updated ${formatEventTime(new Date(lastUpdatedAt).toISOString())}`
-      : '';
-  const footerStatusTitle = lastUpdatedAt != null
-    ? `Last updated ${new Date(lastUpdatedAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`
-    : 'Not updated yet';
+  const { footerStatus, footerStatusTitle } = useFooterStatus(windowVisible, activeLoading, lastUpdatedAt);
   const providerSummaries = buildProviderSummaries(tabConnected, serviceLoading, serviceUsage);
   const switcherSummaries = providerSummaries.filter((summary) => switcherVisibility[summary.id]);
   const allQuotaWindows = [
