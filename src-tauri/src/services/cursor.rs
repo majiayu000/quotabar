@@ -359,7 +359,7 @@ fn parse_usage_summary(data: &serde_json::Value) -> CursorData {
         || auto_percent.is_some()
         || api_percent.is_some()
         || (used.is_some() && limit.is_some())
-        || (on_demand_enabled == Some(true) && on_demand_used_cents.is_some_and(|used| used > 0.0));
+        || on_demand_used_cents.is_some_and(|used| used > 0.0);
 
     CursorData {
         connected,
@@ -704,6 +704,21 @@ mod tests {
 
         assert_eq!(data.on_demand_used_cents, Some(1250.5));
         assert_eq!(data.slow_used, None);
+    }
+
+    #[test]
+    fn accrued_on_demand_spend_connects_when_disabled() {
+        let payload: serde_json::Value = serde_json::json!({
+            "individualUsage": {
+                "onDemand": { "enabled": false, "used": 1250.5 }
+            }
+        });
+
+        let data = parse_cursor_payload(&payload);
+
+        assert!(data.connected);
+        assert_eq!(data.on_demand_enabled, Some(false));
+        assert_eq!(data.on_demand_used_cents, Some(1250.5));
     }
 
     #[test]

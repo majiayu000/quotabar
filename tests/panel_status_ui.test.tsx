@@ -387,6 +387,8 @@ describe('provider status UI', () => {
       autoPercent: 2.888,
       apiPercent: 91.082,
       percentage: 91.082,
+      onDemandEnabled: false,
+      onDemandUsedCents: 1250.5,
       resetAt: '2026-09-16T15:37:22.000Z',
     });
     let renderer!: ReactTestRenderer;
@@ -406,6 +408,8 @@ describe('provider status UI', () => {
     expect(text).toContain('91% used');
     expect(text).toContain('Includes Cursor Grok and Composer');
     expect(text).not.toContain('on-demand spend');
+    expect(text).toContain('On-demand');
+    expect(text).toContain('$12.51');
     expect(text).not.toContain('Included requests');
     await act(async () => renderer.unmount());
   });

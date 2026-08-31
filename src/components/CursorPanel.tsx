@@ -218,7 +218,7 @@ export default function CursorPanel({
                 </div>
               )}
 
-              {cursorData.onDemandEnabled && cursorData.onDemandUsedCents != null && cursorData.onDemandUsedCents > 0 && (
+              {cursorData.onDemandUsedCents != null && cursorData.onDemandUsedCents > 0 && (
                 <div className="quota-card">
                   <div className="quota-header">
                     <span className="quota-label">On-demand</span>
