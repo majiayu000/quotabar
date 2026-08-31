@@ -5,6 +5,7 @@ All notable QuotaBar changes should be summarized here before a release is cut.
 ## Unreleased
 
 - Build separate macOS DMGs for Apple Silicon and Intel runners.
+- Build a Linux x64 AppImage on Ubuntu 22.04.
 
 ## 0.4.0 - 2026-08-31
 
