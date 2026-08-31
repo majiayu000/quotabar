@@ -2,6 +2,15 @@ name: Release Artifacts
 
 on:
   workflow_dispatch:
+    inputs:
+      macos_signing:
+        description: macOS release-candidate signing mode
+        required: true
+        default: unsigned
+        type: choice
+        options:
+          - unsigned
+          - developer-id
   pull_request:
     paths:
       - ".github/workflows/release-artifacts.yml"
@@ -29,12 +38,14 @@ jobs:
             artifact_name: quotabar-macos-aarch64-dmg
             artifact_paths: |
               src-tauri/target/release/bundle/dmg/*.dmg
+              src-tauri/target/release/bundle/dmg/SHA256SUMS.txt
           - name: macOS Intel
             runner: macos-15-intel
             bundles: dmg
             artifact_name: quotabar-macos-x64-dmg
             artifact_paths: |
               src-tauri/target/release/bundle/dmg/*.dmg
+              src-tauri/target/release/bundle/dmg/SHA256SUMS.txt
           - name: Windows
             runner: windows-2022
             bundles: msi,nsis
@@ -42,12 +53,14 @@ jobs:
             artifact_paths: |
               src-tauri/target/release/bundle/msi/*.msi
               src-tauri/target/release/bundle/nsis/*.exe
+              src-tauri/target/release/bundle/SHA256SUMS-windows.txt
           - name: Linux x64
             runner: ubuntu-22.04
             bundles: appimage
             artifact_name: quotabar-linux-x64-appimage
             artifact_paths: |
               src-tauri/target/release/bundle/appimage/*.AppImage
+              src-tauri/target/release/bundle/appimage/SHA256SUMS.txt
 
     steps:
       - name: Check out repository
@@ -81,8 +94,144 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Check release manifest versions
+        run: npm run release:check
+
+      - name: Prepare Developer ID signing and notarization
+        if: runner.os == 'macOS' && inputs.macos_signing == 'developer-id'
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_API_ISSUER_SECRET: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_API_KEY_SECRET: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_PRIVATE_KEY: ${{ secrets.APPLE_API_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          for variable_name in \
+            APPLE_CERTIFICATE \
+            APPLE_CERTIFICATE_PASSWORD \
+            APPLE_API_ISSUER_SECRET \
+            APPLE_API_KEY_SECRET \
+            APPLE_API_PRIVATE_KEY
+          do
+            if [ -z "${!variable_name}" ]; then
+              echo "Required signing secret is missing: ${variable_name}" >&2
+              exit 1
+            fi
+          done
+
+          keychain_path="$RUNNER_TEMP/quotabar-signing.keychain-db"
+          certificate_path="$RUNNER_TEMP/quotabar-developer-id.p12"
+          api_key_path="$RUNNER_TEMP/AuthKey_${APPLE_API_KEY_SECRET}.p8"
+          keychain_password="$(openssl rand -base64 32)"
+          echo "::add-mask::$keychain_password"
+
+          printf '%s' "$APPLE_CERTIFICATE" | openssl base64 -d -A -out "$certificate_path"
+          printf '%s' "$APPLE_API_PRIVATE_KEY" > "$api_key_path"
+          chmod 600 "$certificate_path" "$api_key_path"
+
+          security create-keychain -p "$keychain_password" "$keychain_path"
+          security set-keychain-settings -lut 21600 "$keychain_path"
+          security unlock-keychain -p "$keychain_password" "$keychain_path"
+          security import "$certificate_path" \
+            -k "$keychain_path" \
+            -P "$APPLE_CERTIFICATE_PASSWORD" \
+            -T /usr/bin/codesign
+          security set-key-partition-list \
+            -S apple-tool:,apple:,codesign: \
+            -s \
+            -k "$keychain_password" \
+            "$keychain_path"
+          security list-keychains -d user -s "$keychain_path"
+
+          signing_identity="$(
+            security find-identity -v -p codesigning "$keychain_path" \
+              | sed -n 's/.*"\(Developer ID Application:.*\)"/\1/p' \
+              | head -n 1
+          )"
+          if [ -z "$signing_identity" ]; then
+            echo "No Developer ID Application identity was imported" >&2
+            exit 1
+          fi
+
+          {
+            echo "APPLE_SIGNING_IDENTITY=$signing_identity"
+            echo "APPLE_API_ISSUER=$APPLE_API_ISSUER_SECRET"
+            echo "APPLE_API_KEY=$APPLE_API_KEY_SECRET"
+            echo "APPLE_API_KEY_PATH=$api_key_path"
+            echo "QUOTABAR_SIGNING_KEYCHAIN=$keychain_path"
+            echo "QUOTABAR_CERTIFICATE_PATH=$certificate_path"
+            echo "QUOTABAR_API_KEY_PATH=$api_key_path"
+          } >> "$GITHUB_ENV"
+
       - name: Build desktop bundle
         run: npm run tauri build -- --bundles ${{ matrix.bundles }}
+
+      - name: Verify signed and notarized macOS app
+        if: runner.os == 'macOS' && inputs.macos_signing == 'developer-id'
+        run: |
+          set -euo pipefail
+          dmg_path="$(find src-tauri/target/release/bundle/dmg -maxdepth 1 -name '*.dmg' -print -quit)"
+          if [ -z "$dmg_path" ]; then
+            echo "Signed macOS DMG was not produced" >&2
+            exit 1
+          fi
+
+          mount_point="$(mktemp -d "$RUNNER_TEMP/quotabar-dmg.XXXXXX")"
+          cleanup_mount() {
+            hdiutil detach "$mount_point" >/dev/null 2>&1 || true
+            rmdir "$mount_point" 2>/dev/null || true
+          }
+          trap cleanup_mount EXIT
+          hdiutil attach -nobrowse -readonly -mountpoint "$mount_point" "$dmg_path" >/dev/null
+
+          app_path="$(find "$mount_point" -maxdepth 1 -name '*.app' -print -quit)"
+          if [ -z "$app_path" ]; then
+            echo "Signed macOS app bundle is missing from the DMG" >&2
+            exit 1
+          fi
+          codesign --verify --deep --strict --verbose=2 "$app_path"
+          spctl --assess --type execute --verbose=4 "$app_path"
+          xcrun stapler validate "$app_path"
+
+      - name: Generate Unix SHA-256 manifest
+        if: runner.os != 'Windows'
+        run: |
+          set -euo pipefail
+          if [ "$RUNNER_OS" = "macOS" ]; then
+            cd src-tauri/target/release/bundle/dmg
+            shasum -a 256 ./*.dmg > SHA256SUMS.txt
+          else
+            cd src-tauri/target/release/bundle/appimage
+            sha256sum ./*.AppImage > SHA256SUMS.txt
+          fi
+
+      - name: Generate Windows SHA-256 manifest
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $files = @(
+            Get-ChildItem 'src-tauri/target/release/bundle/msi/*.msi'
+            Get-ChildItem 'src-tauri/target/release/bundle/nsis/*.exe'
+          )
+          if ($files.Count -eq 0) {
+            throw 'No Windows installer was produced'
+          }
+          $lines = foreach ($file in $files) {
+            $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $file.FullName).Hash.ToLowerInvariant()
+            "$hash  $($file.Name)"
+          }
+          $lines | Set-Content 'src-tauri/target/release/bundle/SHA256SUMS-windows.txt'
+
+      - name: Remove temporary macOS signing material
+        if: always() && runner.os == 'macOS' && inputs.macos_signing == 'developer-id'
+        run: |
+          if [ -n "${QUOTABAR_SIGNING_KEYCHAIN:-}" ]; then
+            security delete-keychain "$QUOTABAR_SIGNING_KEYCHAIN" || true
+          fi
+          rm -f \
+            "${QUOTABAR_CERTIFICATE_PATH:-}" \
+            "${QUOTABAR_API_KEY_PATH:-}"
 
       - name: Upload desktop artifact
         uses: actions/upload-artifact@v7

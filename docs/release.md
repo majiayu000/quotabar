@@ -11,7 +11,8 @@ artifacts, release notes, and signing/notarization decision.
 Before tagging:
 
 - Working tree is clean and based on `origin/main`.
-- Version matches in `package.json`, `src-tauri/Cargo.toml`, and
+- `npm run release:check` confirms the version matches in `package.json`,
+  `package-lock.json`, `src-tauri/Cargo.toml`, `src-tauri/Cargo.lock`, and
   `src-tauri/tauri.conf.json`.
 - `CHANGELOG.md` has release notes outside `Unreleased`.
 - README install, limitations, and troubleshooting sections match current
@@ -27,6 +28,7 @@ Run from a clean checkout:
 
 ```bash
 npm ci
+npm run release:check
 npm test
 npm run build
 cargo fmt --manifest-path src-tauri/Cargo.toml --check
@@ -58,6 +60,28 @@ gh workflow run release-artifacts.yml
 The workflow uploads GitHub Actions artifacts only. It does not create tags,
 publish GitHub Releases, or attach files to a public release.
 
+The default `unsigned` mode remains available for pull requests and internal
+artifact inspection. It must not be presented as a trusted public macOS build.
+After the signing secrets below are configured, build a public macOS release
+candidate with:
+
+```bash
+gh workflow run release-artifacts.yml -f macos_signing=developer-id
+```
+
+The `developer-id` mode fails before building when any required secret is
+missing. It imports the certificate into an ephemeral runner keychain, asks
+Tauri to sign and notarize the app, verifies the resulting app with `codesign`,
+Gatekeeper, and `stapler`, then removes the temporary certificate and key.
+
+Required GitHub Actions secrets:
+
+- `APPLE_CERTIFICATE`: base64-encoded Developer ID Application `.p12`
+- `APPLE_CERTIFICATE_PASSWORD`: password used when exporting the `.p12`
+- `APPLE_API_ISSUER`: App Store Connect API issuer ID
+- `APPLE_API_KEY`: App Store Connect API key ID
+- `APPLE_API_PRIVATE_KEY`: complete contents of the matching `.p8` private key
+
 Expected artifact contents:
 
 - macOS Apple Silicon: `src-tauri/target/release/bundle/dmg/*_aarch64.dmg`
@@ -65,6 +89,21 @@ Expected artifact contents:
 - Windows: `src-tauri/target/release/bundle/msi/*.msi`
 - Windows: `src-tauri/target/release/bundle/nsis/*.exe`
 - Linux x64: `src-tauri/target/release/bundle/appimage/*.AppImage`
+
+Every uploaded workflow artifact also contains a `SHA256SUMS` text file. Verify
+downloaded macOS or Linux files from the directory containing the bundle:
+
+```bash
+shasum -a 256 -c SHA256SUMS.txt
+```
+
+On Linux, `sha256sum -c SHA256SUMS.txt` is also supported. On Windows, compare
+the installer hash with `SHA256SUMS-windows.txt`:
+
+```powershell
+Get-FileHash -Algorithm SHA256 .\QuotaBar_*.exe
+Get-FileHash -Algorithm SHA256 .\QuotaBar_*.msi
+```
 
 For a local macOS smoke test, build the app bundle and install it:
 
@@ -77,11 +116,11 @@ npm run tauri build -- --bundles app
 
 Publishing is a separate human-gated step:
 
-1. Decide whether this release is signed/notarized. Unsigned macOS builds may
-   trigger Gatekeeper warnings and should be labeled as tester builds.
+1. Confirm the candidate's signing mode in the workflow run. A public macOS
+   release must use `developer-id`; unsigned builds are tester artifacts only.
 2. Create an annotated tag only after the release notes are final.
 3. Create the GitHub Release manually.
-4. Attach the inspected workflow artifacts to the release.
+4. Attach the inspected bundles and their SHA-256 manifests to the release.
 5. Record the release URL and the exact verification commands used.
 
 Do not publish a release from an unreviewed workflow run.

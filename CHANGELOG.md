@@ -4,9 +4,14 @@ All notable QuotaBar changes should be summarized here before a release is cut.
 
 ## Unreleased
 
+## 0.4.1 - 2026-09-01
+
 - Build separate macOS DMGs for Apple Silicon and Intel runners.
 - Build a Linux x64 AppImage on Ubuntu 22.04.
 - Read Cursor's current authenticated usage summary and show separate Cursor Models and Other Models usage.
+- Require every release manifest to agree on the application version.
+- Add SHA-256 manifests to every desktop artifact and an opt-in, fail-closed
+  Developer ID signing and notarization path for macOS release candidates.
 
 ## 0.4.0 - 2026-08-31
 
