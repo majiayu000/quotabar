@@ -64,6 +64,7 @@ Expected artifact contents:
 - macOS Intel: `src-tauri/target/release/bundle/dmg/*_x64.dmg`
 - Windows: `src-tauri/target/release/bundle/msi/*.msi`
 - Windows: `src-tauri/target/release/bundle/nsis/*.exe`
+- Linux x64: `src-tauri/target/release/bundle/appimage/*.AppImage`
 
 For a local macOS smoke test, build the app bundle and install it:
 

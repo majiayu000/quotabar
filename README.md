@@ -81,7 +81,7 @@ This `v0.4.0` screenshot was refreshed on 2026-08-31 from the production React U
 
 ## Requirements
 
-- macOS or Windows
+- macOS, Windows, or Linux
 - Node.js with npm
 - Rust toolchain
 - Tauri prerequisites installed
@@ -127,6 +127,9 @@ npm run tauri build -- --bundles dmg
 
 # Windows
 npm run tauri build -- --bundles msi,nsis
+
+# Linux
+npm run tauri build -- --bundles appimage
 ```
 
 Expected output locations:
@@ -134,6 +137,7 @@ Expected output locations:
 `src-tauri/target/release/bundle/dmg/`
 `src-tauri/target/release/bundle/msi/`
 `src-tauri/target/release/bundle/nsis/`
+`src-tauri/target/release/bundle/appimage/`
 
 ## Release Artifacts
 
@@ -166,6 +170,12 @@ Windows:
 - Download the `.msi` or `.exe` from GitHub Releases.
 - Build installer: `npm run tauri build -- --bundles msi,nsis`
 - Install from the generated `.msi` or `.exe`
+
+Linux x64:
+
+- Download the `.AppImage` from GitHub Releases.
+- Make it executable: `chmod +x QuotaBar_*.AppImage`
+- Run it: `./QuotaBar_*.AppImage`
 
 ## Verification
 
