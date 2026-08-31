@@ -379,4 +379,89 @@ describe('provider status UI', () => {
     expect(progress.props['aria-valuetext']).toBe('123% used');
     await act(async () => renderer.unmount());
   });
+
+  it('shows Cursor Models and Other Models bars from the dashboard usage-summary', async () => {
+    vi.spyOn(backend, 'getCursorInfo').mockResolvedValue({
+      connected: true,
+      planType: 'ultra',
+      autoPercent: 2.888,
+      apiPercent: 91.082,
+      percentage: 91.082,
+      onDemandEnabled: false,
+      onDemandUsedCents: 1250.5,
+      resetAt: '2026-09-16T15:37:22.000Z',
+    });
+    let renderer!: ReactTestRenderer;
+    await act(async () => {
+      renderer = create(createElement(CursorPanel, {
+        autoRefreshIntervalMs: 0,
+        showCostSummary: false,
+        sections: hiddenSections,
+      }));
+      await Promise.resolve();
+    });
+
+    const text = renderedText(renderer);
+    expect(text).toContain('Cursor Models');
+    expect(text).toContain('3% used');
+    expect(text).toContain('Other Models');
+    expect(text).toContain('91% used');
+    expect(text).toContain('Includes Cursor Grok and Composer');
+    expect(text).not.toContain('on-demand spend');
+    expect(text).toContain('On-demand');
+    expect(text).toContain('$12.51');
+    expect(text).not.toContain('Included requests');
+    await act(async () => renderer.unmount());
+  });
+
+  it('formats enabled Cursor on-demand usage as US dollars', async () => {
+    vi.spyOn(backend, 'getCursorInfo').mockResolvedValue({
+      connected: true,
+      planType: 'pro',
+      autoPercent: 20,
+      apiPercent: 30,
+      percentage: 30,
+      onDemandEnabled: true,
+      onDemandUsedCents: 1250.5,
+    });
+    let renderer!: ReactTestRenderer;
+    await act(async () => {
+      renderer = create(createElement(CursorPanel, {
+        autoRefreshIntervalMs: 0,
+        showCostSummary: false,
+        sections: hiddenSections,
+      }));
+      await Promise.resolve();
+    });
+
+    const text = renderedText(renderer);
+    expect(text).toContain('Additional usage beyond limits consumes on-demand spend.');
+    expect(text).toContain('On-demand');
+    expect(text).toContain('$12.51');
+    await act(async () => renderer.unmount());
+  });
+
+  it('renders percentage-only Cursor usage fallback', async () => {
+    vi.spyOn(backend, 'getCursorInfo').mockResolvedValue({
+      connected: true,
+      planType: 'pro',
+      percentage: 25.4,
+    });
+    let renderer!: ReactTestRenderer;
+    await act(async () => {
+      renderer = create(createElement(CursorPanel, {
+        autoRefreshIntervalMs: 0,
+        showCostSummary: false,
+        sections: hiddenSections,
+      }));
+      await Promise.resolve();
+    });
+
+    const text = renderedText(renderer);
+    expect(text).toContain('Usage');
+    expect(text).toContain('25% used');
+    const progress = renderer.root.findByProps({ role: 'progressbar' });
+    expect(progress.props['aria-label']).toBe('Cursor usage');
+    await act(async () => renderer.unmount());
+  });
 });

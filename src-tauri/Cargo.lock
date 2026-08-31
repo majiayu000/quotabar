@@ -3414,6 +3414,7 @@ dependencies = [
  "objc2-foundation",
  "once_cell",
  "reqwest 0.12.28",
+ "rusqlite",
  "serde",
  "serde_json",
  "tauri",

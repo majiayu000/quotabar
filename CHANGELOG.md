@@ -6,6 +6,7 @@ All notable QuotaBar changes should be summarized here before a release is cut.
 
 - Build separate macOS DMGs for Apple Silicon and Intel runners.
 - Build a Linux x64 AppImage on Ubuntu 22.04.
+- Read Cursor's current authenticated usage summary and show separate Cursor Models and Other Models usage.
 
 ## 0.4.0 - 2026-08-31
 

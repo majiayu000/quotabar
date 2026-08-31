@@ -23,6 +23,23 @@ interface CursorPanelProps {
   sections?: PanelSectionVisibility;
 }
 
+function windowHint(label: string, onDemandEnabled?: boolean): string | undefined {
+  if (label === 'Cursor Models') return 'Includes Cursor Grok and Composer';
+  if (label === 'Other Models' && onDemandEnabled) {
+    return 'Additional usage beyond limits consumes on-demand spend.';
+  }
+  return undefined;
+}
+
+function formatCents(cents: number): string {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(cents / 100);
+}
+
 function formatResetDate(resetAt?: string): string {
   if (!resetAt) return '';
   try {
@@ -117,6 +134,7 @@ export default function CursorPanel({
   const resetLabel = formatResetDate(cursorData?.resetAt);
   const windows = buildCursorQuotaWindows(cursorData);
   const topWindow = sortMostConstrained(windows)[0];
+  const hasDashboardWindows = cursorData?.autoPercent != null || cursorData?.apiPercent != null;
   const includedRequestValue = cursorData?.fastUsed != null && cursorData.fastLimit != null
     ? `${cursorData.fastUsed} / ${cursorData.fastLimit}${percentage != null ? ` · ${Math.round(percentage)}%` : ''}`
     : null;
@@ -148,17 +166,46 @@ export default function CursorPanel({
             <div className="section-title">Usage</div>
 
             <div className="quota-group">
-              {cursorData.fastUsed != null && cursorData.fastLimit != null && (
+              {hasDashboardWindows && windows.map((window) => {
+                const hint = windowHint(window.label, cursorData?.onDemandEnabled);
+                return (
+                  <div className="quota-card" key={window.label}>
+                    <div className="quota-header">
+                      <span className="quota-label">{window.label}</span>
+                      <span className="quota-value">{`${Math.round(window.usedPercent)}% used`}</span>
+                    </div>
+                    <div
+                      className="progress-bar"
+                      role="progressbar"
+                      aria-label={`${window.label} usage`}
+                      aria-valuemin={0}
+                      aria-valuemax={100}
+                      aria-valuenow={clampProgressValue(window.usedPercent)}
+                      aria-valuetext={`${Math.round(window.usedPercent)}% used`}
+                    >
+                      <div className="progress-fill" style={getProgressStyle(window.usedPercent)} />
+                    </div>
+                    {hint && <div className="reset-time">{hint}</div>}
+                    {resetLabel && window.label === windows[0]?.label && (
+                      <div className="reset-time">{resetLabel}</div>
+                    )}
+                  </div>
+                );
+              })}
+
+              {!hasDashboardWindows && (includedRequestValue != null || percentage != null) && (
                 <div className="quota-card">
                   <div className="quota-header">
-                    <span className="quota-label">Included requests</span>
-                    <span className="quota-value">{includedRequestValue}</span>
+                    <span className="quota-label">Usage</span>
+                    <span className="quota-value">
+                      {includedRequestValue ?? `${Math.round(percentage ?? 0)}% used`}
+                    </span>
                   </div>
                   {percentage != null && (
                     <div
                       className="progress-bar"
                       role="progressbar"
-                      aria-label="Cursor included request usage"
+                      aria-label="Cursor usage"
                       aria-valuemin={0}
                       aria-valuemax={100}
                       aria-valuenow={clampProgressValue(percentage)}
@@ -171,7 +218,16 @@ export default function CursorPanel({
                 </div>
               )}
 
-              {cursorData.slowUsed != null && cursorData.slowUsed > 0 && (
+              {cursorData.onDemandUsedCents != null && cursorData.onDemandUsedCents > 0 && (
+                <div className="quota-card">
+                  <div className="quota-header">
+                    <span className="quota-label">On-demand</span>
+                    <span className="quota-value">{formatCents(cursorData.onDemandUsedCents)}</span>
+                  </div>
+                </div>
+              )}
+
+              {!hasDashboardWindows && !cursorData.onDemandEnabled && cursorData.slowUsed != null && cursorData.slowUsed > 0 && (
                 <div className="quota-card">
                   <div className="quota-header">
                     <span className="quota-label">Slow requests</span>

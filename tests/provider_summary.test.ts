@@ -55,6 +55,30 @@ describe('provider summary helpers', () => {
     expect(sorted[0].provider).toBe('cursor');
   });
 
+  test('maps Cursor dashboard bars to Cursor Models and Other Models', () => {
+    const windows = buildCursorQuotaWindows({
+      connected: true,
+      percentage: 91.082,
+      autoPercent: 2.888,
+      apiPercent: 91.082,
+      resetAt: '2026-09-16T15:37:22.000Z',
+    });
+
+    expect(windows.map((window) => [window.label, Math.round(window.usedPercent)])).toEqual([
+      ['Cursor Models', 3],
+      ['Other Models', 91],
+    ]);
+  });
+
+  test('uses a neutral label for summary fallback usage', () => {
+    const windows = buildCursorQuotaWindows({
+      connected: true,
+      percentage: 25,
+    });
+
+    expect(windows[0].label).toBe('Usage');
+  });
+
   test('preserves truthful over-limit Cursor usage in frontend summaries', () => {
     const windows = buildCursorQuotaWindows({
       connected: true,
