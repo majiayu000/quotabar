@@ -70,6 +70,15 @@ describe('provider summary helpers', () => {
     ]);
   });
 
+  test('uses a neutral label for summary fallback usage', () => {
+    const windows = buildCursorQuotaWindows({
+      connected: true,
+      percentage: 25,
+    });
+
+    expect(windows[0].label).toBe('Usage');
+  });
+
   test('preserves truthful over-limit Cursor usage in frontend summaries', () => {
     const windows = buildCursorQuotaWindows({
       connected: true,

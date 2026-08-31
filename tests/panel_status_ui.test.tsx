@@ -405,7 +405,35 @@ describe('provider status UI', () => {
     expect(text).toContain('Other Models');
     expect(text).toContain('91% used');
     expect(text).toContain('Includes Cursor Grok and Composer');
+    expect(text).not.toContain('on-demand spend');
     expect(text).not.toContain('Included requests');
+    await act(async () => renderer.unmount());
+  });
+
+  it('formats enabled Cursor on-demand usage as US dollars', async () => {
+    vi.spyOn(backend, 'getCursorInfo').mockResolvedValue({
+      connected: true,
+      planType: 'pro',
+      autoPercent: 20,
+      apiPercent: 30,
+      percentage: 30,
+      onDemandEnabled: true,
+      onDemandUsedCents: 1250.5,
+    });
+    let renderer!: ReactTestRenderer;
+    await act(async () => {
+      renderer = create(createElement(CursorPanel, {
+        autoRefreshIntervalMs: 0,
+        showCostSummary: false,
+        sections: hiddenSections,
+      }));
+      await Promise.resolve();
+    });
+
+    const text = renderedText(renderer);
+    expect(text).toContain('Additional usage beyond limits consumes on-demand spend.');
+    expect(text).toContain('On-demand');
+    expect(text).toContain('$12.51');
     await act(async () => renderer.unmount());
   });
 });

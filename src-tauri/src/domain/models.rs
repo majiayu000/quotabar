@@ -282,6 +282,8 @@ pub struct CursorData {
     pub api_percent: Option<f64>,
     #[serde(rename = "onDemandEnabled")]
     pub on_demand_enabled: Option<bool>,
+    #[serde(rename = "onDemandUsedCents")]
+    pub on_demand_used_cents: Option<f64>,
     #[serde(rename = "slowUsed")]
     pub slow_used: Option<i64>,
     #[serde(rename = "resetAt")]
@@ -301,6 +303,7 @@ impl CursorData {
             auto_percent: None,
             api_percent: None,
             on_demand_enabled: None,
+            on_demand_used_cents: None,
             slow_used: None,
             reset_at: None,
             error: Some(error.into()),

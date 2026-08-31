@@ -23,10 +23,21 @@ interface CursorPanelProps {
   sections?: PanelSectionVisibility;
 }
 
-function windowHint(label: string): string | undefined {
+function windowHint(label: string, onDemandEnabled?: boolean): string | undefined {
   if (label === 'Cursor Models') return 'Includes Cursor Grok and Composer';
-  if (label === 'Other Models') return 'Additional usage beyond limits consumes on-demand spend.';
+  if (label === 'Other Models' && onDemandEnabled) {
+    return 'Additional usage beyond limits consumes on-demand spend.';
+  }
   return undefined;
+}
+
+function formatCents(cents: number): string {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(cents / 100);
 }
 
 function formatResetDate(resetAt?: string): string {
@@ -156,7 +167,7 @@ export default function CursorPanel({
 
             <div className="quota-group">
               {hasDashboardWindows && windows.map((window) => {
-                const hint = windowHint(window.label);
+                const hint = windowHint(window.label, cursorData?.onDemandEnabled);
                 return (
                   <div className="quota-card" key={window.label}>
                     <div className="quota-header">
@@ -185,14 +196,14 @@ export default function CursorPanel({
               {!hasDashboardWindows && cursorData.fastUsed != null && cursorData.fastLimit != null && (
                 <div className="quota-card">
                   <div className="quota-header">
-                    <span className="quota-label">Included requests</span>
+                    <span className="quota-label">Usage</span>
                     <span className="quota-value">{includedRequestValue}</span>
                   </div>
                   {percentage != null && (
                     <div
                       className="progress-bar"
                       role="progressbar"
-                      aria-label="Cursor included request usage"
+                      aria-label="Cursor usage"
                       aria-valuemin={0}
                       aria-valuemax={100}
                       aria-valuenow={clampProgressValue(percentage)}
@@ -205,11 +216,11 @@ export default function CursorPanel({
                 </div>
               )}
 
-              {cursorData.onDemandEnabled && cursorData.slowUsed != null && cursorData.slowUsed > 0 && (
+              {cursorData.onDemandEnabled && cursorData.onDemandUsedCents != null && cursorData.onDemandUsedCents > 0 && (
                 <div className="quota-card">
                   <div className="quota-header">
                     <span className="quota-label">On-demand</span>
-                    <span className="quota-value">{cursorData.slowUsed}</span>
+                    <span className="quota-value">{formatCents(cursorData.onDemandUsedCents)}</span>
                   </div>
                 </div>
               )}

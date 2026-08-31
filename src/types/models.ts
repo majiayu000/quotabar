@@ -101,6 +101,7 @@ export interface CursorData {
   autoPercent?: number;
   apiPercent?: number;
   onDemandEnabled?: boolean;
+  onDemandUsedCents?: number;
   slowUsed?: number;
   resetAt?: string;
   error?: string;

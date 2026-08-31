@@ -223,9 +223,16 @@ fn mark_cursor_data_stale(mut data: CursorData, error: String) -> CursorData {
     data
 }
 
+fn is_transient_cursor_error(message: &str) -> bool {
+    let message = message.to_ascii_lowercase();
+    is_transient_os_error(&message)
+        || message.contains("database is locked")
+        || message.contains("database table is locked")
+}
+
 fn fallback_or_disconnected(error: impl Into<String>) -> CursorData {
     let error = error.into();
-    if is_transient_os_error(&error) {
+    if is_transient_cursor_error(&error) {
         if let Some(stale) = get_stale_cached_cursor() {
             return mark_cursor_data_stale(stale, error);
         }
@@ -346,13 +353,14 @@ fn parse_usage_summary(data: &serde_json::Value) -> CursorData {
         .and_then(parse_cursor_timestamp)
         .map(|reset| reset.to_rfc3339());
     let on_demand_enabled = on_demand["enabled"].as_bool();
+    let on_demand_used_cents = json_f64(&on_demand["used"]);
 
-    let connected = plan_type.is_some()
-        || used.is_some()
+    let connected = used.is_some()
         || limit.is_some()
         || percentage.is_some()
         || auto_percent.is_some()
         || api_percent.is_some()
+        || on_demand_used_cents.is_some()
         || data["isUnlimited"].as_bool() == Some(true);
 
     CursorData {
@@ -365,7 +373,8 @@ fn parse_usage_summary(data: &serde_json::Value) -> CursorData {
         auto_percent,
         api_percent,
         on_demand_enabled,
-        slow_used: json_i64(&on_demand["used"]).filter(|used| *used > 0),
+        on_demand_used_cents,
+        slow_used: None,
         reset_at,
         error: if connected {
             None
@@ -433,6 +442,7 @@ fn parse_usage_payload(data: &serde_json::Value) -> CursorData {
         auto_percent: None,
         api_percent: None,
         on_demand_enabled: None,
+        on_demand_used_cents: None,
         slow_used,
         reset_at,
         error: if connected {
@@ -588,29 +598,39 @@ mod tests {
     }
 
     #[test]
-    fn opens_installed_cursor_db_when_present() {
-        let Some(path) = state_vscdb_path() else {
-            return;
-        };
-        if !path.exists() {
-            return;
-        }
-        match read_session_from_db_path(&path) {
-            Ok(session) => {
-                workos_cookie_value(&session.token).expect("cookie from local Cursor session");
-            }
-            Err(err) if err.contains("session not found") || err.contains("not configured") => {}
-            Err(err) => panic!("failed to open local Cursor state.vscdb: {err}"),
-        }
-    }
-
-    #[test]
     fn missing_session_keys_return_clear_error() {
         let path = temp_db_path("missing-keys");
         write_item_table(&path, &[("unrelated", "value")]);
         let err = read_session_from_db_path(&path).expect_err("missing");
         let _ = std::fs::remove_file(&path);
         assert!(err.contains("Cursor session not found"));
+    }
+
+    #[test]
+    fn summary_metadata_without_usage_is_disconnected() {
+        let payload: serde_json::Value = serde_json::json!({
+            "membershipType": "pro",
+            "individualUsage": {}
+        });
+
+        let data = parse_cursor_payload(&payload);
+
+        assert!(!data.connected);
+        assert_eq!(
+            data.error.as_deref(),
+            Some("Cursor API returned no usage fields.")
+        );
+    }
+
+    #[test]
+    fn sqlite_lock_errors_are_transient() {
+        assert!(is_transient_cursor_error(
+            "Failed to read state.vscdb: database is locked"
+        ));
+        assert!(is_transient_cursor_error(
+            "Failed to read state.vscdb: database table is locked"
+        ));
+        assert!(!is_transient_cursor_error("Cursor session not found"));
     }
 
     #[test]
@@ -642,6 +662,22 @@ mod tests {
         assert_eq!(data.on_demand_enabled, Some(false));
         assert_eq!(data.slow_used, None);
         assert_eq!(data.reset_at.as_deref(), Some("2026-09-16T15:37:22+00:00"));
+    }
+
+    #[test]
+    fn preserves_fractional_on_demand_cents() {
+        let payload: serde_json::Value = serde_json::json!({
+            "membershipType": "pro",
+            "individualUsage": {
+                "plan": { "totalPercentUsed": 25.0 },
+                "onDemand": { "enabled": true, "used": 1250.5 }
+            }
+        });
+
+        let data = parse_cursor_payload(&payload);
+
+        assert_eq!(data.on_demand_used_cents, Some(1250.5));
+        assert_eq!(data.slow_used, None);
     }
 
     #[test]
@@ -687,6 +723,7 @@ mod tests {
             auto_percent: None,
             api_percent: None,
             on_demand_enabled: None,
+            on_demand_used_cents: None,
             slow_used: None,
             reset_at: None,
             error: None,

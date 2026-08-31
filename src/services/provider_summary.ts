@@ -161,7 +161,7 @@ export function buildCursorQuotaWindows(cursorData: CursorData | null): QuotaWin
   return [{
     provider: 'cursor',
     providerLabel: SERVICE_META.cursor.label,
-    label: 'Fast requests',
+    label: 'Usage',
     usedPercent: cursorData.percentage,
     resetLabel,
     resetAtMs,
