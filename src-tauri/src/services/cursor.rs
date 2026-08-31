@@ -355,13 +355,11 @@ fn parse_usage_summary(data: &serde_json::Value) -> CursorData {
     let on_demand_enabled = on_demand["enabled"].as_bool();
     let on_demand_used_cents = json_f64(&on_demand["used"]);
 
-    let connected = used.is_some()
-        || limit.is_some()
-        || percentage.is_some()
+    let connected = percentage.is_some()
         || auto_percent.is_some()
         || api_percent.is_some()
-        || on_demand_used_cents.is_some()
-        || data["isUnlimited"].as_bool() == Some(true);
+        || (used.is_some() && limit.is_some())
+        || (on_demand_enabled == Some(true) && on_demand_used_cents.is_some_and(|used| used > 0.0));
 
     CursorData {
         connected,
@@ -620,6 +618,30 @@ mod tests {
             data.error.as_deref(),
             Some("Cursor API returned no usage fields.")
         );
+    }
+
+    #[test]
+    fn non_renderable_summary_fields_are_disconnected() {
+        for payload in [
+            serde_json::json!({
+                "individualUsage": {
+                    "onDemand": { "enabled": false, "used": 0 }
+                }
+            }),
+            serde_json::json!({
+                "individualUsage": {
+                    "plan": { "used": 10 }
+                }
+            }),
+            serde_json::json!({ "isUnlimited": true }),
+        ] {
+            let data = parse_cursor_payload(&payload);
+            assert!(!data.connected, "unexpected connected payload: {payload}");
+            assert_eq!(
+                data.error.as_deref(),
+                Some("Cursor API returned no usage fields.")
+            );
+        }
     }
 
     #[test]
