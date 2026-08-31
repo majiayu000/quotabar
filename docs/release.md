@@ -60,7 +60,8 @@ publish GitHub Releases, or attach files to a public release.
 
 Expected artifact contents:
 
-- macOS: `src-tauri/target/release/bundle/dmg/*.dmg`
+- macOS Apple Silicon: `src-tauri/target/release/bundle/dmg/*_aarch64.dmg`
+- macOS Intel: `src-tauri/target/release/bundle/dmg/*_x64.dmg`
 - Windows: `src-tauri/target/release/bundle/msi/*.msi`
 - Windows: `src-tauri/target/release/bundle/nsis/*.exe`
 

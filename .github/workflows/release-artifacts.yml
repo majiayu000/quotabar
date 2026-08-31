@@ -23,10 +23,16 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: macOS
+          - name: macOS Apple Silicon
             runner: macos-15
             bundles: dmg
-            artifact_name: quotabar-macos-dmg
+            artifact_name: quotabar-macos-aarch64-dmg
+            artifact_paths: |
+              src-tauri/target/release/bundle/dmg/*.dmg
+          - name: macOS Intel
+            runner: macos-15-intel
+            bundles: dmg
+            artifact_name: quotabar-macos-x64-dmg
             artifact_paths: |
               src-tauri/target/release/bundle/dmg/*.dmg
           - name: Windows
