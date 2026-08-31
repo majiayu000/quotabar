@@ -1,177 +1,78 @@
-//! Local Grok period totals from session `turn_completed.usage`.
-//!
-//! SuperGrok billing is not the public API list price. Grok records
-//! `costUsdTicks` on each completed turn, where 1 USD = 10_000_000_000 ticks
-//! (xAI cost tracking). This module sums those ticks inside the official
-//! billing window. It does not use ccstats.
+//! Exact-window Grok usage totals from the `ccstats` SDK.
 
+use ccstats_quota::{summarize_cost, CostSummary, SummaryOptions, UsageRange, UsageSource};
 use chrono::{DateTime, Utc};
-use serde::Deserialize;
-use serde_json::Value;
-use std::fs::{self, File};
-use std::io::{BufRead, BufReader};
-use std::path::Path;
-
-const TICKS_PER_USD: f64 = 10_000_000_000.0;
 
 #[derive(Debug, Clone, PartialEq)]
 pub(super) struct LocalPeriodUsage {
     pub observed_cost_usd: f64,
     pub observed_tokens: i64,
-    pub valid_entries: i64,
-}
-
-#[derive(Debug, Deserialize)]
-struct UpdateLine {
-    timestamp: Option<f64>,
-    params: Option<UpdateParams>,
-}
-
-#[derive(Debug, Deserialize)]
-struct UpdateParams {
-    update: Option<Value>,
 }
 
 pub(super) fn sum_period(
-    grok_home: &Path,
     started: DateTime<Utc>,
     until: DateTime<Utc>,
 ) -> Result<LocalPeriodUsage, String> {
-    let sessions = grok_home.join("sessions");
-    if !sessions.is_dir() {
+    let summary = summarize_cost(SummaryOptions {
+        source: UsageSource::Grok,
+        range: UsageRange::TimestampRange {
+            since: started,
+            until,
+        },
+        timezone: Some("UTC".to_string()),
+        offline: true,
+        strict_pricing: false,
+        currency: None,
+    })
+    .map_err(|error| format!("Could not summarize Grok usage: {error}"))?;
+
+    usage_from_summary(summary)
+}
+
+fn usage_from_summary(summary: CostSummary) -> Result<LocalPeriodUsage, String> {
+    if summary.parse_error_entries > 0 {
+        return Err(format!(
+            "Grok usage contains {} malformed record(s) in the active billing period",
+            summary.parse_error_entries
+        ));
+    }
+
+    let coverage = summary
+        .api_equivalent_cost_coverage
+        .ok_or_else(|| "no Grok inference pricing matched the active billing period".to_string())?;
+    if !coverage.complete {
+        return Err(format!(
+            "Grok API-equivalent pricing covers only {} of {} tokens in the active billing period",
+            coverage.priced_tokens, coverage.total_tokens
+        ));
+    }
+
+    let observed_cost_usd = summary
+        .cost_usd
+        .filter(|cost| cost.is_finite() && *cost > 0.0)
+        .ok_or_else(|| {
+            "no positive API-equivalent cost was available for the active Grok period".to_string()
+        })?;
+    if summary.valid_entries <= 0 || summary.tokens.total_tokens <= 0 {
         return Err("no Grok token usage matched the active billing period".to_string());
     }
 
-    let mut observed_cost_usd = 0.0;
-    let mut observed_tokens: i64 = 0;
-    let mut valid_entries: i64 = 0;
-    visit_updates(&sessions, started, until, &mut |usage| {
-        let ticks = usage
-            .get("costUsdTicks")
-            .and_then(Value::as_f64)
-            .filter(|ticks| ticks.is_finite() && *ticks > 0.0)
-            .ok_or_else(|| "a Grok turn_completed record has invalid costUsdTicks".to_string())?;
-        let tokens = positive_token_total(usage)?;
-        observed_cost_usd += ticks / TICKS_PER_USD;
-        observed_tokens = observed_tokens.saturating_add(tokens);
-        valid_entries += 1;
-        Ok(())
-    })?;
-
-    if valid_entries == 0 || observed_cost_usd <= 0.0 || observed_tokens <= 0 {
-        return Err("no Grok token usage matched the active billing period".to_string());
-    }
     Ok(LocalPeriodUsage {
         observed_cost_usd,
-        observed_tokens,
-        valid_entries,
+        observed_tokens: summary.tokens.total_tokens,
     })
-}
-
-fn positive_token_total(usage: &Value) -> Result<i64, String> {
-    if let Some(total) = usage.get("totalTokens") {
-        return total
-            .as_i64()
-            .filter(|tokens| *tokens > 0)
-            .ok_or_else(|| "a Grok turn_completed record has invalid totalTokens".to_string());
-    }
-
-    let input = usage
-        .get("inputTokens")
-        .and_then(Value::as_i64)
-        .filter(|tokens| *tokens >= 0)
-        .ok_or_else(|| "a Grok turn_completed record has invalid inputTokens".to_string())?;
-    let output = usage
-        .get("outputTokens")
-        .and_then(Value::as_i64)
-        .filter(|tokens| *tokens >= 0)
-        .ok_or_else(|| "a Grok turn_completed record has invalid outputTokens".to_string())?;
-    input
-        .checked_add(output)
-        .filter(|tokens| *tokens > 0)
-        .ok_or_else(|| "a Grok turn_completed record has no positive token usage".to_string())
-}
-
-fn visit_updates(
-    dir: &Path,
-    started: DateTime<Utc>,
-    until: DateTime<Utc>,
-    on_usage: &mut dyn FnMut(&Value) -> Result<(), String>,
-) -> Result<(), String> {
-    let entries = fs::read_dir(dir)
-        .map_err(|error| format!("Could not read Grok session directory: {error}"))?;
-    for entry in entries {
-        let entry =
-            entry.map_err(|error| format!("Could not read a Grok session entry: {error}"))?;
-        let path = entry.path();
-        let file_type = entry
-            .file_type()
-            .map_err(|error| format!("Could not inspect a Grok session entry: {error}"))?;
-        if file_type.is_symlink() {
-            continue;
-        }
-        if file_type.is_dir() {
-            visit_updates(&path, started, until, on_usage)?;
-            continue;
-        }
-        if path.file_name().and_then(|name| name.to_str()) != Some("updates.jsonl") {
-            continue;
-        }
-        let file = File::open(&path)
-            .map_err(|error| format!("Could not open Grok session updates: {error}"))?;
-        for line in BufReader::new(file).lines() {
-            let line =
-                line.map_err(|error| format!("Could not read Grok session updates: {error}"))?;
-            if !line.contains("turn_completed") {
-                continue;
-            }
-            let record = serde_json::from_str::<UpdateLine>(&line)
-                .map_err(|error| format!("Could not parse Grok session updates: {error}"))?;
-            let update = record
-                .params
-                .and_then(|params| params.update)
-                .ok_or_else(|| "a Grok update record is missing update data".to_string())?;
-            if update.get("sessionUpdate").and_then(Value::as_str) != Some("turn_completed") {
-                continue;
-            }
-            let ts = record.timestamp.and_then(unix_to_utc).ok_or_else(|| {
-                "a Grok turn_completed record has an invalid timestamp".to_string()
-            })?;
-            if ts < started || ts > until {
-                continue;
-            }
-            let usage = update
-                .get("usage")
-                .ok_or_else(|| "a Grok turn_completed record is missing usage data".to_string())?;
-            on_usage(usage)?;
-        }
-    }
-    Ok(())
-}
-
-fn unix_to_utc(timestamp: f64) -> Option<DateTime<Utc>> {
-    let seconds = if timestamp > 1_000_000_000_000.0 {
-        timestamp / 1000.0
-    } else {
-        timestamp
-    } as i64;
-    DateTime::from_timestamp(seconds, 0)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use chrono::TimeZone;
+    use std::ffi::OsString;
     use std::fs;
-    use std::io::Write;
-    use std::path::PathBuf;
+    use std::path::{Path, PathBuf};
+    use std::sync::Mutex;
 
-    fn write_session(dir: &Path, body: &str) {
-        let session = dir.join("sessions").join("proj").join("sid1");
-        fs::create_dir_all(&session).expect("session dir");
-        let mut file = fs::File::create(session.join("updates.jsonl")).expect("updates");
-        file.write_all(body.as_bytes()).expect("write");
-    }
+    static ENV_LOCK: Mutex<()> = Mutex::new(());
 
     fn window() -> (DateTime<Utc>, DateTime<Utc>) {
         (
@@ -180,65 +81,102 @@ mod tests {
         )
     }
 
-    #[test]
-    fn sums_completed_turn_ticks_inside_window() {
-        let dir = tempfile_dir("valid");
-        let (started, until) = window();
-        let inside = started.timestamp() + 3600;
-        let outside = started.timestamp() - 3600;
-        write_session(
-            &dir,
-            &format!(
-                "{}\n{}\n{}\n",
-                r#"{"timestamp":1,"params":{"update":{"sessionUpdate":"tool_call"}}}"#,
-                format!(
-                    r#"{{"timestamp":{inside},"params":{{"update":{{"sessionUpdate":"turn_completed","usage":{{"costUsdTicks":10000000000,"totalTokens":50,"inputTokens":40,"outputTokens":10}}}}}}}}"#
-                ),
-                format!(
-                    r#"{{"timestamp":{outside},"params":{{"update":{{"sessionUpdate":"turn_completed","usage":{{"costUsdTicks":10000000000,"totalTokens":50}}}}}}}}"#
-                ),
-            ),
-        );
-        let usage = sum_period(&dir, started, until).expect("sum");
-        assert_eq!(usage.valid_entries, 1);
-        assert!((usage.observed_cost_usd - 1.0).abs() < 1e-9);
-        assert_eq!(usage.observed_tokens, 50);
+    fn write_fixture(dir: &Path, updates: &str, unified: &str) {
+        let session = dir.join("sessions").join("proj").join("sid1");
+        fs::create_dir_all(&session).expect("session dir");
+        fs::write(session.join("updates.jsonl"), updates).expect("updates");
+        fs::write(
+            session.join("summary.json"),
+            r#"{"current_model_id":"grok-4.6","git_root_dir":"/tmp/project"}"#,
+        )
+        .expect("summary");
+        let logs = dir.join("logs");
+        fs::create_dir_all(&logs).expect("logs");
+        fs::write(logs.join("unified.jsonl"), unified).expect("unified log");
+    }
+
+    fn with_grok_home(
+        dir: &Path,
+        started: DateTime<Utc>,
+        until: DateTime<Utc>,
+    ) -> Result<LocalPeriodUsage, String> {
+        let _guard = ENV_LOCK.lock().expect("environment lock");
+        let previous = std::env::var_os("GROK_HOME");
+        std::env::set_var("GROK_HOME", dir);
+        let result = sum_period(started, until);
+        restore_env("GROK_HOME", previous);
+        result
+    }
+
+    fn restore_env(name: &str, previous: Option<OsString>) {
+        match previous {
+            Some(value) => std::env::set_var(name, value),
+            None => std::env::remove_var(name),
+        }
     }
 
     #[test]
-    fn malformed_completed_turn_fails_closed() {
-        let dir = tempfile_dir("malformed");
+    fn uses_inference_pricing_instead_of_turn_cost_ticks() {
+        let dir = tempfile_dir("inference-pricing");
         let (started, until) = window();
-        let inside = started.timestamp() + 3600;
-        write_session(
+        let inside = started + chrono::Duration::hours(1);
+        write_fixture(
             &dir,
             &format!(
-                "{}\n{}\n",
-                format!(
-                    r#"{{"timestamp":{inside},"params":{{"update":{{"sessionUpdate":"turn_completed","usage":{{"costUsdTicks":10000000000,"totalTokens":50}}}}}}}}"#
-                ),
-                r#"{"sessionUpdate":"turn_completed"#,
+                r#"{{"timestamp":{},"params":{{"update":{{"sessionUpdate":"turn_completed","usage":{{"totalTokens":110,"inputTokens":100,"outputTokens":10}}}}}}}}"#,
+                inside.timestamp()
+            ),
+            &format!(
+                r#"{{"ts":"{}","sid":"sid1","msg":"shell.turn.inference_done","ctx":{{"loop_index":1,"prompt_tokens":100,"cached_prompt_tokens":40,"completion_tokens":10,"reasoning_tokens":0}}}}"#,
+                inside.to_rfc3339()
             ),
         );
 
-        let error = sum_period(&dir, started, until).expect_err("malformed update");
-        assert!(error.contains("Could not parse Grok session updates"));
+        let usage = with_grok_home(&dir, started, until).expect("sum");
+
+        assert!((usage.observed_cost_usd - 0.000_2).abs() < 1e-12);
+        assert_eq!(usage.observed_tokens, 110);
     }
 
     #[test]
-    fn completed_turn_without_cost_fails_closed() {
-        let dir = tempfile_dir("missing-cost");
+    fn rejects_incomplete_inference_pricing_coverage() {
+        let dir = tempfile_dir("partial-coverage");
         let (started, until) = window();
-        let inside = started.timestamp() + 3600;
-        write_session(
+        let inside = started + chrono::Duration::hours(1);
+        write_fixture(
             &dir,
             &format!(
-                r#"{{"timestamp":{inside},"params":{{"update":{{"sessionUpdate":"turn_completed","usage":{{"totalTokens":50}}}}}}}}"#
+                r#"{{"timestamp":{},"params":{{"update":{{"sessionUpdate":"turn_completed","usage":{{"totalTokens":220,"inputTokens":200,"outputTokens":20}}}}}}}}"#,
+                inside.timestamp()
+            ),
+            &format!(
+                r#"{{"ts":"{}","sid":"sid1","msg":"shell.turn.inference_done","ctx":{{"loop_index":1,"prompt_tokens":100,"cached_prompt_tokens":0,"completion_tokens":10,"reasoning_tokens":0}}}}"#,
+                inside.to_rfc3339()
             ),
         );
 
-        let error = sum_period(&dir, started, until).expect_err("missing cost");
-        assert!(error.contains("invalid costUsdTicks"));
+        let error = with_grok_home(&dir, started, until).expect_err("partial coverage");
+
+        assert!(error.contains("covers only 110 of 220 tokens"));
+    }
+
+    #[test]
+    fn malformed_inference_record_fails_closed() {
+        let dir = tempfile_dir("malformed-inference");
+        let (started, until) = window();
+        let inside = started + chrono::Duration::hours(1);
+        write_fixture(
+            &dir,
+            &format!(
+                r#"{{"timestamp":{},"params":{{"update":{{"sessionUpdate":"turn_completed","usage":{{"totalTokens":110,"inputTokens":100,"outputTokens":10}}}}}}}}"#,
+                inside.timestamp()
+            ),
+            r#"{"msg":"shell.turn.inference_done""#,
+        );
+
+        let error = with_grok_home(&dir, started, until).expect_err("malformed inference");
+
+        assert!(error.contains("malformed record"));
     }
 
     fn tempfile_dir(label: &str) -> PathBuf {

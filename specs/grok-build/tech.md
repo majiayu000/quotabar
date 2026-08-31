@@ -6,7 +6,7 @@
 
 - Identity: `email`, `planType` from billing `subscriptionTier` (not `auth_mode`).
 - Pool: `percentage` (`creditUsagePercent`, else sum of product percents), `resetAt` (`currentPeriod.end` then `billingPeriodEnd`), `periodStartedAt` (`currentPeriod.start`), `periodType` / `periodLabel`.
-- `valueEstimate` / `valueEstimateError`: sum `turn_completed.usage.costUsdTicks` in `[period start, now]` from `sessions/**/updates.jsonl` (1 USD = 10^10 ticks), then scale by official used percent. Isolated from pool % rendering. Does not use ccstats or public list rates.
+- `valueEstimate` / `valueEstimateError`: ask the ccstats SDK for Grok usage in the exact inclusive `[period start, observed at]` UTC window. ccstats prices `shell.turn.inference_done` requests with cache and long-context tiers and reports coverage against complete turn usage; QuotaBar rejects parse errors or partial pricing before scaling by the official used percent. Isolated from pool % rendering.
 - `products[]`: `{ product, label, usagePercent }` mapped from `GrokBuild` / `PRODUCT_GROK_BUILD` / etc.
 - `extra`: cents for on-demand used/cap and prepaid remaining; UI hides when all zero.
 
