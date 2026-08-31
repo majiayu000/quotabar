@@ -224,10 +224,10 @@ fn mark_cursor_data_stale(mut data: CursorData, error: String) -> CursorData {
 }
 
 fn is_transient_cursor_error(message: &str) -> bool {
-    let message = message.to_ascii_lowercase();
-    is_transient_os_error(&message)
-        || message.contains("database is locked")
-        || message.contains("database table is locked")
+    let lowercase = message.to_ascii_lowercase();
+    is_transient_os_error(message)
+        || lowercase.contains("database is locked")
+        || lowercase.contains("database table is locked")
 }
 
 fn fallback_or_disconnected(error: impl Into<String>) -> CursorData {
@@ -624,6 +624,10 @@ mod tests {
 
     #[test]
     fn sqlite_lock_errors_are_transient() {
+        assert!(is_transient_cursor_error("Too many open files"));
+        assert!(is_transient_cursor_error(
+            "Resource temporarily unavailable"
+        ));
         assert!(is_transient_cursor_error(
             "Failed to read state.vscdb: database is locked"
         ));
