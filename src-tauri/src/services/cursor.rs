@@ -552,6 +552,26 @@ mod tests {
     }
 
     #[test]
+    fn opens_state_database_read_only() {
+        let path = temp_db_path("read-only");
+        write_item_table(&path, &[(ACCESS_TOKEN_KEY, "token")]);
+        let conn = open_state_db(&path).expect("read-only connection");
+
+        let result = conn.execute(
+            "INSERT INTO ItemTable (key, value) VALUES (?1, ?2)",
+            rusqlite::params!["unexpected", "write"],
+        );
+
+        drop(conn);
+        let cleanup = std::fs::remove_file(&path);
+        assert!(result.is_err());
+        assert!(
+            cleanup.is_ok(),
+            "failed to remove temporary Cursor database"
+        );
+    }
+
+    #[test]
     fn prefers_access_token_over_legacy_cookie_key() {
         let path = temp_db_path("prefer-access");
         let jwt = encode_jwt("user_new");
