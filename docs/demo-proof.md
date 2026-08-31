@@ -6,7 +6,7 @@ The committed visual proof asset is:
 docs/assets/quotabar-no-provider-preview.png
 ```
 
-The current capture was refreshed for QuotaBar `v0.2.0` on 2026-07-07 from
+The current capture was refreshed for QuotaBar `v0.4.0` on 2026-08-31 from
 the production React UI in browser preview at `http://127.0.0.1:1420` with a
 `340x580` viewport.
 

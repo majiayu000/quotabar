@@ -6,7 +6,7 @@
 
 - Identity: `email`, `planType` from billing `subscriptionTier` (not `auth_mode`).
 - Pool: `percentage` (`creditUsagePercent`, else sum of product percents), `resetAt` (`currentPeriod.end` then `billingPeriodEnd`), `periodStartedAt` (`currentPeriod.start`), `periodType` / `periodLabel`.
-- `valueEstimate` / `valueEstimateError`: sum `turn_completed.usage.costUsdTicks` in `[period start, now]` from `sessions/**/updates.jsonl` (1 USD = 10^10 ticks), then scale by official used percent. Isolated from pool % rendering. Does not use ccstats or public list rates.
+- `valueEstimate` / `valueEstimateError`: request a ccstats `UsageSource::Grok` summary for the exact UTC `[period start, now]` timestamp range, then scale its per-inference API-equivalent USD and token totals by the official used percent. Reject parse errors or incomplete inference coverage. Isolated from pool % rendering.
 - `products[]`: `{ product, label, usagePercent }` mapped from `GrokBuild` / `PRODUCT_GROK_BUILD` / etc.
 - `extra`: cents for on-demand used/cap and prepaid remaining; UI hides when all zero.
 
