@@ -13,6 +13,7 @@ All notable QuotaBar changes should be summarized here before a release is cut.
   when the local CLI snapshot reports 0% or lives in the primary slot.
 - Preserve over-limit Cursor usage while deriving truthful reset dates, normalize only the tray IPC boundary,
   cache generated tray PNGs, and stop Overview cost work while the popover is hidden.
+- Read Cursor's current authenticated usage summary and show separate Cursor Models and Other Models usage.
 
 ## 0.3.1 - 2026-08-22
 

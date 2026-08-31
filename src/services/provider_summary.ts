@@ -130,14 +130,41 @@ export function buildCodexQuotaWindows(rateLimits: CodexRateLimits | null): Quot
 }
 
 export function buildCursorQuotaWindows(cursorData: CursorData | null): QuotaWindowSummary[] {
-  if (!cursorData?.connected || typeof cursorData.percentage !== 'number') return [];
+  if (!cursorData?.connected) return [];
+  const resetLabel = cursorData.resetAt
+    ? formatResetTime(cursorData.resetAt, { expiredLabel: 'soon' })
+    : undefined;
+  const resetAtMs = resetAtMsFromValue(cursorData.resetAt);
+  const windows: QuotaWindowSummary[] = [];
+  if (typeof cursorData.autoPercent === 'number') {
+    windows.push({
+      provider: 'cursor',
+      providerLabel: SERVICE_META.cursor.label,
+      label: 'Cursor Models',
+      usedPercent: cursorData.autoPercent,
+      resetLabel,
+      resetAtMs,
+    });
+  }
+  if (typeof cursorData.apiPercent === 'number') {
+    windows.push({
+      provider: 'cursor',
+      providerLabel: SERVICE_META.cursor.label,
+      label: 'Other Models',
+      usedPercent: cursorData.apiPercent,
+      resetLabel,
+      resetAtMs,
+    });
+  }
+  if (windows.length > 0) return windows;
+  if (typeof cursorData.percentage !== 'number') return [];
   return [{
     provider: 'cursor',
     providerLabel: SERVICE_META.cursor.label,
     label: 'Fast requests',
     usedPercent: cursorData.percentage,
-    resetLabel: cursorData.resetAt ? formatResetTime(cursorData.resetAt, { expiredLabel: 'soon' }) : undefined,
-    resetAtMs: resetAtMsFromValue(cursorData.resetAt),
+    resetLabel,
+    resetAtMs,
   }];
 }
 

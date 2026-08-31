@@ -379,4 +379,33 @@ describe('provider status UI', () => {
     expect(progress.props['aria-valuetext']).toBe('123% used');
     await act(async () => renderer.unmount());
   });
+
+  it('shows Cursor Models and Other Models bars from the dashboard usage-summary', async () => {
+    vi.spyOn(backend, 'getCursorInfo').mockResolvedValue({
+      connected: true,
+      planType: 'ultra',
+      autoPercent: 2.888,
+      apiPercent: 91.082,
+      percentage: 91.082,
+      resetAt: '2026-09-16T15:37:22.000Z',
+    });
+    let renderer!: ReactTestRenderer;
+    await act(async () => {
+      renderer = create(createElement(CursorPanel, {
+        autoRefreshIntervalMs: 0,
+        showCostSummary: false,
+        sections: hiddenSections,
+      }));
+      await Promise.resolve();
+    });
+
+    const text = renderedText(renderer);
+    expect(text).toContain('Cursor Models');
+    expect(text).toContain('3% used');
+    expect(text).toContain('Other Models');
+    expect(text).toContain('91% used');
+    expect(text).toContain('Includes Cursor Grok and Composer');
+    expect(text).not.toContain('Included requests');
+    await act(async () => renderer.unmount());
+  });
 });

@@ -98,6 +98,9 @@ export interface CursorData {
   fastUsed?: number;
   fastLimit?: number;
   percentage?: number;
+  autoPercent?: number;
+  apiPercent?: number;
+  onDemandEnabled?: boolean;
   slowUsed?: number;
   resetAt?: string;
   error?: string;

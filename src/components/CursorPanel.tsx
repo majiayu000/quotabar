@@ -23,6 +23,12 @@ interface CursorPanelProps {
   sections?: PanelSectionVisibility;
 }
 
+function windowHint(label: string): string | undefined {
+  if (label === 'Cursor Models') return 'Includes Cursor Grok and Composer';
+  if (label === 'Other Models') return 'Additional usage beyond limits consumes on-demand spend.';
+  return undefined;
+}
+
 function formatResetDate(resetAt?: string): string {
   if (!resetAt) return '';
   try {
@@ -117,6 +123,7 @@ export default function CursorPanel({
   const resetLabel = formatResetDate(cursorData?.resetAt);
   const windows = buildCursorQuotaWindows(cursorData);
   const topWindow = sortMostConstrained(windows)[0];
+  const hasDashboardWindows = cursorData?.autoPercent != null || cursorData?.apiPercent != null;
   const includedRequestValue = cursorData?.fastUsed != null && cursorData.fastLimit != null
     ? `${cursorData.fastUsed} / ${cursorData.fastLimit}${percentage != null ? ` · ${Math.round(percentage)}%` : ''}`
     : null;
@@ -148,7 +155,34 @@ export default function CursorPanel({
             <div className="section-title">Usage</div>
 
             <div className="quota-group">
-              {cursorData.fastUsed != null && cursorData.fastLimit != null && (
+              {hasDashboardWindows && windows.map((window) => {
+                const hint = windowHint(window.label);
+                return (
+                  <div className="quota-card" key={window.label}>
+                    <div className="quota-header">
+                      <span className="quota-label">{window.label}</span>
+                      <span className="quota-value">{`${Math.round(window.usedPercent)}% used`}</span>
+                    </div>
+                    <div
+                      className="progress-bar"
+                      role="progressbar"
+                      aria-label={`${window.label} usage`}
+                      aria-valuemin={0}
+                      aria-valuemax={100}
+                      aria-valuenow={clampProgressValue(window.usedPercent)}
+                      aria-valuetext={`${Math.round(window.usedPercent)}% used`}
+                    >
+                      <div className="progress-fill" style={getProgressStyle(window.usedPercent)} />
+                    </div>
+                    {hint && <div className="reset-time">{hint}</div>}
+                    {resetLabel && window.label === windows[0]?.label && (
+                      <div className="reset-time">{resetLabel}</div>
+                    )}
+                  </div>
+                );
+              })}
+
+              {!hasDashboardWindows && cursorData.fastUsed != null && cursorData.fastLimit != null && (
                 <div className="quota-card">
                   <div className="quota-header">
                     <span className="quota-label">Included requests</span>
@@ -171,7 +205,16 @@ export default function CursorPanel({
                 </div>
               )}
 
-              {cursorData.slowUsed != null && cursorData.slowUsed > 0 && (
+              {cursorData.onDemandEnabled && cursorData.slowUsed != null && cursorData.slowUsed > 0 && (
+                <div className="quota-card">
+                  <div className="quota-header">
+                    <span className="quota-label">On-demand</span>
+                    <span className="quota-value">{cursorData.slowUsed}</span>
+                  </div>
+                </div>
+              )}
+
+              {!hasDashboardWindows && !cursorData.onDemandEnabled && cursorData.slowUsed != null && cursorData.slowUsed > 0 && (
                 <div className="quota-card">
                   <div className="quota-header">
                     <span className="quota-label">Slow requests</span>
