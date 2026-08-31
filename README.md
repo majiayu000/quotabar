@@ -122,7 +122,7 @@ npm run tauri build -- --bundles app
 Downloadable release bundles:
 
 ```bash
-# macOS
+# macOS, for the current host architecture
 npm run tauri build -- --bundles dmg
 
 # Windows
@@ -139,7 +139,7 @@ Expected output locations:
 
 The latest published release is available from [GitHub Releases](https://github.com/majiayu000/quotabar/releases/latest).
 
-The v0.4.0 macOS artifact is unsigned and not notarized. macOS may require users to approve the app in Privacy & Security before first launch.
+The v0.4.0 Apple Silicon and Intel macOS artifacts are unsigned and not notarized. macOS may require users to approve the app in Privacy & Security before first launch.
 
 Release candidates should be built by the `release-artifacts` GitHub Actions workflow or from a clean checkout, then attached manually to the matching GitHub release only after final human approval. The workflow uploads build artifacts for inspection; it does not publish a GitHub Release. See [docs/release.md](docs/release.md) for the release checklist.
 

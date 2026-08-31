@@ -4,6 +4,8 @@ All notable QuotaBar changes should be summarized here before a release is cut.
 
 ## Unreleased
 
+- Build separate macOS DMGs for Apple Silicon and Intel runners.
+
 ## 0.4.0 - 2026-08-31
 
 - Keep enabled provider trays as independent macOS menu-bar extras instead of collapsing them into one Codex slot on macOS 26.
