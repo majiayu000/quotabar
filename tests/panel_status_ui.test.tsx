@@ -436,4 +436,28 @@ describe('provider status UI', () => {
     expect(text).toContain('$12.51');
     await act(async () => renderer.unmount());
   });
+
+  it('renders percentage-only Cursor usage fallback', async () => {
+    vi.spyOn(backend, 'getCursorInfo').mockResolvedValue({
+      connected: true,
+      planType: 'pro',
+      percentage: 25.4,
+    });
+    let renderer!: ReactTestRenderer;
+    await act(async () => {
+      renderer = create(createElement(CursorPanel, {
+        autoRefreshIntervalMs: 0,
+        showCostSummary: false,
+        sections: hiddenSections,
+      }));
+      await Promise.resolve();
+    });
+
+    const text = renderedText(renderer);
+    expect(text).toContain('Usage');
+    expect(text).toContain('25% used');
+    const progress = renderer.root.findByProps({ role: 'progressbar' });
+    expect(progress.props['aria-label']).toBe('Cursor usage');
+    await act(async () => renderer.unmount());
+  });
 });

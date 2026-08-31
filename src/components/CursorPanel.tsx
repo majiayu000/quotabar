@@ -193,11 +193,13 @@ export default function CursorPanel({
                 );
               })}
 
-              {!hasDashboardWindows && cursorData.fastUsed != null && cursorData.fastLimit != null && (
+              {!hasDashboardWindows && (includedRequestValue != null || percentage != null) && (
                 <div className="quota-card">
                   <div className="quota-header">
                     <span className="quota-label">Usage</span>
-                    <span className="quota-value">{includedRequestValue}</span>
+                    <span className="quota-value">
+                      {includedRequestValue ?? `${Math.round(percentage ?? 0)}% used`}
+                    </span>
                   </div>
                   {percentage != null && (
                     <div
