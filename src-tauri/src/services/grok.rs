@@ -316,8 +316,7 @@ fn estimate_grok_period_value(
     if started > observed_at {
         return Err("The official Grok period window is invalid.".to_string());
     }
-    let home = grok_home().ok_or_else(|| "Could not find home directory".to_string())?;
-    let usage = grok_local::sum_period(&home, started, observed_at)?;
+    let usage = grok_local::sum_period(started, observed_at)?;
     let (period_usd, period_tokens) =
         scale_observed_usage(usage.observed_cost_usd, usage.observed_tokens, used_pct)?;
     Ok(GrokValueEstimate {

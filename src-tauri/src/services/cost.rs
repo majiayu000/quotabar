@@ -541,10 +541,15 @@ mod tests {
             currency: "USD".to_string(),
             cost: None,
             cost_usd: None,
+            estimated_cost: None,
+            estimated_cost_usd: None,
+            cost_kind: "none".to_string(),
+            api_equivalent_cost_coverage: None,
             tokens: TokenBreakdown::default(),
             models: Vec::new(),
             valid_entries,
             skipped_entries: 0,
+            parse_error_entries: 0,
             elapsed_ms: 12.0,
         }
     }
