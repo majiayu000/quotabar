@@ -4,6 +4,8 @@ All notable QuotaBar changes should be summarized here before a release is cut.
 
 ## Unreleased
 
+- Keep Grok pool value available when valid `turn_completed` records omit the optional usage object.
+
 ## 0.4.1 - 2026-09-01
 
 - Build separate macOS DMGs for Apple Silicon and Intel runners.
