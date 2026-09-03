@@ -92,7 +92,7 @@ import {
   subscribeStorageWriteFailures,
 } from './services/storage';
 import { bonusReadyEntered, formatBonusReadyMessage } from './services/bonus_ready';
-import { planProviderPreset, type ProviderPreset } from './services/provider_presets';
+import { planProviderPreset, planRevealProviderPanel, type ProviderPreset } from './services/provider_presets';
 import { useServiceEvents } from './hooks/use_service_events';
 import { usePopoverWindow } from './hooks/use_popover_window';
 import { useLatestRequestGeneration } from './hooks/use_latest_request_generation';
@@ -455,8 +455,13 @@ export default function App() {
   }, [switcherVisibility, trayEnabled]);
 
   const handleSelectEventProvider = useCallback((service: TrayServiceName) => {
+    const next = planRevealProviderPanel(switcherVisibility, service);
+    if (next !== switcherVisibility) {
+      setSwitcherVisibility(next);
+      saveSwitcherVisibility(next);
+    }
     setAndPersistTab(service);
-  }, [setAndPersistTab]);
+  }, [setAndPersistTab, switcherVisibility]);
 
   const handleTrayStyleChange = useCallback((style: TrayStyle) => {
     saveTrayStyle(style);

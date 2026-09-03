@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { matchProviderInEventText, planProviderPreset } from '../src/services/provider_presets';
+import { matchProviderInEventText, planProviderPreset, planRevealProviderPanel } from '../src/services/provider_presets';
 import { defaultSwitcherVisibility } from '../src/services/switcher_providers';
 import type { TrayServiceName } from '../src/services/tray_visibility';
 
@@ -46,9 +46,13 @@ describe('planProviderPreset', () => {
       grok: false,
       antigravity: false,
     });
-    expect(plan.trays.codex).toBe(true);
-    expect(plan.trays.claude).toBe(true);
-    expect(Object.values(plan.trays).some(Boolean)).toBe(true);
+    expect(plan.trays).toEqual({
+      claude: true,
+      codex: true,
+      cursor: true,
+      grok: true,
+      antigravity: false,
+    });
   });
 
   test('never produces zero trays when only another tray was enabled', () => {
@@ -63,6 +67,26 @@ describe('planProviderPreset', () => {
     expect(plan.trays.codex).toBe(true);
     expect(plan.trays.cursor).toBe(true);
     expect(Object.values(plan.trays).filter(Boolean).length).toBeGreaterThanOrEqual(1);
+  });
+});
+
+describe('planRevealProviderPanel', () => {
+  test('turns a hidden panel on without hiding the others', () => {
+    const isolated = planProviderPreset(defaultSwitcherVisibility(), allTrays, 'codex').switcher;
+    const revealed = planRevealProviderPanel(isolated, 'claude');
+
+    expect(revealed).toEqual({
+      claude: true,
+      codex: true,
+      cursor: false,
+      grok: false,
+      antigravity: false,
+    });
+  });
+
+  test('returns the same map when the panel is already visible', () => {
+    const current = defaultSwitcherVisibility();
+    expect(planRevealProviderPanel(current, 'codex')).toBe(current);
   });
 });
 

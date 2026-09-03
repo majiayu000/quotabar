@@ -27,12 +27,15 @@ export function planProviderPreset(
     return acc;
   }, {} as SwitcherVisibility);
 
-  const trays = { ...currentTrays, [preset]: true };
-  if (!SERVICES.some((service) => trays[service])) {
-    trays[preset] = true;
-  }
+  return { switcher, trays: { ...currentTrays, [preset]: true } };
+}
 
-  return { switcher, trays };
+export function planRevealProviderPanel(
+  current: SwitcherVisibility,
+  service: TrayServiceName,
+): SwitcherVisibility {
+  if (current[service]) return current;
+  return { ...current, [service]: true };
 }
 
 export function matchProviderInEventText(text: string): TrayServiceName | null {
