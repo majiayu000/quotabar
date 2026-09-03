@@ -74,7 +74,7 @@ describe('Codex bonusReady reporting', () => {
     await act(async () => renderer.unmount());
   });
 
-  it('does not treat a later leftover reset as a first connected snapshot after fail-soft credits', async () => {
+  it('reports the first connected leftover snapshot after fail-soft credits', async () => {
     const onBonusReadyChange = vi.fn();
     const renderer = await render_panel(disconnectedCredits, onBonusReadyChange);
     expect(onBonusReadyChange).not.toHaveBeenCalled();
