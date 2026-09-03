@@ -14,7 +14,16 @@ import type {
   CodexWeeklyValueEstimate,
 } from '../types/models';
 import { buildCodexQuotaWindows, sortMostConstrained, type QuotaWindowSummary } from '../services/provider_summary';
-import { getAvailableResetCredits, getHighUsageTip } from '../services/detail_helpers';
+import {
+  checkWeeklyQuotaWindow,
+  checkWeeklyValueEstimate,
+  formatLocalExtrasPaused,
+  formatOfficialUpdatedAt,
+  isHardDisplayCheck,
+  isSoftDisplayCheck,
+  isWeeklyExhausted,
+} from '../services/codex_weekly_display';
+import { getAvailableResetCredits, getExhaustedWeekTip, getHighUsageTip } from '../services/detail_helpers';
 import { clampProgressValue, formatPaceText, formatPlanType, formatResetTime, getProgressStyle } from '../utils/quota_format';
 import { defaultPanelSections, type PanelSectionVisibility } from '../services/panel_sections';
 import { useLatestRequestGeneration } from '../hooks/use_latest_request_generation';
@@ -30,6 +39,7 @@ interface CodexPanelProps {
   sections?: PanelSectionVisibility;
   onBonusExpiring?: (daysLeft: number) => void;
   onBonusReadyChange?: (ready: { exhausted: boolean; availableCount: number }) => void;
+  onOpenDashboard?: () => void;
 }
 
 function formatSubscriptionDate(dateStr?: string): string {
@@ -105,84 +115,6 @@ const COMPACT_TOKEN_FORMAT = new Intl.NumberFormat('en-US', {
   maximumFractionDigits: 1,
 });
 
-function validateWeeklyValueEstimate(
-  estimate: CodexWeeklyValueEstimate,
-  official: CodexRateLimitWindow,
-): string | null {
-  if (
-    !Number.isFinite(estimate.observedCostUsd)
-    || estimate.observedCostUsd <= 0
-    || !Number.isFinite(estimate.estimatedWeeklyValueUsd)
-    || estimate.estimatedWeeklyValueUsd <= 0
-    || !Number.isFinite(estimate.observedTokens)
-    || estimate.observedTokens <= 0
-    || !Number.isFinite(estimate.estimatedWeeklyTokens)
-    || estimate.estimatedWeeklyTokens <= 0
-  ) {
-    return 'The local weekly value estimate contains invalid totals.';
-  }
-  if (Math.abs(estimate.usedPct - official.usedPercent) > 5) {
-    return 'The local weekly value estimate does not match the quota usage.';
-  }
-  const estimateObservedAt = Date.parse(estimate.observedAt);
-  const now = Date.now();
-  if (
-    !Number.isFinite(estimateObservedAt)
-    || estimateObservedAt > now + 5 * 60 * 1000
-    || now - estimateObservedAt > 10 * 60 * 1000
-  ) {
-    return 'The local weekly value estimate is stale or has an invalid observation time.';
-  }
-  const estimateReset = Date.parse(estimate.resetsAt);
-  const officialReset = (official.resetsAt ?? 0) * 1000;
-  if (
-    !Number.isFinite(estimateReset)
-    || officialReset <= 0
-    || Math.abs(estimateReset - officialReset) > 5 * 60 * 1000
-  ) {
-    return 'The local weekly value estimate does not match the quota reset.';
-  }
-  return null;
-}
-
-function validateWeeklyQuotaWindow(
-  quota: CodexWeeklyQuota,
-  official?: CodexRateLimits['secondary'],
-): string | null {
-  if (!official) return 'The official weekly quota window is unavailable.';
-  if (!Number.isFinite(official.windowMinutes) || (official.windowMinutes ?? 0) <= 0) {
-    return 'The official weekly window length is unavailable.';
-  }
-  if (official.windowMinutes !== quota.windowMinutes) {
-    return 'The local pace snapshot does not match the official weekly window.';
-  }
-  const officialReset = official.resetsAt;
-  if (!Number.isFinite(officialReset) || (officialReset ?? 0) <= 0) {
-    return 'The official weekly reset time is unavailable.';
-  }
-  const localReset = Date.parse(quota.resetsAt) / 1000;
-  if (!Number.isFinite(localReset) || localReset <= 0) {
-    return 'The local pace snapshot has an invalid reset time.';
-  }
-  if (Math.abs(localReset - (officialReset ?? 0)) > 5 * 60) {
-    return 'The local pace snapshot does not match the current official reset.';
-  }
-  const observedAt = Date.parse(quota.observedAt);
-  const now = Date.now();
-  if (!Number.isFinite(observedAt)) {
-    return 'The local pace snapshot has an invalid observation time.';
-  }
-  if (observedAt > now + 5 * 60 * 1000) {
-    return 'The local pace snapshot is dated in the future.';
-  }
-  if (now - observedAt > 30 * 60 * 1000) {
-    return 'The local pace snapshot is older than 30 minutes.';
-  }
-  if (Math.abs(quota.usedPct - official.usedPercent) > 1) {
-    return 'The local pace usage does not match the current official usage.';
-  }
-  return null;
-}
 
 function selectOfficialWeeklyWindow(
   limits: CodexRateLimits | null,
@@ -264,6 +196,7 @@ export default function CodexPanel({
   sections = defaultPanelSections(),
   onBonusExpiring,
   onBonusReadyChange,
+  onOpenDashboard,
 }: CodexPanelProps) {
   const [codexData, setCodexData] = useState<CodexData | null>(null);
   const [rateLimits, setRateLimits] = useState<CodexRateLimits | null>(null);
@@ -272,6 +205,7 @@ export default function CodexPanel({
   const [weeklyQuotaError, setWeeklyQuotaError] = useState<string | null>(null);
   const [weeklyValueEstimate, setWeeklyValueEstimate] = useState<CodexWeeklyValueEstimate | null>(null);
   const [weeklyValueEstimateError, setWeeklyValueEstimateError] = useState<string | null>(null);
+  const [officialUpdatedAt, setOfficialUpdatedAt] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [rateLimitsError, setRateLimitsError] = useState<string | null>(null);
@@ -323,8 +257,11 @@ export default function CodexPanel({
       if (limits.error) {
         setError(limits.error);
         setRateLimitsError(limits.error);
-      } else if (info.error) {
-        setError(info.error);
+      } else {
+        setOfficialUpdatedAt(Date.now());
+        if (info.error) {
+          setError(info.error);
+        }
       }
 
       // Notify parent about connection status change
@@ -378,18 +315,17 @@ export default function CodexPanel({
     }
   }, [resetCredits, onBonusExpiring]);
 
-  const officialWeeklyLimitForReady = selectOfficialWeeklyLimitWindow(rateLimits);
-  const weeklyExhaustedForReady = typeof officialWeeklyLimitForReady?.usedPercent === 'number'
-    && officialWeeklyLimitForReady.usedPercent >= 100;
-  const availableResetCreditsForReady = getAvailableResetCredits(resetCredits);
+  const officialWeeklyLimit = selectOfficialWeeklyLimitWindow(rateLimits);
+  const weeklyExhausted = isWeeklyExhausted(officialWeeklyLimit?.usedPercent);
+  const availableResetCredits = getAvailableResetCredits(resetCredits);
 
   useEffect(() => {
     if (!onBonusReadyChange || !rateLimits) return;
     onBonusReadyChange({
-      exhausted: weeklyExhaustedForReady,
-      availableCount: availableResetCreditsForReady.length,
+      exhausted: weeklyExhausted,
+      availableCount: availableResetCredits.length,
     });
-  }, [availableResetCreditsForReady.length, onBonusReadyChange, rateLimits, weeklyExhaustedForReady]);
+  }, [availableResetCredits.length, onBonusReadyChange, rateLimits, weeklyExhausted]);
 
   if (loading && !codexData && !rateLimits) {
     return (
@@ -406,26 +342,44 @@ export default function CodexPanel({
   const topWindow = sortMostConstrained(windows)[0];
   const showingStaleLimits = Boolean(rateLimitsError && hasRateLimits);
   const quotaUnavailable = Boolean(rateLimitsError && !hasRateLimits);
-  const availableResetCredits = getAvailableResetCredits(resetCredits);
   const bonusGrantGroups = buildBonusGrantGroups(availableResetCredits);
   const officialWeeklyWindow = selectOfficialWeeklyWindow(rateLimits, weeklyQuota);
-  const officialWeeklyLimit = selectOfficialWeeklyLimitWindow(rateLimits);
-  const weeklyQuotaValidationError = weeklyQuota
-    ? validateWeeklyQuotaWindow(weeklyQuota, officialWeeklyWindow)
+  const weeklyQuotaCheck = weeklyQuota
+    ? checkWeeklyQuotaWindow(weeklyQuota, officialWeeklyWindow)
     : null;
-  const displayedWeeklyQuota = weeklyQuotaValidationError ? null : weeklyQuota;
-  const displayedWeeklyQuotaError = weeklyQuotaValidationError ?? weeklyQuotaError;
-  const weeklyValueValidationError = officialWeeklyLimit && weeklyValueEstimate
-    ? validateWeeklyValueEstimate(weeklyValueEstimate, officialWeeklyLimit)
+  const displayedWeeklyQuota = weeklyQuotaCheck?.ok ? weeklyQuota : null;
+  const displayedWeeklyQuotaError = isHardDisplayCheck(weeklyQuotaCheck)
+    ? weeklyQuotaCheck.message
+    : weeklyQuotaCheck?.ok
+      ? null
+      : weeklyQuotaError;
+  const weeklyValueCheck = officialWeeklyLimit && weeklyValueEstimate
+    ? checkWeeklyValueEstimate(weeklyValueEstimate, officialWeeklyLimit)
     : null;
-  const displayedWeeklyValueEstimate = weeklyValueValidationError || !officialWeeklyLimit
-    ? null
-    : weeklyValueEstimate;
-  const displayedWeeklyValueEstimateError = officialWeeklyLimit
-    ? (weeklyValueValidationError ?? weeklyValueEstimateError)
+  const displayedWeeklyValueEstimate = officialWeeklyLimit && weeklyValueEstimate && (
+    weeklyValueCheck?.ok || isSoftDisplayCheck(weeklyValueCheck)
+  )
+    ? weeklyValueEstimate
+    : null;
+  const valueIsLastEstimate = isSoftDisplayCheck(weeklyValueCheck);
+  const displayedWeeklyValueEstimateError = officialWeeklyLimit && !displayedWeeklyValueEstimate
+    ? (isHardDisplayCheck(weeklyValueCheck) ? null : weeklyValueEstimateError)
+    : null;
+  const extrasObservedAt = [
+    isSoftDisplayCheck(weeklyValueCheck) && weeklyValueEstimate
+      ? Date.parse(weeklyValueEstimate.observedAt)
+      : Number.NaN,
+    isSoftDisplayCheck(weeklyQuotaCheck) && weeklyQuota
+      ? Date.parse(weeklyQuota.observedAt)
+      : Number.NaN,
+  ].filter((value) => Number.isFinite(value));
+  const extrasPausedCopy = extrasObservedAt.length > 0
+    ? formatLocalExtrasPaused(Math.min(...extrasObservedAt))
     : null;
   const renderWeeklyPace = (window: CodexRateLimitWindow) => {
+    if (weeklyExhausted) return null;
     if (window !== officialWeeklyWindow) return null;
+    if (isSoftDisplayCheck(weeklyQuotaCheck)) return null;
     if (!displayedWeeklyQuota && displayedWeeklyQuotaError) {
       return (
         <span className="quota-pace warning">
@@ -434,6 +388,73 @@ export default function CodexPanel({
       );
     }
     return null;
+  };
+  const headerStatus = showingStaleLimits
+    ? 'Stale data'
+    : quotaUnavailable
+      ? 'Quota unavailable'
+      : weeklyExhausted
+        ? 'Weekly exhausted'
+        : connected
+          ? 'Connected'
+          : 'Offline';
+  const headerTone = showingStaleLimits
+    ? 'pending'
+    : quotaUnavailable || weeklyExhausted
+      ? 'error'
+      : connected
+        ? 'online'
+        : 'offline';
+  const exhaustedTip = weeklyExhausted
+    ? getExhaustedWeekTip(formatResetAt(officialWeeklyLimit?.resetsAt), availableResetCredits.length)
+    : null;
+  const renderBonusPanel = () => {
+    if (availableResetCredits.length === 0) return null;
+    const body = (
+      <>
+        <div className="bonus-header">
+          <div className="bonus-title-row">
+            <span className="bonus-title">Bonus resets</span>
+            <span className="bonus-badge">Gifted</span>
+          </div>
+          <span className="bonus-count">{availableResetCredits.length} available</span>
+        </div>
+        <div className="bonus-grants">
+          {bonusGrantGroups.map((group) => {
+            const daysLeft = getDaysLeft(group.expiresAt);
+            return (
+              <div className="bonus-grant-row" key={group.key}>
+                <span className="bonus-grant-left">
+                  <span className="bonus-dot" />
+                  <span className="bonus-grant-label">
+                    +{group.count} · granted {formatGrantDate(group.grantedAt)}
+                  </span>
+                </span>
+                <span className={`bonus-grant-right ${daysLeft != null && daysLeft <= 10 ? 'warning' : ''}`}>
+                  {daysLeft == null ? 'Expires unknown' : `${daysLeft}d left · ${formatGrantDate(group.expiresAt)}`}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+        <div className="bonus-note">Gifted occasionally · no cap · each grant valid 30 days</div>
+        {onOpenDashboard && (
+          <div className="bonus-note">Opens ChatGPT. QuotaBar cannot apply this reset.</div>
+        )}
+      </>
+    );
+    if (!onOpenDashboard) {
+      return <div className="bonus-panel">{body}</div>;
+    }
+    return (
+      <button
+        type="button"
+        className="bonus-panel bonus-panel-action"
+        onClick={onOpenDashboard}
+      >
+        {body}
+      </button>
+    );
   };
 
   return (
@@ -452,12 +473,18 @@ export default function CodexPanel({
         <div className="codex-content">
           <ProviderDetailHeader
             service="codex"
-            status={showingStaleLimits ? 'Stale data' : quotaUnavailable ? 'Quota unavailable' : connected ? 'Connected' : 'Offline'}
+            status={headerStatus}
             plan={formatCodexPlan(planType)}
             usedPercent={topWindow?.usedPercent ?? null}
             usageLabel={topWindow?.label}
-            tone={showingStaleLimits ? 'pending' : quotaUnavailable ? 'error' : connected ? 'online' : 'offline'}
+            tone={headerTone}
           />
+          {officialUpdatedAt != null && (
+            <div className="codex-updated">
+              <span>{formatOfficialUpdatedAt(officialUpdatedAt)}</span>
+              {extrasPausedCopy && <span>Quota current</span>}
+            </div>
+          )}
 
           {/* Rate Limits Section */}
           {hasRateLimits && (
@@ -495,7 +522,7 @@ export default function CodexPanel({
                         <span>{formatResetAt(rateLimits.primary.resetsAt)}</span>
                       </div>
                     )}
-                    {(() => {
+                    {!weeklyExhausted && (() => {
                       const pace = formatPaceText(
                         rateLimits.primary.usedPercent,
                         rateLimits.primary.resetsAt,
@@ -561,6 +588,8 @@ export default function CodexPanel({
             </div>
           )}
 
+          {weeklyExhausted && renderBonusPanel()}
+
           {officialWeeklyLimit
             && (displayedWeeklyValueEstimate || displayedWeeklyValueEstimateError) && (
             <div className="section weekly-value-section">
@@ -573,7 +602,9 @@ export default function CodexPanel({
                           <span className="weekly-value-dot" />
                           API-equivalent week
                         </span>
-                        <span className="weekly-value-badge">Local estimate</span>
+                        <span className="weekly-value-badge">
+                          {valueIsLastEstimate ? 'Last estimate' : 'Local estimate'}
+                        </span>
                       </div>
                       <div className="weekly-value-body">
                         <div className="weekly-value-metrics">
@@ -606,7 +637,9 @@ export default function CodexPanel({
                           {`Based on ${Math.round(displayedWeeklyValueEstimate.usedPct)}% used · ${USD_FORMAT.format(displayedWeeklyValueEstimate.observedCostUsd)} local`}
                         </span>
                         <span>
-                          {`${COMPACT_TOKEN_FORMAT.format(displayedWeeklyValueEstimate.observedTokens)} observed tokens · Not an official allowance`}
+                          {valueIsLastEstimate
+                            ? `${COMPACT_TOKEN_FORMAT.format(displayedWeeklyValueEstimate.observedTokens)} observed tokens · Not an official allowance · snapshot not refreshed`
+                            : `${COMPACT_TOKEN_FORMAT.format(displayedWeeklyValueEstimate.observedTokens)} observed tokens · Not an official allowance`}
                         </span>
                       </div>
                     </>
@@ -620,39 +653,15 @@ export default function CodexPanel({
             </div>
           )}
 
-          {sections.tips && <SmartTip message={getHighUsageTip(windows)} />}
-
-          {/* Bonus Reset Credits Section */}
-          {availableResetCredits.length > 0 && (
-            <div className="bonus-panel">
-              <div className="bonus-header">
-                <div className="bonus-title-row">
-                  <span className="bonus-title">Bonus resets</span>
-                  <span className="bonus-badge">Gifted</span>
-                </div>
-                <span className="bonus-count">{availableResetCredits.length} available</span>
-              </div>
-              <div className="bonus-grants">
-                {bonusGrantGroups.map((group) => {
-                  const daysLeft = getDaysLeft(group.expiresAt);
-                  return (
-                  <div className="bonus-grant-row" key={group.key}>
-                    <span className="bonus-grant-left">
-                      <span className="bonus-dot" />
-                      <span className="bonus-grant-label">
-                        +{group.count} · granted {formatGrantDate(group.grantedAt)}
-                      </span>
-                    </span>
-                    <span className={`bonus-grant-right ${daysLeft != null && daysLeft <= 10 ? 'warning' : ''}`}>
-                      {daysLeft == null ? 'Expires unknown' : `${daysLeft}d left · ${formatGrantDate(group.expiresAt)}`}
-                    </span>
-                  </div>
-                  );
-                })}
-              </div>
-              <div className="bonus-note">Gifted occasionally · no cap · each grant valid 30 days</div>
-            </div>
+          {extrasPausedCopy && (
+            <p className="codex-local-extras">{extrasPausedCopy}</p>
           )}
+
+          {sections.tips && (
+            <SmartTip message={weeklyExhausted ? exhaustedTip : getHighUsageTip(windows)} />
+          )}
+
+          {!weeklyExhausted && renderBonusPanel()}
 
           {sections.timeline && <ResetTimeline windows={windows} />}
 
