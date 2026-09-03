@@ -1,5 +1,13 @@
 import { describe, expect, test } from 'vitest';
-import { bonusReadyEntered, formatBonusReadyMessage } from '../src/services/bonus_ready';
+import { bonusReadyEntered, canReportBonusReady, formatBonusReadyMessage } from '../src/services/bonus_ready';
+
+describe('canReportBonusReady', () => {
+  test('waits for a connected credits snapshot', () => {
+    expect(canReportBonusReady(null)).toBe(false);
+    expect(canReportBonusReady({ connected: false })).toBe(false);
+    expect(canReportBonusReady({ connected: true })).toBe(true);
+  });
+});
 
 describe('bonusReadyEntered', () => {
   test('does not fire on the first snapshot', () => {

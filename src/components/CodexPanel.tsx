@@ -14,6 +14,7 @@ import type {
   CodexWeeklyValueEstimate,
 } from '../types/models';
 import { buildCodexQuotaWindows, sortMostConstrained, type QuotaWindowSummary } from '../services/provider_summary';
+import { canReportBonusReady } from '../services/bonus_ready';
 import {
   checkWeeklyQuotaWindow,
   checkWeeklyValueEstimate,
@@ -320,12 +321,18 @@ export default function CodexPanel({
   const availableResetCredits = getAvailableResetCredits(resetCredits);
 
   useEffect(() => {
-    if (!onBonusReadyChange || !rateLimits) return;
+    if (!onBonusReadyChange || !rateLimits || !canReportBonusReady(resetCredits)) return;
     onBonusReadyChange({
       exhausted: weeklyExhausted,
       availableCount: availableResetCredits.length,
     });
-  }, [availableResetCredits.length, onBonusReadyChange, rateLimits, weeklyExhausted]);
+  }, [
+    availableResetCredits.length,
+    onBonusReadyChange,
+    rateLimits,
+    resetCredits,
+    weeklyExhausted,
+  ]);
 
   if (loading && !codexData && !rateLimits) {
     return (
