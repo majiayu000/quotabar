@@ -92,6 +92,7 @@ import {
   subscribeStorageWriteFailures,
 } from './services/storage';
 import { bonusReadyEntered, formatBonusReadyMessage } from './services/bonus_ready';
+import { planProviderPreset, type ProviderPreset } from './services/provider_presets';
 import { useServiceEvents } from './hooks/use_service_events';
 import { usePopoverWindow } from './hooks/use_popover_window';
 import { useLatestRequestGeneration } from './hooks/use_latest_request_generation';
@@ -439,6 +440,24 @@ export default function App() {
     }
   }, [logEvent, notifSettings.bonusReady]);
 
+  const applyProviderPreset = useCallback((preset: ProviderPreset) => {
+    const plan = planProviderPreset(switcherVisibility, trayEnabled, preset);
+    setSwitcherVisibility(plan.switcher);
+    saveSwitcherVisibility(plan.switcher);
+    const trayChanged = SERVICES.some((service) => plan.trays[service] !== trayEnabled[service]);
+    if (!trayChanged) return;
+    setTrayEnabled(plan.trays);
+    for (const service of SERVICES) {
+      if (plan.trays[service] !== trayEnabled[service]) {
+        saveTrayEnabled(service, plan.trays[service]);
+      }
+    }
+  }, [switcherVisibility, trayEnabled]);
+
+  const handleSelectEventProvider = useCallback((service: TrayServiceName) => {
+    setAndPersistTab(service);
+  }, [setAndPersistTab]);
+
   const handleTrayStyleChange = useCallback((style: TrayStyle) => {
     saveTrayStyle(style);
     setTrayStyle(style);
@@ -700,6 +719,8 @@ export default function App() {
               onTrayCycleToggle={handleTrayCycleToggle}
               onNotificationToggle={handleNotificationToggle}
               onSwitcherToggle={handleSwitcherToggle}
+              onApplyPreset={applyProviderPreset}
+              onSelectEventProvider={handleSelectEventProvider}
             />
           </div>
         ) : (
