@@ -14,6 +14,7 @@ import type {
   CodexWeeklyValueEstimate,
 } from '../types/models';
 import { buildCodexQuotaWindows, sortMostConstrained, type QuotaWindowSummary } from '../services/provider_summary';
+import { canReportBonusReady } from '../services/bonus_ready';
 import { getAvailableResetCredits, getHighUsageTip } from '../services/detail_helpers';
 import { clampProgressValue, formatPaceText, formatPlanType, formatResetTime, getProgressStyle } from '../utils/quota_format';
 import { defaultPanelSections, type PanelSectionVisibility } from '../services/panel_sections';
@@ -384,12 +385,18 @@ export default function CodexPanel({
   const availableResetCreditsForReady = getAvailableResetCredits(resetCredits);
 
   useEffect(() => {
-    if (!onBonusReadyChange || !rateLimits) return;
+    if (!onBonusReadyChange || !rateLimits || !canReportBonusReady(resetCredits)) return;
     onBonusReadyChange({
       exhausted: weeklyExhaustedForReady,
       availableCount: availableResetCreditsForReady.length,
     });
-  }, [availableResetCreditsForReady.length, onBonusReadyChange, rateLimits, weeklyExhaustedForReady]);
+  }, [
+    availableResetCreditsForReady.length,
+    onBonusReadyChange,
+    rateLimits,
+    resetCredits,
+    weeklyExhaustedForReady,
+  ]);
 
   if (loading && !codexData && !rateLimits) {
     return (

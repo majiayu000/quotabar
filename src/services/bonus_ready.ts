@@ -3,6 +3,12 @@ export interface BonusReadySnapshot {
   availableCount: number;
 }
 
+export function canReportBonusReady(
+  resetCredits: { connected: boolean } | null,
+): boolean {
+  return Boolean(resetCredits?.connected);
+}
+
 export function bonusReadyEntered(
   prev: BonusReadySnapshot | null,
   next: BonusReadySnapshot,
