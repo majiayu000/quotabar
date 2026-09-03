@@ -119,7 +119,7 @@ describe('panel shell UI', () => {
         trayStyle="percent"
         trayCycle={false}
         events={[]}
-        notificationSettings={{ q80: true, q95: true, bonus: false }}
+        notificationSettings={{ q80: true, q95: true, q100: true, bonusReady: true, bonus: false }}
         switcherVisibility={{ claude: true, codex: true, cursor: true, grok: true, antigravity: true }}
         onClose={() => {}}
         onThemeChange={() => {}}
@@ -134,6 +134,8 @@ describe('panel shell UI', () => {
     );
 
     expect((html.match(/class="settings-group"/g) ?? [])).toHaveLength(5);
+    expect(html).toContain('Alert at 100% used');
+    expect(html).toContain('Alert when a bonus reset is unused at 100%');
     expect(html).toContain('>Providers<');
     expect(html).toContain('>Panel<');
     expect(html).toContain('>Menu<');

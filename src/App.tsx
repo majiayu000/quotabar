@@ -91,6 +91,7 @@ import {
   subscribeStorageReadFailures,
   subscribeStorageWriteFailures,
 } from './services/storage';
+import { bonusReadyEntered, formatBonusReadyMessage } from './services/bonus_ready';
 import { useServiceEvents } from './hooks/use_service_events';
 import { usePopoverWindow } from './hooks/use_popover_window';
 import { useLatestRequestGeneration } from './hooks/use_latest_request_generation';
@@ -178,6 +179,7 @@ export default function App() {
   const [trayCycleIndex, setTrayCycleIndex] = useState(0);
   const [events, setEvents] = useState<AppEvent[]>(getSavedEvents);
   const [notifSettings, setNotifSettings] = useState<NotificationSettings>(getSavedNotificationSettings);
+  const bonusReadyPrevRef = useRef<{ exhausted: boolean; availableCount: number } | null>(null);
   const [switcherVisibility, setSwitcherVisibility] = useState<SwitcherVisibility>(getSavedSwitcherVisibility);
   const containerRef = useRef<HTMLDivElement>(null);
   const windowVisible = usePopoverWindow(containerRef, [activeView, quota, connected]);
@@ -425,6 +427,17 @@ export default function App() {
       void notify('QuotaBar', text, createNotificationFailureOptions(logEvent));
     }
   }, [logEvent, notifSettings.bonus]);
+
+  const handleBonusReadyChange = useCallback((ready: { exhausted: boolean; availableCount: number }) => {
+    const prev = bonusReadyPrevRef.current;
+    bonusReadyPrevRef.current = ready;
+    if (!bonusReadyEntered(prev, ready)) return;
+    const text = formatBonusReadyMessage(ready.availableCount);
+    logEvent('warning', text);
+    if (notifSettings.bonusReady) {
+      void notify('QuotaBar', text, createNotificationFailureOptions(logEvent));
+    }
+  }, [logEvent, notifSettings.bonusReady]);
 
   const handleTrayStyleChange = useCallback((style: TrayStyle) => {
     saveTrayStyle(style);
@@ -723,6 +736,7 @@ export default function App() {
                   showCostSummary={windowVisible && activeView === 'codex'}
                   sections={panelSections}
                   onBonusExpiring={handleBonusExpiring}
+                  onBonusReadyChange={handleBonusReadyChange}
                 />
               </div>
 

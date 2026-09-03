@@ -33,8 +33,36 @@ describe('notification settings', () => {
 
   test('round-trips toggles', () => {
     installMemoryStorage();
-    saveNotificationSettings({ q80: false, q95: true, bonus: false });
-    expect(getSavedNotificationSettings()).toEqual({ q80: false, q95: true, bonus: false });
+    saveNotificationSettings({
+      q80: false,
+      q95: true,
+      q100: false,
+      bonusReady: true,
+      bonus: false,
+    });
+    expect(getSavedNotificationSettings()).toEqual({
+      q80: false,
+      q95: true,
+      q100: false,
+      bonusReady: true,
+      bonus: false,
+    });
+  });
+
+  test('fills new keys from defaults when storage only has the original three', () => {
+    const values = installMemoryStorage();
+    values.set('claude-quota-notifications', JSON.stringify({
+      q80: false,
+      q95: true,
+      bonus: false,
+    }));
+    expect(getSavedNotificationSettings()).toEqual({
+      q80: false,
+      q95: true,
+      q100: true,
+      bonusReady: true,
+      bonus: false,
+    });
   });
 
   test('reads dedupe eligibility without writing storage', () => {

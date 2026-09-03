@@ -29,6 +29,7 @@ interface CodexPanelProps {
   showCostSummary?: boolean;
   sections?: PanelSectionVisibility;
   onBonusExpiring?: (daysLeft: number) => void;
+  onBonusReadyChange?: (ready: { exhausted: boolean; availableCount: number }) => void;
 }
 
 function formatSubscriptionDate(dateStr?: string): string {
@@ -262,6 +263,7 @@ export default function CodexPanel({
   showCostSummary = true,
   sections = defaultPanelSections(),
   onBonusExpiring,
+  onBonusReadyChange,
 }: CodexPanelProps) {
   const [codexData, setCodexData] = useState<CodexData | null>(null);
   const [rateLimits, setRateLimits] = useState<CodexRateLimits | null>(null);
@@ -375,6 +377,19 @@ export default function CodexPanel({
       }
     }
   }, [resetCredits, onBonusExpiring]);
+
+  const officialWeeklyLimitForReady = selectOfficialWeeklyLimitWindow(rateLimits);
+  const weeklyExhaustedForReady = typeof officialWeeklyLimitForReady?.usedPercent === 'number'
+    && officialWeeklyLimitForReady.usedPercent >= 100;
+  const availableResetCreditsForReady = getAvailableResetCredits(resetCredits);
+
+  useEffect(() => {
+    if (!onBonusReadyChange || !rateLimits) return;
+    onBonusReadyChange({
+      exhausted: weeklyExhaustedForReady,
+      availableCount: availableResetCreditsForReady.length,
+    });
+  }, [availableResetCreditsForReady.length, onBonusReadyChange, rateLimits, weeklyExhaustedForReady]);
 
   if (loading && !codexData && !rateLimits) {
     return (
