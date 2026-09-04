@@ -688,7 +688,7 @@ describe('Grok period value', () => {
     await unmount(renderer);
   });
 
-  it('rejects a Grok pool estimate that does not match official usage', async () => {
+  it('still shows a Grok pool estimate when usedPct differs from official usage', async () => {
     const renderer = await render_grok({
       connected: true,
       percentage: 4,
@@ -707,12 +707,13 @@ describe('Grok period value', () => {
       },
     });
 
-    expect(rendered_text(renderer)).toContain('does not match the official usage');
-    expect(rendered_text(renderer)).not.toContain('API-equivalent week');
+    expect(rendered_text(renderer)).toContain('API-equivalent period');
+    expect(rendered_text(renderer)).toContain('$8.00');
+    expect(rendered_text(renderer)).not.toContain('does not match the official usage');
     await unmount(renderer);
   });
 
-  it('rejects a Grok pool estimate from a different official period', async () => {
+  it('still shows a Grok pool estimate when copied period fields differ', async () => {
     const renderer = await render_grok({
       connected: true,
       percentage: 4,
@@ -731,8 +732,9 @@ describe('Grok period value', () => {
       },
     });
 
-    expect(rendered_text(renderer)).toContain('does not match the official period start');
-    expect(rendered_text(renderer)).not.toContain('API-equivalent period');
+    expect(rendered_text(renderer)).toContain('API-equivalent period');
+    expect(rendered_text(renderer)).toContain('$200.00');
+    expect(rendered_text(renderer)).not.toContain('does not match the official period start');
     await unmount(renderer);
   });
 });

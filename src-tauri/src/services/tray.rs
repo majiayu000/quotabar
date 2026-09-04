@@ -536,6 +536,14 @@ pub async fn update_tray_icon(
                 return Err(format!("missing tray icon for {}", service.label()));
             };
 
+            let icon = Image::from_bytes(&tray_icon::generate_tray_icon(
+                service.icon_identity(),
+                percentage,
+                ICON_SIZE,
+                style,
+            ))
+            .map_err(|e| e.to_string())?;
+
             tray.set_icon(Some(icon)).map_err(|e| e.to_string())?;
             tray.set_icon_as_template(false)
                 .map_err(|e| e.to_string())?;
