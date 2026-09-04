@@ -14,6 +14,7 @@ All notable QuotaBar changes should be summarized here before a release is cut.
 - Move Claude keychain reads and tray main-thread waits off Tokio worker threads, and rotate the Claude log at 2MB.
 - Persist settings and events outside React state updaters, and only clear a toast when it is still the active message.
 - Saturate Codex `limit_window_seconds` when converting to minutes so huge API values cannot overflow.
+- Pin Codex weekly quota and local cost summaries to one ccstats revision so pricing and dedup stay aligned.
 
 ## 0.4.1 - 2026-09-01
 
