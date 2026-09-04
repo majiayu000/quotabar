@@ -10,6 +10,7 @@ use std::time::{Duration, Instant};
 
 const TOKEN_CACHE_TTL: Duration = Duration::from_secs(300);
 const QUOTA_CACHE_TTL: Duration = Duration::from_secs(120);
+const MAX_STALE_QUOTA_AGE: Duration = Duration::from_secs(15 * 60);
 const CLAUDE_TOKEN_ENV_KEY: &str = "CLAUDE_CODE_OAUTH_TOKEN";
 const CLAUDE_AUTH_RELOGIN_MESSAGE: &str =
     "Claude OAuth token expired or invalid. Please re-login to Claude Code, then click Refresh.";
@@ -407,19 +408,41 @@ fn get_cached_quota() -> Option<QuotaData> {
     }
 }
 
+fn stale_quota_usable(connected: bool, age: Duration) -> bool {
+    connected && age < MAX_STALE_QUOTA_AGE
+}
+
 fn get_stale_cached_quota() -> Option<QuotaData> {
     let guard = quota_cache().lock().ok()?;
     let cached = guard.as_ref()?;
-    if cached.data.connected {
-        let age = cached.cached_at.elapsed();
+    let age = cached.cached_at.elapsed();
+    if stale_quota_usable(cached.data.connected, age) {
         log_msg(&format!(
             "[Quota] returning stale cache as fallback, age={:.0}s",
             age.as_secs_f64()
         ));
         Some(cached.data.clone())
     } else {
+        if cached.data.connected {
+            log_msg(&format!(
+                "[Quota] stale cache too old to use as fallback, age={:.0}s",
+                age.as_secs_f64()
+            ));
+        }
         None
     }
+}
+
+fn mark_quota_fetch_error(mut data: QuotaData, error: String) -> QuotaData {
+    data.error = Some(error);
+    data
+}
+
+fn stale_or_disconnected(error: String) -> QuotaData {
+    if let Some(stale) = get_stale_cached_quota() {
+        return mark_quota_fetch_error(stale, error);
+    }
+    QuotaData::disconnected(error)
 }
 
 fn save_quota_cache(data: &QuotaData) {
@@ -439,9 +462,7 @@ fn is_rate_limited(status: reqwest::StatusCode) -> bool {
 /// QuotaData instead of surfacing the error to the UI.
 fn fallback_or_disconnected(error: String) -> QuotaData {
     if is_transient_os_error(&error) {
-        if let Some(stale) = get_stale_cached_quota() {
-            return stale;
-        }
+        return stale_or_disconnected(error);
     }
     QuotaData::disconnected(error)
 }
@@ -466,7 +487,7 @@ pub async fn fetch_quota() -> QuotaData {
         Ok(resp) => resp,
         Err(error) => {
             log_msg(&format!("[Quota] initial request failed: {error}"));
-            return get_stale_cached_quota().unwrap_or_else(|| QuotaData::disconnected(error));
+            return stale_or_disconnected(error);
         }
     };
 
@@ -477,9 +498,8 @@ pub async fn fetch_quota() -> QuotaData {
     // so the frontend can trigger adaptive backoff
     if is_rate_limited(status) {
         log_msg("[Quota] 429 rate limited, returning stale cache if available");
-        if let Some(mut stale) = get_stale_cached_quota() {
-            stale.error = Some("API error: 429 Too Many Requests".to_string());
-            return stale;
+        if let Some(stale) = get_stale_cached_quota() {
+            return mark_quota_fetch_error(stale, "API error: 429 Too Many Requests".to_string());
         }
         return QuotaData::disconnected("API error: 429 Too Many Requests");
     }
@@ -513,9 +533,11 @@ pub async fn fetch_quota() -> QuotaData {
 
         if is_rate_limited(status2) {
             log_msg("[Quota] 429 after keychain retry, returning stale cache");
-            if let Some(mut stale) = get_stale_cached_quota() {
-                stale.error = Some("API error: 429 Too Many Requests".to_string());
-                return stale;
+            if let Some(stale) = get_stale_cached_quota() {
+                return mark_quota_fetch_error(
+                    stale,
+                    "API error: 429 Too Many Requests".to_string(),
+                );
             }
             return QuotaData::disconnected("API error: 429 Too Many Requests");
         }
@@ -531,7 +553,7 @@ pub async fn fetch_quota() -> QuotaData {
     if !response.status().is_success() {
         let final_status = response.status();
         log_msg(&format!("[Quota] non-success response: {final_status}"));
-        return QuotaData::disconnected(format!("API error: {final_status}"));
+        return stale_or_disconnected(format!("API error: {final_status}"));
     }
 
     let data = match response.json::<serde_json::Value>().await {
@@ -593,9 +615,10 @@ pub async fn fetch_quota() -> QuotaData {
 #[cfg(test)]
 mod tests {
     use super::{
-        oauth_cache_hit_diagnostic, oauth_env_source_diagnostic, oauth_keychain_source_diagnostic,
-        parse_first_quota_window, parse_quota_window, parse_weekly_scoped_model_quota,
-        request_quota_diagnostic, FABLE5_QUOTA_KEYS,
+        mark_quota_fetch_error, oauth_cache_hit_diagnostic, oauth_env_source_diagnostic,
+        oauth_keychain_source_diagnostic, parse_first_quota_window, parse_quota_window,
+        parse_weekly_scoped_model_quota, request_quota_diagnostic, stale_quota_usable,
+        FABLE5_QUOTA_KEYS, MAX_STALE_QUOTA_AGE,
     };
     use serde_json::{json, Value};
     use std::time::Duration;
@@ -720,5 +743,38 @@ mod tests {
 
         assert_eq!(window.percentage, 28.0);
         assert_eq!(window.reset_time.as_deref(), Some("2026-07-09T00:00:00Z"));
+    }
+
+    #[test]
+    fn stale_quota_rejects_disconnected_and_expired_snapshots() {
+        assert!(stale_quota_usable(true, Duration::from_secs(60)));
+        assert!(!stale_quota_usable(false, Duration::from_secs(1)));
+        assert!(!stale_quota_usable(true, MAX_STALE_QUOTA_AGE));
+        assert!(stale_quota_usable(
+            true,
+            MAX_STALE_QUOTA_AGE - Duration::from_secs(1)
+        ));
+    }
+
+    #[test]
+    fn stale_quota_fallback_keeps_connected_data_and_sets_error() {
+        let stale = mark_quota_fetch_error(
+            crate::domain::models::QuotaData {
+                connected: true,
+                session: None,
+                weekly_total: None,
+                weekly_opus: None,
+                weekly_sonnet: None,
+                weekly_design: None,
+                weekly_fable5: None,
+                error: None,
+            },
+            "Network error: connection reset".to_string(),
+        );
+        assert!(stale.connected);
+        assert_eq!(
+            stale.error.as_deref(),
+            Some("Network error: connection reset")
+        );
     }
 }
