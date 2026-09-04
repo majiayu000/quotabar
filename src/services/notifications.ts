@@ -1,7 +1,7 @@
 import { hasTauriBackend } from './backend';
 import { readStorageValue, writeStorageItem } from './storage';
 
-export type NotificationKey = 'q80' | 'q95' | 'bonus';
+export type NotificationKey = 'q80' | 'q95' | 'q100' | 'bonusReady' | 'bonus';
 
 export type NotificationSettings = Record<NotificationKey, boolean>;
 
@@ -26,6 +26,8 @@ const NOTIFICATION_FAILURE_REPORTING_MESSAGE =
 export const NOTIFICATION_ROWS: Array<{ key: NotificationKey; label: string }> = [
   { key: 'q80', label: 'Alert at 80% used' },
   { key: 'q95', label: 'Critical alert at 95%' },
+  { key: 'q100', label: 'Alert at 100% used' },
+  { key: 'bonusReady', label: 'Alert when a bonus reset is unused at 100%' },
   { key: 'bonus', label: 'Bonus expiry reminders' },
 ];
 
@@ -39,7 +41,7 @@ type NotificationPlugin = typeof import('@tauri-apps/plugin-notification');
 let notificationPluginPromise: Promise<NotificationPlugin> | undefined;
 
 export function defaultNotificationSettings(): NotificationSettings {
-  return { q80: true, q95: true, bonus: true };
+  return { q80: true, q95: true, q100: true, bonusReady: true, bonus: true };
 }
 
 export function getSavedNotificationSettings(): NotificationSettings {
