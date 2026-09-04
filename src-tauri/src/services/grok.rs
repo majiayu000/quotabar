@@ -226,6 +226,28 @@ fn parse_products(value: &serde_json::Value) -> Vec<GrokProductUsage> {
         .collect()
 }
 
+fn product_usage_percents_complete(value: &serde_json::Value) -> bool {
+    value.as_array().is_some_and(|items| {
+        items
+            .iter()
+            .all(|item| parse_percent(&item["usagePercent"]).is_some())
+    })
+}
+
+fn scale_used_pct(pool_pct: Option<f64>, products: &[GrokProductUsage]) -> Result<f64, String> {
+    let build = products
+        .iter()
+        .find(|product| product.product == "build")
+        .map(|product| product.usage_percent)
+        .filter(|pct| pct.is_finite() && *pct > 0.0);
+    if let Some(pct) = build {
+        return Ok(pct);
+    }
+    pool_pct
+        .filter(|pct| pct.is_finite() && *pct > 0.0)
+        .ok_or_else(|| "The official Grok pool usage is unavailable.".to_string())
+}
+
 fn period_from_config(
     config: &serde_json::Value,
 ) -> (
@@ -300,11 +322,13 @@ fn scale_observed_usage(
 
 fn estimate_grok_period_value(
     used_pct: Option<f64>,
+    products: Vec<GrokProductUsage>,
     started_at: Option<&str>,
     reset_at: Option<&str>,
 ) -> Result<GrokValueEstimate, String> {
-    let used_pct =
+    let display_pct =
         used_pct.ok_or_else(|| "The official Grok pool usage is unavailable.".to_string())?;
+    let scale_pct = scale_used_pct(used_pct, &products)?;
     let started = started_at
         .and_then(parse_rfc3339)
         .ok_or_else(|| "The official Grok period start is unavailable.".to_string())?;
@@ -318,12 +342,12 @@ fn estimate_grok_period_value(
     }
     let usage = grok_local::sum_period(started, observed_at)?;
     let (period_usd, period_tokens) =
-        scale_observed_usage(usage.observed_cost_usd, usage.observed_tokens, used_pct)?;
+        scale_observed_usage(usage.observed_cost_usd, usage.observed_tokens, scale_pct)?;
     Ok(GrokValueEstimate {
         observed_at: observed_at.to_rfc3339(),
         window_started_at: started.to_rfc3339(),
         resets_at: resets.to_rfc3339(),
-        used_pct,
+        used_pct: display_pct,
         observed_cost_usd: usage.observed_cost_usd,
         estimated_period_value_usd: period_usd,
         observed_tokens: usage.observed_tokens,
@@ -340,7 +364,7 @@ fn parse_billing_payload(data: &serde_json::Value, email: Option<String>) -> Gro
 
     let products = parse_products(&config["productUsage"]);
     let percentage = parse_percent(&config["creditUsagePercent"]).or_else(|| {
-        if products.is_empty() {
+        if products.is_empty() || !product_usage_percents_complete(&config["productUsage"]) {
             None
         } else {
             Some(clamp_percent(
@@ -479,8 +503,14 @@ pub async fn fetch_grok_info() -> GrokData {
         let used_pct = result.percentage;
         let started_at = result.period_started_at.clone();
         let reset_at = result.reset_at.clone();
+        let products = result.products.clone();
         match tauri::async_runtime::spawn_blocking(move || {
-            estimate_grok_period_value(used_pct, started_at.as_deref(), reset_at.as_deref())
+            estimate_grok_period_value(
+                used_pct,
+                products,
+                started_at.as_deref(),
+                reset_at.as_deref(),
+            )
         })
         .await
         {
@@ -497,7 +527,8 @@ pub async fn fetch_grok_info() -> GrokData {
 
 #[cfg(test)]
 mod tests {
-    use super::{map_product, parse_billing_payload, pick_credential};
+    use super::{map_product, parse_billing_payload, pick_credential, scale_used_pct};
+    use crate::domain::models::GrokProductUsage;
     use serde_json::json;
 
     #[test]
@@ -580,6 +611,25 @@ mod tests {
     }
 
     #[test]
+    fn omitted_percent_does_not_sum_missing_product_fields() {
+        let payload = json!({
+            "config": {
+                "currentPeriod": {
+                    "type": "USAGE_PERIOD_TYPE_MONTHLY",
+                    "end": "2026-09-01T00:00:00Z"
+                },
+                "productUsage": [
+                    {"product": "PRODUCT_GROK_BUILD", "usagePercent": 12.5},
+                    {"product": "PRODUCT_GROK_CHAT"}
+                ]
+            }
+        });
+        let data = parse_billing_payload(&payload, None);
+        assert_eq!(data.percentage, None);
+        assert_eq!(data.products[1].usage_percent, 0.0);
+    }
+
+    #[test]
     fn extra_credits_surface_when_nonzero() {
         let payload = json!({
             "config": {
@@ -627,6 +677,24 @@ mod tests {
     }
 
     #[test]
+    fn scale_used_pct_prefers_build_share() {
+        let products = vec![
+            GrokProductUsage {
+                product: "build".to_string(),
+                label: "Build".to_string(),
+                usage_percent: 4.0,
+            },
+            GrokProductUsage {
+                product: "chat".to_string(),
+                label: "Chat".to_string(),
+                usage_percent: 21.0,
+            },
+        ];
+        assert_eq!(scale_used_pct(Some(25.0), &products).unwrap(), 4.0);
+        assert_eq!(scale_used_pct(Some(25.0), &[]).unwrap(), 25.0);
+    }
+
+    #[test]
     fn scale_observed_usage_projects_from_official_used_percent() {
         let (usd, tokens) = super::scale_observed_usage(8.0, 2_000, 4.0).expect("scaled");
         assert_eq!(usd, 200.0);
@@ -641,9 +709,13 @@ mod tests {
 
     #[test]
     fn estimate_requires_period_start() {
-        let error =
-            super::estimate_grok_period_value(Some(4.0), None, Some("2026-08-30T15:25:10Z"))
-                .expect_err("missing start");
+        let error = super::estimate_grok_period_value(
+            Some(4.0),
+            Vec::new(),
+            None,
+            Some("2026-08-30T15:25:10Z"),
+        )
+        .expect_err("missing start");
         assert!(error.contains("period start"));
     }
 
