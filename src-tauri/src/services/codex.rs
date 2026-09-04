@@ -3,7 +3,7 @@ use crate::domain::models::{
     CodexResetCredits,
 };
 use crate::services::codex_cache::{self, AuthFileStamp};
-use crate::services::http::{is_transient_os_error, shared_http_client};
+use crate::services::http::{error_is_transient, is_transient_os_error, shared_http_client};
 use base64::{engine::general_purpose::STANDARD_NO_PAD, Engine as _};
 use std::fs::{self, OpenOptions};
 use std::io::Write;
@@ -313,7 +313,7 @@ pub async fn fetch_codex_rate_limits() -> CodexRateLimits {
             let should_preserve = should_preserve_transport_failure(
                 err.is_timeout(),
                 err.is_connect(),
-                is_transient_os_error(&error),
+                error_is_transient(&err),
             );
             log_msg(&format!(
                 "[RateLimits] request failed: latency={:.1}s, preservable={should_preserve}, error={error}",
@@ -362,7 +362,7 @@ pub async fn fetch_codex_rate_limits() -> CodexRateLimits {
             let should_preserve = should_preserve_transport_failure(
                 err.is_timeout(),
                 err.is_connect(),
-                is_transient_os_error(&err.to_string()),
+                error_is_transient(&err),
             );
             let error = if should_preserve {
                 format!("Failed to read response body: {err}")

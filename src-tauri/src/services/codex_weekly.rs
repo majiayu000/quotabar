@@ -153,8 +153,10 @@ pub fn estimate_codex_weekly_value(
 }
 
 fn should_fallback_to_official(error: &str) -> bool {
-    error.contains("used percentage is zero")
-        || error.contains("no Codex token usage matched the active weekly quota window")
+    let lowered = error.to_ascii_lowercase();
+    lowered.contains("used percentage is zero")
+        || lowered.contains("no codex token usage matched")
+        || lowered.contains("no token usage matched the active weekly")
 }
 
 fn quota_matches_official(

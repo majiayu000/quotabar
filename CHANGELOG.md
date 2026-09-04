@@ -15,6 +15,7 @@ All notable QuotaBar changes should be summarized here before a release is cut.
 - Persist settings and events outside React state updaters, and only clear a toast when it is still the active message.
 - Saturate Codex `limit_window_seconds` when converting to minutes so huge API values cannot overflow.
 - Pin Codex weekly quota and local cost summaries to one ccstats revision so pricing and dedup stay aligned.
+- Detect transient OS errors by errno and error-chain source instead of `os error 24` substrings.
 
 ## 0.4.1 - 2026-09-01
 
