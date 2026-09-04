@@ -504,7 +504,9 @@ pub async fn update_tray_icon(
     })
     .map_err(|e| e.to_string())?;
 
-    rx.recv()
+    tauri::async_runtime::spawn_blocking(move || rx.recv())
+        .await
+        .map_err(|_| "tray update task failed".to_string())?
         .map_err(|_| "failed to receive tray update result".to_string())?
 }
 
