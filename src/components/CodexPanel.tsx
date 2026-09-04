@@ -385,13 +385,21 @@ export default function CodexPanel({
   const availableResetCreditsForReady = getAvailableResetCredits(resetCredits);
 
   useEffect(() => {
-    if (!onBonusReadyChange || !rateLimits || !canReportBonusReady(resetCredits)) return;
+    if (
+      !onBonusReadyChange
+      || !canReportBonusReady(
+        resetCredits,
+        officialWeeklyLimitForReady?.usedPercent,
+        availableResetCreditsForReady.length,
+      )
+    ) return;
     onBonusReadyChange({
       exhausted: weeklyExhaustedForReady,
       availableCount: availableResetCreditsForReady.length,
     });
   }, [
     availableResetCreditsForReady.length,
+    officialWeeklyLimitForReady?.usedPercent,
     onBonusReadyChange,
     rateLimits,
     resetCredits,

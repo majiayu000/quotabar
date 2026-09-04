@@ -2,10 +2,19 @@ import { describe, expect, test } from 'vitest';
 import { bonusReadyEntered, canReportBonusReady, formatBonusReadyMessage } from '../src/services/bonus_ready';
 
 describe('canReportBonusReady', () => {
-  test('waits for a connected credits snapshot', () => {
-    expect(canReportBonusReady(null)).toBe(false);
-    expect(canReportBonusReady({ connected: false })).toBe(false);
-    expect(canReportBonusReady({ connected: true })).toBe(true);
+  test('waits for connected credits and a readable official weekly window', () => {
+    expect(canReportBonusReady(null, 100)).toBe(false);
+    expect(canReportBonusReady({ connected: false }, 100)).toBe(false);
+    expect(canReportBonusReady({ connected: true })).toBe(false);
+    expect(canReportBonusReady({ connected: true }, Number.NaN)).toBe(false);
+    expect(canReportBonusReady({ connected: true }, 40)).toBe(true);
+    expect(canReportBonusReady({ connected: true }, 100)).toBe(true);
+  });
+
+  test('waits when the API count and filtered credits disagree', () => {
+    expect(canReportBonusReady({ connected: true, availableCount: 1 }, 100, 0)).toBe(false);
+    expect(canReportBonusReady({ connected: true, availableCount: 1 }, 100, 1)).toBe(true);
+    expect(canReportBonusReady({ connected: true, availableCount: 0 }, 100, 0)).toBe(true);
   });
 });
 
