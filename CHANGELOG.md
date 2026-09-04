@@ -5,6 +5,9 @@ All notable QuotaBar changes should be summarized here before a release is cut.
 ## Unreleased
 
 - Add a Settings Launch at Login toggle backed by the OS login item.
+- Add All / single-service settings presets, and split monthly budgets from alerts.
+- Notify at 100% used and when a Codex bonus reset is unused at 100%.
+- Keep last Codex weekly value visible as Last estimate when the official week is exhausted, and make leftover bonus resets a dashboard jump.
 - Drive the Cursor tray from the Cursor Models pool instead of the highest dashboard bar.
 - Stop caching disconnected Cursor payloads so a transient empty body cannot pin "not connected" for 120s.
 - Keep Grok pool value available when valid `turn_completed` records omit the optional usage object.
