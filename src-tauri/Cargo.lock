@@ -471,25 +471,6 @@ dependencies = [
 
 [[package]]
 name = "ccstats"
-version = "0.5.0"
-source = "git+https://github.com/majiayu000/ccstats.git?rev=2c67efd32508bd7e0e7c5605c9ac4ba989632818#2c67efd32508bd7e0e7c5605c9ac4ba989632818"
-dependencies = [
- "chrono",
- "chrono-tz",
- "clap",
- "comfy-table",
- "dirs 6.0.0",
- "glob",
- "rayon",
- "serde",
- "serde_json",
- "thiserror 2.0.18",
- "toml 1.0.1+spec-1.1.0",
- "ureq",
-]
-
-[[package]]
-name = "ccstats"
 version = "0.5.1"
 source = "git+https://github.com/majiayu000/ccstats.git?rev=6bec20d035a10efbc8914d36001c7621570d1066#6bec20d035a10efbc8914d36001c7621570d1066"
 dependencies = [
@@ -3404,8 +3385,7 @@ name = "quotabar"
 version = "0.4.1"
 dependencies = [
  "base64 0.22.1",
- "ccstats 0.5.0",
- "ccstats 0.5.1",
+ "ccstats",
  "chrono",
  "dirs 5.0.1",
  "image",
