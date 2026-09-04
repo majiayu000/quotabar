@@ -159,6 +159,10 @@ fn parse_used_percent(window: &serde_json::Value) -> Option<f64> {
         .map(|value| value.clamp(0.0, 100.0))
 }
 
+fn window_minutes_from_seconds(seconds: i64) -> i64 {
+    seconds.saturating_add(59) / 60
+}
+
 fn parse_rate_limit_window(window: &serde_json::Value) -> Option<CodexRateLimitWindow> {
     if window.is_null() || !window.is_object() {
         return None;
@@ -168,7 +172,7 @@ fn parse_rate_limit_window(window: &serde_json::Value) -> Option<CodexRateLimitW
         used_percent: parse_used_percent(window)?,
         window_minutes: window["limit_window_seconds"]
             .as_i64()
-            .map(|s| (s + 59) / 60),
+            .map(window_minutes_from_seconds),
         resets_at: window["reset_at"].as_i64(),
     })
 }
@@ -521,7 +525,7 @@ pub async fn fetch_codex_reset_credits() -> CodexResetCredits {
 mod tests {
     use super::{
         parse_rate_limit_window, parse_reset_credit, should_preserve_for_status,
-        should_preserve_transport_failure,
+        should_preserve_transport_failure, window_minutes_from_seconds,
     };
     use serde_json::json;
 
@@ -598,6 +602,22 @@ mod tests {
         assert_eq!(window.used_percent, 61.8);
         assert_eq!(window.window_minutes, Some(300));
         assert_eq!(window.resets_at, Some(1_781_000_000));
+    }
+
+    #[test]
+    fn window_minutes_saturate_instead_of_overflowing() {
+        assert_eq!(window_minutes_from_seconds(18_000), 300);
+        assert_eq!(window_minutes_from_seconds(1), 1);
+        assert_eq!(window_minutes_from_seconds(i64::MAX), i64::MAX / 60);
+        let parsed = parse_rate_limit_window(&json!({
+            "used_percent": 10,
+            "limit_window_seconds": i64::MAX
+        }));
+        let window = match parsed {
+            Some(window) => window,
+            None => panic!("max limit_window_seconds should parse"),
+        };
+        assert!(window.window_minutes.is_some_and(|minutes| minutes > 0));
     }
 
     #[test]
