@@ -4,9 +4,22 @@ export interface BonusReadySnapshot {
 }
 
 export function canReportBonusReady(
-  resetCredits: { connected: boolean } | null,
+  resetCredits: { connected: boolean; availableCount?: number } | null,
+  officialWeeklyUsedPercent?: number,
+  filteredAvailableCount?: number,
 ): boolean {
-  return Boolean(resetCredits?.connected);
+  if (!resetCredits?.connected) return false;
+  if (typeof officialWeeklyUsedPercent !== 'number' || !Number.isFinite(officialWeeklyUsedPercent)) {
+    return false;
+  }
+  if (
+    typeof resetCredits.availableCount === 'number'
+    && resetCredits.availableCount > 0
+    && filteredAvailableCount === 0
+  ) {
+    return false;
+  }
+  return true;
 }
 
 export function bonusReadyEntered(
