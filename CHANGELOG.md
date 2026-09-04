@@ -4,6 +4,7 @@ All notable QuotaBar changes should be summarized here before a release is cut.
 
 ## Unreleased
 
+- Scale local Grok CLI cost by the Build product share instead of the full-pool used percent, and stop treating missing product percents as zero in the official total.
 - Keep Grok pool value available when valid `turn_completed` records omit the optional usage object.
 
 ## 0.4.1 - 2026-09-01
