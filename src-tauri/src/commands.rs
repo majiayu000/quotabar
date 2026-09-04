@@ -45,18 +45,18 @@ pub async fn get_codex_weekly_quota() -> Result<CodexWeeklyQuotaData, String> {
         None
     };
     let data =
-        tauri::async_runtime::spawn_blocking(move || match ccstats_quota::load_codex_weekly_quota(
-            Some(&codex_home),
-        ) {
-            Ok(quota) => {
-                let value_estimate = codex_weekly::estimate_codex_weekly_value(
-                    &codex_home,
-                    &quota,
-                    official.as_ref(),
-                );
-                CodexWeeklyQuotaData::available(quota, value_estimate)
+        tauri::async_runtime::spawn_blocking(move || {
+            match ccstats::load_codex_weekly_quota(Some(&codex_home)) {
+                Ok(quota) => {
+                    let value_estimate = codex_weekly::estimate_codex_weekly_value(
+                        &codex_home,
+                        &quota,
+                        official.as_ref(),
+                    );
+                    CodexWeeklyQuotaData::available(quota, value_estimate)
+                }
+                Err(error) => CodexWeeklyQuotaData::unavailable(error.to_string()),
             }
-            Err(error) => CodexWeeklyQuotaData::unavailable(error.to_string()),
         })
         .await
         .map_err(|err| format!("Codex weekly quota task failed: {err}"))?;

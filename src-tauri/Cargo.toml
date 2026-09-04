@@ -31,7 +31,6 @@ rusqlite = { version = "0.40", features = ["bundled"] }
 image = { version = "0.25", default-features = false, features = ["png"] }
 once_cell = "1.19"
 ccstats = { git = "https://github.com/majiayu000/ccstats.git", rev = "6bec20d035a10efbc8914d36001c7621570d1066" }
-ccstats-quota = { package = "ccstats", git = "https://github.com/majiayu000/ccstats.git", rev = "2c67efd32508bd7e0e7c5605c9ac4ba989632818" }
 tauri-plugin-notification = "2.3.3"
 
 [target.'cfg(unix)'.dependencies]

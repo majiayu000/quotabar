@@ -4,6 +4,7 @@ All notable QuotaBar changes should be summarized here before a release is cut.
 
 ## Unreleased
 
+- Pin Codex weekly quota and local cost summaries to one ccstats revision so pricing and dedup stay aligned.
 - Keep Grok pool value available when valid `turn_completed` records omit the optional usage object.
 
 ## 0.4.1 - 2026-09-01
