@@ -2,7 +2,6 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{mpsc, Arc, Mutex};
 
 use super::tray_icon;
-use chrono::Local;
 use serde::{Deserialize, Serialize};
 use tauri::{
     image::Image,
@@ -537,26 +536,13 @@ pub async fn update_tray_icon(
                 return Err(format!("missing tray icon for {}", service.label()));
             };
 
-            let icon = Image::from_bytes(&tray_icon::generate_tray_icon(
-                service.icon_identity(),
-                percentage,
-                ICON_SIZE,
-                style,
-            ))
-            .map_err(|e| e.to_string())?;
-            let updated_at = Local::now().format("%H:%M:%S").to_string();
-
             tray.set_icon(Some(icon)).map_err(|e| e.to_string())?;
             tray.set_icon_as_template(false)
                 .map_err(|e| e.to_string())?;
             tray.set_title(Some(service.extra_title()))
                 .map_err(|e| e.to_string())?;
-            tray.set_tooltip(Some(format!(
-                "{}\nUpdated: {}",
-                format_tooltip(service, percentage),
-                updated_at
-            )))
-            .map_err(|e| e.to_string())?;
+            tray.set_tooltip(Some(format_tooltip(service, percentage)))
+                .map_err(|e| e.to_string())?;
             tray.set_visible(true).map_err(|e| e.to_string())?;
 
             {

@@ -60,7 +60,6 @@ import './redesign-settings.css';
 
 import {
   AUTO_REFRESH_INTERVAL_MS,
-  BACKGROUND_REFRESH_INTERVAL_MS,
   TRAY_CYCLE_INTERVAL_MS,
   TRAY_FORCE_SYNC_INTERVAL_MS,
   TRAY_GUARD_MESSAGE,
@@ -77,6 +76,7 @@ import {
   getSavedTab,
   getSavedTheme,
   isMacOSPlatform,
+  providerRefreshIntervalMs,
   saveActiveTab,
   saveDockHidden,
   saveSettingsExpanded,
@@ -106,6 +106,7 @@ export {
   getClaudeRefreshIntervalMs,
   getClaudeTrayUsedPercent,
   keepClaudeQuotaOnError,
+  providerRefreshIntervalMs,
 } from './services/app_state';
 
 type ToastValue = string | null;
@@ -650,9 +651,6 @@ export default function App() {
     ...panelLoading,
     claude: claudeLoading,
   };
-  const nonClaudeRefreshIntervalMs = windowVisible
-    ? AUTO_REFRESH_INTERVAL_MS
-    : BACKGROUND_REFRESH_INTERVAL_MS;
   const { footerStatus, footerStatusTitle } = useFooterStatus(windowVisible, activeLoading, lastUpdatedAt);
   const providerSummaries = buildProviderSummaries(tabConnected, serviceLoading, serviceUsage);
   const switcherSummaries = providerSummaries.filter((summary) => switcherVisibility[summary.id]);
@@ -725,7 +723,7 @@ export default function App() {
                   onLoadingChange={loadingSetters.codex}
                   onQuotaWindowsChange={quotaWindowSetters.codex}
                   manualRefreshNonce={refreshNonces.codex}
-                  autoRefreshIntervalMs={nonClaudeRefreshIntervalMs}
+                  autoRefreshIntervalMs={providerRefreshIntervalMs(windowVisible, trayEnabled.codex)}
                   showCostSummary={windowVisible && activeView === 'codex'}
                   sections={panelSections}
                   onBonusExpiring={handleBonusExpiring}
@@ -739,7 +737,7 @@ export default function App() {
                   onLoadingChange={loadingSetters.cursor}
                   onQuotaWindowsChange={quotaWindowSetters.cursor}
                   manualRefreshNonce={refreshNonces.cursor}
-                  autoRefreshIntervalMs={nonClaudeRefreshIntervalMs}
+                  autoRefreshIntervalMs={providerRefreshIntervalMs(windowVisible, trayEnabled.cursor)}
                   showCostSummary={windowVisible && activeView === 'cursor'}
                   sections={panelSections}
                 />
@@ -752,7 +750,7 @@ export default function App() {
                   onLoadingChange={loadingSetters.grok}
                   onQuotaWindowsChange={quotaWindowSetters.grok}
                   manualRefreshNonce={refreshNonces.grok}
-                  autoRefreshIntervalMs={nonClaudeRefreshIntervalMs}
+                  autoRefreshIntervalMs={providerRefreshIntervalMs(windowVisible, trayEnabled.grok)}
                   sections={panelSections}
                 />
               </div>
