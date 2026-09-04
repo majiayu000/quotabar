@@ -476,6 +476,10 @@
   line-height: 13px;
 }
 
+.settings-group .settings-hint[role="alert"] {
+  color: var(--color-critical);
+}
+
 .settings-group .settings-seg {
   display: flex;
   padding: 2px;

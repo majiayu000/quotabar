@@ -143,12 +143,15 @@ describe('panel shell UI', () => {
     expect(html).toContain('>Ready<');
     expect(html).toContain('>Sign in<');
     expect(html).toContain('>Preview<');
+    expect(html).toContain('>Launch at Login<');
+    expect(html).toContain('aria-label="Launch at Login"');
   });
 
   it('keeps compact settings controls visually self-contained at panel width', () => {
     const css = readFileSync(new URL('../src/redesign-settings.css', import.meta.url), 'utf8');
 
     expect(css).toMatch(/\.settings-group \.settings-line \{[^}]*display: flex;/s);
+    expect(css).toMatch(/\.settings-group \.settings-hint\[role="alert"\] \{[^}]*color: var\(--color-critical\);/s);
     expect(css).toMatch(/\.settings-group \.target-switch \{[^}]*background: var\(--track\);/s);
     expect(css).toMatch(/\.settings-group \.target-switch span \{[^}]*border-radius: 50%;/s);
     expect(css).toMatch(/\.settings-group \.target-switch\.on \{[^}]*background: #34c759;/s);

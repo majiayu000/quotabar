@@ -690,6 +690,7 @@ export default function App() {
               onTrayCycleToggle={handleTrayCycleToggle}
               onNotificationToggle={handleNotificationToggle}
               onSwitcherToggle={handleSwitcherToggle}
+              onAutostartNotice={showTimedToast}
             />
           </div>
         ) : (

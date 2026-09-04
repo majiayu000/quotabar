@@ -23,7 +23,7 @@ Website: https://majiayu000.github.io/quotabar/
 - Local cost tracking: today, week, and month estimates for Claude Code, Codex, and Cursor.
 - Per-provider tray icons: independent menu bar indicators for supported providers.
 - Tray controls: enable or hide each tray while keeping at least one entry point.
-- Settings view: theme, macOS Hide Dock, and per-provider tray controls keep their existing storage keys.
+- Settings view: theme, macOS Hide Dock, Launch at Login, and per-provider tray controls. Launch at Login uses the OS login item rather than a local storage key.
 - Background polling: refreshes every 60 seconds, backs off to 5 minutes on 429, and backs off to 1 hour on Claude auth failures.
 - Read-only Claude OAuth: reads Claude Code credentials from the correct source, but never refreshes or writes OAuth tokens.
 - Read-only Grok auth: reads `~/.grok/auth.json`, but never refreshes or writes tokens.
