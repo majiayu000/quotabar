@@ -2,6 +2,7 @@ use crate::domain::models::{QuotaData, UsageInfo};
 use crate::services::http::{is_transient_os_error, shared_http_client};
 use std::fs::OpenOptions;
 use std::io::Write as IoWrite;
+use std::path::Path;
 #[cfg(target_os = "macos")]
 use std::process::Command;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -14,6 +15,7 @@ const MAX_STALE_QUOTA_AGE: Duration = Duration::from_secs(15 * 60);
 const CLAUDE_TOKEN_ENV_KEY: &str = "CLAUDE_CODE_OAUTH_TOKEN";
 const CLAUDE_AUTH_RELOGIN_MESSAGE: &str =
     "Claude OAuth token expired or invalid. Please re-login to Claude Code, then click Refresh.";
+const MAX_LOG_BYTES: u64 = 2 * 1024 * 1024;
 
 const CREDENTIAL_NAMES: [&str; 4] = [
     "Claude Code-credentials",
@@ -36,6 +38,23 @@ fn last_request_time() -> &'static Mutex<Option<Instant>> {
     LAST_REQUEST_TIME.get_or_init(|| Mutex::new(None))
 }
 
+fn rotate_log_if_needed(path: &Path) {
+    rotate_log_if_needed_with_limit(path, MAX_LOG_BYTES);
+}
+
+fn rotate_log_if_needed_with_limit(path: &Path, max_bytes: u64) {
+    let Ok(metadata) = std::fs::metadata(path) else {
+        return;
+    };
+    if metadata.len() <= max_bytes {
+        return;
+    }
+    let rotated = path.with_extension("log.1");
+    if let Err(error) = std::fs::rename(path, &rotated) {
+        eprintln!("[log] failed to rotate log: {error}");
+    }
+}
+
 fn log_msg(msg: &str) {
     let timestamp = chrono::Local::now().format("%Y-%m-%d %H:%M:%S%.3f");
     let line = format!("[{timestamp}] {msg}\n");
@@ -50,11 +69,10 @@ fn log_msg(msg: &str) {
         return;
     }
 
-    match OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(log_dir.join("claude.log"))
-    {
+    let log_path = log_dir.join("claude.log");
+    rotate_log_if_needed(&log_path);
+
+    match OpenOptions::new().create(true).append(true).open(&log_path) {
         Ok(mut file) => {
             if let Err(e) = file.write_all(line.as_bytes()) {
                 eprintln!("[log] failed to write log: {e}");
@@ -475,11 +493,15 @@ pub async fn fetch_quota() -> QuotaData {
         return cached;
     }
 
-    let access_token = match get_oauth_token(false) {
-        Ok(token) => token,
-        Err(error) => {
+    let access_token = match tauri::async_runtime::spawn_blocking(|| get_oauth_token(false)).await {
+        Ok(Ok(token)) => token,
+        Ok(Err(error)) => {
             log_msg(&format!("[Quota] get_oauth_token failed: {error}"));
             return fallback_or_disconnected(error);
+        }
+        Err(error) => {
+            log_msg(&format!("[Quota] oauth token task failed: {error}"));
+            return QuotaData::disconnected(format!("OAuth token task failed: {error}"));
         }
     };
 
@@ -508,13 +530,18 @@ pub async fn fetch_quota() -> QuotaData {
         log_msg(&format!(
             "[Quota] auth error ({status}), step 1: force re-read from keychain"
         ));
-        let fresh_access_token = match get_oauth_token(true) {
-            Ok(token) => token,
-            Err(error) => {
-                log_msg(&format!("[Quota] keychain re-read failed: {error}"));
-                return fallback_or_disconnected(error);
-            }
-        };
+        let fresh_access_token =
+            match tauri::async_runtime::spawn_blocking(|| get_oauth_token(true)).await {
+                Ok(Ok(token)) => token,
+                Ok(Err(error)) => {
+                    log_msg(&format!("[Quota] keychain re-read failed: {error}"));
+                    return fallback_or_disconnected(error);
+                }
+                Err(error) => {
+                    log_msg(&format!("[Quota] oauth token retry task failed: {error}"));
+                    return fallback_or_disconnected(format!("OAuth token task failed: {error}"));
+                }
+            };
 
         response = match request_quota(&fresh_access_token).await {
             Ok(resp) => resp,
@@ -776,5 +803,25 @@ mod tests {
             stale.error.as_deref(),
             Some("Network error: connection reset")
         );
+    }
+
+    #[test]
+    fn rotates_oversized_claude_logs() {
+        use super::rotate_log_if_needed_with_limit;
+        let dir = std::env::temp_dir().join(format!(
+            "quotabar-claude-log-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("claude.log");
+        std::fs::write(&path, vec![b'x'; 32]).unwrap();
+        rotate_log_if_needed_with_limit(&path, 16);
+        assert!(!path.exists());
+        assert!(dir.join("claude.log.1").exists());
+        let _ = std::fs::remove_dir_all(dir);
     }
 }
