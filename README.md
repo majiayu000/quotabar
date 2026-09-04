@@ -45,7 +45,8 @@ This `v0.4.0` screenshot was refreshed on 2026-08-31 from the production React U
   - prefers `secondary_window.used_percent`
   - falls back to `primary_window.used_percent`
 - Cursor tray value:
-  - uses Cursor quota percentage when available
+  - prefers Cursor Models (`autoPercent`)
+  - falls back to the overall Cursor quota percentage
 - Grok tray value:
   - uses the shared SuperGrok credits pool percent (`creditUsagePercent`)
 - Antigravity tray value:
