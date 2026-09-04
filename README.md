@@ -16,14 +16,15 @@ Website: https://majiayu000.github.io/quotabar/
 - Overview: glass popover shell with provider summary tiles and real-data quota windows.
 - Provider switcher: overview plus full-name cards for Claude, Codex, Cursor, Grok, and Antigravity.
 - Claude quota: 5-hour, 7-day, Opus, Sonnet, and Claude Design windows.
-- Codex quota: short and weekly ChatGPT usage windows, plus local weekly pace and API-equivalent value estimates sourced from Codex CLI session data.
+- Codex quota: short and weekly ChatGPT usage windows, local weekly pace and API-equivalent value estimates, and an exhausted-week layout that keeps the last estimate and a clickable bonus reset.
 - Cursor quota: signed-in Cursor usage and request-limit windows when session data is available.
 - Grok quota: SuperGrok weekly (or monthly) credits pool, product mix for Build/Chat/Imagine/Voice/API, extra credits, and an API-equivalent value estimate from ccstats' durable inference ledger.
 - Antigravity panel: placeholder provider status while quota tracking is pending.
 - Local cost tracking: today, week, and month estimates for Claude Code, Codex, and Cursor.
 - Per-provider tray icons: independent menu bar indicators for supported providers.
 - Tray controls: enable or hide each tray while keeping at least one entry point.
-- Settings view: theme, macOS Hide Dock, Launch at Login, and per-provider tray controls. Launch at Login uses the OS login item rather than a local storage key.
+- Settings view: theme, macOS Hide Dock, Launch at Login, All / single-service presets, Limits vs Alerts, and per-provider tray controls. Launch at Login uses the OS login item rather than a local storage key.
+- Notifications: 80%, 95%, 100%, unused bonus reset, and bonus-expiry alerts.
 - Background polling: refreshes every 60 seconds, backs off to 5 minutes on 429, and backs off to 1 hour on Claude auth failures.
 - Read-only Claude OAuth: reads Claude Code credentials from the correct source, but never refreshes or writes OAuth tokens.
 - Read-only Grok auth: reads `~/.grok/auth.json`, but never refreshes or writes tokens.
