@@ -4,6 +4,7 @@ All notable QuotaBar changes should be summarized here before a release is cut.
 
 ## Unreleased
 
+- Drive the Cursor tray from the Cursor Models pool instead of the highest dashboard bar.
 - Stop caching disconnected Cursor payloads so a transient empty body cannot pin "not connected" for 120s.
 - Keep Grok pool value available when valid `turn_completed` records omit the optional usage object.
 - Keep last-good Cursor usage across 5xx and 429 responses instead of flashing disconnected.
