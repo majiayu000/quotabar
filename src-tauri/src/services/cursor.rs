@@ -240,7 +240,14 @@ fn fallback_or_disconnected(error: impl Into<String>) -> CursorData {
     CursorData::disconnected(error)
 }
 
+fn should_persist_cursor_cache(data: &CursorData) -> bool {
+    data.connected
+}
+
 fn save_cursor_cache(data: &CursorData) {
+    if !should_persist_cursor_cache(data) {
+        return;
+    }
     if let Ok(mut guard) = cursor_cache().lock() {
         *guard = Some(CachedCursor {
             data: data.clone(),
@@ -642,6 +649,22 @@ mod tests {
                 Some("Cursor API returned no usage fields.")
             );
         }
+    }
+
+    #[test]
+    fn disconnected_payloads_are_not_persisted() {
+        let empty = parse_cursor_payload(&serde_json::json!({}));
+        assert!(!empty.connected);
+        assert!(!should_persist_cursor_cache(&empty));
+
+        let connected = parse_cursor_payload(&serde_json::json!({
+            "membershipType": "pro",
+            "individualUsage": {
+                "plan": { "totalPercentUsed": 12.0 }
+            }
+        }));
+        assert!(connected.connected);
+        assert!(should_persist_cursor_cache(&connected));
     }
 
     #[test]
