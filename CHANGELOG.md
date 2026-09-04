@@ -12,6 +12,7 @@ All notable QuotaBar changes should be summarized here before a release is cut.
 - Return Claude last-good quota with an error and a 15-minute age cap instead of presenting hours-old data as a fresh success.
 - Keep tray-enabled providers on a 60s poll while the popover is hidden, and stop writing a wall-clock "Updated" stamp onto unchanged tray data.
 - Move Claude keychain reads and tray main-thread waits off Tokio worker threads, and rotate the Claude log at 2MB.
+- Persist settings and events outside React state updaters, and only clear a toast when it is still the active message.
 
 ## 0.4.1 - 2026-09-01
 
