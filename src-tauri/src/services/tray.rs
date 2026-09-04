@@ -1,3 +1,4 @@
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{mpsc, Arc, Mutex};
 
 use super::tray_icon;
@@ -12,6 +13,23 @@ use tauri::{
 
 const ICON_SIZE: u32 = 44;
 const TRAY_SERVICE_ACTIVATED_EVENT: &str = "tray-service-activated";
+
+static IGNORE_NEXT_UNFOCUS: AtomicBool = AtomicBool::new(false);
+static TRAY_CLICK_WAS_VISIBLE: AtomicBool = AtomicBool::new(false);
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum TrayClickAction {
+    Hide,
+    Show,
+}
+
+fn tray_click_action(was_visible: bool) -> TrayClickAction {
+    if was_visible {
+        TrayClickAction::Hide
+    } else {
+        TrayClickAction::Show
+    }
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 struct TraySnapshot {
@@ -267,6 +285,7 @@ fn position_window_near_tray(app: &AppHandle, tray: &tauri::tray::TrayIcon) {
 }
 
 fn toggle_main_window(app: &AppHandle) {
+    IGNORE_NEXT_UNFOCUS.store(true, Ordering::SeqCst);
     if let Some(window) = app.get_webview_window("main") {
         if window.is_visible().unwrap_or(false) {
             let _ = window.hide();
@@ -275,6 +294,15 @@ fn toggle_main_window(app: &AppHandle) {
             let _ = window.set_focus();
         }
     }
+}
+
+fn remember_tray_click_visibility(app: &AppHandle) {
+    let visible = app
+        .get_webview_window("main")
+        .and_then(|window| window.is_visible().ok())
+        .unwrap_or(false);
+    TRAY_CLICK_WAS_VISIBLE.store(visible, Ordering::SeqCst);
+    IGNORE_NEXT_UNFOCUS.store(true, Ordering::SeqCst);
 }
 
 #[cfg(target_os = "macos")]
@@ -348,28 +376,41 @@ fn build_service_tray(app: &AppHandle, service: TrayService) -> tauri::Result<()
             id if id == menu_service.quit_menu_id() => app.exit(0),
             _ => {}
         })
-        .on_tray_icon_event(move |tray, event| {
-            if let TrayIconEvent::Click {
+        .on_tray_icon_event(move |tray, event| match event {
+            TrayIconEvent::Click {
+                button: MouseButton::Left,
+                button_state: MouseButtonState::Down,
+                ..
+            } => {
+                remember_tray_click_visibility(tray.app_handle());
+            }
+            TrayIconEvent::Click {
                 button: MouseButton::Left,
                 button_state: MouseButtonState::Up,
                 ..
-            } = event
-            {
+            } => {
                 let app = tray.app_handle();
                 emit_tray_service_activated(app, click_service);
+                let was_visible = TRAY_CLICK_WAS_VISIBLE.load(Ordering::SeqCst);
+                IGNORE_NEXT_UNFOCUS.store(false, Ordering::SeqCst);
                 match app.get_webview_window("main") {
-                    Some(window) => {
-                        position_window_near_tray(app, tray);
-                        let shown = window.show();
-                        let focused = window.set_focus();
-                        eprintln!(
-                            "[Tray] {} clicked: show={:?} focus={:?} pos={:?}",
-                            click_service.label(),
-                            shown,
-                            focused,
-                            window.outer_position()
-                        );
-                    }
+                    Some(window) => match tray_click_action(was_visible) {
+                        TrayClickAction::Hide => {
+                            let _ = window.hide();
+                        }
+                        TrayClickAction::Show => {
+                            position_window_near_tray(app, tray);
+                            let shown = window.show();
+                            let focused = window.set_focus();
+                            eprintln!(
+                                "[Tray] {} clicked: show={:?} focus={:?} pos={:?}",
+                                click_service.label(),
+                                shown,
+                                focused,
+                                window.outer_position()
+                            );
+                        }
+                    },
                     None => {
                         eprintln!(
                             "[Tray] {} clicked but main window is missing",
@@ -378,6 +419,7 @@ fn build_service_tray(app: &AppHandle, service: TrayService) -> tauri::Result<()
                     }
                 }
             }
+            _ => {}
         })
         .build(app)?;
 
@@ -396,6 +438,9 @@ pub fn setup_tray(app: &AppHandle) -> tauri::Result<()> {
         let window_clone = window.clone();
         window.on_window_event(move |event| {
             if let tauri::WindowEvent::Focused(false) = event {
+                if IGNORE_NEXT_UNFOCUS.swap(false, Ordering::SeqCst) {
+                    return;
+                }
                 let _ = window_clone.hide();
             }
         });
@@ -510,7 +555,10 @@ pub async fn update_tray_icon(
 
 #[cfg(test)]
 mod tests {
-    use super::{format_tooltip, TrayRuntimeState, TrayService, TraySnapshot};
+    use super::{
+        format_tooltip, tray_click_action, TrayClickAction, TrayRuntimeState, TrayService,
+        TraySnapshot,
+    };
     use crate::services::tray_icon::TrayIconStyle;
 
     #[test]
@@ -560,6 +608,12 @@ mod tests {
 
         assert!(state.should_skip_update(TrayService::Claude, snapshot, false));
         assert!(!state.should_skip_update(TrayService::Claude, snapshot, true));
+    }
+
+    #[test]
+    fn tray_click_hides_when_the_popover_was_already_visible() {
+        assert_eq!(tray_click_action(true), TrayClickAction::Hide);
+        assert_eq!(tray_click_action(false), TrayClickAction::Show);
     }
 
     #[test]
