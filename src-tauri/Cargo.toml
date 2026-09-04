@@ -38,5 +38,5 @@ tauri-plugin-notification = "2.3.3"
 libc = "0.2"
 
 [target.'cfg(target_os = "macos")'.dependencies]
-objc2-app-kit = { version = "0.3.2", default-features = false, features = ["NSStatusItem"] }
+objc2-app-kit = { version = "0.3.2", default-features = false, features = ["NSStatusItem", "objc2-core-foundation"] }
 objc2-foundation = { version = "0.3.2", default-features = false, features = ["NSString", "NSUserDefaults"] }

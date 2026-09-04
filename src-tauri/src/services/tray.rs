@@ -334,6 +334,24 @@ fn apply_status_item_autosave(app: AppHandle, tray_id: &'static str) {
     });
 }
 
+fn destroy_hidden_tray() -> bool {
+    !cfg!(target_os = "macos")
+}
+
+#[cfg(target_os = "macos")]
+fn set_status_item_collapsed(app: &AppHandle, tray_id: &str, collapsed: bool) {
+    let Some(tray) = app.tray_by_id(tray_id) else {
+        return;
+    };
+    let _ = tray.with_inner_tray_icon(move |inner| {
+        if let Some(item) = inner.ns_status_item() {
+            // NSVariableStatusItemLength == -1. Length 0 hides without destroying
+            // the extras-region item (set_visible(false) removes it on macOS 26).
+            item.setLength(if collapsed { 0.0 } else { -1.0 });
+        }
+    });
+}
+
 fn format_tooltip(service: TrayService, percentage: Option<u8>) -> String {
     match percentage {
         Some(value) => format!("{}: {}% used", service.label(), value),
@@ -492,7 +510,12 @@ pub async fn update_tray_icon(
             }
 
             if !visible {
-                let _ = app_handle.remove_tray_by_id(service.tray_id());
+                if destroy_hidden_tray() {
+                    let _ = app_handle.remove_tray_by_id(service.tray_id());
+                } else {
+                    #[cfg(target_os = "macos")]
+                    set_status_item_collapsed(&app_handle, service.tray_id(), true);
+                }
                 {
                     let mut state = runtime
                         .lock()
@@ -507,6 +530,8 @@ pub async fn update_tray_icon(
             if app_handle.tray_by_id(service.tray_id()).is_none() {
                 build_service_tray(&app_handle, service).map_err(|e| e.to_string())?;
             }
+            #[cfg(target_os = "macos")]
+            set_status_item_collapsed(&app_handle, service.tray_id(), false);
 
             let Some(tray) = app_handle.tray_by_id(service.tray_id()) else {
                 return Err(format!("missing tray icon for {}", service.label()));
@@ -556,8 +581,8 @@ pub async fn update_tray_icon(
 #[cfg(test)]
 mod tests {
     use super::{
-        format_tooltip, tray_click_action, TrayClickAction, TrayRuntimeState, TrayService,
-        TraySnapshot,
+        destroy_hidden_tray, format_tooltip, tray_click_action, TrayClickAction, TrayRuntimeState,
+        TrayService, TraySnapshot,
     };
     use crate::services::tray_icon::TrayIconStyle;
 
@@ -614,6 +639,11 @@ mod tests {
     fn tray_click_hides_when_the_popover_was_already_visible() {
         assert_eq!(tray_click_action(true), TrayClickAction::Hide);
         assert_eq!(tray_click_action(false), TrayClickAction::Show);
+    }
+
+    #[test]
+    fn macos_keeps_hidden_status_items_alive() {
+        assert_eq!(destroy_hidden_tray(), !cfg!(target_os = "macos"));
     }
 
     #[test]
