@@ -168,6 +168,13 @@ export function buildCursorQuotaWindows(cursorData: CursorData | null): QuotaWin
   }];
 }
 
+export function getCursorTrayUsedPercent(cursorData: CursorData | null): number | null {
+  if (!cursorData) return null;
+  if (typeof cursorData.autoPercent === 'number') return cursorData.autoPercent;
+  if (typeof cursorData.percentage === 'number') return cursorData.percentage;
+  return null;
+}
+
 export function buildGrokQuotaWindows(grokData: GrokData | null): QuotaWindowSummary[] {
   if (!grokData?.connected || typeof grokData.percentage !== 'number') return [];
   const windows: QuotaWindowSummary[] = [{

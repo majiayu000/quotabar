@@ -3,7 +3,7 @@ use crate::domain::models::{
     CodexResetCredits,
 };
 use crate::services::codex_cache::{self, AuthFileStamp};
-use crate::services::http::{is_transient_os_error, shared_http_client};
+use crate::services::http::{error_is_transient, is_transient_os_error, shared_http_client};
 use base64::{engine::general_purpose::STANDARD_NO_PAD, Engine as _};
 use std::fs::{self, OpenOptions};
 use std::io::Write;
@@ -11,11 +11,16 @@ use std::path::{Path, PathBuf};
 use std::sync::{Mutex, OnceLock};
 use std::time::Instant;
 
+struct LastGoodInfo {
+    stamp: AuthFileStamp,
+    data: CodexData,
+}
+
 /// Most recent successful fetch results, retained without TTL so a transient
 /// polling failure does not erase quota that was already displayed.
-static LAST_GOOD_INFO: OnceLock<Mutex<Option<CodexData>>> = OnceLock::new();
+static LAST_GOOD_INFO: OnceLock<Mutex<Option<LastGoodInfo>>> = OnceLock::new();
 
-fn last_good_info() -> &'static Mutex<Option<CodexData>> {
+fn last_good_info() -> &'static Mutex<Option<LastGoodInfo>> {
     LAST_GOOD_INFO.get_or_init(|| Mutex::new(None))
 }
 
@@ -159,6 +164,10 @@ fn parse_used_percent(window: &serde_json::Value) -> Option<f64> {
         .map(|value| value.clamp(0.0, 100.0))
 }
 
+fn window_minutes_from_seconds(seconds: i64) -> i64 {
+    seconds.saturating_add(59) / 60
+}
+
 fn parse_rate_limit_window(window: &serde_json::Value) -> Option<CodexRateLimitWindow> {
     if window.is_null() || !window.is_object() {
         return None;
@@ -168,25 +177,45 @@ fn parse_rate_limit_window(window: &serde_json::Value) -> Option<CodexRateLimitW
         used_percent: parse_used_percent(window)?,
         window_minutes: window["limit_window_seconds"]
             .as_i64()
-            .map(|s| (s + 59) / 60),
+            .map(window_minutes_from_seconds),
         resets_at: window["reset_at"].as_i64(),
     })
 }
 
-fn fallback_or_disconnected_info(error: String) -> CodexData {
-    if is_transient_os_error(&error) {
-        if let Ok(guard) = last_good_info().lock() {
-            if let Some(stale) = guard.as_ref() {
-                return stale.clone();
+fn retain_last_good_info(
+    cached: Option<&LastGoodInfo>,
+    stamp: Option<&AuthFileStamp>,
+    error: String,
+    transient: bool,
+) -> CodexData {
+    if transient {
+        if let (Some(stale), Some(current_stamp)) = (cached, stamp) {
+            if stale.stamp == *current_stamp {
+                let mut data = stale.data.clone();
+                data.error = Some(error);
+                return data;
             }
         }
     }
     CodexData::disconnected(error)
 }
 
+fn fallback_or_disconnected_info(error: StampedAuthReadError) -> CodexData {
+    let transient = is_transient_os_error(&error.message);
+    if let Ok(guard) = last_good_info().lock() {
+        return retain_last_good_info(
+            guard.as_ref(),
+            error.pre_read_stamp.as_ref(),
+            error.message,
+            transient,
+        );
+    }
+    CodexData::disconnected(error.message)
+}
+
 pub async fn fetch_codex_info() -> CodexData {
-    let auth_json = match read_auth_json() {
-        Ok(v) => v,
+    let (auth_json, auth_stamp) = match read_auth_json_with_stamp() {
+        Ok(auth) => auth,
         Err(error) => return fallback_or_disconnected_info(error),
     };
 
@@ -218,7 +247,10 @@ pub async fn fetch_codex_info() -> CodexData {
     };
 
     if let Ok(mut guard) = last_good_info().lock() {
-        *guard = Some(info.clone());
+        *guard = Some(LastGoodInfo {
+            stamp: auth_stamp,
+            data: info.clone(),
+        });
     }
     info
 }
@@ -309,7 +341,7 @@ pub async fn fetch_codex_rate_limits() -> CodexRateLimits {
             let should_preserve = should_preserve_transport_failure(
                 err.is_timeout(),
                 err.is_connect(),
-                is_transient_os_error(&error),
+                error_is_transient(&err),
             );
             log_msg(&format!(
                 "[RateLimits] request failed: latency={:.1}s, preservable={should_preserve}, error={error}",
@@ -358,7 +390,7 @@ pub async fn fetch_codex_rate_limits() -> CodexRateLimits {
             let should_preserve = should_preserve_transport_failure(
                 err.is_timeout(),
                 err.is_connect(),
-                is_transient_os_error(&err.to_string()),
+                error_is_transient(&err),
             );
             let error = if should_preserve {
                 format!("Failed to read response body: {err}")
@@ -520,10 +552,12 @@ pub async fn fetch_codex_reset_credits() -> CodexResetCredits {
 #[cfg(test)]
 mod tests {
     use super::{
-        parse_rate_limit_window, parse_reset_credit, should_preserve_for_status,
-        should_preserve_transport_failure,
+        parse_rate_limit_window, parse_reset_credit, retain_last_good_info,
+        should_preserve_for_status, should_preserve_transport_failure, window_minutes_from_seconds,
+        AuthFileStamp, CodexData, LastGoodInfo,
     };
     use serde_json::json;
+    use std::time::{Duration, SystemTime};
 
     #[test]
     fn only_rate_limiting_is_a_preservable_http_failure() {
@@ -601,6 +635,22 @@ mod tests {
     }
 
     #[test]
+    fn window_minutes_saturate_instead_of_overflowing() {
+        assert_eq!(window_minutes_from_seconds(18_000), 300);
+        assert_eq!(window_minutes_from_seconds(1), 1);
+        assert_eq!(window_minutes_from_seconds(i64::MAX), i64::MAX / 60);
+        let parsed = parse_rate_limit_window(&json!({
+            "used_percent": 10,
+            "limit_window_seconds": i64::MAX
+        }));
+        let window = match parsed {
+            Some(window) => window,
+            None => panic!("max limit_window_seconds should parse"),
+        };
+        assert!(window.window_minutes.is_some_and(|minutes| minutes > 0));
+    }
+
+    #[test]
     fn parse_rate_limit_window_clamps_numeric_used_percent() {
         let high = match parse_rate_limit_window(&json!({ "used_percent": 120 })) {
             Some(window) => window,
@@ -613,5 +663,65 @@ mod tests {
 
         assert_eq!(high.used_percent, 100.0);
         assert_eq!(low.used_percent, 0.0);
+    }
+
+    fn auth_stamp(len: u64, secs: u64) -> AuthFileStamp {
+        AuthFileStamp {
+            len,
+            modified: SystemTime::UNIX_EPOCH + Duration::from_secs(secs),
+        }
+    }
+
+    fn connected_info(email: &str) -> CodexData {
+        CodexData {
+            connected: true,
+            plan_type: Some("plus".to_string()),
+            account_id: Some("acct-a".to_string()),
+            subscription_until: None,
+            email: Some(email.to_string()),
+            error: None,
+        }
+    }
+
+    #[test]
+    fn last_good_codex_info_stays_on_the_same_auth_file() {
+        let cached = LastGoodInfo {
+            stamp: auth_stamp(128, 10),
+            data: connected_info("one@example.com"),
+        };
+        let retained = retain_last_good_info(
+            Some(&cached),
+            Some(&auth_stamp(128, 10)),
+            "Failed to read auth.json: Too many open files (os error 24)".to_string(),
+            true,
+        );
+        assert!(retained.connected);
+        assert_eq!(retained.email.as_deref(), Some("one@example.com"));
+        assert!(retained
+            .error
+            .as_deref()
+            .unwrap()
+            .contains("Too many open files"));
+    }
+
+    #[test]
+    fn last_good_codex_info_is_dropped_after_account_file_changes() {
+        let cached = LastGoodInfo {
+            stamp: auth_stamp(128, 10),
+            data: connected_info("one@example.com"),
+        };
+        let switched = retain_last_good_info(
+            Some(&cached),
+            Some(&auth_stamp(256, 11)),
+            "Failed to read auth.json: Too many open files (os error 24)".to_string(),
+            true,
+        );
+        assert!(!switched.connected);
+        assert_eq!(switched.email, None);
+        assert!(switched
+            .error
+            .as_deref()
+            .unwrap()
+            .contains("Too many open files"));
     }
 }

@@ -3,12 +3,13 @@ import { backend } from '../services/backend';
 import ProviderDetailHeader from './ProviderDetailHeader';
 import ResetTimeline from './ResetTimeline';
 import SmartTip from './SmartTip';
-import type { GrokData, GrokValueEstimate } from '../types/models';
+import type { GrokData } from '../types/models';
 import { buildGrokQuotaWindows, sortMostConstrained, type QuotaWindowSummary } from '../services/provider_summary';
 import { getHighUsageTip } from '../services/detail_helpers';
 import { formatResetTime, getProgressStyle } from '../utils/quota_format';
 import { defaultPanelSections, type PanelSectionVisibility } from '../services/panel_sections';
 import { useLatestRequestGeneration } from '../hooks/use_latest_request_generation';
+import { validateGrokValueEstimate } from '../services/grok_value_estimate';
 
 interface GrokPanelProps {
   onConnectionChange?: (connected: boolean) => void;
@@ -44,55 +45,6 @@ function periodValueTitle(periodType?: string): string {
   if (periodType === 'monthly') return 'API-equivalent month';
   if (periodType === 'weekly') return 'API-equivalent week';
   return 'API-equivalent period';
-}
-
-function validateGrokValueEstimate(
-  estimate: GrokValueEstimate,
-  data: GrokData,
-): string | null {
-  if (
-    !Number.isFinite(estimate.observedCostUsd)
-    || estimate.observedCostUsd <= 0
-    || !Number.isFinite(estimate.estimatedPeriodValueUsd)
-    || estimate.estimatedPeriodValueUsd <= 0
-    || !Number.isFinite(estimate.observedTokens)
-    || estimate.observedTokens <= 0
-    || !Number.isFinite(estimate.estimatedPeriodTokens)
-    || estimate.estimatedPeriodTokens <= 0
-  ) {
-    return 'The local Grok pool estimate contains invalid totals.';
-  }
-  if (data.percentage == null || Math.abs(estimate.usedPct - data.percentage) > 5) {
-    return 'The local Grok pool estimate does not match the official usage.';
-  }
-  const estimateObservedAt = Date.parse(estimate.observedAt);
-  const now = Date.now();
-  if (
-    !Number.isFinite(estimateObservedAt)
-    || estimateObservedAt > now + 5 * 60 * 1000
-    || now - estimateObservedAt > 10 * 60 * 1000
-  ) {
-    return 'The local Grok pool estimate is stale or has an invalid observation time.';
-  }
-  const estimateReset = Date.parse(estimate.resetsAt);
-  const officialReset = data.resetAt ? Date.parse(data.resetAt) : Number.NaN;
-  if (
-    !Number.isFinite(estimateReset)
-    || !Number.isFinite(officialReset)
-    || Math.abs(estimateReset - officialReset) > 5 * 60 * 1000
-  ) {
-    return 'The local Grok pool estimate does not match the official reset.';
-  }
-  const estimateStart = Date.parse(estimate.windowStartedAt);
-  const officialStart = data.periodStartedAt ? Date.parse(data.periodStartedAt) : Number.NaN;
-  if (
-    !Number.isFinite(estimateStart)
-    || !Number.isFinite(officialStart)
-    || Math.abs(estimateStart - officialStart) > 5 * 60 * 1000
-  ) {
-    return 'The local Grok pool estimate does not match the official period start.';
-  }
-  return null;
 }
 
 export default function GrokPanel({
@@ -171,7 +123,7 @@ export default function GrokPanel({
     ? formatResetTime(grokData.resetAt, { expiredLabel: 'soon' })
     : '';
   const grokValueValidationError = grokData && grokData.valueEstimate
-    ? validateGrokValueEstimate(grokData.valueEstimate, grokData)
+    ? validateGrokValueEstimate(grokData.valueEstimate)
     : null;
   const displayedGrokValueEstimate = grokValueValidationError
     ? null

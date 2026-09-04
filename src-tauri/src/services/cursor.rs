@@ -230,6 +230,10 @@ fn is_transient_cursor_error(message: &str) -> bool {
         || lowercase.contains("database table is locked")
 }
 
+fn is_transient_cursor_status(status: reqwest::StatusCode) -> bool {
+    status.is_server_error() || status == reqwest::StatusCode::TOO_MANY_REQUESTS
+}
+
 fn fallback_or_disconnected(error: impl Into<String>) -> CursorData {
     let error = error.into();
     if is_transient_cursor_error(&error) {
@@ -240,7 +244,14 @@ fn fallback_or_disconnected(error: impl Into<String>) -> CursorData {
     CursorData::disconnected(error)
 }
 
+fn should_persist_cursor_cache(data: &CursorData) -> bool {
+    data.connected
+}
+
 fn save_cursor_cache(data: &CursorData) {
+    if !should_persist_cursor_cache(data) {
+        return;
+    }
     if let Ok(mut guard) = cursor_cache().lock() {
         *guard = Some(CachedCursor {
             data: data.clone(),
@@ -283,7 +294,11 @@ pub async fn fetch_cursor_info() -> CursorData {
         return CursorData::disconnected("Cursor session expired. Re-open Cursor and sign in.");
     }
     if !status.is_success() {
-        return CursorData::disconnected(format!("Cursor API error: {status}"));
+        let error = format!("Cursor API error: {status}");
+        if is_transient_cursor_status(status) {
+            return fallback_or_disconnected(error);
+        }
+        return CursorData::disconnected(error);
     }
 
     let data = match response.json::<serde_json::Value>().await {
@@ -645,6 +660,22 @@ mod tests {
     }
 
     #[test]
+    fn disconnected_payloads_are_not_persisted() {
+        let empty = parse_cursor_payload(&serde_json::json!({}));
+        assert!(!empty.connected);
+        assert!(!should_persist_cursor_cache(&empty));
+
+        let connected = parse_cursor_payload(&serde_json::json!({
+            "membershipType": "pro",
+            "individualUsage": {
+                "plan": { "totalPercentUsed": 12.0 }
+            }
+        }));
+        assert!(connected.connected);
+        assert!(should_persist_cursor_cache(&connected));
+    }
+
+    #[test]
     fn sqlite_lock_errors_are_transient() {
         assert!(is_transient_cursor_error("Too many open files"));
         assert!(is_transient_cursor_error(
@@ -657,6 +688,12 @@ mod tests {
             "Failed to read state.vscdb: database table is locked"
         ));
         assert!(!is_transient_cursor_error("Cursor session not found"));
+        assert!(is_transient_cursor_status(reqwest::StatusCode::BAD_GATEWAY));
+        assert!(is_transient_cursor_status(
+            reqwest::StatusCode::TOO_MANY_REQUESTS
+        ));
+        assert!(!is_transient_cursor_status(reqwest::StatusCode::FORBIDDEN));
+        assert!(!is_transient_cursor_status(reqwest::StatusCode::NOT_FOUND));
     }
 
     #[test]

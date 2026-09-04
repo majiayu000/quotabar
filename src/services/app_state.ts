@@ -180,3 +180,14 @@ export function getClaudeRefreshIntervalMs(error?: string | null): number {
 
   return AUTO_REFRESH_INTERVAL_MS;
 }
+
+export function keepClaudeQuotaOnError(data: QuotaData): boolean {
+  return data.connected || (data.error?.includes('429') ?? false);
+}
+
+export function providerRefreshIntervalMs(windowVisible: boolean, trayEnabled: boolean): number {
+  if (windowVisible || trayEnabled) {
+    return AUTO_REFRESH_INTERVAL_MS;
+  }
+  return BACKGROUND_REFRESH_INTERVAL_MS;
+}
