@@ -27,7 +27,7 @@ import {
   saveTrayStyle,
   type TrayStyle,
 } from './services/tray_style';
-import { getSavedEvents, recordEvent, type AppEvent, type EventLevel } from './services/event_log';
+import { appendEvent, getSavedEvents, persistEvents, type AppEvent, type EventLevel } from './services/event_log';
 import {
   getSavedSwitcherVisibility,
   saveSwitcherVisibility,
@@ -60,7 +60,6 @@ import './redesign-settings.css';
 
 import {
   AUTO_REFRESH_INTERVAL_MS,
-  BACKGROUND_REFRESH_INTERVAL_MS,
   TRAY_CYCLE_INTERVAL_MS,
   TRAY_FORCE_SYNC_INTERVAL_MS,
   TRAY_GUARD_MESSAGE,
@@ -70,12 +69,14 @@ import {
   defaultServiceMap,
   getClaudeRefreshIntervalMs,
   getClaudeTrayUsedPercent,
+  keepClaudeQuotaOnError,
   getInitialTrayEnabledState,
   getSavedDockHidden,
   getSavedSettingsExpanded,
   getSavedTab,
   getSavedTheme,
   isMacOSPlatform,
+  providerRefreshIntervalMs,
   saveActiveTab,
   saveDockHidden,
   saveSettingsExpanded,
@@ -105,6 +106,8 @@ export {
   BACKGROUND_REFRESH_INTERVAL_MS,
   getClaudeRefreshIntervalMs,
   getClaudeTrayUsedPercent,
+  keepClaudeQuotaOnError,
+  providerRefreshIntervalMs,
 } from './services/app_state';
 
 type ToastValue = string | null;
@@ -157,6 +160,7 @@ export default function App() {
   const [trayEnabled, setTrayEnabled] = useState<TrayEnabledState>(getInitialTrayEnabledState);
   const [toast, setToastState] = useState<ToastValue>(null);
   const switcherGuardTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const timedToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const setToast = useCallback<ToastSetter>((value) => {
     setToastState((current) => {
       const next = typeof value === 'function' ? value(current) : value;
@@ -231,10 +235,20 @@ export default function App() {
     return setters;
   }, []);
 
+  const showTimedToast = useCallback((message: string, delayMs = TRAY_GUARD_TOAST_MS) => {
+    if (timedToastTimerRef.current !== null) {
+      clearTimeout(timedToastTimerRef.current);
+    }
+    setToast(message);
+    timedToastTimerRef.current = setTimeout(() => {
+      timedToastTimerRef.current = null;
+      setToast((current) => current === message ? null : current);
+    }, delayMs);
+  }, [setToast]);
+
   const showStorageWriteFailure = useCallback(() => {
-    setToast(STORAGE_WRITE_FAILURE_MESSAGE);
-    setTimeout(() => setToast(null), TRAY_GUARD_TOAST_MS);
-  }, []);
+    showTimedToast(STORAGE_WRITE_FAILURE_MESSAGE);
+  }, [showTimedToast]);
 
   useEffect(() => {
     return subscribeStorageWriteFailures(showStorageWriteFailure);
@@ -289,7 +303,11 @@ export default function App() {
 
       if (data.error) {
         setClaudeError(data.error);
-        if (!data.error.includes('429')) {
+        if (keepClaudeQuotaOnError(data)) {
+          if (data.connected) {
+            setQuota(data);
+          }
+        } else {
           setQuota(null);
         }
         claudeIntervalRef.current = getClaudeRefreshIntervalMs(data.error);
@@ -369,8 +387,14 @@ export default function App() {
   }, [trayCycle]);
 
   const logEvent = useCallback((level: EventLevel, text: string) => {
-    setEvents((prev) => recordEvent(prev, level, text));
+    const now = Date.now();
+    const id = `${now}-${Math.random().toString(36).slice(2, 8)}`;
+    setEvents((prev) => appendEvent(prev, level, text, now, id));
   }, []);
+
+  useEffect(() => {
+    persistEvents(events);
+  }, [events]);
 
   useServiceEvents(quota, connected, usedPercent, notifSettings, logEvent);
 
@@ -389,6 +413,10 @@ export default function App() {
     if (switcherGuardTimerRef.current !== null) {
       clearTimeout(switcherGuardTimerRef.current);
       switcherGuardTimerRef.current = null;
+    }
+    if (timedToastTimerRef.current !== null) {
+      clearTimeout(timedToastTimerRef.current);
+      timedToastTimerRef.current = null;
     }
   }, []);
 
@@ -411,12 +439,10 @@ export default function App() {
   }, [activeView, switcherVisibility, setAndPersistTab]);
 
   const handleNotificationToggle = useCallback((key: NotificationKey) => {
-    setNotifSettings((prev) => {
-      const next = { ...prev, [key]: !prev[key] };
-      saveNotificationSettings(next);
-      return next;
-    });
-  }, []);
+    const next = { ...notifSettings, [key]: !notifSettings[key] };
+    saveNotificationSettings(next);
+    setNotifSettings(next);
+  }, [notifSettings]);
 
   const handleBonusExpiring = useCallback((daysLeft: number) => {
     const text = daysLeft <= 0
@@ -445,13 +471,11 @@ export default function App() {
   }, []);
 
   const handleTrayCycleToggle = useCallback(() => {
-    setTrayCycle((prev) => {
-      const next = !prev;
-      saveTrayCycle(next);
-      return next;
-    });
+    const next = !trayCycle;
+    saveTrayCycle(next);
+    setTrayCycle(next);
     setTrayCycleIndex(0);
-  }, []);
+  }, [trayCycle]);
 
   const handleThemeChange = useCallback((newTheme: ThemeName) => {
     setTheme(newTheme);
@@ -465,49 +489,34 @@ export default function App() {
   }, [dockHidden]);
 
   const handleDockToggle = useCallback(() => {
-    setDockHidden((prev) => {
-      const newValue = !prev;
-      saveDockHidden(newValue);
-      return newValue;
-    });
-  }, []);
+    const newValue = !dockHidden;
+    saveDockHidden(newValue);
+    setDockHidden(newValue);
+  }, [dockHidden]);
 
   const showTrayGuardToast = useCallback(() => {
-    setToast(TRAY_GUARD_MESSAGE);
-    setTimeout(() => setToast(null), TRAY_GUARD_TOAST_MS);
-  }, []);
+    showTimedToast(TRAY_GUARD_MESSAGE);
+  }, [showTimedToast]);
 
   const handleTrayToggle = useCallback((service: TrayServiceName) => {
-    let blocked = false;
-
-    setTrayEnabled((prev) => {
-      const nextValue = !prev[service];
-      const someOtherEnabled = SERVICES.some((other) => other !== service && prev[other]);
-
-      if (!nextValue && !someOtherEnabled) {
-        blocked = true;
-        return prev;
-      }
-
-      saveTrayEnabled(service, nextValue);
-      return {
-        ...prev,
-        [service]: nextValue,
-      };
-    });
-
-    if (blocked) {
+    const nextValue = !trayEnabled[service];
+    const someOtherEnabled = SERVICES.some((other) => other !== service && trayEnabled[other]);
+    if (!nextValue && !someOtherEnabled) {
       showTrayGuardToast();
+      return;
     }
-  }, [showTrayGuardToast]);
+    saveTrayEnabled(service, nextValue);
+    setTrayEnabled((prev) => ({
+      ...prev,
+      [service]: nextValue,
+    }));
+  }, [showTrayGuardToast, trayEnabled]);
 
   const handlePanelSectionToggle = useCallback((key: PanelSectionKey) => {
-    setPanelSections((prev) => {
-      const next = { ...prev, [key]: !prev[key] };
-      savePanelSections(next);
-      return next;
-    });
-  }, []);
+    const next = { ...panelSections, [key]: !panelSections[key] };
+    savePanelSections(next);
+    setPanelSections(next);
+  }, [panelSections]);
 
   const handleTabChange = useCallback((tab: TabName) => {
     setAndPersistTab(tab);
@@ -588,18 +597,15 @@ export default function App() {
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to open dashboard';
-      setToast(message);
-      setTimeout(() => setToast(null), 2000);
+      showTimedToast(message);
     }
-  }, [activeProvider]);
+  }, [activeProvider, showTimedToast]);
 
   const handleSettingsViewToggle = useCallback(() => {
-    setActiveView((prev) => {
-      const opening = prev !== 'settings';
-      saveSettingsExpanded(opening);
-      return opening ? 'settings' : getSavedTab();
-    });
-  }, []);
+    const opening = activeView !== 'settings';
+    saveSettingsExpanded(opening);
+    setActiveView(opening ? 'settings' : getSavedTab());
+  }, [activeView]);
 
   const handleCloseSettings = useCallback(() => {
     saveSettingsExpanded(false);
@@ -657,9 +663,6 @@ export default function App() {
     ...panelLoading,
     claude: claudeLoading,
   };
-  const nonClaudeRefreshIntervalMs = windowVisible
-    ? AUTO_REFRESH_INTERVAL_MS
-    : BACKGROUND_REFRESH_INTERVAL_MS;
   const { footerStatus, footerStatusTitle } = useFooterStatus(windowVisible, activeLoading, lastUpdatedAt);
   const providerSummaries = buildProviderSummaries(tabConnected, serviceLoading, serviceUsage);
   const switcherSummaries = providerSummaries.filter((summary) => switcherVisibility[summary.id]);
@@ -732,7 +735,7 @@ export default function App() {
                   onLoadingChange={loadingSetters.codex}
                   onQuotaWindowsChange={quotaWindowSetters.codex}
                   manualRefreshNonce={refreshNonces.codex}
-                  autoRefreshIntervalMs={nonClaudeRefreshIntervalMs}
+                  autoRefreshIntervalMs={providerRefreshIntervalMs(windowVisible, trayEnabled.codex)}
                   showCostSummary={windowVisible && activeView === 'codex'}
                   sections={panelSections}
                   onBonusExpiring={handleBonusExpiring}
@@ -748,7 +751,7 @@ export default function App() {
                   onLoadingChange={loadingSetters.cursor}
                   onQuotaWindowsChange={quotaWindowSetters.cursor}
                   manualRefreshNonce={refreshNonces.cursor}
-                  autoRefreshIntervalMs={nonClaudeRefreshIntervalMs}
+                  autoRefreshIntervalMs={providerRefreshIntervalMs(windowVisible, trayEnabled.cursor)}
                   showCostSummary={windowVisible && activeView === 'cursor'}
                   sections={panelSections}
                 />
@@ -761,7 +764,7 @@ export default function App() {
                   onLoadingChange={loadingSetters.grok}
                   onQuotaWindowsChange={quotaWindowSetters.grok}
                   manualRefreshNonce={refreshNonces.grok}
-                  autoRefreshIntervalMs={nonClaudeRefreshIntervalMs}
+                  autoRefreshIntervalMs={providerRefreshIntervalMs(windowVisible, trayEnabled.grok)}
                   sections={panelSections}
                 />
               </div>

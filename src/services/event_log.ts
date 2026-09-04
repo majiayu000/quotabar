@@ -39,32 +39,46 @@ function isAppEvent(value: unknown): value is AppEvent {
 /**
  * Prepends an event and returns the updated list (newest first).
  * Repeats of the same text inside the dedupe window are dropped.
+ * This function is pure: persist separately with `persistEvents`.
  */
-export function recordEvent(
+export function appendEvent(
   events: AppEvent[],
   level: EventLevel,
   text: string,
   now: number = Date.now(),
+  id: string = `${now}-${Math.random().toString(36).slice(2, 8)}`,
 ): AppEvent[] {
   const duplicate = events.find(
     (event) => event.text === text && now - Date.parse(event.time) < DEDUPE_WINDOW_MS,
   );
   if (duplicate) return events;
 
-  const next = [
+  return [
     {
-      id: `${now}-${Math.random().toString(36).slice(2, 8)}`,
+      id,
       time: new Date(now).toISOString(),
       level,
       text,
     },
     ...events,
   ].slice(0, MAX_EVENTS);
+}
 
-  writeStorageItem(STORAGE_KEY, JSON.stringify(next), {
+export function persistEvents(events: AppEvent[]): boolean {
+  return writeStorageItem(STORAGE_KEY, JSON.stringify(events), {
     preserveSessionValue: true,
     notifyUser: false,
   });
+}
+
+export function recordEvent(
+  events: AppEvent[],
+  level: EventLevel,
+  text: string,
+  now: number = Date.now(),
+): AppEvent[] {
+  const next = appendEvent(events, level, text, now);
+  persistEvents(next);
   return next;
 }
 

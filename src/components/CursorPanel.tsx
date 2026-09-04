@@ -6,7 +6,7 @@ import ProviderDetailHeader from './ProviderDetailHeader';
 import ResetTimeline from './ResetTimeline';
 import SmartTip from './SmartTip';
 import type { CursorData } from '../types/models';
-import { buildCursorQuotaWindows, sortMostConstrained, type QuotaWindowSummary } from '../services/provider_summary';
+import { buildCursorQuotaWindows, getCursorTrayUsedPercent, sortMostConstrained, type QuotaWindowSummary } from '../services/provider_summary';
 import { getHighUsageTip } from '../services/detail_helpers';
 import { clampProgressValue, formatPlanType, getProgressStyle } from '../utils/quota_format';
 import { defaultPanelSections, type PanelSectionVisibility } from '../services/panel_sections';
@@ -86,7 +86,7 @@ export default function CursorPanel({
         setError(data.error);
       }
       onConnectionChange?.(data.connected);
-      onUsageChange?.(data.percentage ?? null);
+      onUsageChange?.(getCursorTrayUsedPercent(data));
       onQuotaWindowsChange?.(buildCursorQuotaWindows(data));
     } catch (err) {
       if (!request_generation.isCurrent(generation)) return;
