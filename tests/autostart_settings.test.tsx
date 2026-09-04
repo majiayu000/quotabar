@@ -36,7 +36,7 @@ function settingsProps(overrides: Partial<Parameters<typeof SettingsView>[0]> = 
     trayStyle: 'percent' as const,
     trayCycle: false,
     events: [],
-    notificationSettings: { q80: true, q95: true, bonus: false },
+    notificationSettings: { q80: true, q95: true, q100: true, bonusReady: true, bonus: false },
     switcherVisibility: { claude: true, codex: true, cursor: true, grok: true, antigravity: true },
     onClose: () => {},
     onThemeChange: () => {},
@@ -47,6 +47,8 @@ function settingsProps(overrides: Partial<Parameters<typeof SettingsView>[0]> = 
     onTrayCycleToggle: () => {},
     onNotificationToggle: () => {},
     onSwitcherToggle: () => {},
+    onApplyPreset: () => {},
+    onSelectEventProvider: () => {},
     ...overrides,
   };
 }

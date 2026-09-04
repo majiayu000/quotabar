@@ -183,7 +183,13 @@ interface UserSettingCase {
   expectedRead: unknown;
 }
 
-const notificationSettings = { q80: false, q95: true, bonus: false };
+const notificationSettings = {
+  q80: false,
+  q95: true,
+  q100: true,
+  bonusReady: true,
+  bonus: false,
+};
 const panelSections = { timeline: false, cost: true, trend: false, tips: true };
 const switcherVisibility = {
   claude: true,

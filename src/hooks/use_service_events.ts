@@ -73,7 +73,17 @@ export function useServiceEvents(
             );
           }
         }
+        if (before.used < 100 && after.used >= 100) {
+          logEvent('critical', `${label} usage reached 100%`);
+          if (notifSettings.q100) {
+            void notify(
+              'QuotaBar',
+              `${label} usage reached 100%`,
+              createNotificationFailureOptions(logEvent),
+            );
+          }
+        }
       }
     }
-  }, [quota, connected, usedPercent, logEvent, notifSettings.q80, notifSettings.q95]);
+  }, [quota, connected, usedPercent, logEvent, notifSettings.q80, notifSettings.q95, notifSettings.q100]);
 }

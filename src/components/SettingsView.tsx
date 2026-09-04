@@ -10,6 +10,7 @@ import {
   saveMonthlyBudgets,
   type MonthlyBudgets,
 } from '../services/budget';
+import { matchProviderInEventText, type ProviderPreset } from '../services/provider_presets';
 import { SERVICE_META, SERVICES } from '../services/service_meta';
 import type { SwitcherVisibility } from '../services/switcher_providers';
 import { TRAY_STYLE_OPTIONS, type TrayStyle } from '../services/tray_style';
@@ -47,6 +48,8 @@ interface SettingsViewProps {
   onTrayCycleToggle: () => void;
   onNotificationToggle: (key: NotificationKey) => void;
   onSwitcherToggle: (service: TrayServiceName) => void;
+  onApplyPreset: (preset: ProviderPreset) => void;
+  onSelectEventProvider: (service: TrayServiceName) => void;
   onAutostartNotice?: (message: string) => void;
 }
 
@@ -70,6 +73,8 @@ export default function SettingsView({
   onTrayCycleToggle,
   onNotificationToggle,
   onSwitcherToggle,
+  onApplyPreset,
+  onSelectEventProvider,
   onAutostartNotice,
 }: SettingsViewProps) {
   const [budgets, setBudgets] = useState<MonthlyBudgets>(getSavedMonthlyBudgets);
@@ -188,6 +193,26 @@ export default function SettingsView({
             <p>Choose where each service appears</p>
           </div>
         </div>
+        <div className="settings-subsection-title">Presets</div>
+        <div className="settings-seg">
+          <button
+            type="button"
+            className="settings-seg-btn"
+            onClick={() => onApplyPreset('all')}
+          >
+            All
+          </button>
+          {SERVICES.map((service) => (
+            <button
+              key={service}
+              type="button"
+              className="settings-seg-btn"
+              onClick={() => onApplyPreset(service)}
+            >
+              {SERVICE_META[service].shortLabel}
+            </button>
+          ))}
+        </div>
         <div className="provider-visibility-grid">
           <div className="provider-visibility-head" aria-hidden="true">
             <span>Service</span>
@@ -272,15 +297,14 @@ export default function SettingsView({
         ))}
       </section>
 
-      <section className="settings-group" aria-labelledby="settings-alerts-title">
+      <section className="settings-group" aria-labelledby="settings-limits-title">
         <div className="settings-group-header">
           <span className="settings-group-index">04</span>
           <div>
-            <h2 id="settings-alerts-title">Limits & alerts</h2>
-            <p>Budgets and usage notifications</p>
+            <h2 id="settings-limits-title">Limits</h2>
+            <p>Monthly API-equivalent budgets</p>
           </div>
         </div>
-        <div className="settings-subsection-title">Monthly budgets</div>
         {BUDGET_SOURCES.map((source) => (
           <label className="settings-line" key={source}>
             <span>{SERVICE_META[source].label}</span>
@@ -300,7 +324,16 @@ export default function SettingsView({
           </label>
         ))}
         <div className="settings-hint">Shown in the API-equivalent usage section.</div>
-        <div className="settings-subsection-title settings-subsection-divider">Notifications</div>
+      </section>
+
+      <section className="settings-group" aria-labelledby="settings-alerts-title">
+        <div className="settings-group-header">
+          <span className="settings-group-index">05</span>
+          <div>
+            <h2 id="settings-alerts-title">Alerts</h2>
+            <p>Usage and bonus notifications</p>
+          </div>
+        </div>
         {NOTIFICATION_ROWS.map(({ key, label }) => (
           <div className="settings-line" key={key}>
             <span>{label}</span>
@@ -320,7 +353,7 @@ export default function SettingsView({
 
       <section className="settings-group" aria-labelledby="settings-system-title">
         <div className="settings-group-header">
-          <span className="settings-group-index">05</span>
+          <span className="settings-group-index">06</span>
           <div>
             <h2 id="settings-system-title">Activity & system</h2>
             <p>Recent status changes and app behavior</p>
@@ -329,13 +362,26 @@ export default function SettingsView({
         <div className="settings-subsection-title">Recent events</div>
         {events.length > 0 ? (
           <div className="event-list">
-            {events.slice(0, 6).map((event) => (
+            {events.slice(0, 6).map((event) => {
+              const provider = matchProviderInEventText(event.text);
+              return (
               <div className="event-row" key={event.id}>
                 <span className={`event-dot ${event.level}`} />
-                <span className="event-text">{event.text}</span>
+                {provider ? (
+                  <button
+                    type="button"
+                    className="event-text event-text-link"
+                    onClick={() => onSelectEventProvider(provider)}
+                  >
+                    {event.text}
+                  </button>
+                ) : (
+                  <span className="event-text">{event.text}</span>
+                )}
                 <span className="event-time">{formatEventTime(event.time)}</span>
               </div>
-            ))}
+              );
+            })}
           </div>
         ) : (
           <div className="settings-hint">No events yet.</div>

@@ -1,6 +1,17 @@
 import type { CodexResetCredit, CodexResetCredits } from '../types/models';
 import type { QuotaWindowSummary } from './provider_summary';
 
+export function getExhaustedWeekTip(
+  resetLabel: string,
+  bonusCount: number,
+): string {
+  if (bonusCount > 0) {
+    const noun = bonusCount === 1 ? 'bonus reset' : 'bonus resets';
+    return `Weekly is used up. Wait until ${resetLabel}, or use ${bonusCount} ${noun}.`;
+  }
+  return `Weekly is used up. Resets ${resetLabel}.`;
+}
+
 export function getHighUsageTip(
   windows: QuotaWindowSummary[],
   threshold = 80,
