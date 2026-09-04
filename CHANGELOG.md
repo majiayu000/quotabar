@@ -7,6 +7,7 @@ All notable QuotaBar changes should be summarized here before a release is cut.
 - Stop caching disconnected Cursor payloads so a transient empty body cannot pin "not connected" for 120s.
 - Keep Grok pool value available when valid `turn_completed` records omit the optional usage object.
 - Keep last-good Cursor usage across 5xx and 429 responses instead of flashing disconnected.
+- Toggle the macOS popover from a tray click instead of hiding-on-blur then immediately showing again.
 
 ## 0.4.1 - 2026-09-01
 
