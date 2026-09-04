@@ -740,6 +740,7 @@ export default function App() {
                   sections={panelSections}
                   onBonusExpiring={handleBonusExpiring}
                   onBonusReadyChange={handleBonusReadyChange}
+                  onOpenDashboard={handleOpenDashboard}
                 />
               </div>
 

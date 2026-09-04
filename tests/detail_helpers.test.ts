@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { getAvailableResetCredits, getHighUsageTip } from '../src/services/detail_helpers';
+import { getAvailableResetCredits, getExhaustedWeekTip, getHighUsageTip } from '../src/services/detail_helpers';
 
 describe('detail helpers', () => {
   test('hides smart tips when usage is missing or below threshold', () => {
@@ -10,6 +10,24 @@ describe('detail helpers', () => {
       label: 'Weekly limit',
       usedPercent: 79,
     }])).toBeNull();
+  });
+
+  test('uses Claude 80% copy when it is the only high window', () => {
+    expect(getHighUsageTip([{
+      provider: 'claude',
+      providerLabel: 'Claude',
+      label: 'Session',
+      usedPercent: 80,
+    }])).toBe('Claude Session is at 80%.');
+  });
+
+  test('builds exhausted-week decision copy', () => {
+    expect(getExhaustedWeekTip('Mon, Sep 7, 10:27 AM', 1)).toBe(
+      'Weekly is used up. Wait until Mon, Sep 7, 10:27 AM, or use 1 bonus reset.',
+    );
+    expect(getExhaustedWeekTip('Mon, Sep 7, 10:27 AM', 0)).toBe(
+      'Weekly is used up. Resets Mon, Sep 7, 10:27 AM.',
+    );
   });
 
   test('uses the highest real usage window for smart tips', () => {

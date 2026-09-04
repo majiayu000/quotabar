@@ -538,6 +538,31 @@
   -webkit-backdrop-filter: blur(16px) saturate(1.5);
 }
 
+.bonus-panel-action {
+  display: block;
+  width: 100%;
+  border: 0;
+  background: inherit;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.codex-updated,
+.codex-local-extras {
+  margin: 4px 2px 0;
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.codex-updated {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
 .bonus-header,
 .bonus-title-row,
 .bonus-grant-row {
