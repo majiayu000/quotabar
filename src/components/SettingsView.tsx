@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import ThemeSelector, { type ThemeName } from './ThemeSelector';
 import type { TrayToggleEntry } from './TrayToggles';
 import ProviderIcon from './ProviderIcon';
 import type { TrayServiceName } from '../services/tray_visibility';
+import { readAutostartEnabled, setAutostartEnabled } from '../services/autostart';
 import {
   BUDGET_SOURCES,
   getSavedMonthlyBudgets,
@@ -49,6 +50,7 @@ interface SettingsViewProps {
   onSwitcherToggle: (service: TrayServiceName) => void;
   onApplyPreset: (preset: ProviderPreset) => void;
   onSelectEventProvider: (service: TrayServiceName) => void;
+  onAutostartNotice?: (message: string) => void;
 }
 
 export default function SettingsView({
@@ -73,10 +75,46 @@ export default function SettingsView({
   onSwitcherToggle,
   onApplyPreset,
   onSelectEventProvider,
+  onAutostartNotice,
 }: SettingsViewProps) {
   const [budgets, setBudgets] = useState<MonthlyBudgets>(getSavedMonthlyBudgets);
+  const [launchAtLogin, setLaunchAtLogin] = useState(false);
+  const [autostartError, setAutostartError] = useState<string | null>(null);
+  const [autostartBusy, setAutostartBusy] = useState(false);
   const enabledSwitcherCount = SERVICES.filter((service) => switcherVisibility[service]).length;
   const trayByService = new Map(trayEntries.map((entry) => [entry.service, entry]));
+
+  useEffect(() => {
+    let cancelled = false;
+    void readAutostartEnabled().then((result) => {
+      if (cancelled) return;
+      if (result.status === 'ok') {
+        setLaunchAtLogin(result.enabled);
+        setAutostartError(null);
+        return;
+      }
+      setLaunchAtLogin(false);
+      setAutostartError(result.status === 'failure' ? result.message : null);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const handleLaunchAtLoginToggle = async () => {
+    if (autostartBusy) return;
+    const requested = !launchAtLogin;
+    setAutostartBusy(true);
+    const result = await setAutostartEnabled(requested);
+    setAutostartBusy(false);
+    if (result.status === 'ok') {
+      setLaunchAtLogin(result.enabled);
+      setAutostartError(null);
+      return;
+    }
+    setAutostartError(result.message);
+    onAutostartNotice?.(result.message);
+  };
 
   const handleBudgetChange = (source: CostSource, raw: string) => {
     setBudgets((prev) => {
@@ -348,6 +386,27 @@ export default function SettingsView({
         ) : (
           <div className="settings-hint">No events yet.</div>
         )}
+
+        <div className="settings-subsection-title settings-subsection-divider">Startup</div>
+        <div className="settings-line">
+          <span>Launch at Login</span>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={launchAtLogin}
+            aria-label="Launch at Login"
+            disabled={autostartBusy}
+            className={`target-switch ${launchAtLogin ? 'on' : ''}`}
+            onClick={() => {
+              void handleLaunchAtLoginToggle();
+            }}
+          >
+            <span />
+          </button>
+        </div>
+        {autostartError ? (
+          <div className="settings-hint" role="alert">{autostartError}</div>
+        ) : null}
 
         {isMacOS && (
           <>

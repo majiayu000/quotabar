@@ -729,6 +729,7 @@ export default function App() {
               onSwitcherToggle={handleSwitcherToggle}
               onApplyPreset={applyProviderPreset}
               onSelectEventProvider={handleSelectEventProvider}
+              onAutostartNotice={showTimedToast}
             />
           </div>
         ) : (
