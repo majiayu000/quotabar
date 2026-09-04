@@ -15,7 +15,7 @@ const OFFICIAL_USED_TOLERANCE_PCT: f64 = 1.0;
 const SUCCESS_CACHE_TTL: Duration = Duration::from_secs(300);
 const ERROR_CACHE_TTL: Duration = Duration::from_secs(60);
 
-type WeeklyValueResult = Result<ccstats_quota::CodexWeeklyValueEstimate, String>;
+type WeeklyValueResult = Result<ccstats::CodexWeeklyValueEstimate, String>;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct WeeklyQuotaIdentity {
@@ -24,8 +24,8 @@ struct WeeklyQuotaIdentity {
     used_pct_bits: u64,
 }
 
-impl From<&ccstats_quota::CodexWeeklyQuota> for WeeklyQuotaIdentity {
-    fn from(quota: &ccstats_quota::CodexWeeklyQuota) -> Self {
+impl From<&ccstats::CodexWeeklyQuota> for WeeklyQuotaIdentity {
+    fn from(quota: &ccstats::CodexWeeklyQuota) -> Self {
         Self {
             observed_at: quota.observed_at,
             resets_at: quota.resets_at,
@@ -35,7 +35,7 @@ impl From<&ccstats_quota::CodexWeeklyQuota> for WeeklyQuotaIdentity {
 }
 
 impl WeeklyQuotaIdentity {
-    fn matches_estimate(&self, estimate: &ccstats_quota::CodexWeeklyValueEstimate) -> bool {
+    fn matches_estimate(&self, estimate: &ccstats::CodexWeeklyValueEstimate) -> bool {
         self.observed_at == estimate.observed_at
             && self.resets_at == estimate.resets_at
             && self.used_pct_bits == estimate.used_pct.to_bits()
@@ -105,7 +105,7 @@ pub(crate) fn official_weekly_window(limits: &CodexRateLimits) -> Option<&CodexR
 
 pub fn estimate_codex_weekly_value(
     codex_home: &Path,
-    quota: &ccstats_quota::CodexWeeklyQuota,
+    quota: &ccstats::CodexWeeklyQuota,
     official: Option<&OfficialWeeklySnapshot>,
 ) -> WeeklyValueResult {
     let quota_identity = WeeklyQuotaIdentity::from(quota);
@@ -153,12 +153,14 @@ pub fn estimate_codex_weekly_value(
 }
 
 fn should_fallback_to_official(error: &str) -> bool {
-    error.contains("used percentage is zero")
-        || error.contains("no Codex token usage matched the active weekly quota window")
+    let lowered = error.to_ascii_lowercase();
+    lowered.contains("used percentage is zero")
+        || lowered.contains("no codex token usage matched")
+        || lowered.contains("no token usage matched the active weekly")
 }
 
 fn quota_matches_official(
-    quota: &ccstats_quota::CodexWeeklyQuota,
+    quota: &ccstats::CodexWeeklyQuota,
     official: &CodexRateLimitWindow,
 ) -> bool {
     weekly_windows_match(
@@ -190,7 +192,7 @@ fn estimate_from_local_snapshot(
     codex_home: &Path,
     quota_identity: &WeeklyQuotaIdentity,
 ) -> WeeklyValueResult {
-    ccstats_quota::estimate_codex_weekly_value(Some(codex_home), false, false)
+    ccstats::estimate_codex_weekly_value(Some(codex_home), false, false)
         .map_err(|error| error.to_string())
         .and_then(|estimate| {
             if quota_identity.matches_estimate(&estimate) {
@@ -221,8 +223,8 @@ fn estimate_from_official_window(
     if snapshot.observed_at >= resets {
         return Err("The official weekly quota window has expired.".to_string());
     }
-    ccstats_quota::estimate_codex_weekly_value_for_window(
-        &ccstats_quota::CodexWeeklyValueWindow {
+    ccstats::estimate_codex_weekly_value_for_window(
+        &ccstats::CodexWeeklyValueWindow {
             observed_at: snapshot.observed_at,
             resets_at: resets,
             window_minutes,
@@ -239,8 +241,8 @@ fn estimate_from_official_window(
 mod tests {
     use super::*;
 
-    fn estimate() -> ccstats_quota::CodexWeeklyValueEstimate {
-        ccstats_quota::CodexWeeklyValueEstimate {
+    fn estimate() -> ccstats::CodexWeeklyValueEstimate {
+        ccstats::CodexWeeklyValueEstimate {
             observed_at: chrono::DateTime::UNIX_EPOCH,
             window_started_at: chrono::DateTime::UNIX_EPOCH,
             resets_at: chrono::DateTime::UNIX_EPOCH + chrono::Duration::days(7),

@@ -5,6 +5,7 @@ import {
   BACKOFF_REFRESH_INTERVAL_MS,
   getClaudeRefreshIntervalMs,
   getClaudeTrayUsedPercent,
+  keepClaudeQuotaOnError,
 } from '../src/App';
 import type { QuotaData, UsageInfo } from '../src/types/models';
 
@@ -73,5 +74,28 @@ describe('getClaudeRefreshIntervalMs', () => {
       'Claude OAuth token expired or invalid. Please re-login to Claude Code, then click Refresh.',
     )).toBe(AUTH_REFRESH_INTERVAL_MS);
     expect(getClaudeRefreshIntervalMs('API error: 401 Unauthorized')).toBe(AUTH_REFRESH_INTERVAL_MS);
+  });
+});
+
+describe('keepClaudeQuotaOnError', () => {
+  test('keeps connected stale snapshots even when an error is present', () => {
+    expect(keepClaudeQuotaOnError({
+      connected: true,
+      error: 'Network error: connection reset',
+    })).toBe(true);
+  });
+
+  test('keeps prior quota for 429 even when disconnected', () => {
+    expect(keepClaudeQuotaOnError({
+      connected: false,
+      error: 'API error: 429 Too Many Requests',
+    })).toBe(true);
+  });
+
+  test('clears quota for disconnected non-429 errors', () => {
+    expect(keepClaudeQuotaOnError({
+      connected: false,
+      error: 'API error: 401 Unauthorized',
+    })).toBe(false);
   });
 });

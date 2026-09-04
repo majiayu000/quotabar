@@ -414,6 +414,29 @@ describe('provider status UI', () => {
     await act(async () => renderer.unmount());
   });
 
+  it('reports Cursor Models usage to the tray instead of Other Models', async () => {
+    vi.spyOn(backend, 'getCursorInfo').mockResolvedValue({
+      connected: true,
+      autoPercent: 17,
+      apiPercent: 100,
+      percentage: 100,
+    });
+    const onUsageChange = vi.fn();
+    let renderer!: ReactTestRenderer;
+    await act(async () => {
+      renderer = create(createElement(CursorPanel, {
+        autoRefreshIntervalMs: 0,
+        showCostSummary: false,
+        sections: hiddenSections,
+        onUsageChange,
+      }));
+      await Promise.resolve();
+    });
+
+    expect(onUsageChange).toHaveBeenCalledWith(17);
+    await act(async () => renderer.unmount());
+  });
+
   it('formats enabled Cursor on-demand usage as US dollars', async () => {
     vi.spyOn(backend, 'getCursorInfo').mockResolvedValue({
       connected: true,

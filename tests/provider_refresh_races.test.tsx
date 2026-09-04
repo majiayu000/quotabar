@@ -436,15 +436,11 @@ describe('Codex weekly pace', () => {
   });
 
   it.each([
-    ['invalid totals', { estimatedWeeklyValueUsd: 0 }, 'contains invalid totals'],
-    ['usage mismatch', { usedPct: 55 }, 'does not match the quota usage'],
-    ['reset mismatch', { resetsAt: '2026-09-05T00:00:00Z' }, 'does not match the quota reset'],
-    [
-      'stale observation',
-      { observedAt: new Date(Date.now() - 11 * 60 * 1000).toISOString() },
-      'is stale or has an invalid observation time',
-    ],
-  ])('rejects a weekly value estimate with %s', async (_case, override, expected_error) => {
+    ['invalid totals', { estimatedWeeklyValueUsd: 0 }],
+    ['usage mismatch', { usedPct: 55 }],
+    ['reset mismatch', { resetsAt: '2026-09-05T00:00:00Z' }],
+    ['future observation', { observedAt: new Date(Date.now() + 11 * 60 * 1000).toISOString() }],
+  ])('hides a weekly value estimate with %s', async (_case, override) => {
     const renderer = await render_codex({
       quota: {
         observedAt: new Date().toISOString(),
@@ -468,8 +464,40 @@ describe('Codex weekly pace', () => {
       },
     });
 
-    expect(rendered_text(renderer)).toContain(expected_error);
     expect(rendered_text(renderer)).not.toContain('API-equivalent week');
+    expect(rendered_text(renderer)).not.toContain('Last estimate');
+    expect(rendered_text(renderer)).not.toContain('Weekly value unavailable');
+    await unmount(renderer);
+  });
+
+  it('keeps a same-window weekly value estimate when only the observation is stale', async () => {
+    const renderer = await render_codex({
+      quota: {
+        observedAt: new Date().toISOString(),
+        resetsAt: '2026-08-29T00:00:00Z',
+        windowMinutes: 10_080,
+        usedPct: 40,
+        remainingPct: 60,
+        projectedPctAtReset: 90,
+        status: 'on_track',
+      },
+      valueEstimate: {
+        observedAt: new Date(Date.now() - 11 * 60 * 1000).toISOString(),
+        windowStartedAt: '2026-08-22T00:00:00Z',
+        resetsAt: '2026-08-29T00:00:00Z',
+        usedPct: 40,
+        observedCostUsd: 80,
+        estimatedWeeklyValueUsd: 200,
+        observedTokens: 1_600_000,
+        estimatedWeeklyTokens: 4_000_000,
+      },
+    });
+
+    expect(rendered_text(renderer)).toContain('API-equivalent week');
+    expect(rendered_text(renderer)).toContain('Last estimate');
+    expect(rendered_text(renderer)).toContain('$200.00');
+    expect(rendered_text(renderer)).not.toContain('Weekly value unavailable');
+    expect(rendered_text(renderer)).toContain('Local extras paused');
     await unmount(renderer);
   });
 
@@ -604,7 +632,8 @@ describe('Codex weekly pace', () => {
       },
     });
 
-    expect(rendered_text(renderer)).toContain('older than 30 minutes');
+    expect(rendered_text(renderer)).toContain('Local extras paused');
+    expect(rendered_text(renderer)).not.toContain('older than 30 minutes');
     expect(rendered_text(renderer)).not.toContain('projected');
     await unmount(renderer);
   });
@@ -688,7 +717,7 @@ describe('Grok period value', () => {
     await unmount(renderer);
   });
 
-  it('rejects a Grok pool estimate that does not match official usage', async () => {
+  it('still shows a Grok pool estimate when usedPct differs from official usage', async () => {
     const renderer = await render_grok({
       connected: true,
       percentage: 4,
@@ -707,12 +736,13 @@ describe('Grok period value', () => {
       },
     });
 
-    expect(rendered_text(renderer)).toContain('does not match the official usage');
-    expect(rendered_text(renderer)).not.toContain('API-equivalent week');
+    expect(rendered_text(renderer)).toContain('API-equivalent period');
+    expect(rendered_text(renderer)).toContain('$8.00');
+    expect(rendered_text(renderer)).not.toContain('does not match the official usage');
     await unmount(renderer);
   });
 
-  it('rejects a Grok pool estimate from a different official period', async () => {
+  it('still shows a Grok pool estimate when copied period fields differ', async () => {
     const renderer = await render_grok({
       connected: true,
       percentage: 4,
@@ -731,8 +761,9 @@ describe('Grok period value', () => {
       },
     });
 
-    expect(rendered_text(renderer)).toContain('does not match the official period start');
-    expect(rendered_text(renderer)).not.toContain('API-equivalent period');
+    expect(rendered_text(renderer)).toContain('API-equivalent period');
+    expect(rendered_text(renderer)).toContain('$200.00');
+    expect(rendered_text(renderer)).not.toContain('does not match the official period start');
     await unmount(renderer);
   });
 });

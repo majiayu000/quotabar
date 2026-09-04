@@ -4,7 +4,22 @@ All notable QuotaBar changes should be summarized here before a release is cut.
 
 ## Unreleased
 
+- Drive the Cursor tray from the Cursor Models pool instead of the highest dashboard bar.
+- Stop caching disconnected Cursor payloads so a transient empty body cannot pin "not connected" for 120s.
 - Keep Grok pool value available when valid `turn_completed` records omit the optional usage object.
+- Keep last-good Cursor usage across 5xx and 429 responses instead of flashing disconnected.
+- Toggle the macOS popover from a tray click instead of hiding-on-blur then immediately showing again.
+- Collapse cycling macOS tray icons by status-item length instead of removing and recreating NSStatusItems.
+- Return Claude last-good quota with an error and a 15-minute age cap instead of presenting hours-old data as a fresh success.
+- Keep tray-enabled providers on a 60s poll while the popover is hidden, and stop writing a wall-clock "Updated" stamp onto unchanged tray data.
+- Move Claude keychain reads and tray main-thread waits off Tokio worker threads, and rotate the Claude log at 2MB.
+- Persist settings and events outside React state updaters, and only clear a toast when it is still the active message.
+- Saturate Codex `limit_window_seconds` when converting to minutes so huge API values cannot overflow.
+- Pin Codex weekly quota and local cost summaries to one ccstats revision so pricing and dedup stay aligned.
+- Detect transient OS errors by errno and error-chain source instead of `os error 24` substrings.
+- Scope Codex last-good account info to the current `auth.json` stamp so a transient read cannot show the previous account.
+- Scale local Grok CLI cost by the Build product share instead of the full-pool used percent, and stop treating missing product percents as zero in the official total.
+- Stop Grok panel validation from comparing estimate fields that the backend copies from the same official payload.
 
 ## 0.4.1 - 2026-09-01
 

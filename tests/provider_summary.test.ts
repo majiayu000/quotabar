@@ -4,6 +4,7 @@ import {
   buildClaudeQuotaWindows,
   buildCursorQuotaWindows,
   buildGrokQuotaWindows,
+  getCursorTrayUsedPercent,
   sortMostConstrained,
   sortUpcomingResets,
 } from '../src/services/provider_summary';
@@ -68,6 +69,23 @@ describe('provider summary helpers', () => {
       ['Cursor Models', 3],
       ['Other Models', 91],
     ]);
+  });
+
+  test('drives the Cursor tray from Cursor Models, not Other Models', () => {
+    expect(getCursorTrayUsedPercent({
+      connected: true,
+      percentage: 100,
+      autoPercent: 17,
+      apiPercent: 100,
+    })).toBe(17);
+  });
+
+  test('falls back to overall Cursor percentage when Cursor Models is missing', () => {
+    expect(getCursorTrayUsedPercent({
+      connected: true,
+      percentage: 46.2,
+    })).toBe(46.2);
+    expect(getCursorTrayUsedPercent(null)).toBeNull();
   });
 
   test('uses a neutral label for summary fallback usage', () => {

@@ -199,8 +199,8 @@ pub struct CodexWeeklyQuotaData {
 
 impl CodexWeeklyQuotaData {
     pub fn available(
-        quota: ccstats_quota::CodexWeeklyQuota,
-        value_estimate: Result<ccstats_quota::CodexWeeklyValueEstimate, String>,
+        quota: ccstats::CodexWeeklyQuota,
+        value_estimate: Result<ccstats::CodexWeeklyValueEstimate, String>,
     ) -> Self {
         let (value_estimate, value_estimate_error) = match value_estimate {
             Ok(estimate) => (Some(CodexWeeklyValueEstimate::from(estimate)), None),
@@ -224,8 +224,8 @@ impl CodexWeeklyQuotaData {
     }
 }
 
-impl From<ccstats_quota::CodexWeeklyValueEstimate> for CodexWeeklyValueEstimate {
-    fn from(estimate: ccstats_quota::CodexWeeklyValueEstimate) -> Self {
+impl From<ccstats::CodexWeeklyValueEstimate> for CodexWeeklyValueEstimate {
+    fn from(estimate: ccstats::CodexWeeklyValueEstimate) -> Self {
         Self {
             observed_at: estimate.observed_at.to_rfc3339(),
             window_started_at: estimate.window_started_at.to_rfc3339(),
@@ -239,8 +239,8 @@ impl From<ccstats_quota::CodexWeeklyValueEstimate> for CodexWeeklyValueEstimate 
     }
 }
 
-impl From<ccstats_quota::CodexWeeklyQuota> for CodexWeeklyQuota {
-    fn from(quota: ccstats_quota::CodexWeeklyQuota) -> Self {
+impl From<ccstats::CodexWeeklyQuota> for CodexWeeklyQuota {
+    fn from(quota: ccstats::CodexWeeklyQuota) -> Self {
         Self {
             observed_at: quota.observed_at.to_rfc3339(),
             resets_at: quota.resets_at.to_rfc3339(),
