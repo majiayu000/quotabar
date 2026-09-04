@@ -70,6 +70,7 @@ import {
   defaultServiceMap,
   getClaudeRefreshIntervalMs,
   getClaudeTrayUsedPercent,
+  keepClaudeQuotaOnError,
   getInitialTrayEnabledState,
   getSavedDockHidden,
   getSavedSettingsExpanded,
@@ -104,6 +105,7 @@ export {
   BACKGROUND_REFRESH_INTERVAL_MS,
   getClaudeRefreshIntervalMs,
   getClaudeTrayUsedPercent,
+  keepClaudeQuotaOnError,
 } from './services/app_state';
 
 type ToastValue = string | null;
@@ -287,7 +289,11 @@ export default function App() {
 
       if (data.error) {
         setClaudeError(data.error);
-        if (!data.error.includes('429')) {
+        if (keepClaudeQuotaOnError(data)) {
+          if (data.connected) {
+            setQuota(data);
+          }
+        } else {
           setQuota(null);
         }
         claudeIntervalRef.current = getClaudeRefreshIntervalMs(data.error);

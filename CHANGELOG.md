@@ -9,6 +9,7 @@ All notable QuotaBar changes should be summarized here before a release is cut.
 - Keep last-good Cursor usage across 5xx and 429 responses instead of flashing disconnected.
 - Toggle the macOS popover from a tray click instead of hiding-on-blur then immediately showing again.
 - Collapse cycling macOS tray icons by status-item length instead of removing and recreating NSStatusItems.
+- Return Claude last-good quota with an error and a 15-minute age cap instead of presenting hours-old data as a fresh success.
 
 ## 0.4.1 - 2026-09-01
 
