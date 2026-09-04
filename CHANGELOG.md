@@ -4,6 +4,7 @@ All notable QuotaBar changes should be summarized here before a release is cut.
 
 ## Unreleased
 
+- Collapse cycling macOS tray icons by status-item length instead of removing and recreating NSStatusItems.
 - Keep Grok pool value available when valid `turn_completed` records omit the optional usage object.
 
 ## 0.4.1 - 2026-09-01
