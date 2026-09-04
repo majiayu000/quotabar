@@ -4,6 +4,7 @@ All notable QuotaBar changes should be summarized here before a release is cut.
 
 ## Unreleased
 
+- Scope Codex last-good account info to the current `auth.json` stamp so a transient read cannot show the previous account.
 - Keep Grok pool value available when valid `turn_completed` records omit the optional usage object.
 
 ## 0.4.1 - 2026-09-01
