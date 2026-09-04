@@ -539,6 +539,16 @@
   background: #ff3b30;
 }
 
+.settings-group .event-text-link {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
 .settings-group .event-text {
   flex: 1;
   min-width: 0;
