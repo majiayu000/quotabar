@@ -180,3 +180,10 @@ export function getClaudeRefreshIntervalMs(error?: string | null): number {
 
   return AUTO_REFRESH_INTERVAL_MS;
 }
+
+export function providerRefreshIntervalMs(windowVisible: boolean, trayEnabled: boolean): number {
+  if (windowVisible || trayEnabled) {
+    return AUTO_REFRESH_INTERVAL_MS;
+  }
+  return BACKGROUND_REFRESH_INTERVAL_MS;
+}
