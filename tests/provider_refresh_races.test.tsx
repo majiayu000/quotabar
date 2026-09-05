@@ -382,15 +382,16 @@ describe('Codex weekly pace', () => {
     expect(rendered_text(renderer)).not.toContain('Likely to exhaust');
     expect(rendered_text(renderer)).not.toContain('% at reset');
     expect(rendered_text(renderer)).toContain('API-equivalent week');
-    expect(rendered_text(renderer)).toContain('Rough full week ≈$200');
+    expect(rendered_text(renderer)).toContain('$200.00');
     expect(rendered_text(renderer)).toContain('4M');
     expect(rendered_text(renderer)).toContain('tokens at current mix');
     expect(rendered_text(renderer)).toContain('Local estimate');
     expect(rendered_text(renderer)).toContain('Based on 40% used');
-    expect(renderer.root.findByProps({ className: 'weekly-value-amount' }).children.join('')).toBe('≈$80.00');
+    expect(renderer.root.findByProps({ className: 'weekly-value-amount' }).children.join('')).toBe('≈$200.00');
     expect(rendered_text(renderer)).toContain('Standard API prices · Not a bill');
-    expect(renderer.root.findByProps({ className: 'weekly-value-token-row' }).findByType('strong').children.join('')).toBe('1.6M');
-    expect(rendered_text(renderer)).toContain('observed tokens');
+    expect(renderer.root.findByProps({ className: 'weekly-value-token-row' }).findByType('strong').children.join('')).toBe('≈4M');
+    expect(rendered_text(renderer)).toContain('1.6M observed tokens');
+    expect(rendered_text(renderer)).toContain('$80.00 local');
     expect(rendered_text(renderer)).toContain('Not an official allowance');
     expect(renderer.root.findByProps({
       'aria-label': 'Estimate based on 40% used',
@@ -432,12 +433,12 @@ describe('Codex weekly pace', () => {
     });
 
     expect(rendered_text(renderer)).toContain('API-equivalent week');
-    expect(rendered_text(renderer)).toContain('Rough full week ≈$200');
+    expect(rendered_text(renderer)).toContain('$200.00');
     expect(rendered_text(renderer)).not.toContain('Local pace:');
     await unmount(renderer);
   });
 
-  it('rounds the full-week extrapolation while keeping observed cost prominent at low usage', async () => {
+  it('keeps the full-week estimate prominent at low usage', async () => {
     const renderer = await render_codex({
       valueEstimate: {
         observedAt: new Date().toISOString(),
@@ -450,9 +451,10 @@ describe('Codex weekly pace', () => {
         estimatedWeeklyTokens: 20_000_000,
       },
     }, null, { usedPercent: 5, windowMinutes: 10_080, resetsAt: 1_787_961_600 });
-    expect(renderer.root.findByProps({ className: 'weekly-value-amount' }).children.join('')).toBe('≈$123.46');
-    expect(rendered_text(renderer)).toContain('Rough full week ≈$2,500');
-    expect(rendered_text(renderer)).not.toContain('$2,469.12');
+    expect(renderer.root.findByProps({ className: 'weekly-value-amount' }).children.join('')).toBe('≈$2,469.12');
+    expect(renderer.root.findByProps({ className: 'weekly-value-token-row' }).findByType('strong').children.join('')).toBe('≈20M');
+    expect(rendered_text(renderer)).toContain('$123.46 local');
+    expect(rendered_text(renderer)).toContain('1M observed tokens');
     await unmount(renderer);
   });
 
@@ -518,7 +520,7 @@ describe('Codex weekly pace', () => {
 
     expect(rendered_text(renderer)).toContain('API-equivalent week');
     expect(rendered_text(renderer)).toContain('Last estimate');
-    expect(rendered_text(renderer)).toContain('Rough full week ≈$200');
+    expect(rendered_text(renderer)).toContain('$200.00');
     expect(rendered_text(renderer)).not.toContain('Weekly value unavailable');
     expect(rendered_text(renderer)).toContain('Local extras paused');
     await unmount(renderer);
