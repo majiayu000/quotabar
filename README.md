@@ -96,6 +96,32 @@ This `v0.4.0` screenshot was refreshed on 2026-08-31 from the production React U
 
 ## Development
 
+The working integration branch opens a full desktop workspace on launch, with
+Overview, Quota, Usage, History, Sources, and Settings in the sidebar. The
+1280 × 850 window is resizable, stays visible when focus changes, and reopens
+from the macOS Dock. Closing it leaves quota monitoring running; Quit exits.
+Tray icons are optional shortcuts to the same workspace.
+
+Overview, projects/sessions, daily history, and source diagnostics read real
+ccstats data. Quota and Settings use the existing provider/account and system
+integration inside this window, with one owner for polling and notifications.
+Session names reuse source metadata or project/time/ID labels; manual names
+are stored locally, isolated by source and session ID. They are not written
+to transcripts or uploaded. Clearing the app's website data removes them.
+The overview shows weighted cache hit rate, major projects, and current quota.
+
+During this integration, Cargo uses `../../ccstats` from `src-tauri`, so clone
+ccstats beside this repository and retain its session-title implementation.
+The repositories remain separate. Before distribution, publish the required
+SDK changes and replace this local dependency with an immutable Git revision;
+the current working tree is **not yet a standalone release checkout**.
+
+Remaining integration work: native CSV/JSON saving, rolling/custom dates,
+tools/live views and devices, native window behavior on each release platform,
+and final equivalence checks before retiring the separate ccstats desktop app.
+The current analysis window does not provide project attribution for sources
+whose SDK descriptor has `has_projects: false` (including Codex).
+
 ```bash
 npm ci
 npm run tauri dev

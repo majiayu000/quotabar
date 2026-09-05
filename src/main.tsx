@@ -1,6 +1,8 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-import App from "./App";
+import App from './App';
+const workspace = new URLSearchParams(window.location.search).get('window') !== 'tray';
+if (workspace) document.documentElement.classList.add('analysis-document');
 
 type FatalErrorSource = 'window' | 'promise' | 'react';
 
@@ -47,6 +49,6 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement, {
   onUncaughtError: () => report_fatal_error('react'),
 }).render(
   <React.StrictMode>
-    <App />
+    <App workspace={workspace} />
   </React.StrictMode>,
 );

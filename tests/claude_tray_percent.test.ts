@@ -1,8 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import {
-  AUTH_REFRESH_INTERVAL_MS,
   AUTO_REFRESH_INTERVAL_MS,
-  BACKOFF_REFRESH_INTERVAL_MS,
   getClaudeRefreshIntervalMs,
   getClaudeTrayUsedPercent,
   keepClaudeQuotaOnError,
@@ -63,18 +61,12 @@ describe('getClaudeRefreshIntervalMs', () => {
     expect(getClaudeRefreshIntervalMs(null)).toBe(AUTO_REFRESH_INTERVAL_MS);
   });
 
-  test('backs off briefly for rate limits', () => {
-    expect(getClaudeRefreshIntervalMs('API error: 429 Too Many Requests')).toBe(
-      BACKOFF_REFRESH_INTERVAL_MS,
-    );
+  test('stops automatic polling after auth, throttling, or network failure', () => {
+    expect(getClaudeRefreshIntervalMs('Claude OAuth token expired or invalid. Please re-login.')).toBeNull();
+    expect(getClaudeRefreshIntervalMs('API error: 429 Too Many Requests')).toBeNull();
+    expect(getClaudeRefreshIntervalMs('Network error')).toBeNull();
   });
 
-  test('backs off to hourly polling for Claude auth failures', () => {
-    expect(getClaudeRefreshIntervalMs(
-      'Claude OAuth token expired or invalid. Please re-login to Claude Code, then click Refresh.',
-    )).toBe(AUTH_REFRESH_INTERVAL_MS);
-    expect(getClaudeRefreshIntervalMs('API error: 401 Unauthorized')).toBe(AUTH_REFRESH_INTERVAL_MS);
-  });
 });
 
 describe('keepClaudeQuotaOnError', () => {

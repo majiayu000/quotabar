@@ -483,7 +483,6 @@ dependencies = [
 [[package]]
 name = "ccstats"
 version = "0.5.2"
-source = "git+https://github.com/majiayu000/ccstats.git?rev=0dfddefec11ecea5dfad5efd2e5725022fb52035#0dfddefec11ecea5dfad5efd2e5725022fb52035"
 dependencies = [
  "base64 0.23.1",
  "chrono",

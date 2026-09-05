@@ -134,6 +134,7 @@ function create_document(
     return node;
   });
   const stub = {
+    documentElement: { classList: { add: vi.fn() } },
     body: { appendChild: append_child },
     createElement: create_element,
     getElementById: get_element_by_id,
@@ -151,6 +152,7 @@ function create_document(
 async function start_entry(options: {
   existing?: boolean;
   failure?: FailureOperation;
+  search?: string;
 } = {}): Promise<EntryDriver> {
   vi.resetModules();
   entry.app.mockClear();
@@ -165,7 +167,7 @@ async function start_entry(options: {
     listeners.set(type, registered);
   });
   vi.stubGlobal('document', document_driver.stub);
-  vi.stubGlobal('window', { addEventListener: add_event_listener });
+  vi.stubGlobal('window', { addEventListener: add_event_listener, location: { search: options.search ?? '' } });
   entry.create_root.mockReturnValue({ render: entry.render });
   const error_spy = vi.spyOn(console, 'error').mockImplementation((message) => {
     order.push(message === SURFACE_FAILURE_MESSAGE ? 'secondary' : 'primary');
@@ -219,6 +221,13 @@ afterEach(() => {
 });
 
 describe('fatal entry wiring', () => {
+  it('opens the original popover for the Tray route without workspace styling', async () => {
+    await start_entry({ search: '?window=tray' });
+    const rendered = entry.render.mock.calls[0][0] as ReactElement<{ children: ReactElement<{ workspace: boolean }> }>;
+    expect(rendered.props.children.props.workspace).toBe(false);
+    expect(document.documentElement.classList.add).not.toHaveBeenCalled();
+  });
+
   it('registers both global listeners and renders the existing React root once', async () => {
     const driver = await start_entry();
     expect(driver.add_event_listener.mock.calls.map(([type]) => type)).toEqual([
@@ -234,6 +243,7 @@ describe('fatal entry wiring', () => {
     const rendered = entry.render.mock.calls[0][0] as ReactElement;
     expect(rendered.type).toBe(StrictMode);
     expect((rendered.props as { children: ReactElement }).children.type).toBe(entry.app);
+    expect((rendered.props as { children: ReactElement<{ workspace: boolean }> }).children.props.workspace).toBe(true);
   });
 });
 

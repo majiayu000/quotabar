@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "QuotaBar",
+        "title": "QuotaBar · Tray",
         "width": 340,
         "minWidth": 280,
         "height": 200,
@@ -23,7 +23,26 @@
         "alwaysOnTop": true,
         "backgroundThrottling": "disabled",
         "visible": false,
-        "skipTaskbar": true
+        "skipTaskbar": true,
+        "label": "main",
+        "url": "index.html?window=tray"
+      },
+      {
+        "title": "QuotaBar",
+        "width": 1280,
+        "minWidth": 760,
+        "height": 850,
+        "minHeight": 560,
+        "center": true,
+        "resizable": true,
+        "decorations": true,
+        "transparent": false,
+        "alwaysOnTop": false,
+        "backgroundThrottling": "disabled",
+        "visible": true,
+        "skipTaskbar": false,
+        "label": "analysis",
+        "url": "index.html"
       }
     ],
     "security": {
@@ -42,7 +61,12 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["dmg", "msi", "nsis", "appimage"],
+    "targets": [
+      "dmg",
+      "msi",
+      "nsis",
+      "appimage"
+    ],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

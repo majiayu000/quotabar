@@ -12,7 +12,7 @@ const owner_configs = [
     loading_setter: 'setClaudeLoading',
     await_kind: 'direct',
     target_scope: 'component',
-    backend_arguments: { getQuota: [] },
+    backend_arguments: { getQuota: ['manual'] },
   },
   {
     path: 'src/components/CodexPanel.tsx',

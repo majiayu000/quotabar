@@ -14,6 +14,7 @@ export interface QuotaData {
   weeklyDesign?: UsageInfo;
   weeklyFable5?: UsageInfo;
   error?: string;
+  retryAt?: number | null;
 }
 
 export interface CodexData {

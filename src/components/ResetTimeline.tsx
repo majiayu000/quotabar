@@ -1,3 +1,4 @@
+import { workspaceCopy } from '../utils/quota_format';
 import type { QuotaWindowSummary } from '../services/provider_summary';
 import { sortUpcomingResets } from '../services/provider_summary';
 import { SERVICE_META } from '../services/service_meta';
@@ -13,7 +14,7 @@ export default function ResetTimeline({ windows }: ResetTimelineProps) {
 
   return (
     <div className="section">
-      <div className="section-title">Upcoming resets</div>
+      <div className="section-title">{workspaceCopy("Upcoming resets", "接下来重置")}</div>
       <div className="timeline-card">
         {upcoming.map((window) => {
           const hours = window.resetAtMs == null ? 0 : Math.max(0, (window.resetAtMs - now) / 3_600_000);
@@ -37,7 +38,7 @@ export default function ResetTimeline({ windows }: ResetTimelineProps) {
           );
         })}
         <div className="timeline-scale">
-          <span>Now</span>
+          <span>{workspaceCopy("Now", "现在")}</span>
           <span>+7d</span>
         </div>
       </div>

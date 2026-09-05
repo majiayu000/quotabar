@@ -28,17 +28,33 @@ const ALL_ON: NotificationSettings = {
 function Host({
   used,
   settings = ALL_ON,
+  enabled = true,
   logEvent,
 }: {
   used: ServiceMap<number | null>;
   settings?: NotificationSettings;
+  enabled?: boolean;
   logEvent: (level: 'info' | 'warning' | 'critical', text: string) => void;
 }) {
-  useServiceEvents(null, defaultServiceMap(true), used, settings, logEvent);
+  useServiceEvents(null, defaultServiceMap(true), used, settings, logEvent, enabled);
   return null;
 }
 
 describe('useServiceEvents 100% crossings', () => {
+  it('does not duplicate background events or notifications in the workspace', async () => {
+    const logEvent = vi.fn();
+    let renderer!: ReactTestRenderer;
+    await act(async () => {
+      renderer = create(createElement(Host, { used: defaultServiceMap<number | null>(70), logEvent, enabled: false }));
+    });
+    await act(async () => {
+      renderer.update(createElement(Host, { used: defaultServiceMap<number | null>(100), logEvent, enabled: false }));
+    });
+    expect(logEvent).not.toHaveBeenCalled();
+    expect(notifications.notify).not.toHaveBeenCalled();
+    await act(async () => renderer.unmount());
+  });
+
   afterEach(() => {
     vi.mocked(notifications.notify).mockClear();
   });

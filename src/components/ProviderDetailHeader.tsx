@@ -1,3 +1,4 @@
+import { workspaceCopy } from '../utils/quota_format';
 import { SERVICE_META } from '../services/service_meta';
 import type { TrayServiceName } from '../services/tray_visibility';
 
@@ -30,7 +31,7 @@ export default function ProviderDetailHeader({
 }: ProviderDetailHeaderProps) {
   const meta = SERVICE_META[service];
   const usage = typeof usedPercent === 'number' && Number.isFinite(usedPercent)
-    ? `${usageLabel ? `${usageLabel} · ` : ''}${Math.round(usedPercent)}% used`
+    ? `${usageLabel ? `${usageLabel} · ` : ''}${Math.round(usedPercent)}% ${workspaceCopy('used', '已使用')}`
     : null;
 
   return (
@@ -38,7 +39,7 @@ export default function ProviderDetailHeader({
       <div className="provider-detail-identity">
         <span className="provider-detail-name">{label ?? meta.label}</span>
         <span className={`provider-detail-dot ${tone}`} aria-hidden="true" />
-        <span className="provider-detail-state">{status}</span>
+        <span className="provider-detail-state">{status === 'Connected' ? workspaceCopy(status, '已连接') : status === 'Offline' ? workspaceCopy(status, '未连接') : status}</span>
       </div>
       <span className="provider-detail-spacer" />
       {(plan || usage) && (

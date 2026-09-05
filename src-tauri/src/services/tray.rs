@@ -223,12 +223,16 @@ struct TrayServiceActivatedPayload {
 }
 
 fn emit_tray_service_activated(app: &AppHandle, service: TrayService) {
-    let _ = app.emit(
-        TRAY_SERVICE_ACTIVATED_EVENT,
-        TrayServiceActivatedPayload {
-            service: service.tab_name(),
-        },
-    );
+    if let Some(window) = app.get_webview_window("main") {
+        if let Err(error) = window.emit(
+            TRAY_SERVICE_ACTIVATED_EVENT,
+            TrayServiceActivatedPayload {
+                service: service.tab_name(),
+            },
+        ) {
+            eprintln!("Failed to activate tray provider: {error}");
+        }
+    }
 }
 
 fn find_monitor_at_point(app: &AppHandle, x: i32, y: i32) -> Option<tauri::Monitor> {
@@ -237,6 +241,31 @@ fn find_monitor_at_point(app: &AppHandle, x: i32, y: i32) -> Option<tauri::Monit
         let size = monitor.size();
         x >= pos.x && x < pos.x + size.width as i32 && y >= pos.y && y < pos.y + size.height as i32
     })
+}
+
+pub fn position_panel_at_visible_tray(app: &AppHandle) -> Result<(), String> {
+    let state = app.state::<TrayState>();
+    let runtime = state.runtime.lock().map_err(|error| error.to_string())?;
+    let service = [
+        TrayService::Claude,
+        TrayService::Codex,
+        TrayService::Cursor,
+        TrayService::Grok,
+        TrayService::Antigravity,
+    ]
+    .into_iter()
+    .find(|service| {
+        runtime
+            .snapshot(*service)
+            .is_some_and(|snapshot| snapshot.visible)
+    })
+    .ok_or("No menu bar icon is available yet")?;
+    drop(runtime);
+    let tray = app
+        .tray_by_id(service.tray_id())
+        .ok_or("Menu bar icon is unavailable")?;
+    position_window_near_tray(app, &tray);
+    Ok(())
 }
 
 fn position_window_near_tray(app: &AppHandle, tray: &tauri::tray::TrayIcon) {
@@ -364,9 +393,10 @@ fn build_service_tray(app: &AppHandle, service: TrayService) -> tauri::Result<()
 
     let show_item =
         MenuItemBuilder::with_id(service.show_menu_id(), "Show / Hide Window").build(app)?;
+    let workspace_item = MenuItemBuilder::with_id("open-workspace", "Open QuotaBar").build(app)?;
     let quit_item = MenuItemBuilder::with_id(service.quit_menu_id(), "Quit").build(app)?;
     let menu = MenuBuilder::new(app)
-        .items(&[&show_item, &quit_item])
+        .items(&[&show_item, &workspace_item, &quit_item])
         .build()?;
     let icon = Image::from_bytes(&tray_icon::generate_tray_icon(
         service.icon_identity(),
@@ -389,6 +419,11 @@ fn build_service_tray(app: &AppHandle, service: TrayService) -> tauri::Result<()
             id if id == menu_service.show_menu_id() => {
                 emit_tray_service_activated(app, menu_service);
                 toggle_main_window(app);
+            }
+            "open-workspace" => {
+                if let Err(error) = super::window::show_workspace(app) {
+                    eprintln!("Failed to open workspace: {error}");
+                }
             }
             id if id == menu_service.quit_menu_id() => app.exit(0),
             _ => {}
@@ -458,7 +493,15 @@ pub fn setup_tray(app: &AppHandle) -> tauri::Result<()> {
                 if IGNORE_NEXT_UNFOCUS.swap(false, Ordering::SeqCst) {
                     return;
                 }
-                let _ = window_clone.hide();
+                if let Err(error) = window_clone.hide() {
+                    eprintln!("Failed to hide tray panel: {error}");
+                }
+            }
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                api.prevent_close();
+                if let Err(error) = window_clone.hide() {
+                    eprintln!("Failed to close tray panel: {error}");
+                }
             }
         });
     }

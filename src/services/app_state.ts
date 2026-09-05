@@ -150,7 +150,7 @@ export function getClaudeTrayUsedPercent(quota: QuotaData | null): number | null
   return null;
 }
 
-function isClaudeAuthError(error: string): boolean {
+export function isClaudeAuthError(error: string): boolean {
   const normalized = error.toLowerCase();
   return (
     normalized.includes('oauth token') ||
@@ -165,20 +165,8 @@ function isClaudeAuthError(error: string): boolean {
   );
 }
 
-export function getClaudeRefreshIntervalMs(error?: string | null): number {
-  if (!error) {
-    return AUTO_REFRESH_INTERVAL_MS;
-  }
-
-  if (error.includes('429')) {
-    return BACKOFF_REFRESH_INTERVAL_MS;
-  }
-
-  if (isClaudeAuthError(error)) {
-    return AUTH_REFRESH_INTERVAL_MS;
-  }
-
-  return AUTO_REFRESH_INTERVAL_MS;
+export function getClaudeRefreshIntervalMs(error?: string | null): number | null {
+  return error ? null : AUTO_REFRESH_INTERVAL_MS;
 }
 
 export function keepClaudeQuotaOnError(data: QuotaData): boolean {

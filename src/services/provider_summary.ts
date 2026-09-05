@@ -7,7 +7,14 @@ import { formatResetTime, getProgressStyle } from '../utils/quota_format';
 export type AppTabName = TrayServiceName | 'all';
 export type AppViewName = AppTabName | 'settings';
 
+export interface ProviderReadState {
+  retryAt?: number | null;
+  error: string | null;
+  readAt: number | null;
+}
+
 export interface ProviderSummary {
+  readState?: ProviderReadState;
   id: TrayServiceName;
   label: string;
   shortLabel: string;
@@ -47,6 +54,7 @@ export function buildProviderSummaries(
   connected: Record<TrayServiceName, boolean>,
   loading: Record<TrayServiceName, boolean>,
   usedPercent: Record<TrayServiceName, number | null>,
+  reads?: Record<TrayServiceName, ProviderReadState>,
 ): ProviderSummary[] {
   return SERVICES.map((id) => {
     const meta = SERVICE_META[id];
@@ -63,6 +71,7 @@ export function buildProviderSummaries(
       loading: isLoading,
       usedPercent: pct,
       statusText: getProviderStatusText(isLoading, isConnected, pct),
+      readState: reads?.[id],
     };
   });
 }

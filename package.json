@@ -9,7 +9,10 @@
     "preview": "vite preview",
     "release:check": "node scripts/check_release_version.mjs",
     "test": "vitest run",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "sdk:prepare": "node scripts/prepare_sdk.mjs",
+    "sdk:update": "node scripts/prepare_sdk.mjs --update",
+    "pretauri": "npm run sdk:prepare"
   },
   "dependencies": {
     "@tauri-apps/api": "2.10.1",

@@ -13,12 +13,13 @@ const FOCUS_SUBSCRIPTION_ERROR_MESSAGE = 'Failed to subscribe to popover focus c
 export function usePopoverWindow(
   containerRef: RefObject<HTMLDivElement | null>,
   resizeDeps: readonly unknown[],
+  autoResize = true,
 ): boolean {
   const [windowVisible, setWindowVisible] = useState(false);
 
   // Auto-resize window to content.
   useEffect(() => {
-    if (!windowVisible) {
+    if (!windowVisible || !autoResize) {
       return;
     }
 
@@ -50,7 +51,7 @@ export function usePopoverWindow(
       observer.disconnect();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [windowVisible, containerRef, ...resizeDeps]);
+  }, [windowVisible, autoResize, containerRef, ...resizeDeps]);
 
   useEffect(() => {
     if (typeof window === 'undefined' || !('__TAURI_INTERNALS__' in window)) {

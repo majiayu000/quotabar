@@ -94,6 +94,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Prepare pinned statistics SDK
+        run: npm run sdk:prepare
+
       - name: Check release manifest versions
         run: npm run release:check
 

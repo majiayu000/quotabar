@@ -1,4 +1,17 @@
 import type { TrayServiceName } from '../services/tray_visibility';
+import { SERVICE_META, SERVICES } from '../services/service_meta';
+
+export function buildTrayEntries(enabled: Record<TrayServiceName, boolean>, connected: Record<TrayServiceName, boolean>): TrayToggleEntry[] {
+  return SERVICES.map((service) => ({
+    service,
+    label: SERVICE_META[service].trayLabel,
+    enabled: enabled[service],
+    canDisable: SERVICES.some((other) => other !== service && enabled[other]),
+    connected: connected[service],
+    connectedHint: SERVICE_META[service].connectedHint,
+    disconnectedHint: SERVICE_META[service].disconnectedHint,
+  }));
+}
 
 export interface TrayToggleEntry {
   service: TrayServiceName;
