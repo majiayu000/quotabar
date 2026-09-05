@@ -37,29 +37,23 @@ pub async fn get_codex_weekly_quota() -> Result<CodexWeeklyQuotaData, String> {
             "Could not find the Codex home directory",
         ));
     };
-    let official_observed_at = chrono::Utc::now();
     let fetched_official = codex::fetch_codex_rate_limits().await;
     let official = if fetched_official.error.is_none() {
-        codex_weekly::OfficialWeeklySnapshot::from_limits(&fetched_official, official_observed_at)
+        codex_weekly::OfficialWeeklySnapshot::from_limits(&fetched_official, chrono::Utc::now())
     } else {
         None
     };
-    let data =
-        tauri::async_runtime::spawn_blocking(move || {
-            match ccstats::load_codex_weekly_quota(Some(&codex_home)) {
-                Ok(quota) => {
-                    let value_estimate = codex_weekly::estimate_codex_weekly_value(
-                        &codex_home,
-                        &quota,
-                        official.as_ref(),
-                    );
-                    CodexWeeklyQuotaData::available(quota, value_estimate)
-                }
-                Err(error) => CodexWeeklyQuotaData::unavailable(error.to_string()),
-            }
-        })
-        .await
-        .map_err(|err| format!("Codex weekly quota task failed: {err}"))?;
+    let data = tauri::async_runtime::spawn_blocking(move || {
+        let quota =
+            ccstats::load_codex_weekly_quota(Some(&codex_home)).map_err(|error| error.to_string());
+        let value_estimate = match fetched_official.error {
+            Some(error) => Err(error),
+            None => codex_weekly::estimate_codex_weekly_value(&codex_home, official.as_ref()),
+        };
+        CodexWeeklyQuotaData::from_results(quota, value_estimate)
+    })
+    .await
+    .map_err(|err| format!("Codex weekly quota task failed: {err}"))?;
     Ok(data)
 }
 

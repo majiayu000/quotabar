@@ -32,7 +32,7 @@ export function checkWeeklyValueEstimate(
   ) {
     return { ok: false, kind: 'hard', message: 'The local weekly value estimate contains invalid totals.' };
   }
-  if (Math.abs(estimate.usedPct - official.usedPercent) > 5) {
+  if (estimate.usedPct !== official.usedPercent) {
     return { ok: false, kind: 'hard', message: 'The local weekly value estimate does not match the quota usage.' };
   }
   const estimateObservedAt = Date.parse(estimate.observedAt);
@@ -56,7 +56,7 @@ export function checkWeeklyValueEstimate(
   if (
     !Number.isFinite(estimateReset)
     || officialReset <= 0
-    || Math.abs(estimateReset - officialReset) > 5 * 60 * 1000
+    || estimateReset !== officialReset
   ) {
     return { ok: false, kind: 'hard', message: 'The local weekly value estimate does not match the quota reset.' };
   }

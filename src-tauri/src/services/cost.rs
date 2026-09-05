@@ -544,6 +544,8 @@ mod tests {
             estimated_cost: None,
             estimated_cost_usd: None,
             cost_kind: "none".to_string(),
+            pricing_source: "unknown".to_string(),
+            grok_api_equivalent_cost: None,
             api_equivalent_cost_coverage: None,
             tokens: TokenBreakdown::default(),
             models: Vec::new(),

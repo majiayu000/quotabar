@@ -116,6 +116,17 @@ const COMPACT_TOKEN_FORMAT = new Intl.NumberFormat('en-US', {
   maximumFractionDigits: 1,
 });
 
+const ROUGH_USD_FORMAT = new Intl.NumberFormat('en-US', {
+  style: 'currency',
+  currency: 'USD',
+  maximumSignificantDigits: 2,
+});
+
+const ROUGH_TOKEN_FORMAT = new Intl.NumberFormat('en-US', {
+  notation: 'compact',
+  maximumSignificantDigits: 2,
+});
+
 
 function selectOfficialWeeklyWindow(
   limits: CodexRateLimits | null,
@@ -624,13 +635,13 @@ export default function CodexPanel({
                       <div className="weekly-value-body">
                         <div className="weekly-value-metrics">
                           <span className="weekly-value-amount">
-                          ≈{USD_FORMAT.format(displayedWeeklyValueEstimate.estimatedWeeklyValueUsd)}
+                            ≈{USD_FORMAT.format(displayedWeeklyValueEstimate.observedCostUsd)}
                           </span>
                           <span className="weekly-value-token-row">
                             <strong>
-                              ≈{COMPACT_TOKEN_FORMAT.format(displayedWeeklyValueEstimate.estimatedWeeklyTokens)}
+                              {COMPACT_TOKEN_FORMAT.format(displayedWeeklyValueEstimate.observedTokens)}
                             </strong>
-                            <span>tokens at current mix</span>
+                            <span>observed tokens</span>
                           </span>
                         </div>
                         <div
@@ -649,12 +660,18 @@ export default function CodexPanel({
                       </div>
                       <div className="weekly-value-footer weekly-value-footer-basis">
                         <span>
-                          {`Based on ${Math.round(displayedWeeklyValueEstimate.usedPct)}% used · ${USD_FORMAT.format(displayedWeeklyValueEstimate.observedCostUsd)} local`}
+                          Standard API prices · Not a bill
+                        </span>
+                        <span>
+                          {`Rough full week ≈${ROUGH_USD_FORMAT.format(displayedWeeklyValueEstimate.estimatedWeeklyValueUsd)} · ≈${ROUGH_TOKEN_FORMAT.format(displayedWeeklyValueEstimate.estimatedWeeklyTokens)} tokens at current mix`}
+                        </span>
+                        <span>
+                          {`Based on ${Math.round(displayedWeeklyValueEstimate.usedPct)}% used · Not an official allowance`}
                         </span>
                         <span>
                           {valueIsLastEstimate
-                            ? `${COMPACT_TOKEN_FORMAT.format(displayedWeeklyValueEstimate.observedTokens)} observed tokens · Not an official allowance · snapshot not refreshed`
-                            : `${COMPACT_TOKEN_FORMAT.format(displayedWeeklyValueEstimate.observedTokens)} observed tokens · Not an official allowance`}
+                            ? 'Observed usage this week · snapshot not refreshed'
+                            : 'Observed usage this week'}
                         </span>
                       </div>
                     </>

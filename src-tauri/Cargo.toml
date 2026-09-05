@@ -30,7 +30,7 @@ dirs = "5"
 rusqlite = { version = "0.40", features = ["bundled"] }
 image = { version = "0.25", default-features = false, features = ["png"] }
 once_cell = "1.19"
-ccstats = { git = "https://github.com/majiayu000/ccstats.git", rev = "6bec20d035a10efbc8914d36001c7621570d1066" }
+ccstats = { git = "https://github.com/majiayu000/ccstats.git", rev = "0dfddefec11ecea5dfad5efd2e5725022fb52035" }
 tauri-plugin-notification = "2.3.3"
 tauri-plugin-autostart = "2.5.1"
 
