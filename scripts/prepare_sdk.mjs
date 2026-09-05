@@ -17,7 +17,7 @@ mkdirSync(vendor, { recursive: true });
 if (args[0] === '--update') {
   const sdk = resolve(root, '../ccstats');
   // Deliberately snapshot library sources, CLI tests and license, without either old UI.
-  execFileSync('tar', ['-czf', archive, '-C', sdk, 'Cargo.toml', 'Cargo.lock', 'README.md', 'LICENSE', 'src', 'tests'], { stdio: 'inherit' });
+  execFileSync('tar', ['-czf', archive, '-C', sdk, 'Cargo.toml', 'Cargo.lock', 'README.md', 'LICENSE', 'src', 'tests'], { stdio: 'inherit', env: { ...process.env, COPYFILE_DISABLE: '1' } });
   writeFileSync(manifest, JSON.stringify({
     source: 'https://github.com/majiayu000/ccstats',
     baseCommit: execFileSync('git', ['-C', sdk, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(),
