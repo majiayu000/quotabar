@@ -96,8 +96,32 @@ This `v0.4.0` screenshot was refreshed on 2026-08-31 from the production React U
 
 ## Development
 
+QuotaBar opens a resizable desktop workspace with Overview, Quota, Usage,
+History, Sources, and Settings. The original provider tray panels remain
+available independently. Closing the workspace keeps tray monitoring running;
+Quit exits the application.
+
+Local analytics use one filtered ccstats report for summaries, projects,
+sessions, daily/hourly history, activity, and period comparisons. Missing source
+data and incomplete pricing are shown explicitly. API-equivalent estimates are
+not subscription bills. Session titles come from existing source metadata or
+local manual names, with no model summarization. JSON/SVG summary exports omit
+session titles and paths.
+
+The latest matching report is cached locally for quick startup while fresh
+analysis runs in the background. First-run loading has a reduced-motion-aware
+animation. Invalid Claude credentials require login before a quota request;
+failed reads wait for a manual recheck, with rate-limit deadlines still applied.
+
+The repositories remain separate. This checkout contains an immutable SDK source
+archive with its upstream commit and SHA-256 in `vendor/ccstats-sdk.json`.
+`npm run sdk:prepare` verifies and extracts it; no sibling checkout is needed.
+SDK development can refresh the archive with `npm run sdk:update` when a ccstats
+checkout is beside this repository.
+
 ```bash
 npm ci
+npm run sdk:prepare
 npm run tauri dev
 ```
 

@@ -29,7 +29,9 @@ import {
 } from '../services/panel_sections';
 
 interface SettingsViewProps {
+  workspace?: boolean;
   isMacOS: boolean;
+  showDockToggle?: boolean;
   theme: ThemeName;
   dockHidden: boolean;
   trayEntries: TrayToggleEntry[];
@@ -54,7 +56,9 @@ interface SettingsViewProps {
 }
 
 export default function SettingsView({
+  workspace = false,
   isMacOS,
+  showDockToggle = true,
   theme,
   dockHidden,
   trayEntries,
@@ -77,6 +81,7 @@ export default function SettingsView({
   onSelectEventProvider,
   onAutostartNotice,
 }: SettingsViewProps) {
+  const text = (en: string, zh: string) => workspace ? zh : en;
   const [budgets, setBudgets] = useState<MonthlyBudgets>(getSavedMonthlyBudgets);
   const [launchAtLogin, setLaunchAtLogin] = useState(false);
   const [autostartError, setAutostartError] = useState<string | null>(null);
@@ -131,8 +136,8 @@ export default function SettingsView({
   };
 
   return (
-    <div className="settings-view" aria-label="Settings">
-      <div className="settings-view-header">
+    <div className={`settings-view ${workspace ? 'workspace-settings' : ''}`} aria-label={text('Settings', '工作区设置')}>
+      <div className="settings-view-header" hidden={workspace}>
         <button
           type="button"
           className="settings-back-btn"
@@ -151,12 +156,12 @@ export default function SettingsView({
         <div className="settings-group-header">
           <span className="settings-group-index">01</span>
           <div>
-            <h2 id="settings-appearance-title">Appearance</h2>
-            <p>Theme and menu bar presentation</p>
+            <h2 id="settings-appearance-title">{text('Appearance', '外观与菜单栏')}</h2>
+            <p>{text('Theme and menu bar presentation', 'App 使用统一浅深色外观，菜单栏可选择独立的配色风格。')}</p>
           </div>
         </div>
         <ThemeSelector currentTheme={theme} onThemeChange={onThemeChange} />
-        <div className="settings-subsection-title">Menu bar style</div>
+        <div className="settings-subsection-title">{text('Menu bar style', '菜单栏图标样式')}</div>
         <div className="settings-seg">
           {TRAY_STYLE_OPTIONS.map((option) => (
             <button
@@ -166,12 +171,12 @@ export default function SettingsView({
               onClick={() => onTrayStyleChange(option.id)}
               aria-pressed={trayStyle === option.id}
             >
-              {option.label}
+              {workspace ? ({ percent: '百分比', ring: '圆环', icon: '仅图标' })[option.id] : option.label}
             </button>
           ))}
         </div>
         <div className="settings-line">
-          <span>Cycle one icon through providers</span>
+          <span>{text('Cycle one icon through providers', '用一个图标轮换显示来源')}</span>
           <button
             type="button"
             role="switch"
@@ -189,18 +194,18 @@ export default function SettingsView({
         <div className="settings-group-header">
           <span className="settings-group-index">02</span>
           <div>
-            <h2 id="settings-providers-title">Providers</h2>
-            <p>Choose where each service appears</p>
+            <h2 id="settings-providers-title">{text('Providers', '来源显示')}</h2>
+            <p>{text('Choose where each service appears', '选择各来源在快捷面板和系统菜单栏中的显示位置。')}</p>
           </div>
         </div>
-        <div className="settings-subsection-title">Presets</div>
+        <div className="settings-subsection-title">{text('Presets', '快速选择')}</div>
         <div className="settings-seg">
           <button
             type="button"
             className="settings-seg-btn"
             onClick={() => onApplyPreset('all')}
           >
-            All
+            {text('All', '全部')}
           </button>
           {SERVICES.map((service) => (
             <button
@@ -215,9 +220,9 @@ export default function SettingsView({
         </div>
         <div className="provider-visibility-grid">
           <div className="provider-visibility-head" aria-hidden="true">
-            <span>Service</span>
-            <span>Panel</span>
-            <span>Menu</span>
+            <span>{text('Service', '来源')}</span>
+            <span>{text('Panel', '面板')}</span>
+            <span>{text('Menu', '菜单栏')}</span>
           </div>
           {SERVICES.map((service) => {
             const meta = SERVICE_META[service];
@@ -225,7 +230,7 @@ export default function SettingsView({
             const panelEnabled = switcherVisibility[service];
             const panelLocked = panelEnabled && enabledSwitcherCount === 1;
             const trayLocked = !trayEntry || (trayEntry.enabled && !trayEntry.canDisable);
-            const connectionHint = trayEntry?.connected
+            const connectionHint = workspace ? (trayEntry?.connected ? '已连接' : '未连接') : trayEntry?.connected
               ? trayEntry.connectedHint ?? 'Connected'
               : trayEntry?.disconnectedHint ?? 'Offline';
             return (
@@ -269,25 +274,25 @@ export default function SettingsView({
             );
           })}
         </div>
-        <div className="settings-hint">Hidden panel providers still refresh in the background.</div>
+        <div className="settings-hint">{text('Hidden panel providers still refresh in the background.', '隐藏面板入口后，账户数据仍会在后台刷新。')}</div>
       </section>
 
       <section className="settings-group" aria-labelledby="settings-sections-title">
         <div className="settings-group-header">
           <span className="settings-group-index">03</span>
           <div>
-            <h2 id="settings-sections-title">Panel content</h2>
-            <p>Show only the sections you use</p>
+            <h2 id="settings-sections-title">{text('Panel content', '快捷面板内容')}</h2>
+            <p>{text('Show only the sections you use', '调整原有菜单栏面板中的信息区块。')}</p>
           </div>
         </div>
         {PANEL_SECTION_ORDER.map((key) => (
           <div className="settings-line" key={key}>
-            <span>{PANEL_SECTION_LABELS[key]}</span>
+            <span>{workspace ? ({ timeline: '重置时间线', cost: 'API 等价用量', trend: '用量趋势', tips: '使用提示' })[key] : PANEL_SECTION_LABELS[key]}</span>
             <button
               type="button"
               role="switch"
               aria-checked={panelSections[key]}
-              aria-label={`Show ${PANEL_SECTION_LABELS[key]}`}
+              aria-label={`Show ${workspace ? ({ timeline: '重置时间线', cost: 'API 等价用量', trend: '用量趋势', tips: '使用提示' })[key] : PANEL_SECTION_LABELS[key]}`}
               className={`target-switch ${panelSections[key] ? 'on' : ''}`}
               onClick={() => onPanelSectionToggle(key)}
             >
@@ -301,8 +306,8 @@ export default function SettingsView({
         <div className="settings-group-header">
           <span className="settings-group-index">04</span>
           <div>
-            <h2 id="settings-limits-title">Limits</h2>
-            <p>Monthly API-equivalent budgets</p>
+            <h2 id="settings-limits-title">{text('Limits', '用量参考预算')}</h2>
+            <p>{text('Monthly API-equivalent budgets', '每月 API 等价估算上限，单位为 USD；不会限制实际消费。')}</p>
           </div>
         </div>
         {BUDGET_SOURCES.map((source) => (
@@ -315,7 +320,7 @@ export default function SettingsView({
                 type="number"
                 min="0"
                 step="1"
-                placeholder="none"
+                placeholder={text("none", "未设置")}
                 value={budgets[source] ?? ''}
                 onChange={(event) => handleBudgetChange(source, event.target.value)}
                 aria-label={`${SERVICE_META[source].label} monthly budget in USD`}
@@ -323,20 +328,20 @@ export default function SettingsView({
             </span>
           </label>
         ))}
-        <div className="settings-hint">Shown in the API-equivalent usage section.</div>
+        <div className="settings-hint">{text('Shown in the API-equivalent usage section.', '在快捷面板的 API 等价用量区域显示，不代表服务商账单。')}</div>
       </section>
 
       <section className="settings-group" aria-labelledby="settings-alerts-title">
         <div className="settings-group-header">
           <span className="settings-group-index">05</span>
           <div>
-            <h2 id="settings-alerts-title">Alerts</h2>
-            <p>Usage and bonus notifications</p>
+            <h2 id="settings-alerts-title">{text('Alerts', '提醒')}</h2>
+            <p>{text('Usage and bonus notifications', '在额度接近用尽或奖励到期时提醒。')}</p>
           </div>
         </div>
         {NOTIFICATION_ROWS.map(({ key, label }) => (
           <div className="settings-line" key={key}>
-            <span>{label}</span>
+            <span>{workspace ? ({ q80: '使用达到 80% 时提醒', q95: '使用达到 95% 时紧急提醒', q100: '使用达到 100% 时提醒', bonusReady: '额度用尽但有未使用奖励重置时提醒', bonus: '奖励到期提醒' })[key] : label}</span>
             <button
               type="button"
               role="switch"
@@ -355,11 +360,11 @@ export default function SettingsView({
         <div className="settings-group-header">
           <span className="settings-group-index">06</span>
           <div>
-            <h2 id="settings-system-title">Activity & system</h2>
-            <p>Recent status changes and app behavior</p>
+            <h2 id="settings-system-title">{text('Activity & system', '活动与系统')}</h2>
+            <p>{text('Recent status changes and app behavior', '最近的连接变化和应用启动设置。')}</p>
           </div>
         </div>
-        <div className="settings-subsection-title">Recent events</div>
+        <div className="settings-subsection-title">{text('Recent events', '最近事件')}</div>
         {events.length > 0 ? (
           <div className="event-list">
             {events.slice(0, 6).map((event) => {
@@ -384,12 +389,12 @@ export default function SettingsView({
             })}
           </div>
         ) : (
-          <div className="settings-hint">No events yet.</div>
+          <div className="settings-hint">{text('No events yet.', '还没有状态变化记录。')}</div>
         )}
 
-        <div className="settings-subsection-title settings-subsection-divider">Startup</div>
+        <div className="settings-subsection-title settings-subsection-divider">{text('Startup', '启动')}</div>
         <div className="settings-line">
-          <span>Launch at Login</span>
+          <span>{text('Launch at Login', '登录时启动')}</span>
           <button
             type="button"
             role="switch"
@@ -408,11 +413,11 @@ export default function SettingsView({
           <div className="settings-hint" role="alert">{autostartError}</div>
         ) : null}
 
-        {isMacOS && (
+        {isMacOS && showDockToggle && (
           <>
             <div className="settings-subsection-title settings-subsection-divider">Dock</div>
             <div className="settings-line">
-              <span>Hide Dock icon</span>
+              <span>{text('Hide Dock icon', '隐藏 Dock 图标')}</span>
               <button
                 type="button"
                 role="switch"

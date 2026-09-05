@@ -211,8 +211,8 @@ test('rejects a guard moved outside the real backend fetch', () => {
 test('rejects a wrong owner in the real backend fetch', () => {
   rejects_change(
     paths.app,
-    '      const data = await backend.getQuota();\n      if (!claude_request_generation.isCurrent(generation)) return;',
-    '      const data = await backend.getQuota();\n      if (!request_generation.isCurrent(generation)) return;',
+    '      const data = await backend.getQuota(manual);\n      if (!claude_request_generation.isCurrent(generation)) return;',
+    '      const data = await backend.getQuota(manual);\n      if (!request_generation.isCurrent(generation)) return;',
     /success guard/,
   );
 });

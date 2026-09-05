@@ -1,5 +1,7 @@
+import { workspaceCopy } from '../utils/quota_format';
 import { useEffect, useState, useCallback, type CSSProperties } from 'react';
 import { backend } from '../services/backend';
+import QuotaRecovery from './QuotaRecovery';
 import ProviderDetailHeader from './ProviderDetailHeader';
 import ResetTimeline from './ResetTimeline';
 import SmartTip from './SmartTip';
@@ -12,12 +14,14 @@ import { useLatestRequestGeneration } from '../hooks/use_latest_request_generati
 import { validateGrokValueEstimate } from '../services/grok_value_estimate';
 
 interface GrokPanelProps {
+  workspace?: boolean;
   onConnectionChange?: (connected: boolean) => void;
   onUsageChange?: (usedPercent: number | null) => void;
   autoRefreshIntervalMs?: number;
   manualRefreshNonce?: number;
   onLoadingChange?: (loading: boolean) => void;
   onQuotaWindowsChange?: (windows: QuotaWindowSummary[]) => void;
+  onReadResult?: (error: string | null) => void;
   sections?: PanelSectionVisibility;
 }
 
@@ -48,12 +52,14 @@ function periodValueTitle(periodType?: string): string {
 }
 
 export default function GrokPanel({
+  workspace = false,
   onConnectionChange,
   onUsageChange,
   autoRefreshIntervalMs = 60 * 1000,
   manualRefreshNonce = 0,
   onLoadingChange,
   onQuotaWindowsChange,
+  onReadResult,
   sections = defaultPanelSections(),
 }: GrokPanelProps) {
   const [grokData, setGrokData] = useState<GrokData | null>(null);
@@ -75,10 +81,12 @@ export default function GrokPanel({
       onConnectionChange?.(data.connected);
       onUsageChange?.(data.percentage ?? null);
       onQuotaWindowsChange?.(buildGrokQuotaWindows(data));
+      onReadResult?.(data.error ?? null);
     } catch (err) {
       if (!request_generation.isCurrent(generation)) return;
       const message = err instanceof Error ? err.message : 'Failed to fetch Grok data';
       setError(message);
+      onReadResult?.(message);
       onConnectionChange?.(false);
       onUsageChange?.(null);
       onQuotaWindowsChange?.([]);
@@ -87,14 +95,15 @@ export default function GrokPanel({
         setLoading(false);
       }
     }
-  }, [onConnectionChange, onQuotaWindowsChange, onUsageChange, request_generation]);
+  }, [onConnectionChange, onQuotaWindowsChange, onReadResult, onUsageChange, request_generation]);
+
+  useEffect(() => { void fetchData(); }, [fetchData]);
 
   useEffect(() => {
-    fetchData();
-    if (autoRefreshIntervalMs <= 0) return;
+    if (autoRefreshIntervalMs <= 0 || !grokData?.connected || error) return;
     const interval = setInterval(fetchData, autoRefreshIntervalMs);
     return () => clearInterval(interval);
-  }, [fetchData, autoRefreshIntervalMs]);
+  }, [fetchData, autoRefreshIntervalMs, grokData?.connected, error]);
 
   useEffect(() => {
     onLoadingChange?.(loading);
@@ -134,7 +143,7 @@ export default function GrokPanel({
 
   return (
     <div className="codex-panel">
-      {error && (
+      {error && (workspace ? <QuotaRecovery provider="grok" read={{ error, readAt: null }} hasData={Boolean(grokData?.connected)} /> :
         <div className="error-banner">
           <span className="error-icon">!</span>
           <span className="error-text">{error}</span>
@@ -151,7 +160,7 @@ export default function GrokPanel({
           />
 
           <div className="section">
-            <div className="section-title">Usage</div>
+            <div className="section-title">{workspaceCopy("Usage", "额度用量")}</div>
             <div className="quota-group">
               {percentage != null && (
                 <div className="quota-card">
@@ -169,7 +178,7 @@ export default function GrokPanel({
               {grokData.email && (
                 <div className="quota-card">
                   <div className="quota-header">
-                    <span className="quota-label">Account</span>
+                    <span className="quota-label">{workspaceCopy("Account", "账户")}</span>
                     <span className="quota-value email">{grokData.email}</span>
                   </div>
                 </div>

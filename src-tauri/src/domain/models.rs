@@ -24,6 +24,8 @@ pub struct QuotaData {
     #[serde(rename = "weeklyFable5")]
     pub weekly_fable5: Option<UsageInfo>,
     pub error: Option<String>,
+    #[serde(rename = "retryAt")]
+    pub retry_at: Option<i64>,
 }
 
 impl QuotaData {
@@ -37,6 +39,7 @@ impl QuotaData {
             weekly_design: None,
             weekly_fable5: None,
             error: Some(error.into()),
+            retry_at: None,
         }
     }
 
@@ -57,6 +60,7 @@ impl QuotaData {
             weekly_design,
             weekly_fable5,
             error: None,
+            retry_at: None,
         }
     }
 }
