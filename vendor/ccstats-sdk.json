@@ -1,6 +1,6 @@
 {
   "source": "https://github.com/majiayu000/ccstats",
-  "baseCommit": "696f37e3dd7a1df33c50f9e7a844c12e2c31e064",
-  "includesWorkingTreeChanges": true,
-  "sha256": "fbcf608caf78861853971f9b37cceadf57c56ffe1f87502b22df03d9ef43ad3a"
+  "baseCommit": "845a5cb85158d8601a652ce1c20ee8251f7d34bb",
+  "includesWorkingTreeChanges": false,
+  "sha256": "cb95380b4a0f226c4682cef7711a828bb3270203281ac0823e108e92cd81b73b"
 }

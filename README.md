@@ -96,34 +96,32 @@ This `v0.4.0` screenshot was refreshed on 2026-08-31 from the production React U
 
 ## Development
 
-The working integration branch opens a full desktop workspace on launch, with
-Overview, Quota, Usage, History, Sources, and Settings in the sidebar. The
-1280 × 850 window is resizable, stays visible when focus changes, and reopens
-from the macOS Dock. Closing it leaves quota monitoring running; Quit exits.
-Tray icons are optional shortcuts to the same workspace.
+QuotaBar opens a resizable desktop workspace with Overview, Quota, Usage,
+History, Sources, and Settings. The original provider tray panels remain
+available independently. Closing the workspace keeps tray monitoring running;
+Quit exits the application.
 
-Overview, projects/sessions, daily history, and source diagnostics read real
-ccstats data. Quota and Settings use the existing provider/account and system
-integration inside this window, with one owner for polling and notifications.
-Session names reuse source metadata or project/time/ID labels; manual names
-are stored locally, isolated by source and session ID. They are not written
-to transcripts or uploaded. Clearing the app's website data removes them.
-The overview shows weighted cache hit rate, major projects, and current quota.
+Local analytics use one filtered ccstats report for summaries, projects,
+sessions, daily/hourly history, activity, and period comparisons. Missing source
+data and incomplete pricing are shown explicitly. API-equivalent estimates are
+not subscription bills. Session titles come from existing source metadata or
+local manual names, with no model summarization. JSON/SVG summary exports omit
+session titles and paths.
 
-During this integration, Cargo uses `../../ccstats` from `src-tauri`, so clone
-ccstats beside this repository and retain its session-title implementation.
-The repositories remain separate. Before distribution, publish the required
-SDK changes and replace this local dependency with an immutable Git revision;
-the current working tree is **not yet a standalone release checkout**.
+The latest matching report is cached locally for quick startup while fresh
+analysis runs in the background. First-run loading has a reduced-motion-aware
+animation. Invalid Claude credentials require login before a quota request;
+failed reads wait for a manual recheck, with rate-limit deadlines still applied.
 
-Remaining integration work: native CSV/JSON saving, rolling/custom dates,
-tools/live views and devices, native window behavior on each release platform,
-and final equivalence checks before retiring the separate ccstats desktop app.
-The current analysis window does not provide project attribution for sources
-whose SDK descriptor has `has_projects: false` (including Codex).
+The repositories remain separate. This checkout contains an immutable SDK source
+archive with its upstream commit and SHA-256 in `vendor/ccstats-sdk.json`.
+`npm run sdk:prepare` verifies and extracts it; no sibling checkout is needed.
+SDK development can refresh the archive with `npm run sdk:update` when a ccstats
+checkout is beside this repository.
 
 ```bash
 npm ci
+npm run sdk:prepare
 npm run tauri dev
 ```
 

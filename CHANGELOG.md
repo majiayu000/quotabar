@@ -4,6 +4,17 @@ All notable QuotaBar changes should be summarized here before a release is cut.
 
 ## Unreleased
 
+## 0.5.0 - 2026-09-06
+
+- Add a resizable desktop workspace alongside the existing independent provider tray panels.
+- Add unified local usage analytics, projects and sessions, custom date ranges, daily/hourly history, activity calendar, token composition, and period comparison.
+- Read source-provided session titles and support local manual names without sending conversations to a model.
+- Save privacy-scoped JSON/SVG summaries, keeping session titles and paths out of exports.
+- Restore the latest matching report from disk on startup while refreshing data in the background; show an accessible loading animation before the first report is available.
+- Require a valid local Claude login before quota requests. Failed reads stop automatic retries; manual rechecks respect persisted rate-limit deadlines and synchronize App/Tray state.
+- Guide disconnected Claude and Grok accounts through login recovery instead of showing raw errors as the main action.
+- Include a checksummed, pinned ccstats SDK source archive so a standalone checkout can build the app.
+
 - Add a Settings Launch at Login toggle backed by the OS login item.
 - Add All / single-service settings presets, and split monthly budgets from alerts.
 - Notify at 100% used and when a Codex bonus reset is unused at 100%.
