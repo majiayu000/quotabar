@@ -198,19 +198,23 @@ pub struct CodexWeeklyQuotaData {
 }
 
 impl CodexWeeklyQuotaData {
-    pub fn available(
-        quota: ccstats::CodexWeeklyQuota,
+    pub fn from_results(
+        quota: Result<ccstats::CodexWeeklyQuota, String>,
         value_estimate: Result<ccstats::CodexWeeklyValueEstimate, String>,
     ) -> Self {
         let (value_estimate, value_estimate_error) = match value_estimate {
             Ok(estimate) => (Some(CodexWeeklyValueEstimate::from(estimate)), None),
             Err(error) => (None, Some(error.to_string())),
         };
+        let (quota, error) = match quota {
+            Ok(quota) => (Some(CodexWeeklyQuota::from(quota)), None),
+            Err(error) => (None, Some(error)),
+        };
         Self {
-            quota: Some(CodexWeeklyQuota::from(quota)),
+            quota,
             value_estimate,
             value_estimate_error,
-            error: None,
+            error,
         }
     }
 

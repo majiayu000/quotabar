@@ -17,6 +17,7 @@ Website: https://majiayu000.github.io/quotabar/
 - Provider switcher: overview plus full-name cards for Claude, Codex, Cursor, Grok, and Antigravity.
 - Claude quota: 5-hour, 7-day, Opus, Sonnet, and Claude Design windows.
 - Codex quota: short and weekly ChatGPT usage windows, local weekly pace and API-equivalent value estimates, and an exhausted-week layout that keeps the last estimate and a clickable bonus reset.
+  Observed usage is valued at standard API token prices; the full-week value is a rough extrapolation from an official quota snapshot, not a bill or an official dollar allowance. Fast-mode premiums and purchased credits are not represented by this estimate.
 - Cursor quota: signed-in Cursor usage and request-limit windows when session data is available.
 - Grok quota: SuperGrok weekly (or monthly) credits pool, product mix for Build/Chat/Imagine/Voice/API, extra credits, and an API-equivalent value estimate from ccstats' durable inference ledger.
 - Antigravity panel: placeholder provider status while quota tracking is pending.
