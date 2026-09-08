@@ -4,6 +4,7 @@ import {
   getClaudeRefreshIntervalMs,
   getClaudeTrayUsedPercent,
   keepClaudeQuotaOnError,
+  isStaleTrayPercent,
 } from '../src/App';
 import { buildClaudeQuotaWindows, sortMostConstrained } from '../src/services/provider_summary';
 import type { QuotaData, UsageInfo } from '../src/types/models';
@@ -112,5 +113,13 @@ describe('keepClaudeQuotaOnError', () => {
       connected: false,
       error: 'API error: 401 Unauthorized',
     })).toBe(false);
+  });
+});
+
+describe('isStaleTrayPercent', () => {
+  test('marks a retained percent with an error as last known', () => {
+    expect(isStaleTrayPercent('API error: 429 Too Many Requests', 42)).toBe(true);
+    expect(isStaleTrayPercent(null, 42)).toBe(false);
+    expect(isStaleTrayPercent('API error: 429 Too Many Requests', null)).toBe(false);
   });
 });

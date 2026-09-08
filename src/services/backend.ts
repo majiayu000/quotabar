@@ -106,7 +106,7 @@ export const backend = {
     return invokeBackend<CodexWeeklyQuotaData>('get_codex_weekly_quota');
   },
 
-  getCursorInfo() {
+  getCursorInfo(_manual = false) {
     return invokeBackend<CursorData>('get_cursor_info');
   },
 
@@ -114,7 +114,7 @@ export const backend = {
     return invokeBackend<AntigravityData>('get_antigravity_info');
   },
 
-  getGrokInfo() {
+  getGrokInfo(_manual = false) {
     return invokeBackend<GrokData>('get_grok_info');
   },
 
@@ -163,6 +163,7 @@ export const backend = {
     visible: boolean,
     force = false,
     style: 'percent' | 'ring' | 'icon' = 'percent',
+    stale = false,
   ) {
     return invokeBackend<void>('update_tray_icon', {
       service,
@@ -170,6 +171,7 @@ export const backend = {
       visible,
       force,
       style,
+      stale,
     });
   },
 

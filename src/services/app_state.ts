@@ -33,7 +33,12 @@ export type TrayIconRequest = {
   percentage: number | null;
   visible: boolean;
   style: TrayStyle;
+  stale: boolean;
 };
+
+export function isStaleTrayPercent(error: string | null | undefined, percent: number | null): boolean {
+  return percent != null && Boolean(error);
+}
 
 export function defaultServiceMap<T>(value: T): ServiceMap<T> {
   return SERVICES.reduce((acc, svc) => {
