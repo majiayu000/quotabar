@@ -4,6 +4,7 @@ All notable QuotaBar changes should be summarized here before a release is cut.
 
 ## Unreleased
 
+- Ignore slower in-flight tray IPC completions so the skip-cache cannot hide a newer icon tuple until the 60s force tick.
 - Label Overview local cost as Claude, Codex, and Cursor instead of All providers, and say Grok and Antigravity are not in that total.
 - Drive the Claude tray, switcher percent, and 80/95 alerts from the hottest quota window instead of `weeklyTotal`.
 - Explain remaining quota and reset timing in high-usage tips, distinguish imminent resets, and suppress advice from stale data.

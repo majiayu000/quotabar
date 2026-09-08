@@ -1,9 +1,10 @@
 import { createElement } from 'react';
 import { act, create, type ReactTestRenderer } from 'react-test-renderer';
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test, vi, type Mock } from 'vitest';
 import { backend } from '../src/services/backend';
 import { SERVICES } from '../src/services/service_meta';
 import type { TrayServiceName } from '../src/services/tray_visibility';
+import type { QuotaData } from '../src/types/models';
 
 vi.mock('../src/hooks/use_popover_window', () => ({
   usePopoverWindow: () => false,
@@ -50,6 +51,27 @@ function visible_calls(update: ReturnType<typeof vi.spyOn>) {
     visible.set(service, args[2] as boolean);
   }
   return visible;
+}
+
+function quota_with_percent(percentage: number): QuotaData {
+  return {
+    connected: true,
+    weeklyTotal: { used: percentage, limit: 100, percentage },
+  };
+}
+
+async function flush(): Promise<void> {
+  await act(async () => {
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+  });
+}
+
+function claude_visible_calls(): unknown[][] {
+  return (backend.updateTrayIcon as unknown as Mock).mock.calls.filter(
+    (args) => args[0] === 'claude' && args[2] === true,
+  );
 }
 
 beforeAll(() => {
@@ -118,6 +140,86 @@ describe('tray icon sync', () => {
     expect(visible.get('cursor')).toBe(false);
     expect(visible.get('antigravity')).toBe(false);
     expect(SERVICES.every((service) => visible.has(service))).toBe(true);
+
+    await unmount(renderer);
+  });
+
+  test('ignores a slower tray IPC completion so the skip-cache keeps the newer tuple', async () => {
+    (globalThis as Record<string, unknown>).localStorage = memoryStorage({
+      'claude-tray-enabled': 'true',
+      'codex-tray-enabled': 'false',
+      'cursor-tray-enabled': 'false',
+      'grok-tray-enabled': 'false',
+      'antigravity-tray-enabled': 'false',
+      'claude-quota-tray-cycle': 'false',
+    });
+
+    const hung = () => new Promise<never>(() => {});
+    vi.spyOn(backend, 'getCodexInfo').mockImplementation(hung);
+    vi.spyOn(backend, 'getCodexRateLimits').mockImplementation(hung);
+    vi.spyOn(backend, 'getCodexResetCredits').mockImplementation(hung);
+    vi.spyOn(backend, 'getCodexWeeklyQuota').mockImplementation(hung);
+    vi.spyOn(backend, 'getCursorInfo').mockImplementation(hung);
+    vi.spyOn(backend, 'getGrokInfo').mockImplementation(hung);
+    vi.spyOn(backend, 'getAntigravityInfo').mockImplementation(hung);
+
+    let quotaPercent = 10;
+    vi.spyOn(backend, 'getQuota').mockImplementation(async () => quota_with_percent(quotaPercent));
+
+    const inflight: Array<{ percentage: number | null; resolve(): void }> = [];
+    vi.spyOn(backend, 'updateTrayIcon').mockImplementation((service, percentage, visible) => {
+      if (service !== 'claude' || !visible || percentage == null) {
+        return Promise.resolve();
+      }
+      return new Promise((resolve) => {
+        inflight.push({
+          percentage,
+          resolve: () => resolve(undefined),
+        });
+      });
+    });
+
+    const renderer = await render_app();
+    await flush();
+    await flush();
+
+    expect(inflight.length).toBeGreaterThan(0);
+    expect(inflight.every((call) => call.percentage === 10)).toBe(true);
+
+    quotaPercent = 20;
+    await act(async () => {
+      renderer.root.findByProps({ 'aria-label': 'Refresh current provider' }).props.onClick();
+    });
+    await flush();
+    await flush();
+
+    const newer = inflight.filter((call) => call.percentage === 20);
+    expect(newer.length).toBeGreaterThan(0);
+    const latest = inflight[inflight.length - 1];
+    expect(latest.percentage).toBe(20);
+
+    await act(async () => {
+      latest.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    for (const call of inflight.slice(0, -1)) {
+      await act(async () => {
+        call.resolve();
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+    }
+
+    const callsAfterRace = claude_visible_calls().length;
+
+    await act(async () => {
+      renderer.root.findByProps({ 'aria-label': 'Refresh current provider' }).props.onClick();
+    });
+    await flush();
+    await flush();
+
+    expect(claude_visible_calls()).toHaveLength(callsAfterRace);
 
     await unmount(renderer);
   });
