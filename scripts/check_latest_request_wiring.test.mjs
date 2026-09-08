@@ -193,8 +193,8 @@ test('rejects a generation hook moved outside its owning component', () => {
 test('rejects a wrong token in a terminal guard', () => {
   rejects_change(
     paths.cursor,
-    '      const data = await backend.getCursorInfo();\n      if (!request_generation.isCurrent(generation)) return;',
-    '      const data = await backend.getCursorInfo();\n      if (!request_generation.isCurrent(wrong_generation)) return;',
+    '      const data = await backend.getCursorInfo(manual);\n      if (!request_generation.isCurrent(generation)) return;',
+    '      const data = await backend.getCursorInfo(manual);\n      if (!request_generation.isCurrent(wrong_generation)) return;',
     /success guard/,
   );
 });
@@ -229,8 +229,8 @@ test('rejects a dead-code terminal guard', () => {
 test('rejects a current check that does not return', () => {
   rejects_change(
     paths.cursor,
-    '      const data = await backend.getCursorInfo();\n      if (!request_generation.isCurrent(generation)) return;',
-    '      const data = await backend.getCursorInfo();\n      if (!request_generation.isCurrent(generation)) console.error(generation);',
+    '      const data = await backend.getCursorInfo(manual);\n      if (!request_generation.isCurrent(generation)) return;',
+    '      const data = await backend.getCursorInfo(manual);\n      if (!request_generation.isCurrent(generation)) console.error(generation);',
     /success guard/,
   );
 });
@@ -238,16 +238,16 @@ test('rejects a current check that does not return', () => {
 test('accepts a fail-closed guard with a one-return block', () => {
   accepts_change(
     paths.cursor,
-    '      const data = await backend.getCursorInfo();\n      if (!request_generation.isCurrent(generation)) return;',
-    '      const data = await backend.getCursorInfo();\n      if (!request_generation.isCurrent(generation)) { return; }',
+    '      const data = await backend.getCursorInfo(manual);\n      if (!request_generation.isCurrent(generation)) return;',
+    '      const data = await backend.getCursorInfo(manual);\n      if (!request_generation.isCurrent(generation)) { return; }',
   );
 });
 
 test('rejects a terminal guard with the wrong prefix operator', () => {
   rejects_change(
     paths.cursor,
-    '      const data = await backend.getCursorInfo();\n      if (!request_generation.isCurrent(generation)) return;',
-    '      const data = await backend.getCursorInfo();\n      if (+request_generation.isCurrent(generation)) return;',
+    '      const data = await backend.getCursorInfo(manual);\n      if (!request_generation.isCurrent(generation)) return;',
+    '      const data = await backend.getCursorInfo(manual);\n      if (+request_generation.isCurrent(generation)) return;',
     /success guard/,
   );
 });
@@ -255,8 +255,8 @@ test('rejects a terminal guard with the wrong prefix operator', () => {
 test('rejects a terminal guard with extra token arguments', () => {
   rejects_change(
     paths.cursor,
-    '      const data = await backend.getCursorInfo();\n      if (!request_generation.isCurrent(generation)) return;',
-    '      const data = await backend.getCursorInfo();\n      if (!request_generation.isCurrent(generation, generation)) return;',
+    '      const data = await backend.getCursorInfo(manual);\n      if (!request_generation.isCurrent(generation)) return;',
+    '      const data = await backend.getCursorInfo(manual);\n      if (!request_generation.isCurrent(generation, generation)) return;',
     /success guard/,
   );
 });
@@ -323,14 +323,14 @@ for (const [name, replacement] of malformed_start_fixtures) {
 }
 
 test('rejects a wrong backend await mapping', () => {
-  rejects_change(paths.cursor, 'backend.getCursorInfo()', 'backend.getQuota()', /backend call count|await mapping/);
+  rejects_change(paths.cursor, 'backend.getCursorInfo(manual)', 'backend.getQuota()', /backend call count|await mapping/);
 });
 
 const attached_alias_call_fixtures = [
   [
     'direct',
     paths.cursor,
-    'backend.getCursorInfo()',
+    'backend.getCursorInfo(manual)',
     'backend.getCursorInfo(backend_alias.getCursorInfo())',
   ],
   [
@@ -382,7 +382,7 @@ test('rejects a duplicate expected backend method outside the owner target', () 
 test('rejects a nested dead compliant target in place of the direct owner target', () => {
   rejects_change(
     paths.cursor,
-    '  const fetchData = useCallback(async () => {',
+    '  const fetchData = useCallback(async (manual = false) => {',
     `  if (false) {
     const fetchData = useCallback(async () => {
       const generation = request_generation.begin();
@@ -406,8 +406,8 @@ test('rejects a nested dead compliant target in place of the direct owner target
 test('rejects an expected backend call that is not awaited', () => {
   rejects_change(
     paths.cursor,
-    'const data = await backend.getCursorInfo();',
-    'const data = (backend.getCursorInfo(), await Promise.resolve({ connected: true }));',
+    'const data = await backend.getCursorInfo(manual);',
+    'const data = (backend.getCursorInfo(manual), await Promise.resolve({ connected: true }));',
     /backend call owner/,
   );
 });
@@ -415,8 +415,8 @@ test('rejects an expected backend call that is not awaited', () => {
 test('rejects an identifier await operand with an attached backend call', () => {
   rejects_change(
     paths.cursor,
-    'const data = await backend.getCursorInfo();',
-    'const data = await getData(backend.getCursorInfo());',
+    'const data = await backend.getCursorInfo(manual);',
+    'const data = await getData(backend.getCursorInfo(manual));',
     /backend call owner/,
   );
 });
@@ -424,8 +424,8 @@ test('rejects an identifier await operand with an attached backend call', () => 
 test('rejects an expected backend call discarded inside the await operand', () => {
   rejects_change(
     paths.cursor,
-    'const data = await backend.getCursorInfo();',
-    'const data = await (backend.getCursorInfo(), Promise.resolve({ connected: true }));',
+    'const data = await backend.getCursorInfo(manual);',
+    'const data = await (backend.getCursorInfo(manual), Promise.resolve({ connected: true }));',
     /directly await/,
   );
 });

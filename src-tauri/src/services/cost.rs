@@ -47,6 +47,7 @@ pub struct CostOverview {
     pub currency: String,
     pub generated_at: String,
     pub cached: bool,
+    pub stale: bool,
     pub ranges: Vec<CostRangeSummary>,
 }
 
@@ -62,8 +63,12 @@ pub struct CostRangeSummary {
     pub cost_usd: Option<f64>,
     pub tokens: CostTokenBreakdown,
     pub models: Vec<CostModelSummary>,
+    pub cost_kind: String,
+    pub estimated_cost: Option<f64>,
+    pub estimated_cost_usd: Option<f64>,
     pub valid_entries: i64,
     pub skipped_entries: i64,
+    pub parse_error_entries: i64,
     pub elapsed_ms: f64,
 }
 
@@ -94,6 +99,7 @@ pub struct CostDailySeries {
     pub currency: String,
     pub generated_at: String,
     pub cached: bool,
+    pub stale: bool,
     pub days: Vec<CostDailyPoint>,
 }
 
@@ -136,13 +142,13 @@ fn build_cost_daily(
     let source = UsageSource::from_str(&source).map_err(|err| err.to_string())?;
     let currency = normalize_optional(currency);
     let timezone = normalize_optional(timezone);
-    let cache_key = format!(
-        "daily|{}|{}|{}|{}",
+    let cache_key = disk::versioned_key(&[
+        "daily",
         source.as_str(),
-        days,
+        &days.to_string(),
         currency.as_deref().unwrap_or("USD"),
-        timezone.as_deref().unwrap_or("local")
-    );
+        timezone.as_deref().unwrap_or("local"),
+    ]);
 
     if !force {
         if let Some(cached) = get_cached_daily(&cache_key)? {
@@ -211,6 +217,7 @@ fn build_daily_series_from_batch(
         currency: batch.currency,
         generated_at: batch.generated_at,
         cached: false,
+        stale: false,
         days: ranges
             .into_iter()
             .map(|range| CostDailyPoint {
@@ -236,6 +243,7 @@ fn get_cached_daily(cache_key: &str) -> Result<Option<CostDailySeries>, String> 
 
     let mut series = cached.series.clone();
     series.cached = true;
+    series.stale = false;
     Ok(Some(series))
 }
 
@@ -258,22 +266,34 @@ fn set_cached_daily(cache_key: String, series: CostDailySeries) -> Result<(), St
 fn load_daily_snapshot(cache_key: &str) -> Option<CostDailySeries> {
     let (age, mut series): (Duration, CostDailySeries) = disk::read_snapshot(cache_key)?;
     match disk::classify_snapshot(age, CACHE_TTL, stale_already_served(cache_key)) {
-        SnapshotUse::Fresh => {}
-        SnapshotUse::ServeStaleOnce => mark_stale_served(cache_key),
+        SnapshotUse::Fresh => {
+            series.cached = true;
+            series.stale = false;
+        }
+        SnapshotUse::ServeStaleOnce => {
+            mark_stale_served(cache_key);
+            series.cached = true;
+            series.stale = true;
+        }
         SnapshotUse::Ignore => return None,
     }
-    series.cached = true;
     Some(series)
 }
 
 fn load_overview_snapshot(cache_key: &str) -> Option<CostOverview> {
     let (age, mut overview): (Duration, CostOverview) = disk::read_snapshot(cache_key)?;
     match disk::classify_snapshot(age, CACHE_TTL, stale_already_served(cache_key)) {
-        SnapshotUse::Fresh => {}
-        SnapshotUse::ServeStaleOnce => mark_stale_served(cache_key),
+        SnapshotUse::Fresh => {
+            overview.cached = true;
+            overview.stale = false;
+        }
+        SnapshotUse::ServeStaleOnce => {
+            mark_stale_served(cache_key);
+            overview.cached = true;
+            overview.stale = true;
+        }
         SnapshotUse::Ignore => return None,
     }
-    overview.cached = true;
     Some(overview)
 }
 
@@ -332,12 +352,11 @@ fn build_cost_overview(
     let source = UsageSource::from_str(&source).map_err(|err| err.to_string())?;
     let currency = normalize_optional(currency);
     let timezone = normalize_optional(timezone);
-    let cache_key = format!(
-        "{}|{}|{}",
+    let cache_key = disk::versioned_key(&[
         source.as_str(),
         currency.as_deref().unwrap_or("USD"),
-        timezone.as_deref().unwrap_or("local")
-    );
+        timezone.as_deref().unwrap_or("local"),
+    ]);
 
     if !force {
         if let Some(cached) = get_cached_overview(&cache_key)? {
@@ -402,6 +421,7 @@ fn build_overview_from_batch(
         currency: batch.currency,
         generated_at: batch.generated_at,
         cached: false,
+        stale: false,
         ranges,
     })
 }
@@ -451,6 +471,7 @@ fn get_cached_overview(cache_key: &str) -> Result<Option<CostOverview>, String> 
 
     let mut overview = cached.overview.clone();
     overview.cached = true;
+    overview.stale = false;
     Ok(Some(overview))
 }
 
@@ -475,16 +496,20 @@ impl CostRangeSummary {
             since: summary.since.map(|date| date.to_string()),
             until: summary.until.map(|date| date.to_string()),
             currency: summary.currency,
-            cost: summary.cost,
-            cost_usd: summary.cost_usd,
+            cost: summary.cost.or(summary.estimated_cost),
+            cost_usd: summary.cost_usd.or(summary.estimated_cost_usd),
             tokens: CostTokenBreakdown::from(summary.tokens),
             models: summary
                 .models
                 .into_iter()
                 .map(CostModelSummary::from)
                 .collect(),
+            cost_kind: summary.cost_kind,
+            estimated_cost: summary.estimated_cost,
+            estimated_cost_usd: summary.estimated_cost_usd,
             valid_entries: summary.valid_entries,
             skipped_entries: summary.skipped_entries,
+            parse_error_entries: i64::try_from(summary.parse_error_entries).unwrap_or(i64::MAX),
             elapsed_ms: summary.elapsed_ms,
         }
     }
@@ -647,6 +672,43 @@ mod tests {
             .ranges
             .iter()
             .all(|range| range.cost_usd == Some(12.34)));
+    }
+
+    #[test]
+    fn prefers_estimated_usd_and_copies_completeness_fields() {
+        let mut item = summary(UsageRange::Today, 3);
+        item.cost = None;
+        item.cost_usd = None;
+        item.estimated_cost = Some(4.25);
+        item.estimated_cost_usd = Some(4.25);
+        item.cost_kind = "estimated_proxy".to_string();
+        item.skipped_entries = 5;
+        item.parse_error_entries = 2;
+
+        let mapped = CostRangeSummary::from_summary("today", "Today", item);
+        assert_eq!(mapped.cost, Some(4.25));
+        assert_eq!(mapped.cost_usd, Some(4.25));
+        assert_eq!(mapped.estimated_cost, Some(4.25));
+        assert_eq!(mapped.estimated_cost_usd, Some(4.25));
+        assert_eq!(mapped.cost_kind, "estimated_proxy");
+        assert_eq!(mapped.skipped_entries, 5);
+        assert_eq!(mapped.parse_error_entries, 2);
+    }
+
+    #[test]
+    fn recorded_cost_is_not_replaced_by_estimated() {
+        let mut item = summary(UsageRange::Today, 1);
+        item.cost = Some(1.5);
+        item.cost_usd = Some(1.5);
+        item.estimated_cost = Some(9.0);
+        item.estimated_cost_usd = Some(9.0);
+        item.cost_kind = "real".to_string();
+
+        let mapped = CostRangeSummary::from_summary("today", "Today", item);
+        assert_eq!(mapped.cost, Some(1.5));
+        assert_eq!(mapped.cost_usd, Some(1.5));
+        assert_eq!(mapped.estimated_cost_usd, Some(9.0));
+        assert_eq!(mapped.cost_kind, "real");
     }
 
     #[test]

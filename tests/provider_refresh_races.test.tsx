@@ -918,6 +918,8 @@ function cost_overview(marker: number): CostOverview {
       models: [],
       validEntries: 1,
       skippedEntries: 0,
+      parseErrorEntries: 0,
+      costKind: 'real',
       elapsedMs: 1,
     }],
   };
@@ -1096,10 +1098,13 @@ describe('provider read status propagation', () => {
     const element = (nonce: number) => createElement(CursorPanel, { autoRefreshIntervalMs: 0, showCostSummary: false, manualRefreshNonce: nonce, onReadResult: readResult });
     await act(async () => { renderer = create(element(0)); });
     expect(readResult).toHaveBeenLastCalledWith(null);
+    expect(backend.getCursorInfo).toHaveBeenLastCalledWith(false);
     await act(async () => renderer.update(element(1)));
     expect(readResult).toHaveBeenLastCalledWith('Temporary outage');
+    expect(backend.getCursorInfo).toHaveBeenLastCalledWith(true);
     await act(async () => renderer.update(element(2)));
     expect(readResult).toHaveBeenLastCalledWith('Offline');
+    expect(backend.getCursorInfo).toHaveBeenLastCalledWith(true);
     await unmount(renderer);
   });
 });

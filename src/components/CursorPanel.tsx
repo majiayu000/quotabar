@@ -74,12 +74,12 @@ export default function CursorPanel({
   const [error, setError] = useState<string | null>(null);
   const request_generation = useLatestRequestGeneration();
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (manual = false) => {
     const generation = request_generation.begin();
     try {
       setLoading(true);
       setError(null);
-      const data = await backend.getCursorInfo();
+      const data = await backend.getCursorInfo(manual);
       if (!request_generation.isCurrent(generation)) return;
       setCursorData(data);
       if (data.error) {
@@ -105,10 +105,12 @@ export default function CursorPanel({
   }, [onConnectionChange, onQuotaWindowsChange, onReadResult, onUsageChange, request_generation]);
 
   useEffect(() => {
-    fetchData();
+    void fetchData();
     // 0 pauses background polling.
     if (autoRefreshIntervalMs <= 0) return;
-    const interval = setInterval(fetchData, autoRefreshIntervalMs);
+    const interval = setInterval(() => {
+      void fetchData();
+    }, autoRefreshIntervalMs);
     return () => clearInterval(interval);
   }, [fetchData, autoRefreshIntervalMs]);
 
@@ -118,7 +120,7 @@ export default function CursorPanel({
 
   useEffect(() => {
     if (manualRefreshNonce > 0) {
-      fetchData();
+      void fetchData(true);
     }
   }, [manualRefreshNonce, fetchData]);
 

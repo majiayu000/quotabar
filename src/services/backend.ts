@@ -106,8 +106,8 @@ export const backend = {
     return invokeBackend<CodexWeeklyQuotaData>('get_codex_weekly_quota');
   },
 
-  getCursorInfo() {
-    return invokeBackend<CursorData>('get_cursor_info');
+  getCursorInfo(manual = false) {
+    return invokeBackend<CursorData>('get_cursor_info', { manual });
   },
 
   getAntigravityInfo() {
@@ -163,6 +163,7 @@ export const backend = {
     visible: boolean,
     force = false,
     style: 'percent' | 'ring' | 'icon' = 'percent',
+    stale = false,
   ) {
     return invokeBackend<void>('update_tray_icon', {
       service,
@@ -170,6 +171,7 @@ export const backend = {
       visible,
       force,
       style,
+      stale,
     });
   },
 

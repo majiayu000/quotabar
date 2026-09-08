@@ -31,6 +31,8 @@ function overview(): CostOverview {
       models: [],
       validEntries: 1,
       skippedEntries: 0,
+      parseErrorEntries: 0,
+      costKind: 'none',
       elapsedMs: 1,
     }],
   };
