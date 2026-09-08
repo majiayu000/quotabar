@@ -30,14 +30,9 @@ fn log_msg(msg: &str) {
 
     print!("{line}");
 
-    let home_dir = match dirs::home_dir() {
-        Some(path) => path,
-        None => {
-            eprintln!("[CodexLog] failed to resolve home directory");
-            return;
-        }
+    let Some(log_dir) = super::log_path::diagnostic_log_dir() else {
+        return;
     };
-    let log_dir = home_dir.join("Library/Logs/quotabar");
     if let Err(error) = fs::create_dir_all(&log_dir) {
         eprintln!("[CodexLog] failed to create log directory: {error}");
         return;
