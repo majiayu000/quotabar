@@ -17,6 +17,7 @@ use std::time::{Duration, Instant};
 const BILLING_URL: &str = "https://cli-chat-proxy.grok.com/v1/billing?format=credits";
 const TOKEN_AUTH_HEADER: &str = "xai-grok-cli";
 const QUOTA_CACHE_TTL: Duration = Duration::from_secs(120);
+const MAX_STALE_GROK_AGE: Duration = Duration::from_secs(15 * 60);
 
 struct CachedGrok {
     data: GrokData,
@@ -24,13 +25,13 @@ struct CachedGrok {
 }
 
 static GROK_CACHE: OnceLock<Mutex<Option<CachedGrok>>> = OnceLock::new();
-static LAST_GOOD: OnceLock<Mutex<Option<GrokData>>> = OnceLock::new();
+static LAST_GOOD: OnceLock<Mutex<Option<CachedGrok>>> = OnceLock::new();
 
 fn grok_cache() -> &'static Mutex<Option<CachedGrok>> {
     GROK_CACHE.get_or_init(|| Mutex::new(None))
 }
 
-fn last_good() -> &'static Mutex<Option<GrokData>> {
+fn last_good() -> &'static Mutex<Option<CachedGrok>> {
     LAST_GOOD.get_or_init(|| Mutex::new(None))
 }
 
@@ -439,21 +440,53 @@ fn save_cache(data: &GrokData) {
             cached_at: Instant::now(),
         });
     }
-    if data.connected {
+    if data.connected && data.error.is_none() {
         if let Ok(mut guard) = last_good().lock() {
-            *guard = Some(data.clone());
+            *guard = Some(CachedGrok {
+                data: data.clone(),
+                cached_at: Instant::now(),
+            });
         }
     }
+}
+
+fn mark_grok_data_stale(mut data: GrokData, error: String) -> GrokData {
+    data.error = Some(error);
+    data
+}
+
+fn stale_grok_usable(connected: bool, age: Duration) -> bool {
+    connected && age < MAX_STALE_GROK_AGE
+}
+
+fn last_good_or_disconnected(
+    error: String,
+    snapshot: Option<&GrokData>,
+    age: Duration,
+) -> GrokData {
+    match snapshot {
+        Some(data) if stale_grok_usable(data.connected, age) => {
+            mark_grok_data_stale(data.clone(), error)
+        }
+        _ => GrokData::disconnected(error),
+    }
+}
+
+fn last_good_snapshot_fallback(error: String) -> GrokData {
+    let (snapshot, age) = match last_good().lock() {
+        Ok(guard) => match guard.as_ref() {
+            Some(cached) => (Some(cached.data.clone()), cached.cached_at.elapsed()),
+            None => (None, Duration::ZERO),
+        },
+        Err(_) => (None, Duration::ZERO),
+    };
+    last_good_or_disconnected(error, snapshot.as_ref(), age)
 }
 
 fn fallback_or_disconnected(error: impl Into<String>) -> GrokData {
     let error = error.into();
     if is_transient_os_error(&error) {
-        if let Ok(guard) = last_good().lock() {
-            if let Some(stale) = guard.as_ref() {
-                return stale.clone();
-            }
-        }
+        return last_good_snapshot_fallback(error);
     }
     GrokData::disconnected(error)
 }
@@ -534,9 +567,31 @@ pub async fn fetch_grok_info() -> GrokData {
 
 #[cfg(test)]
 mod tests {
-    use super::{map_product, parse_billing_payload, pick_credential, scale_used_pct};
-    use crate::domain::models::GrokProductUsage;
+    use super::{
+        last_good_or_disconnected, map_product, mark_grok_data_stale, parse_billing_payload,
+        pick_credential, scale_used_pct, stale_grok_usable, MAX_STALE_GROK_AGE,
+    };
+    use crate::domain::models::{GrokData, GrokProductUsage};
     use serde_json::json;
+    use std::time::Duration;
+
+    fn sample_connected_grok() -> GrokData {
+        GrokData {
+            connected: true,
+            plan_type: Some("SuperGrok".into()),
+            email: None,
+            percentage: Some(4.0),
+            reset_at: None,
+            period_started_at: None,
+            period_type: Some("weekly".into()),
+            period_label: Some("Weekly".into()),
+            products: Vec::new(),
+            extra: None,
+            value_estimate: None,
+            value_estimate_error: None,
+            error: None,
+        }
+    }
 
     #[test]
     fn maps_live_and_proto_product_names() {
@@ -786,5 +841,37 @@ mod tests {
         };
         assert!(err.contains("expired"));
         assert!(!err.contains("expired-token"));
+    }
+
+    #[test]
+    fn last_good_fallback_is_connected_with_error_not_clean_success() {
+        let data = sample_connected_grok();
+        let stale = last_good_or_disconnected(
+            "Too many open files (os error 24)".to_string(),
+            Some(&data),
+            Duration::from_secs(30),
+        );
+        assert!(stale.connected);
+        assert_eq!(stale.percentage, Some(4.0));
+        assert_eq!(
+            stale.error.as_deref(),
+            Some("Too many open files (os error 24)")
+        );
+        assert_ne!(stale.error, None);
+
+        let marked = mark_grok_data_stale(data.clone(), "EMFILE".to_string());
+        assert!(marked.connected);
+        assert_eq!(marked.error.as_deref(), Some("EMFILE"));
+
+        assert!(stale_grok_usable(true, Duration::from_secs(60)));
+        assert!(!stale_grok_usable(false, Duration::from_secs(1)));
+        assert!(!stale_grok_usable(true, MAX_STALE_GROK_AGE));
+        let expired = last_good_or_disconnected(
+            "Too many open files (os error 24)".to_string(),
+            Some(&data),
+            MAX_STALE_GROK_AGE,
+        );
+        assert!(!expired.connected);
+        assert!(expired.error.unwrap().contains("Too many open files"));
     }
 }

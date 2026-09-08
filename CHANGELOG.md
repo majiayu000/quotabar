@@ -4,6 +4,8 @@ All notable QuotaBar changes should be summarized here before a release is cut.
 
 ## Unreleased
 
+- Return Grok last-good usage with an error and a 15-minute age cap instead of presenting it as a fresh success.
+
 - Hide Grok extra credits unless used, cap, and prepaid cents all parse; missing cents are not $0.00.
 - Show n/a when Codex credits exist without a balance instead of treating a missing value as 0.
 - Let Cursor Refresh skip the 120s success cache so a manual refresh hits the network like Claude.
