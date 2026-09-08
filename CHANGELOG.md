@@ -4,6 +4,7 @@ All notable QuotaBar changes should be summarized here before a release is cut.
 
 ## Unreleased
 
+- Move Cursor `state.vscdb` sqlite open and query onto `spawn_blocking` so a locked database cannot stall other quota and tray commands.
 - Apply the saved Hide Dock preference during native startup so the Dock icon does not flash before the webview mounts.
 - Keep Codex used percent above 100 when ChatGPT reports an over-limit week, instead of clamping it to 100 at parse. Tray PNG digits still cap at 100.
 - Align the marketing site with 0.5.0 and honest privacy copy: quota polling talks to providers you already use, tokens never go to QuotaBar, and cost estimates stay local.
