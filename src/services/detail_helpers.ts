@@ -1,3 +1,4 @@
+import { formatResetTime } from '../utils/quota_format';
 import type { CodexResetCredit, CodexResetCredits } from '../types/models';
 import type { QuotaWindowSummary } from './provider_summary';
 
@@ -21,7 +22,23 @@ export function getHighUsageTip(
     .sort((a, b) => b.usedPercent - a.usedPercent)[0];
 
   if (!window) return null;
-  return `${window.providerLabel} ${window.label} is at ${Math.round(window.usedPercent)}%.`;
+  const remaining = Math.max(0, Math.round(100 - window.usedPercent));
+  const usage = window.usedPercent >= 100
+    ? `Limit reached (${Math.round(window.usedPercent)}% used).`
+    : `${remaining}% remaining.`;
+  const resetAt = window.resetAtMs;
+  const prefix = `${window.providerLabel} ${window.label}: ${usage}`;
+  if (resetAt == null || !Number.isFinite(resetAt)) {
+    return `${prefix} Reset time unavailable; check the provider dashboard.`;
+  }
+  const untilReset = resetAt - Date.now();
+  if (untilReset <= 0) {
+    return `${prefix} The reset time has passed; refresh to check your quota.`;
+  }
+  const advice = untilReset <= 60 * 60 * 1000
+    ? 'If you run out, check again after this reset.'
+    : 'Pace usage until reset or check another service.';
+  return `${prefix} Resets in ${formatResetTime(resetAt / 1000)}. ${advice}`;
 }
 
 export function getAvailableResetCredits(

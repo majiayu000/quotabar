@@ -153,7 +153,7 @@ export default function ClaudePanel({
             </div>
           </div>
 
-          {sections.tips && <SmartTip message={getHighUsageTip(windows)} />}
+          {sections.tips && !error && <SmartTip message={getHighUsageTip(windows)} />}
 
           {sections.timeline && <ResetTimeline windows={windows} />}
 

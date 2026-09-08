@@ -488,3 +488,19 @@ describe('provider status UI', () => {
     await act(async () => renderer.unmount());
   });
 });
+
+
+it('withholds current usage advice when a high-usage snapshot is stale', async () => {
+  let renderer!: ReactTestRenderer;
+  await act(async () => {
+    renderer = create(createElement(ClaudePanel, {
+      quota: { connected: true, weeklyTotal: { used: 95, limit: 100, percentage: 95 } },
+      loading: false, error: 'Network unavailable', windowVisible: true,
+      costRefreshKey: 0, onRetry: vi.fn(), sections: { ...hiddenSections, tips: true },
+    }));
+  });
+  expect(renderedText(renderer)).toContain('95% used');
+  expect(renderedText(renderer)).toContain('Showing last known data.');
+  expect(renderer.root.findAllByProps({ className: 'smart-tip' })).toHaveLength(0);
+  await act(async () => renderer.unmount());
+});

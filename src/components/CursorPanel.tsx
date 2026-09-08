@@ -255,7 +255,7 @@ export default function CursorPanel({
             )}
           </div>
 
-          {sections.tips && <SmartTip message={getHighUsageTip(windows)} />}
+          {sections.tips && !error && <SmartTip message={getHighUsageTip(windows)} />}
 
           {sections.timeline && <ResetTimeline windows={windows} />}
 

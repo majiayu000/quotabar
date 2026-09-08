@@ -684,7 +684,7 @@ export default function CodexPanel({
             <p className="codex-local-extras">{extrasPausedCopy}</p>
           )}
 
-          {sections.tips && (
+          {sections.tips && !error && (
             <SmartTip message={weeklyExhausted ? exhaustedTip : getHighUsageTip(windows)} />
           )}
 

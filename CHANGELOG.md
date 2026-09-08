@@ -4,6 +4,8 @@ All notable QuotaBar changes should be summarized here before a release is cut.
 
 ## Unreleased
 
+- Explain remaining quota and reset timing in high-usage tips, distinguish imminent resets, and suppress advice from stale data.
+
 - Enlarge provider labels, wrap navigation and freshness text, lead Overview with remaining quota, and collapse secondary usage details. Clarify API-price estimates are not actual bills.
 
 - Automatically show detected services until users choose their own panel visibility; keep disconnected services reachable and add a setup shortcut.

@@ -13,7 +13,8 @@ Website: https://majiayu000.github.io/quotabar/
 
 ## Features
 
-- Overview: glass popover shell with provider summary tiles and real-data quota windows.
+- Overview: remaining quota and per-service freshness, with optional usage details. The overview count is connected services, not an aggregate quota percentage.
+- High-usage tips explain remaining quota and reset timing; stale data does not produce usage advice.
 - Provider switcher: overview plus full-name cards for Claude, Codex, Cursor, Grok, and Antigravity.
 - Claude quota: 5-hour, 7-day, Opus, Sonnet, and Claude Design windows.
 - Codex quota: short and weekly ChatGPT usage windows, local weekly pace and API-equivalent value estimates, and an exhausted-week layout that keeps the last estimate and a clickable bonus reset.

@@ -10,6 +10,8 @@ import type { ProviderSummary, QuotaWindowSummary } from '../services/provider_s
 import type { TrayServiceName } from '../services/tray_visibility';
 import { clampProgressValue, getProgressStyle } from '../utils/quota_format';
 import { formatEventTime } from '../services/event_log';
+import SmartTip from './SmartTip';
+import { getHighUsageTip } from '../services/detail_helpers';
 import ProviderSetup from './ProviderSetup';
 import { SERVICE_META } from '../services/service_meta';
 import CostSummarySection from './CostSummarySection';
@@ -527,6 +529,8 @@ export default function OverviewPanel({
       </div>
 
 
+
+      {sections.tips && <SmartTip message={getHighUsageTip(mostConstrained.filter((window) => !summaries.find((summary) => summary.id === window.provider)?.failed))} />}
 
       {(sections.timeline || sections.cost) && (
         <details className="usage-details" onToggle={(event) => setDetailsOpen(event.currentTarget.open)}>
