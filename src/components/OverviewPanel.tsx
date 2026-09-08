@@ -15,7 +15,6 @@ import { getHighUsageTip } from '../services/detail_helpers';
 import ProviderSetup from './ProviderSetup';
 import { SERVICE_META } from '../services/service_meta';
 import CostSummarySection from './CostSummarySection';
-import ProviderDetailHeader from './ProviderDetailHeader';
 import ProviderIcon from './ProviderIcon';
 import QuotaRecovery, { quotaRecovery, useQuotaCooldown } from './QuotaRecovery';
 import ResetTimeline from './ResetTimeline';
@@ -439,7 +438,6 @@ interface OverviewPanelProps {
   costRefreshKey: number;
   showCostSummary?: boolean;
   onRetry?: () => void;
-  setupOpen?: boolean;
   onProviderSelect: (provider: TrayServiceName) => void;
   sections?: PanelSectionVisibility;
 }
@@ -451,7 +449,6 @@ export default function OverviewPanel({
   costRefreshKey,
   showCostSummary = true,
   onRetry,
-  setupOpen = false,
   onProviderSelect,
   sections = defaultPanelSections(),
 }: OverviewPanelProps) {
@@ -460,16 +457,8 @@ export default function OverviewPanel({
 
   return (
     <div className="overview-panel">
-      <ProviderDetailHeader
-        service="claude"
-        label="Overview"
-        status={`${connectedCount} of ${summaries.length} connected`}
-        plan="Claude, Codex, Cursor"
-        tone={connectedCount > 0 ? 'online' : 'offline'}
-      />
-
-      {(connectedCount === 0 || setupOpen) && <details className="setup-services" open={connectedCount === 0 || setupOpen ? true : undefined}>
-        <summary>{connectedCount === 0 ? 'Connect your first service' : 'Add or reconnect a service'}</summary>
+      {connectedCount === 0 && <details className="setup-services" open>
+        <summary>Connect your first service</summary>
         <p className="setup-privacy">QuotaBar reads existing local sign-ins to request usage from each service. It does not manage your login or refresh your tokens. Cost estimates use local usage logs.</p>
         {summaries.map((summary) => (
           <details className="setup-service" key={summary.id}>
@@ -487,23 +476,23 @@ export default function OverviewPanel({
       </details>}
 
       <div className="section">
-        <div className="section-title">Quota remaining</div>
+        <div className="section-title">Quota usage <span className="overview-connection-count">{connectedCount} connected</span></div>
         <div className="quota-group">
-          {mostConstrained.length > 0 ? mostConstrained.map((window, index) => {
+          {mostConstrained.length > 0 ? mostConstrained.map((window) => {
             const summary = summaries.find((item) => item.id === window.provider);
             return (
             <button
               type="button"
-              className={`quota-card overview-quota-row${index === 0 ? ' primary' : ''}`}
+              className="quota-card overview-quota-row"
               key={`${window.provider}-${window.label}`}
               onClick={() => onProviderSelect(window.provider)}
+              title={summary?.lastSuccessAt != null ? `Last success ${formatEventTime(new Date(summary.lastSuccessAt).toISOString())}` : 'No successful read yet'}
               aria-label={`Open ${window.providerLabel}: ${window.label}, ${Math.round(window.usedPercent)}% used`}
             >
               <div className="quota-header">
                 <span className="quota-label">{`${window.providerLabel} · ${window.label}`}</span>
-                <span className="quota-value">{Math.max(0, Math.round(100 - window.usedPercent))}% left</span>
+                <span className="quota-value">{Math.round(window.usedPercent)}% used</span>
               </div>
-              <div className="quota-used-caption">{Math.round(window.usedPercent)}% used</div>
               <div
                 className="progress-bar"
                 role="progressbar"
@@ -516,7 +505,7 @@ export default function OverviewPanel({
                 <div className="progress-fill" style={getProgressStyle(window.usedPercent)} />
               </div>
               {summary?.failed && <div className="error-context">Stale data · Refresh or check your connection</div>}
-              {summary?.lastSuccessAt != null && (
+              {summary?.failed && summary.lastSuccessAt != null && (
                 <div className="reset-time">Last success {formatEventTime(new Date(summary.lastSuccessAt).toISOString())}</div>
               )}
               {window.resetLabel && <div className="reset-time">Resets in {window.resetLabel}</div>}

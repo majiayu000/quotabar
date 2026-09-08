@@ -1,3 +1,4 @@
+import { workspaceCopy } from '../utils/quota_format';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { backend } from '../services/backend';
 import { getBudgetForSources, getSavedMonthlyBudgets } from '../services/budget';
@@ -347,10 +348,10 @@ export default function CostSummarySection({
         </span>
       </div>
 
-      <p className="cost-estimate-explanation">
-        {Array.isArray(source)
-          ? 'Estimated at API prices from local Claude, Codex, and Cursor logs. Not your actual bill. Grok and Antigravity are not included.'
-          : 'Estimated at API prices from local logs. Not your actual bill.'}
+      <p className="cost-estimate-explanation" title={Array.isArray(source)
+        ? 'Estimated at API prices from local Claude, Codex, and Cursor logs. Not your actual bill. Grok and Antigravity are not included.'
+        : 'Estimated at API prices from local logs. Not your actual bill.'}>
+        {workspaceCopy('API-price estimate · Not your bill', 'API 价格估算 · 非实际账单')}
       </p>
 
       {loading && !overview && (

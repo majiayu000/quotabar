@@ -66,10 +66,12 @@ describe('provider status UI', () => {
     });
 
     const text = renderedText(renderer);
-    expect(text).toContain('Overview');
-    expect(text).toContain('1 of 2 connected');
-    expect(text).toContain('Claude, Codex, Cursor');
-    expect(text).not.toContain('All providers');
+    expect(text).toContain('Quota usage');
+    expect(renderer.root.findByProps({ className: 'overview-connection-count' }).children.join('')).toBe('1 connected');
+    expect(text).not.toContain('Claude, Codex, Cursor');
+    expect(renderer.root.findAllByType(ProviderDetailHeader)).toHaveLength(0);
+    expect(renderer.root.findByProps({ role: 'progressbar' }).props['aria-valuenow']).toBe(82);
+    expect(renderer.root.findByProps({ className: 'quota-value' }).children.join('')).toBe('82% used');
   });
 
   it('keeps last-known Claude data visible after a refresh error', async () => {
@@ -160,7 +162,8 @@ describe('provider status UI', () => {
     expect(text).toContain('Rate limit refresh failed');
     expect(text).toContain('Stale data');
     expect(text).toContain('Showing last known data');
-    expect(text).toContain('5h · 64% used');
+    expect(text).toContain('5-hour window');
+    expect(renderer.root.findByProps({ role: 'progressbar' }).props['aria-valuenow']).toBe(64);
     await act(async () => renderer.unmount());
   });
 
@@ -221,8 +224,9 @@ describe('provider status UI', () => {
 
     const text = renderedText(renderer);
     expect(text).toContain('Codex ID token is unavailable');
-    expect(text).toContain('Connected');
-    expect(text).toContain('5h · 64% used');
+    expect(renderer.root.findAllByType(ProviderDetailHeader)).toHaveLength(0);
+    expect(renderer.root.findByProps({ role: 'progressbar' }).props['aria-valuenow']).toBe(64);
+    expect(text).toContain('5-hour window');
     expect(text).not.toContain('Stale data');
     expect(text).not.toContain('Showing last known data');
     await act(async () => renderer.unmount());
@@ -325,7 +329,8 @@ describe('provider status UI', () => {
     const text = renderedText(renderer);
     expect(text).toContain('Codex refresh failed');
     expect(text).toContain('Stale data');
-    expect(text).toContain('5h · 64% used');
+    expect(text).toContain('5-hour window');
+    expect(renderer.root.findByProps({ role: 'progressbar' }).props['aria-valuenow']).toBe(64);
     expect(onConnectionChange).toHaveBeenCalledWith(false);
     expect(onUsageChange).toHaveBeenCalledWith(null);
     expect(onQuotaWindowsChange).toHaveBeenCalledWith([]);

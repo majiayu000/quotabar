@@ -14,7 +14,7 @@ import type {
   CodexWeeklyQuota,
   CodexWeeklyValueEstimate,
 } from '../types/models';
-import { buildCodexQuotaWindows, sortMostConstrained, type QuotaWindowSummary } from '../services/provider_summary';
+import { buildCodexQuotaWindows, type QuotaWindowSummary } from '../services/provider_summary';
 import { canReportBonusReady } from '../services/bonus_ready';
 import {
   checkWeeklyQuotaWindow,
@@ -57,10 +57,6 @@ function formatSubscriptionDate(dateStr?: string): string {
   } catch {
     return dateStr;
   }
-}
-
-function formatCodexPlan(planType?: string): string {
-  return `ChatGPT ${formatPlanType(planType, 'Pro')}`;
 }
 
 function formatWindowLabel(minutes?: number, kind: 'primary' | 'secondary' = 'primary'): string {
@@ -355,7 +351,6 @@ export default function CodexPanel({
   const connected = rateLimits?.connected || codexData?.connected;
   const planType = rateLimits?.planType || codexData?.planType;
   const windows = buildCodexQuotaWindows(rateLimits);
-  const topWindow = sortMostConstrained(windows)[0];
   const showingStaleLimits = Boolean(rateLimitsError && hasRateLimits);
   const quotaUnavailable = Boolean(rateLimitsError && !hasRateLimits);
   const bonusGrantGroups = buildBonusGrantGroups(availableResetCredits);
@@ -487,14 +482,11 @@ export default function CodexPanel({
 
       {connected && (
         <div className="codex-content">
-          <ProviderDetailHeader
+          {(showingStaleLimits || quotaUnavailable || weeklyExhausted) && <ProviderDetailHeader
             service="codex"
             status={headerStatus}
-            plan={formatCodexPlan(planType)}
-            usedPercent={topWindow?.usedPercent ?? null}
-            usageLabel={topWindow?.label}
             tone={headerTone}
-          />
+          />}
           {officialUpdatedAt != null && (
             <div className="codex-updated">
               <span>{formatOfficialUpdatedAt(officialUpdatedAt)}</span>
@@ -606,7 +598,7 @@ export default function CodexPanel({
 
           {weeklyExhausted && renderBonusPanel()}
 
-          {officialWeeklyLimit
+          {sections.cost && officialWeeklyLimit
             && (displayedWeeklyValueEstimate || displayedWeeklyValueEstimateError) && (
             <div className="section weekly-value-section">
               <div className="quota-group">

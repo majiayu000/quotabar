@@ -8,6 +8,7 @@ import {
   buildGrokQuotaWindows,
   getCursorAlertUsedPercent,
   getCursorTrayUsedPercent,
+  pickMostConstrainedPerProvider,
   sortMostConstrained,
   sortUpcomingResets,
 } from '../src/services/provider_summary';
@@ -191,5 +192,22 @@ describe('summary window labels', () => {
       { provider: 'codex', providerLabel: 'Codex', label: 'Weekly', usedPercent: 10 },
     ], 10)).toBe('Weekly');
     expect(summaryUsageLabel('grok', [], null)).toBeUndefined();
+  });
+});
+
+describe('overview hottest windows', () => {
+  test('drops Cursor Other Models from ALL and keeps Cursor Models', () => {
+    const windows = [
+      ...buildCursorQuotaWindows({ connected: true, autoPercent: 35, apiPercent: 100 }),
+      { provider: 'codex' as const, providerLabel: 'Codex', label: 'Weekly', usedPercent: 24 },
+      { provider: 'grok' as const, providerLabel: 'Grok', label: 'Weekly pool', usedPercent: 23 },
+      { provider: 'claude' as const, providerLabel: 'Claude', label: '7-day usage', usedPercent: 10 },
+    ];
+    expect(pickMostConstrainedPerProvider(windows, 4).map((window) => `${window.providerLabel} · ${window.label}`)).toEqual([
+      'Cursor · Cursor Models',
+      'Codex · Weekly',
+      'Grok · Weekly pool',
+      'Claude · 7-day usage',
+    ]);
   });
 });

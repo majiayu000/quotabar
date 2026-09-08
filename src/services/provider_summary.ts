@@ -249,6 +249,25 @@ export function sortMostConstrained(windows: QuotaWindowSummary[]): QuotaWindowS
   return [...windows].sort((a, b) => b.usedPercent - a.usedPercent);
 }
 
+/** Overview ALL list: one hottest window per provider. Cursor keeps Models (tray), drops Other Models. */
+export function pickMostConstrainedPerProvider(
+  windows: QuotaWindowSummary[],
+  limit = 4,
+): QuotaWindowSummary[] {
+  const overviewWindows = windows.filter(
+    (window) => !(window.provider === 'cursor' && window.label === 'Other Models'),
+  );
+  const seen = new Set<TrayServiceName>();
+  const picked: QuotaWindowSummary[] = [];
+  for (const window of sortMostConstrained(overviewWindows)) {
+    if (seen.has(window.provider)) continue;
+    seen.add(window.provider);
+    picked.push(window);
+    if (picked.length >= limit) break;
+  }
+  return picked;
+}
+
 export function sortUpcomingResets(windows: QuotaWindowSummary[], now = Date.now()): QuotaWindowSummary[] {
   return [...windows]
     .filter((window) => typeof window.resetAtMs === 'number' && window.resetAtMs >= now)

@@ -33,7 +33,7 @@ export default function ActionButtons({
       <button type="button" className="analysis-launch" onClick={() => {
         setAnalysisError(null);
         void backend.openAnalysis(getSavedTab()).catch((error) => setAnalysisError(`无法打开分析窗口：${String(error)}`));
-      }}>用量分析 <span aria-hidden="true">↗</span></button>
+      }}>{workspaceCopy("Usage analysis", "用量分析")} <span aria-hidden="true">↗</span></button>
       {analysisError && <p role="alert">{analysisError}</p>}
       <div className="action-buttons" aria-busy={loading}>
         {loading && (
@@ -46,7 +46,7 @@ export default function ActionButtons({
           className="action-btn refresh-btn"
           onClick={onRefresh}
           disabled={loading}
-          title="Refresh"
+          title={statusTitle ? `Refresh · ${statusTitle}` : 'Refresh'}
           aria-label="Refresh current provider"
         >
           <span className="btn-icon">{loading ? '...' : '↻'}</span>

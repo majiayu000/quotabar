@@ -210,7 +210,7 @@ export default function GrokPanel({
             </div>
           </div>
 
-          {(displayedGrokValueEstimate || displayedGrokValueEstimateError) && (
+          {sections.cost && (displayedGrokValueEstimate || displayedGrokValueEstimateError) && (
             <div className="section weekly-value-section">
               <div className="quota-group">
                 <div className="quota-card weekly-value-card">

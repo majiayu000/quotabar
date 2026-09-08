@@ -46,7 +46,7 @@ import {
   buildClaudeQuotaWindows,
   buildProviderSummaries,
   isProviderTab,
-  sortMostConstrained,
+  pickMostConstrainedPerProvider,
   summaryUsageLabel,
   sortUpcomingResets,
   type AppViewName,
@@ -179,7 +179,6 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
   const [savedSwitcherVisibility, setSwitcherVisibility] = useState<SwitcherVisibility | null>(getSavedSwitcherVisibility);
   const [detectedProviders, setDetectedProviders] = useState<SwitcherVisibility>(() => defaultServiceMap(false));
   const switcherVisibility = savedSwitcherVisibility ?? detectedProviders;
-  const [addingService, setAddingService] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const windowVisible = usePopoverWindow(containerRef, [activeView, quota, connected], !workspace);
   const lastTrayIconRequestRef = useRef<Partial<Record<TrayServiceName, TrayIconRequest>>>({});
@@ -563,7 +562,6 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
   }, [panelSections]);
 
   const handleTabChange = useCallback((tab: TabName) => {
-    setAddingService(false);
     if (isProviderTab(tab) && !switcherVisibility[tab]) {
       if (savedSwitcherVisibility === null) {
         setDetectedProviders((previous) => ({ ...previous, [tab]: true }));
@@ -712,13 +710,14 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
     usageLabel: summaryUsageLabel(summary.id, allQuotaWindows, summary.usedPercent),
   }));
   const switcherSummaries = providerSummaries.filter((summary) => switcherVisibility[summary.id]);
-  const mostConstrained = sortMostConstrained(allQuotaWindows).slice(0, 4);
+  const mostConstrained = pickMostConstrainedPerProvider(allQuotaWindows, 4);
   const upcomingResets = sortUpcomingResets(allQuotaWindows).slice(0, 5);
   const providerViewActive = isProviderTab(activeView);
+  const visiblePanelSections = workspace ? panelSections : { timeline: false, cost: false, trend: false, tips: false };
   const overviewCostRefreshKey = claudeCostRefreshNonce + refreshNonces.codex + refreshNonces.cursor;
 
   const content = (
-    <div className={`app theme-${theme}`}>
+    <div className={`app theme-${theme}`} data-surface={workspace ? 'workspace' : 'tray'}>
       {toast && <div className="toast">{toast}</div>}
       <div className="container" ref={containerRef}>
         {activeView === 'settings' ? (
@@ -755,7 +754,7 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
                 activeTab={activeTab}
                 onTabChange={handleTabChange}
                 summaries={switcherSummaries}
-                onAddService={() => { setAndPersistTab('all'); setAddingService(true); }}
+                allSummaries={providerSummaries}
               />
             </div>
 
@@ -770,7 +769,7 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
                   windowVisible={windowVisible}
                   costRefreshKey={claudeCostRefreshNonce}
                   onRetry={handleRefresh}
-                  sections={panelSections}
+                  sections={visiblePanelSections}
                 />
               )}
 
@@ -784,7 +783,7 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
                   manualRefreshNonce={refreshNonces.codex}
                   autoRefreshIntervalMs={workspace ? windowVisible ? AUTO_REFRESH_INTERVAL_MS : 0 : providerRefreshIntervalMs(windowVisible, trayEnabled.codex)}
                   showCostSummary={windowVisible && activeView === 'codex'}
-                  sections={panelSections}
+                  sections={visiblePanelSections}
                   onBonusExpiring={workspace ? undefined : handleBonusExpiring}
                   onBonusReadyChange={workspace ? undefined : handleBonusReadyChange}
                   onOpenDashboard={handleOpenDashboard}
@@ -801,7 +800,7 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
                   manualRefreshNonce={refreshNonces.cursor}
                   autoRefreshIntervalMs={workspace ? windowVisible ? AUTO_REFRESH_INTERVAL_MS : 0 : providerRefreshIntervalMs(windowVisible, trayEnabled.cursor)}
                   showCostSummary={windowVisible && activeView === 'cursor'}
-                  sections={panelSections}
+                  sections={visiblePanelSections}
                 />
               </div>
 
@@ -815,7 +814,7 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
                   onReadResult={readResultSetters.grok}
                   manualRefreshNonce={refreshNonces.grok}
                   autoRefreshIntervalMs={workspace ? windowVisible ? AUTO_REFRESH_INTERVAL_MS : 0 : providerRefreshIntervalMs(windowVisible, trayEnabled.grok)}
-                  sections={panelSections}
+                  sections={visiblePanelSections}
                 />
               </div>
 
@@ -831,13 +830,12 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
               {activeView === 'all' && (
                 <OverviewPanel
                   summaries={providerSummaries}
-                  setupOpen={addingService}
                   onRetry={handleRefresh}
                   mostConstrained={mostConstrained}
                   upcomingResets={upcomingResets}
                   costRefreshKey={overviewCostRefreshKey} showCostSummary={!workspace && windowVisible}
                   onProviderSelect={handleTabChange}
-                  sections={panelSections}
+                  sections={visiblePanelSections}
                 />
               )}
             </div>
@@ -848,7 +846,7 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
               onSettings={handleSettingsViewToggle}
               onQuit={handleQuit}
               loading={activeLoading}
-              statusText={activeView === 'all' && !activeLoading ? 'Check freshness per service' : footerStatus}
+              statusText={activeLoading || activeView !== 'all' && providerReads[activeProvider].error ? footerStatus : undefined}
               statusTitle={footerStatusTitle}
               showDashboard={providerViewActive}
             />

@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import type { AppTabName, ProviderSummary } from '../services/provider_summary';
 import ProviderIcon from './ProviderIcon';
 
@@ -7,21 +8,24 @@ interface TabSwitcherProps {
   activeTab: TabName;
   onTabChange: (tab: TabName) => void;
   summaries: ProviderSummary[];
-  onAddService?: () => void;
+  allSummaries?: ProviderSummary[];
 }
 
 export default function TabSwitcher({
   activeTab,
   onTabChange,
   summaries,
-  onAddService,
+  allSummaries = summaries,
 }: TabSwitcherProps) {
-  const connectedCount = summaries.filter((summary) => summary.connected).length;
-  const attentionCount = summaries.filter((summary) => (summary.failed && (summary.connected || summary.lastSuccessAt != null)) || (summary.usedPercent ?? 0) >= 80).length;
+  const navigation = useRef<HTMLElement>(null);
+  useEffect(() => {
+    navigation.current?.querySelector('[aria-current="page"]')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  }, [activeTab, summaries.length]);
+  const connectedCount = allSummaries.filter((summary) => summary.connected).length;
+  const attentionCount = allSummaries.filter((summary) => (summary.failed && (summary.connected || summary.lastSuccessAt != null)) || (summary.usedPercent ?? 0) >= 80).length;
   const overviewStatus = `${connectedCount} connected${attentionCount ? ` · ${attentionCount} need attention` : ''}`;
   return (
-    <>
-    <nav className="provider-grid" aria-label="Provider views">
+    <nav ref={navigation} className="provider-grid" aria-label="Provider views">
       {[
         {
           id: 'all' as const,
@@ -47,8 +51,8 @@ export default function TabSwitcher({
             className={`provider-card ${isActive ? 'active' : ''} ${summary.connected ? 'connected' : 'disconnected'}`}
             data-provider={summary.id}
             aria-current={isActive ? 'page' : undefined}
-            aria-label={`${summary.label}: ${statusText}`}
-            title={`${summary.label} · ${statusText}`}
+            aria-label={`${summary.label}: ${usageLabel} · ${statusText}`}
+            title={`${summary.label} · ${usageLabel} · ${statusText}`}
             onClick={() => onTabChange(summary.id)}
           >
             <span className="provider-card-topline">
@@ -61,16 +65,12 @@ export default function TabSwitcher({
                 <ProviderIcon service={summary.id} className="provider-card-svg" />
               )}
               </span>
-              <span className="provider-card-status" aria-hidden="true" />
             </span>
-            <span className="provider-card-label">{summary.label}</span>
-            <span className="provider-card-percent">{usageLabel}</span>
-            <span className="provider-card-window">{summary.id === 'all' ? attentionCount ? `${attentionCount} need attention` : 'Services' : summary.failed ? 'Check connection' : summary.id === 'antigravity' ? 'Coming later' : summary.usageLabel ?? 'No quota data'}</span>
+            <span className="provider-card-label">{summary.shortLabel}</span>
+
           </button>
         );
       })}
     </nav>
-    {onAddService && <button type="button" className="add-service-btn" onClick={onAddService}>+ Add service</button>}
-    </>
   );
 }

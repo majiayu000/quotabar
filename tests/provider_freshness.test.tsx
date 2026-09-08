@@ -39,12 +39,21 @@ function status(service: string) {
 }
 
 describe('successful quota freshness', () => {
-  it('discovers connected services, keeps a failed service reachable, and opens setup', async () => {
+  it('keeps the popover focused on quota while preserving freshness access', async () => {
+    await mount();
+    expect(renderer!.root.findByType(OverviewPanel).props.sections).toEqual({ timeline: false, cost: false, trend: false, tips: false });
+    expect(renderer!.root.findAllByProps({ className: 'usage-details' })).toHaveLength(0);
+    expect(renderer!.root.findAllByProps({ className: 'provider-card-status' })).toHaveLength(0);
+    await act(async () => renderer!.root.findByType(TabSwitcher).props.onTabChange('codex'));
+    expect(renderer!.root.findByProps({ 'aria-label': 'Refresh current provider' }).props.title).toContain('Last successful quota update');
+  });
+
+  it('discovers connected services, keeps a failed service reachable, without an add-service action', async () => {
     vi.mocked(backend.getCursorInfo).mockResolvedValue({ connected: false });
     await mount();
     expect(renderer!.root.findByType(TabSwitcher).props.summaries.map((item: { id: string }) => item.id)).toEqual(['claude', 'codex', 'grok']);
-    await act(async () => renderer!.root.findByType(TabSwitcher).props.onAddService());
-    expect(renderer!.root.findByType(OverviewPanel).props.setupOpen).toBe(true);
+    expect(renderer!.root.findByType(TabSwitcher).props).not.toHaveProperty('onAddService');
+    expect(renderer!.root.findAllByProps({ className: 'add-service-btn' })).toHaveLength(0);
     vi.mocked(backend.getGrokInfo).mockRejectedValueOnce(new Error('Network unavailable'));
     await act(async () => renderer!.root.findByType(ActionButtons).props.onRefresh());
     expect(renderer!.root.findByType(TabSwitcher).props.summaries.map((item: { id: string }) => item.id)).toContain('grok');
@@ -65,7 +74,8 @@ describe('successful quota freshness', () => {
     expect(status(service).failed).toBe(true);
     await act(async () => renderer!.root.findByType(TabSwitcher).props.onTabChange(service));
     await act(async () => renderer!.root.findByType(ActionButtons).props.onRefresh());
-    expect(renderer!.root.findByType(ActionButtons).props.statusText).toBe('Last success now');
+    expect(renderer!.root.findByType(ActionButtons).props.statusText).toBeUndefined();
+    expect(renderer!.root.findByType(ActionButtons).props.statusTitle).toContain('Last successful quota update');
     await act(async () => renderer!.root.findByType(TabSwitcher).props.onTabChange('all'));
     expect(status(service).failed).toBe(false);
     expect(status(service).lastSuccessAt).toBe(Date.now());
