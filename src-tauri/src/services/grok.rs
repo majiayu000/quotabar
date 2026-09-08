@@ -491,6 +491,10 @@ fn fallback_or_disconnected(error: impl Into<String>) -> GrokData {
     GrokData::disconnected(error)
 }
 
+fn is_grok_auth_status(status: reqwest::StatusCode) -> bool {
+    status.as_u16() == 401 || status.as_u16() == 403
+}
+
 pub async fn fetch_grok_info() -> GrokData {
     if let Some(cached) = get_cached() {
         return cached;
@@ -522,13 +526,13 @@ pub async fn fetch_grok_info() -> GrokData {
     };
 
     let status = response.status();
-    if status.as_u16() == 401 || status.as_u16() == 403 {
-        return GrokData::disconnected(
-            "Grok session expired. Run 'grok login', then click Refresh.",
-        );
-    }
     if !status.is_success() {
-        return GrokData::disconnected(format!("Grok billing API error: {status}"));
+        if is_grok_auth_status(status) {
+            return GrokData::disconnected(
+                "Grok session expired. Run 'grok login', then click Refresh.",
+            );
+        }
+        return last_good_snapshot_fallback(format!("Grok billing API error: {status}"));
     }
 
     let data = match response.json::<serde_json::Value>().await {
@@ -568,12 +572,26 @@ pub async fn fetch_grok_info() -> GrokData {
 #[cfg(test)]
 mod tests {
     use super::{
-        last_good_or_disconnected, map_product, mark_grok_data_stale, parse_billing_payload,
-        pick_credential, scale_used_pct, stale_grok_usable, MAX_STALE_GROK_AGE,
+        is_grok_auth_status, last_good_or_disconnected, map_product, mark_grok_data_stale,
+        parse_billing_payload, pick_credential, scale_used_pct, stale_grok_usable,
+        MAX_STALE_GROK_AGE,
     };
     use crate::domain::models::{GrokData, GrokProductUsage};
     use serde_json::json;
     use std::time::Duration;
+
+    fn grok_from_http_status(
+        status: reqwest::StatusCode,
+        snapshot: Option<&GrokData>,
+        age: Duration,
+    ) -> GrokData {
+        if is_grok_auth_status(status) {
+            return GrokData::disconnected(
+                "Grok session expired. Run 'grok login', then click Refresh.",
+            );
+        }
+        last_good_or_disconnected(format!("Grok billing API error: {status}"), snapshot, age)
+    }
 
     fn sample_connected_grok() -> GrokData {
         GrokData {
@@ -873,5 +891,38 @@ mod tests {
         );
         assert!(!expired.connected);
         assert!(expired.error.unwrap().contains("Too many open files"));
+    }
+
+    #[test]
+    fn http_429_keeps_last_good_with_error_instead_of_disconnecting() {
+        let data = sample_connected_grok();
+        let stale = grok_from_http_status(
+            reqwest::StatusCode::TOO_MANY_REQUESTS,
+            Some(&data),
+            Duration::from_secs(10),
+        );
+        assert!(stale.connected);
+        assert_eq!(stale.percentage, Some(4.0));
+        assert!(stale
+            .error
+            .as_deref()
+            .unwrap()
+            .contains("Grok billing API error: 429"));
+
+        let server = grok_from_http_status(
+            reqwest::StatusCode::BAD_GATEWAY,
+            Some(&data),
+            Duration::from_secs(10),
+        );
+        assert!(server.connected);
+        assert!(server.error.as_deref().unwrap().contains("502"));
+
+        let unauthorized = grok_from_http_status(
+            reqwest::StatusCode::UNAUTHORIZED,
+            Some(&data),
+            Duration::from_secs(10),
+        );
+        assert!(!unauthorized.connected);
+        assert!(unauthorized.error.unwrap().contains("expired"));
     }
 }
