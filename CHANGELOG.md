@@ -4,6 +4,8 @@ All notable QuotaBar changes should be summarized here before a release is cut.
 
 ## Unreleased
 
+- Keep last-good Grok usage across 429 and other non-auth HTTP errors instead of flashing disconnected.
+
 - Return Grok last-good usage with an error and a 15-minute age cap instead of presenting it as a fresh success.
 
 - Hide Grok extra credits unless used, cap, and prepaid cents all parse; missing cents are not $0.00.
