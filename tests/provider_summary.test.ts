@@ -5,6 +5,7 @@ import {
   buildClaudeQuotaWindows,
   buildCursorQuotaWindows,
   buildGrokQuotaWindows,
+  getCursorAlertUsedPercent,
   getCursorTrayUsedPercent,
   sortMostConstrained,
   sortUpcomingResets,
@@ -87,6 +88,31 @@ describe('provider summary helpers', () => {
       percentage: 46.2,
     })).toBe(46.2);
     expect(getCursorTrayUsedPercent(null)).toBeNull();
+  });
+
+  test('drives Cursor alerts from the most-constrained window, not Cursor Models', () => {
+    expect(getCursorAlertUsedPercent({
+      connected: true,
+      percentage: 91.082,
+      autoPercent: 2.888,
+      apiPercent: 91.082,
+    })).toBe(91.082);
+    expect(getCursorAlertUsedPercent({
+      connected: true,
+      autoPercent: 17,
+      apiPercent: 10,
+    })).toBe(17);
+    expect(getCursorAlertUsedPercent({
+      connected: true,
+      percentage: 46.2,
+    })).toBe(46.2);
+    expect(getCursorAlertUsedPercent(null)).toBeNull();
+    expect(getCursorAlertUsedPercent({ connected: false, autoPercent: 3, apiPercent: 90 })).toBeNull();
+    expect(getCursorAlertUsedPercent(buildCursorQuotaWindows({
+      connected: true,
+      autoPercent: 2.888,
+      apiPercent: 91.082,
+    }))).toBe(91.082);
   });
 
   test('uses a neutral label for summary fallback usage', () => {
