@@ -216,11 +216,12 @@ fn parse_products(value: &serde_json::Value) -> Vec<GrokProductUsage> {
         .iter()
         .filter_map(|item| {
             let raw = item.get("product").and_then(serde_json::Value::as_str)?;
+            let usage_percent = parse_percent(&item["usagePercent"])?;
             let (product, label) = map_product(raw);
             Some(GrokProductUsage {
                 product,
                 label,
-                usage_percent: parse_percent(&item["usagePercent"]).unwrap_or(0.0),
+                usage_percent: Some(usage_percent),
             })
         })
         .collect()
@@ -238,7 +239,7 @@ fn scale_used_pct(pool_pct: Option<f64>, products: &[GrokProductUsage]) -> Resul
     let build = products
         .iter()
         .find(|product| product.product == "build")
-        .map(|product| product.usage_percent)
+        .and_then(|product| product.usage_percent)
         .filter(|pct| pct.is_finite() && *pct > 0.0);
     if let Some(pct) = build {
         return Ok(pct);
@@ -368,7 +369,10 @@ fn parse_billing_payload(data: &serde_json::Value, email: Option<String>) -> Gro
             None
         } else {
             Some(clamp_percent(
-                products.iter().map(|product| product.usage_percent).sum(),
+                products
+                    .iter()
+                    .filter_map(|product| product.usage_percent)
+                    .sum(),
             ))
         }
     });
@@ -583,11 +587,10 @@ mod tests {
             data.period_started_at.as_deref(),
             Some("2026-08-23T15:25:10.879112+00:00")
         );
-        assert_eq!(data.products.len(), 2);
+        assert_eq!(data.products.len(), 1);
         assert_eq!(data.products[0].label, "Build");
-        assert_eq!(data.products[0].usage_percent, 4.0);
-        assert_eq!(data.products[1].label, "Chat");
-        assert_eq!(data.products[1].usage_percent, 0.0);
+        assert_eq!(data.products[0].usage_percent, Some(4.0));
+        assert!(data.products.iter().all(|product| product.label != "Chat"));
         assert!(data.extra.is_none());
     }
 
@@ -626,7 +629,27 @@ mod tests {
         });
         let data = parse_billing_payload(&payload, None);
         assert_eq!(data.percentage, None);
-        assert_eq!(data.products[1].usage_percent, 0.0);
+        assert_eq!(data.products.len(), 1);
+        assert_eq!(data.products[0].label, "Build");
+        assert_eq!(data.products[0].usage_percent, Some(12.5));
+        assert!(data.products.iter().all(|product| product.label != "Chat"));
+    }
+
+    #[test]
+    fn reported_zero_product_percent_is_kept() {
+        let payload = json!({
+            "config": {
+                "creditUsagePercent": 4.0,
+                "productUsage": [
+                    {"product": "GrokBuild", "usagePercent": 4.0},
+                    {"product": "GrokChat", "usagePercent": 0.0}
+                ]
+            }
+        });
+        let data = parse_billing_payload(&payload, None);
+        assert_eq!(data.products.len(), 2);
+        assert_eq!(data.products[1].label, "Chat");
+        assert_eq!(data.products[1].usage_percent, Some(0.0));
     }
 
     #[test]
@@ -682,12 +705,12 @@ mod tests {
             GrokProductUsage {
                 product: "build".to_string(),
                 label: "Build".to_string(),
-                usage_percent: 4.0,
+                usage_percent: Some(4.0),
             },
             GrokProductUsage {
                 product: "chat".to_string(),
                 label: "Chat".to_string(),
-                usage_percent: 21.0,
+                usage_percent: Some(21.0),
             },
         ];
         assert_eq!(scale_used_pct(Some(25.0), &products).unwrap(), 4.0);

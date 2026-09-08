@@ -1,6 +1,5 @@
 import { workspaceCopy } from '../utils/quota_format';
 import { useEffect, useState, useCallback } from 'react';
-import { useRef } from 'react';
 import { backend } from '../services/backend';
 import CostSummarySection from './CostSummarySection';
 import ProviderDetailHeader from './ProviderDetailHeader';
@@ -73,7 +72,6 @@ export default function CursorPanel({
   const [cursorData, setCursorData] = useState<CursorData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const hasResolvedData = useRef(false);
   const request_generation = useLatestRequestGeneration();
 
   const fetchData = useCallback(async () => {
@@ -84,7 +82,6 @@ export default function CursorPanel({
       const data = await backend.getCursorInfo();
       if (!request_generation.isCurrent(generation)) return;
       setCursorData(data);
-      hasResolvedData.current = true;
       if (data.error) {
         setError(data.error);
       }
@@ -97,11 +94,9 @@ export default function CursorPanel({
       const message = err instanceof Error ? err.message : 'Failed to fetch Cursor data';
       setError(message);
       onReadResult?.(message);
-      if (!hasResolvedData.current) {
-        onConnectionChange?.(false);
-        onUsageChange?.(null);
-        onQuotaWindowsChange?.([]);
-      }
+      onConnectionChange?.(false);
+      onUsageChange?.(null);
+      onQuotaWindowsChange?.([]);
     } finally {
       if (request_generation.isCurrent(generation)) {
         setLoading(false);

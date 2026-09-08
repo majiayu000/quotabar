@@ -33,6 +33,12 @@ function poolLabel(data: GrokData): string {
   return data.periodLabel ? `${data.periodLabel} pool` : 'Usage pool';
 }
 
+function grokProductUsagePercent(usagePercent: number | null | undefined): number | null {
+  return typeof usagePercent === 'number' && Number.isFinite(usagePercent)
+    ? usagePercent
+    : null;
+}
+
 const USD_FORMAT = new Intl.NumberFormat('en-US', {
   style: 'currency',
   currency: 'USD',
@@ -127,7 +133,9 @@ export default function GrokPanel({
   const windows = buildGrokQuotaWindows(grokData);
   const topWindow = sortMostConstrained(windows)[0];
   const extra = grokData?.extra;
-  const products = grokData?.products ?? [];
+  const products = (grokData?.products ?? []).filter(
+    (product) => grokProductUsagePercent(product.usagePercent) != null,
+  );
   const resetLabel = grokData?.resetAt
     ? formatResetTime(grokData.resetAt, { expiredLabel: 'soon' })
     : '';
@@ -251,17 +259,21 @@ export default function GrokPanel({
             <div className="section">
               <div className="section-title">By product</div>
               <div className="quota-group">
-                {products.map((product) => (
-                  <div className="quota-card" key={product.product}>
-                    <div className="quota-header">
-                      <span className="quota-label">{product.label}</span>
-                      <span className="quota-value">{`${Math.round(product.usagePercent)}%`}</span>
+                {products.map((product) => {
+                  const usagePercent = grokProductUsagePercent(product.usagePercent);
+                  if (usagePercent == null) return null;
+                  return (
+                    <div className="quota-card" key={product.product}>
+                      <div className="quota-header">
+                        <span className="quota-label">{product.label}</span>
+                        <span className="quota-value">{`${Math.round(usagePercent)}%`}</span>
+                      </div>
+                      <div className="progress-bar">
+                        <div className="progress-fill" style={getProgressStyle(usagePercent)} />
+                      </div>
                     </div>
-                    <div className="progress-bar">
-                      <div className="progress-fill" style={getProgressStyle(product.usagePercent)} />
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
               <p className="hint" style={{ marginTop: 8, fontSize: 11, opacity: 0.65 }}>
                 Share of the same {grokData.periodLabel?.toLowerCase() ?? 'usage'} pool, not a separate limit.

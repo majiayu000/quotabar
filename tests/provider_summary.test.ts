@@ -1,10 +1,12 @@
 import { describe, expect, test } from 'vitest';
 import {
   buildProviderSummaries,
+  getProviderStatusText,
   summaryUsageLabel,
   buildClaudeQuotaWindows,
   buildCursorQuotaWindows,
   buildGrokQuotaWindows,
+  getCursorAlertUsedPercent,
   getCursorTrayUsedPercent,
   sortMostConstrained,
   sortUpcomingResets,
@@ -24,6 +26,20 @@ describe('provider summary helpers', () => {
     expect(summaries.find((summary) => summary.id === 'cursor')?.statusText).toBe('Offline');
     expect(summaries.find((summary) => summary.id === 'antigravity')?.statusText).toBe('Syncing');
     expect(summaries.find((summary) => summary.id === 'grok')?.statusText).toBe('12% used');
+  });
+
+  test('shows Antigravity Preview instead of Offline for the placeholder', () => {
+    const summaries = buildProviderSummaries(
+      { claude: false, codex: false, cursor: false, grok: false, antigravity: false },
+      { claude: false, codex: false, cursor: false, grok: false, antigravity: false },
+      { claude: null, codex: null, cursor: null, grok: null, antigravity: null },
+    );
+
+    expect(summaries.find((summary) => summary.id === 'antigravity')?.statusText).toBe('Preview');
+    expect(summaries.find((summary) => summary.id === 'cursor')?.statusText).toBe('Offline');
+    expect(getProviderStatusText(false, false, null, { status: 'preview' })).toBe('Preview');
+    expect(getProviderStatusText(false, false, null, { status: 'placeholder' })).toBe('Preview');
+    expect(getProviderStatusText(false, false, null)).toBe('Offline');
   });
 
   test('builds and sorts only real quota windows', () => {
@@ -87,6 +103,31 @@ describe('provider summary helpers', () => {
       percentage: 46.2,
     })).toBe(46.2);
     expect(getCursorTrayUsedPercent(null)).toBeNull();
+  });
+
+  test('drives Cursor alerts from the most-constrained window, not Cursor Models', () => {
+    expect(getCursorAlertUsedPercent({
+      connected: true,
+      percentage: 91.082,
+      autoPercent: 2.888,
+      apiPercent: 91.082,
+    })).toBe(91.082);
+    expect(getCursorAlertUsedPercent({
+      connected: true,
+      autoPercent: 17,
+      apiPercent: 10,
+    })).toBe(17);
+    expect(getCursorAlertUsedPercent({
+      connected: true,
+      percentage: 46.2,
+    })).toBe(46.2);
+    expect(getCursorAlertUsedPercent(null)).toBeNull();
+    expect(getCursorAlertUsedPercent({ connected: false, autoPercent: 3, apiPercent: 90 })).toBeNull();
+    expect(getCursorAlertUsedPercent(buildCursorQuotaWindows({
+      connected: true,
+      autoPercent: 2.888,
+      apiPercent: 91.082,
+    }))).toBe(91.082);
   });
 
   test('uses a neutral label for summary fallback usage', () => {
