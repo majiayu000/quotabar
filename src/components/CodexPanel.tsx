@@ -1,5 +1,5 @@
 import { workspaceCopy } from '../utils/quota_format';
-import { useEffect, useState, useCallback, useRef, type CSSProperties } from 'react';
+import { useEffect, useState, useCallback, type CSSProperties } from 'react';
 import { backend } from '../services/backend';
 import CostSummarySection from './CostSummarySection';
 import ProviderDetailHeader from './ProviderDetailHeader';
@@ -213,7 +213,6 @@ export default function CodexPanel({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [rateLimitsError, setRateLimitsError] = useState<string | null>(null);
-  const hasResolvedData = useRef(false);
   const request_generation = useLatestRequestGeneration();
   const weekly_request_generation = useLatestRequestGeneration();
 
@@ -252,7 +251,6 @@ export default function CodexPanel({
       ]);
       if (!request_generation.isCurrent(generation)) return;
 
-      hasResolvedData.current = true;
       setCodexData(info);
       setRateLimits(limits);
       onQuotaWindowsChange?.(buildCodexQuotaWindows(limits));
@@ -281,11 +279,9 @@ export default function CodexPanel({
       setError(message);
       onReadResult?.(message);
       setRateLimitsError(message);
-      if (!hasResolvedData.current) {
-        onConnectionChange?.(false);
-        onUsageChange?.(null);
-        onQuotaWindowsChange?.([]);
-      }
+      onConnectionChange?.(false);
+      onUsageChange?.(null);
+      onQuotaWindowsChange?.([]);
     } finally {
       if (request_generation.isCurrent(generation)) {
         setLoading(false);

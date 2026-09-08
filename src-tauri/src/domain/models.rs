@@ -340,8 +340,8 @@ impl AntigravityData {
 pub struct GrokProductUsage {
     pub product: String,
     pub label: String,
-    #[serde(rename = "usagePercent")]
-    pub usage_percent: f64,
+    #[serde(rename = "usagePercent", skip_serializing_if = "Option::is_none")]
+    pub usage_percent: Option<f64>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

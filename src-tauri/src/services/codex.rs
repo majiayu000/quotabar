@@ -30,14 +30,9 @@ fn log_msg(msg: &str) {
 
     print!("{line}");
 
-    let home_dir = match dirs::home_dir() {
-        Some(path) => path,
-        None => {
-            eprintln!("[CodexLog] failed to resolve home directory");
-            return;
-        }
+    let Some(log_dir) = super::log_path::diagnostic_log_dir() else {
+        return;
     };
-    let log_dir = home_dir.join("Library/Logs/quotabar");
     if let Err(error) = fs::create_dir_all(&log_dir) {
         eprintln!("[CodexLog] failed to create log directory: {error}");
         return;
@@ -161,7 +156,7 @@ fn parse_used_percent(window: &serde_json::Value) -> Option<f64> {
     window
         .get("used_percent")
         .and_then(|value| value.as_f64().or_else(|| value.as_i64().map(|v| v as f64)))
-        .map(|value| value.clamp(0.0, 100.0))
+        .map(|value| value.max(0.0))
 }
 
 fn window_minutes_from_seconds(seconds: i64) -> i64 {
@@ -552,7 +547,7 @@ pub async fn fetch_codex_reset_credits() -> CodexResetCredits {
 #[cfg(test)]
 mod tests {
     use super::{
-        parse_rate_limit_window, parse_reset_credit, retain_last_good_info,
+        parse_rate_limit_window, parse_reset_credit, parse_used_percent, retain_last_good_info,
         should_preserve_for_status, should_preserve_transport_failure, window_minutes_from_seconds,
         AuthFileStamp, CodexData, LastGoodInfo,
     };
@@ -651,18 +646,24 @@ mod tests {
     }
 
     #[test]
-    fn parse_rate_limit_window_clamps_numeric_used_percent() {
-        let high = match parse_rate_limit_window(&json!({ "used_percent": 120 })) {
+    fn parse_used_percent_preserves_over_limit_usage() {
+        assert_eq!(
+            parse_used_percent(&json!({ "used_percent": 130 })),
+            Some(130.0)
+        );
+        let window = match parse_rate_limit_window(&json!({ "used_percent": 130 })) {
             Some(window) => window,
             None => panic!("numeric used_percent should parse"),
         };
-        let low = match parse_rate_limit_window(&json!({ "used_percent": -5 })) {
-            Some(window) => window,
-            None => panic!("numeric used_percent should parse"),
-        };
+        assert_eq!(window.used_percent, 130.0);
+    }
 
-        assert_eq!(high.used_percent, 100.0);
-        assert_eq!(low.used_percent, 0.0);
+    #[test]
+    fn parse_used_percent_floors_negative_usage() {
+        assert_eq!(
+            parse_used_percent(&json!({ "used_percent": -5 })),
+            Some(0.0)
+        );
     }
 
     fn auth_stamp(len: u64, secs: u64) -> AuthFileStamp {
