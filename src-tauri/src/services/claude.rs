@@ -61,9 +61,9 @@ fn log_msg(msg: &str) {
 
     print!("{line}");
 
-    let log_dir = dirs::home_dir()
-        .unwrap_or_default()
-        .join("Library/Logs/quotabar");
+    let Some(log_dir) = super::log_path::diagnostic_log_dir() else {
+        return;
+    };
     if let Err(e) = std::fs::create_dir_all(&log_dir) {
         eprintln!("[log] failed to create log dir: {e}");
         return;

@@ -46,9 +46,18 @@ export function getProviderStatusText(
   loading: boolean,
   connected: boolean,
   usedPercent: number | null,
+  options?: { status?: string; connectedHint?: string },
 ): string {
   if (loading) return 'Syncing';
-  if (!connected) return 'Offline';
+  if (!connected) {
+    const status = options?.status?.trim().toLowerCase();
+    const isPreview =
+      status === 'preview' ||
+      status === 'placeholder' ||
+      options?.connectedHint === 'Preview';
+    if (isPreview) return options?.connectedHint ?? 'Preview';
+    return 'Offline';
+  }
   if (usedPercent == null) return 'Ready';
   return `${Math.round(usedPercent)}% used`;
 }
@@ -73,7 +82,9 @@ export function buildProviderSummaries(
       connected: isConnected,
       loading: isLoading,
       usedPercent: pct,
-      statusText: getProviderStatusText(isLoading, isConnected, pct),
+      statusText: getProviderStatusText(isLoading, isConnected, pct, {
+        connectedHint: meta.connectedHint,
+      }),
       readState: reads?.[id],
     };
   });
@@ -185,6 +196,14 @@ export function getCursorTrayUsedPercent(cursorData: CursorData | null): number 
   if (typeof cursorData.autoPercent === 'number') return cursorData.autoPercent;
   if (typeof cursorData.percentage === 'number') return cursorData.percentage;
   return null;
+}
+
+export function getCursorAlertUsedPercent(
+  source: CursorData | QuotaWindowSummary[] | null,
+): number | null {
+  if (source == null) return null;
+  const windows = Array.isArray(source) ? source : buildCursorQuotaWindows(source);
+  return sortMostConstrained(windows)[0]?.usedPercent ?? null;
 }
 
 export function buildGrokQuotaWindows(grokData: GrokData | null): QuotaWindowSummary[] {
