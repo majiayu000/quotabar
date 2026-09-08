@@ -114,8 +114,8 @@ export const backend = {
     return invokeBackend<AntigravityData>('get_antigravity_info');
   },
 
-  getGrokInfo() {
-    return invokeBackend<GrokData>('get_grok_info');
+  getGrokInfo(manual = false) {
+    return invokeBackend<GrokData>('get_grok_info', { manual });
   },
 
   getCostOverview(source: CostSource, force = false) {

@@ -4,6 +4,8 @@ All notable QuotaBar changes should be summarized here before a release is cut.
 
 ## Unreleased
 
+- Skip the 120s Grok success cache on Refresh so a manual recheck hits the network.
+
 - Label Grok Full pool dollars as extrapolated from the Build share, not the pool gauge percent.
 
 - Keep last-good Grok usage across 429 and other non-auth HTTP errors instead of flashing disconnected.

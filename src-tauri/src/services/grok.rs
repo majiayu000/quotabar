@@ -435,7 +435,14 @@ fn parse_billing_payload(data: &serde_json::Value, email: Option<String>) -> Gro
     }
 }
 
-fn get_cached() -> Option<GrokData> {
+fn should_read_grok_cache(manual: bool) -> bool {
+    !manual
+}
+
+fn get_cached(manual: bool) -> Option<GrokData> {
+    if !should_read_grok_cache(manual) {
+        return None;
+    }
     let guard = grok_cache().lock().ok()?;
     let cached = guard.as_ref()?;
     if cached.cached_at.elapsed() < QUOTA_CACHE_TTL {
@@ -507,8 +514,8 @@ fn is_grok_auth_status(status: reqwest::StatusCode) -> bool {
     status.as_u16() == 401 || status.as_u16() == 403
 }
 
-pub async fn fetch_grok_info() -> GrokData {
-    if let Some(cached) = get_cached() {
+pub async fn fetch_grok_info(manual: bool) -> GrokData {
+    if let Some(cached) = get_cached(manual) {
         return cached;
     }
 
@@ -586,7 +593,7 @@ mod tests {
     use super::{
         is_grok_auth_status, last_good_or_disconnected, map_product, mark_grok_data_stale,
         parse_billing_payload, pick_credential, scale_product_id, scale_used_pct,
-        stale_grok_usable, MAX_STALE_GROK_AGE,
+        should_read_grok_cache, stale_grok_usable, MAX_STALE_GROK_AGE,
     };
     use crate::domain::models::{GrokData, GrokProductUsage};
     use serde_json::json;
@@ -938,5 +945,11 @@ mod tests {
         );
         assert!(!unauthorized.connected);
         assert!(unauthorized.error.unwrap().contains("expired"));
+    }
+
+    #[test]
+    fn manual_refresh_skips_the_success_cache() {
+        assert!(should_read_grok_cache(false));
+        assert!(!should_read_grok_cache(true));
     }
 }

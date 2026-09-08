@@ -461,8 +461,8 @@ pub async fn get_antigravity_info() -> Result<AntigravityData, String> {
 }
 
 #[tauri::command]
-pub async fn get_grok_info() -> Result<GrokData, String> {
-    Ok(provider_read(&GROK_READ, grok::fetch_grok_info()).await)
+pub async fn get_grok_info(manual: Option<bool>) -> Result<GrokData, String> {
+    Ok(provider_read(&GROK_READ, grok::fetch_grok_info(manual.unwrap_or(false))).await)
 }
 
 #[tauri::command]

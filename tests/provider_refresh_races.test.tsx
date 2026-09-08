@@ -1175,10 +1175,13 @@ describe('login-gated polling', () => {
     await act(async () => { renderer = create(createElement(GrokPanel, { autoRefreshIntervalMs: 60_000 })); });
     await act(async () => { await vi.advanceTimersByTimeAsync(2 * 60 * 60 * 1000); });
     expect(read).toHaveBeenCalledTimes(1);
+    expect(read).toHaveBeenLastCalledWith(false);
     await act(async () => { renderer.update(createElement(GrokPanel, { autoRefreshIntervalMs: 60_000, manualRefreshNonce: 1 })); });
     expect(read).toHaveBeenCalledTimes(2);
+    expect(read).toHaveBeenLastCalledWith(true);
     await act(async () => { await vi.advanceTimersByTimeAsync(60_000); });
     expect(read).toHaveBeenCalledTimes(3);
+    expect(read).toHaveBeenLastCalledWith(false);
     await unmount(renderer);
   });
 });

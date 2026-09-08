@@ -85,12 +85,12 @@ export default function GrokPanel({
   const [error, setError] = useState<string | null>(null);
   const request_generation = useLatestRequestGeneration();
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (manual = false) => {
     const generation = request_generation.begin();
     try {
       setLoading(true);
       setError(null);
-      const data = await backend.getGrokInfo();
+      const data = await backend.getGrokInfo(manual);
       if (!request_generation.isCurrent(generation)) return;
       setGrokData(data);
       if (data.error) {
@@ -129,7 +129,7 @@ export default function GrokPanel({
 
   useEffect(() => {
     if (manualRefreshNonce > 0) {
-      fetchData();
+      void fetchData(true);
     }
   }, [manualRefreshNonce, fetchData]);
 
