@@ -67,6 +67,8 @@ describe('provider status UI', () => {
     const text = renderedText(renderer);
     expect(text).toContain('Overview');
     expect(text).toContain('1 of 2 connected');
+    expect(text).toContain('Claude, Codex, Cursor');
+    expect(text).not.toContain('All providers');
   });
 
   it('keeps last-known Claude data visible after a refresh error', async () => {

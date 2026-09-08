@@ -4,6 +4,7 @@ All notable QuotaBar changes should be summarized here before a release is cut.
 
 ## Unreleased
 
+- Label Overview local cost as Claude, Codex, and Cursor instead of All providers, and say Grok and Antigravity are not in that total.
 - Drive the Claude tray, switcher percent, and 80/95 alerts from the hottest quota window instead of `weeklyTotal`.
 - Explain remaining quota and reset timing in high-usage tips, distinguish imminent resets, and suppress advice from stale data.
 - Enlarge provider labels, wrap navigation and freshness text, lead Overview with remaining quota, and collapse secondary usage details. Clarify API-price estimates are not actual bills.

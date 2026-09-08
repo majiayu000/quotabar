@@ -153,7 +153,9 @@ function latestTimestamp(values: string[]): string {
   });
 }
 
-function mergeCostOverviews(overviews: CostOverview[]): CostOverview {
+export const MERGED_COST_DISPLAY_NAME = 'Claude, Codex, Cursor';
+
+export function mergeCostOverviews(overviews: CostOverview[]): CostOverview {
   if (overviews.length === 1) return overviews[0];
 
   const rangeOrder = overviews[0]?.ranges.map((range) => range.range) ?? [];
@@ -194,7 +196,7 @@ function mergeCostOverviews(overviews: CostOverview[]): CostOverview {
 
   return {
     source: 'all',
-    displayName: 'All providers',
+    displayName: MERGED_COST_DISPLAY_NAME,
     currency: 'USD',
     generatedAt: latestTimestamp(overviews.map((overview) => overview.generatedAt)),
     cached: overviews.every((overview) => overview.cached),
@@ -305,7 +307,7 @@ export default function CostSummarySection({
         </span>
       </div>
 
-      <p className="cost-estimate-explanation">Estimated at API prices from local logs. Not your actual bill.</p>
+      <p className="cost-estimate-explanation">Estimated at API prices from local Claude, Codex, and Cursor logs. Not your actual bill. Grok and Antigravity are not included.</p>
 
       {loading && !overview && (
         <div className="cost-loading">Loading cost...</div>
