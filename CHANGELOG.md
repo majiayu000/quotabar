@@ -4,6 +4,7 @@ All notable QuotaBar changes should be summarized here before a release is cut.
 
 ## Unreleased
 
+- Show Antigravity as Preview instead of Offline while quota tracking is still a placeholder.
 - Drive Cursor 80/95 alerts from the most-constrained dashboard window; the tray still shows Cursor Models.
 - Write Claude and Codex diagnostic logs to the OS cache or local data directory on Windows and Linux, keep macOS on `~/Library/Logs/quotabar`, and skip logging when that directory cannot be resolved.
 - Apply the saved Hide Dock preference during native startup so the Dock icon does not flash before the webview mounts.

@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import {
   buildProviderSummaries,
+  getProviderStatusText,
   summaryUsageLabel,
   buildClaudeQuotaWindows,
   buildCursorQuotaWindows,
@@ -25,6 +26,20 @@ describe('provider summary helpers', () => {
     expect(summaries.find((summary) => summary.id === 'cursor')?.statusText).toBe('Offline');
     expect(summaries.find((summary) => summary.id === 'antigravity')?.statusText).toBe('Syncing');
     expect(summaries.find((summary) => summary.id === 'grok')?.statusText).toBe('12% used');
+  });
+
+  test('shows Antigravity Preview instead of Offline for the placeholder', () => {
+    const summaries = buildProviderSummaries(
+      { claude: false, codex: false, cursor: false, grok: false, antigravity: false },
+      { claude: false, codex: false, cursor: false, grok: false, antigravity: false },
+      { claude: null, codex: null, cursor: null, grok: null, antigravity: null },
+    );
+
+    expect(summaries.find((summary) => summary.id === 'antigravity')?.statusText).toBe('Preview');
+    expect(summaries.find((summary) => summary.id === 'cursor')?.statusText).toBe('Offline');
+    expect(getProviderStatusText(false, false, null, { status: 'preview' })).toBe('Preview');
+    expect(getProviderStatusText(false, false, null, { status: 'placeholder' })).toBe('Preview');
+    expect(getProviderStatusText(false, false, null)).toBe('Offline');
   });
 
   test('builds and sorts only real quota windows', () => {
