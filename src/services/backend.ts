@@ -106,7 +106,7 @@ export const backend = {
     return invokeBackend<CodexWeeklyQuotaData>('get_codex_weekly_quota');
   },
 
-  getCursorInfo(_manual = false) {
+  getCursorInfo() {
     return invokeBackend<CursorData>('get_cursor_info');
   },
 
@@ -114,7 +114,7 @@ export const backend = {
     return invokeBackend<AntigravityData>('get_antigravity_info');
   },
 
-  getGrokInfo(_manual = false) {
+  getGrokInfo() {
     return invokeBackend<GrokData>('get_grok_info');
   },
 
