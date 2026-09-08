@@ -74,9 +74,7 @@ pub fn run() {
         .setup(|app| {
             #[cfg(target_os = "macos")]
             {
-                use tauri::ActivationPolicy;
-                // Default to visible Dock; user can toggle to Accessory from UI.
-                app.set_activation_policy(ActivationPolicy::Regular);
+                services::window::apply_startup_activation_policy(app.handle());
             }
 
             services::tray::setup_tray(app.handle())?;
