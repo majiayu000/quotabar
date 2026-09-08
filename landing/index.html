@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>QuotaBar — AI quota, right in your menu bar</title>
-<meta name="description" content="QuotaBar is a lightweight menubar app that tracks live usage quota for Claude Code, Codex, Cursor, and Antigravity — with per-provider tray indicators and local cost estimates." />
+<meta name="description" content="QuotaBar is a lightweight menubar app that tracks live usage quota for Claude Code, Codex, Cursor, Grok, and Antigravity — with per-provider tray indicators and local cost estimates." />
 <link rel="icon" type="image/svg+xml" href="assets/app-icon.svg" />
 <style>
   :root {
@@ -155,7 +155,7 @@
     transform: rotate(1.2deg);
   }
   .popover .tiles {
-    display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;
+    display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px;
     margin-bottom: 16px;
   }
   .tile {
@@ -259,6 +259,7 @@
   .bg-claude { background: linear-gradient(135deg, #fb923c, #ea580c); }
   .bg-codex { background: linear-gradient(135deg, #4ade80, #16a34a); }
   .bg-cursor { background: linear-gradient(135deg, #93c5fd, #3b82f6); }
+  .bg-grok { background: linear-gradient(135deg, #d4d4d8, #71717a); }
   .bg-anti { background: linear-gradient(135deg, #c4b5fd, #8b5cf6); }
 
   /* tray strip */
@@ -364,11 +365,11 @@
 <header class="hero">
   <div class="wrap hero-grid">
     <div>
-      <span class="badge"><span class="dot"></span> v0.2.0 · macOS &amp; Windows · MIT</span>
+      <span class="badge"><span class="dot"></span> v0.5.0 · macOS &amp; Windows · MIT</span>
       <h1>Your AI quota,<br /><span class="grad">right in the menu bar.</span></h1>
       <p class="lede">
         QuotaBar is a lightweight Tauri menubar app that watches your Claude Code,
-        Codex, Cursor, and Antigravity usage — live quota windows, per-provider tray
+        Codex, Cursor, Grok, and Antigravity usage — live quota windows, per-provider tray
         indicators, and local cost estimates computed on-device.
       </p>
       <div class="cta-row">
@@ -378,8 +379,8 @@
         <a class="btn btn-ghost" href="https://github.com/majiayu000/quotabar">View on GitHub</a>
       </div>
       <div class="meta">
-        <span>✦ No account data leaves your machine</span>
-        <span>✦ Read-only OAuth</span>
+        <span>✦ Quota polling talks to providers you already use; tokens never go to QuotaBar</span>
+        <span>✦ Cost estimates stay on-device</span>
         <span>✦ 60s background refresh</span>
       </div>
     </div>
@@ -401,6 +402,11 @@
           <div class="ico bg-cursor">▣</div>
           <div class="val">18%</div>
           <div class="bar"><i style="width:18%;background:var(--green)"></i></div>
+        </div>
+        <div class="tile">
+          <div class="ico bg-grok">G</div>
+          <div class="val">24%</div>
+          <div class="bar"><i style="width:24%;background:var(--green)"></i></div>
         </div>
         <div class="tile">
           <div class="ico bg-anti">✦</div>
@@ -432,8 +438,9 @@
     <p class="kicker">Features</p>
     <h2>Everything you need to not hit the wall</h2>
     <p class="section-lede">
-      QuotaBar polls your providers in the background, keeps the numbers in your menu
-      bar, and estimates what your usage costs — all from local data.
+      QuotaBar polls Anthropic, ChatGPT, Cursor, and Grok in the background using the
+      local credentials you already have. Tokens never go to QuotaBar. Cost estimates
+      stay on-device.
     </p>
     <div class="grid cols-3">
       <div class="card">
@@ -473,7 +480,7 @@
 <section id="providers">
   <div class="wrap">
     <p class="kicker">Providers</p>
-    <h2>One menu bar, four providers</h2>
+    <h2>One menu bar, five providers</h2>
     <p class="section-lede">
       Tray percentages always represent <em>used</em> quota, not remaining — so a full
       bar means it's time to slow down.
@@ -484,6 +491,7 @@
       <span class="tray-pill"><span class="sw" style="background:#fb923c"></span>42%</span>
       <span class="tray-pill"><span class="sw" style="background:#4ade80"></span>67%</span>
       <span class="tray-pill"><span class="sw" style="background:#93c5fd"></span>18%</span>
+      <span class="tray-pill"><span class="sw" style="background:#a1a1aa"></span>24%</span>
       <span class="tray-pill"><span class="sw" style="background:#c4b5fd"></span>—</span>
     </div>
 
@@ -526,6 +534,18 @@
       </div>
       <div class="card provider">
         <div class="head">
+          <div class="p-ico bg-grok">G</div>
+          <h3>Grok</h3>
+          <span class="tag">Grok Build login</span>
+        </div>
+        <ul>
+          <li>SuperGrok weekly and monthly pool plus extra credits</li>
+          <li>Auth from an existing Grok Build login on this machine</li>
+          <li>Tray value uses the official pool used percent</li>
+        </ul>
+      </div>
+      <div class="card provider">
+        <div class="head">
           <div class="p-ico bg-anti">✦</div>
           <h3>Antigravity</h3>
           <span class="tag">Status preview</span>
@@ -557,7 +577,7 @@
         <div class="step">
           <div>
             <h3>Sign in to your providers</h3>
-            <p>QuotaBar reads existing local auth — <code>claude login</code>, <code>~/.codex/auth.json</code>, or a Cursor sign-in. It never manages login flows itself.</p>
+            <p>QuotaBar reads existing local auth — <code>claude login</code>, <code>~/.codex/auth.json</code>, Cursor, or Grok Build. It never manages login flows itself.</p>
           </div>
         </div>
         <div class="step">
