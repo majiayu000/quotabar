@@ -41,9 +41,9 @@ This `v0.4.0` screenshot was refreshed on 2026-08-31 from the production React U
 ## Quota Semantics
 
 - Claude tray value:
-  - prefers `weeklyTotal`
-  - falls back to max of `weeklyOpus`, `weeklySonnet`, `weeklyDesign`, and `weeklyFable5`
-  - falls back to current session usage
+  - uses the hottest Claude window (same ranking as the overview/header)
+  - includes the 5-hour session, 7-day All models (`weeklyTotal`), Opus, Sonnet, Design, and Fable 5 windows
+  - keeps `weeklyTotal` as a labeled card, not the implicit tray or 80/95 alert headline
 - Codex tray value:
   - prefers `secondary_window.used_percent`
   - falls back to `primary_window.used_percent`
