@@ -47,6 +47,7 @@ pub struct CostOverview {
     pub currency: String,
     pub generated_at: String,
     pub cached: bool,
+    pub stale: bool,
     pub ranges: Vec<CostRangeSummary>,
 }
 
@@ -98,6 +99,7 @@ pub struct CostDailySeries {
     pub currency: String,
     pub generated_at: String,
     pub cached: bool,
+    pub stale: bool,
     pub days: Vec<CostDailyPoint>,
 }
 
@@ -140,13 +142,13 @@ fn build_cost_daily(
     let source = UsageSource::from_str(&source).map_err(|err| err.to_string())?;
     let currency = normalize_optional(currency);
     let timezone = normalize_optional(timezone);
-    let cache_key = format!(
-        "daily|{}|{}|{}|{}",
+    let cache_key = disk::versioned_key(&[
+        "daily",
         source.as_str(),
-        days,
+        &days.to_string(),
         currency.as_deref().unwrap_or("USD"),
-        timezone.as_deref().unwrap_or("local")
-    );
+        timezone.as_deref().unwrap_or("local"),
+    ]);
 
     if !force {
         if let Some(cached) = get_cached_daily(&cache_key)? {
@@ -215,6 +217,7 @@ fn build_daily_series_from_batch(
         currency: batch.currency,
         generated_at: batch.generated_at,
         cached: false,
+        stale: false,
         days: ranges
             .into_iter()
             .map(|range| CostDailyPoint {
@@ -240,6 +243,7 @@ fn get_cached_daily(cache_key: &str) -> Result<Option<CostDailySeries>, String> 
 
     let mut series = cached.series.clone();
     series.cached = true;
+    series.stale = false;
     Ok(Some(series))
 }
 
@@ -262,22 +266,34 @@ fn set_cached_daily(cache_key: String, series: CostDailySeries) -> Result<(), St
 fn load_daily_snapshot(cache_key: &str) -> Option<CostDailySeries> {
     let (age, mut series): (Duration, CostDailySeries) = disk::read_snapshot(cache_key)?;
     match disk::classify_snapshot(age, CACHE_TTL, stale_already_served(cache_key)) {
-        SnapshotUse::Fresh => {}
-        SnapshotUse::ServeStaleOnce => mark_stale_served(cache_key),
+        SnapshotUse::Fresh => {
+            series.cached = true;
+            series.stale = false;
+        }
+        SnapshotUse::ServeStaleOnce => {
+            mark_stale_served(cache_key);
+            series.cached = true;
+            series.stale = true;
+        }
         SnapshotUse::Ignore => return None,
     }
-    series.cached = true;
     Some(series)
 }
 
 fn load_overview_snapshot(cache_key: &str) -> Option<CostOverview> {
     let (age, mut overview): (Duration, CostOverview) = disk::read_snapshot(cache_key)?;
     match disk::classify_snapshot(age, CACHE_TTL, stale_already_served(cache_key)) {
-        SnapshotUse::Fresh => {}
-        SnapshotUse::ServeStaleOnce => mark_stale_served(cache_key),
+        SnapshotUse::Fresh => {
+            overview.cached = true;
+            overview.stale = false;
+        }
+        SnapshotUse::ServeStaleOnce => {
+            mark_stale_served(cache_key);
+            overview.cached = true;
+            overview.stale = true;
+        }
         SnapshotUse::Ignore => return None,
     }
-    overview.cached = true;
     Some(overview)
 }
 
@@ -336,12 +352,11 @@ fn build_cost_overview(
     let source = UsageSource::from_str(&source).map_err(|err| err.to_string())?;
     let currency = normalize_optional(currency);
     let timezone = normalize_optional(timezone);
-    let cache_key = format!(
-        "{}|{}|{}",
+    let cache_key = disk::versioned_key(&[
         source.as_str(),
         currency.as_deref().unwrap_or("USD"),
-        timezone.as_deref().unwrap_or("local")
-    );
+        timezone.as_deref().unwrap_or("local"),
+    ]);
 
     if !force {
         if let Some(cached) = get_cached_overview(&cache_key)? {
@@ -406,6 +421,7 @@ fn build_overview_from_batch(
         currency: batch.currency,
         generated_at: batch.generated_at,
         cached: false,
+        stale: false,
         ranges,
     })
 }
@@ -455,6 +471,7 @@ fn get_cached_overview(cache_key: &str) -> Result<Option<CostOverview>, String> 
 
     let mut overview = cached.overview.clone();
     overview.cached = true;
+    overview.stale = false;
     Ok(Some(overview))
 }
 

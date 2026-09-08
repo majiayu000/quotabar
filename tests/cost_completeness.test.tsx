@@ -1,7 +1,7 @@
 import { createElement } from 'react';
 import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 import { afterAll, afterEach, beforeAll, describe, expect, it, test, vi } from 'vitest';
-import CostSummarySection, { formatCostCompleteness } from '../src/components/CostSummarySection';
+import CostSummarySection, { formatCostCompleteness, formatCostFreshness } from '../src/components/CostSummarySection';
 import { backend } from '../src/services/backend';
 import type { CostOverview, CostRangeSummary } from '../src/types/models';
 
@@ -55,6 +55,14 @@ describe('formatCostCompleteness', () => {
   });
 });
 
+describe('formatCostFreshness', () => {
+  test('labels cached and stale overviews', () => {
+    expect(formatCostFreshness(overview([range()]))).toBe('');
+    expect(formatCostFreshness({ ...overview([range()]), cached: true })).toBe('Cached');
+    expect(formatCostFreshness({ ...overview([range()]), cached: true, stale: true })).toBe('Stale');
+  });
+});
+
 beforeAll(() => {
   (globalThis as Record<string, unknown>).IS_REACT_ACT_ENVIRONMENT = true;
   const values = new Map<string, string>();
@@ -99,6 +107,59 @@ describe('CostSummarySection completeness footer', () => {
     expect(markup).toContain('4 skipped');
     expect(markup).toContain('1 parse errors');
     expect(markup).toContain('estimated');
+    await act(async () => renderer.unmount());
+  });
+
+  it('labels cached and stale overviews instead of presenting them as live', async () => {
+    vi.spyOn(backend, 'getCostOverview').mockResolvedValue({
+      ...overview([range()]),
+      cached: true,
+      stale: true,
+    });
+    vi.spyOn(backend, 'getCostDaily').mockResolvedValue({
+      source: 'claude',
+      currency: 'USD',
+      generatedAt: '2026-08-24T08:00:00Z',
+      cached: true,
+      stale: true,
+      days: [],
+    });
+
+    let renderer!: ReactTestRenderer;
+    await act(async () => {
+      renderer = create(createElement(CostSummarySection, { source: 'claude', autoRefreshIntervalMs: 0, showTrend: false }));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const markup = JSON.stringify(renderer.toJSON());
+    expect(markup).toContain('Stale');
+    expect(markup).not.toContain('Cached');
+    await act(async () => renderer.unmount());
+  });
+
+  it('labels a cache hit as Cached', async () => {
+    vi.spyOn(backend, 'getCostOverview').mockResolvedValue({
+      ...overview([range()]),
+      cached: true,
+      stale: false,
+    });
+    vi.spyOn(backend, 'getCostDaily').mockResolvedValue({
+      source: 'claude',
+      currency: 'USD',
+      generatedAt: '2026-08-24T08:00:00Z',
+      cached: true,
+      days: [],
+    });
+
+    let renderer!: ReactTestRenderer;
+    await act(async () => {
+      renderer = create(createElement(CostSummarySection, { source: 'claude', autoRefreshIntervalMs: 0, showTrend: false }));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(JSON.stringify(renderer.toJSON())).toContain('Cached');
     await act(async () => renderer.unmount());
   });
 });
