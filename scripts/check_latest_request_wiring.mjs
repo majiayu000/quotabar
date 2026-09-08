@@ -52,7 +52,7 @@ const owner_configs = [
     loading_setter: 'setLoading',
     await_kind: 'direct',
     target_scope: 'component',
-    backend_arguments: { getCursorInfo: [] },
+    backend_arguments: { getCursorInfo: ['manual'] },
   },
   {
     path: 'src/components/AntigravityPanel.tsx',

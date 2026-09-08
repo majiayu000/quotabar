@@ -192,6 +192,8 @@ describe('panel shell UI', () => {
         models: [],
         validEntries: 1,
         skippedEntries: 0,
+        parseErrorEntries: 0,
+        costKind: 'real',
         elapsedMs: 1,
       }, {
         range: 'month',
@@ -203,6 +205,8 @@ describe('panel shell UI', () => {
         models: [],
         validEntries: 1,
         skippedEntries: 0,
+        parseErrorEntries: 0,
+        costKind: 'real',
         elapsedMs: 1,
       }],
     });
