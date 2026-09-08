@@ -5,6 +5,11 @@ All notable QuotaBar changes should be summarized here before a release is cut.
 ## Unreleased
 
 - Omit Grok product rows that lack `usagePercent` instead of drawing a fake 0%.
+- Move Cursor `state.vscdb` sqlite open and query onto `spawn_blocking` so a locked database cannot stall other quota and tray commands.
+- Clear Codex and Cursor tray connection after a later current-generation fetch failure instead of keeping the previous percent.
+- Show Antigravity as Preview instead of Offline while quota tracking is still a placeholder.
+- Drive Cursor 80/95 alerts from the most-constrained dashboard window; the tray still shows Cursor Models.
+- Write Claude and Codex diagnostic logs to the OS cache or local data directory on Windows and Linux, keep macOS on `~/Library/Logs/quotabar`, and skip logging when that directory cannot be resolved.
 - Apply the saved Hide Dock preference during native startup so the Dock icon does not flash before the webview mounts.
 - Keep Codex used percent above 100 when ChatGPT reports an over-limit week, instead of clamping it to 100 at parse. Tray PNG digits still cap at 100.
 - Align the marketing site with 0.5.0 and honest privacy copy: quota polling talks to providers you already use, tokens never go to QuotaBar, and cost estimates stay local.

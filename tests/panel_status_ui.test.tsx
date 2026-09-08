@@ -227,7 +227,7 @@ describe('provider status UI', () => {
     await act(async () => renderer.unmount());
   });
 
-  it('labels retained Cursor data as stale after a rejected refresh', async () => {
+  it('clears parent Cursor tray after a later rejected refresh', async () => {
     vi.spyOn(backend, 'getCursorInfo')
       .mockResolvedValueOnce({ connected: true, fastUsed: 231, fastLimit: 500, percentage: 46.2 })
       .mockRejectedValueOnce(new Error('Cursor refresh failed'));
@@ -268,13 +268,13 @@ describe('provider status UI', () => {
     expect(text).toContain('Stale data');
     expect(text).toContain('Showing last known data');
     expect(text).toContain('231 / 500 · 46%');
-    expect(onConnectionChange).not.toHaveBeenCalled();
-    expect(onUsageChange).not.toHaveBeenCalled();
-    expect(onQuotaWindowsChange).not.toHaveBeenCalled();
+    expect(onConnectionChange).toHaveBeenCalledWith(false);
+    expect(onUsageChange).toHaveBeenCalledWith(null);
+    expect(onQuotaWindowsChange).toHaveBeenCalledWith([]);
     await act(async () => renderer.unmount());
   });
 
-  it('keeps parent Codex summaries after a rejected refresh', async () => {
+  it('clears parent Codex tray after a later rejected refresh', async () => {
     vi.spyOn(backend, 'getCodexInfo')
       .mockResolvedValueOnce({ connected: true, planType: 'pro' })
       .mockRejectedValueOnce(new Error('Codex refresh failed'));
@@ -325,9 +325,9 @@ describe('provider status UI', () => {
     expect(text).toContain('Codex refresh failed');
     expect(text).toContain('Stale data');
     expect(text).toContain('5h · 64% used');
-    expect(onConnectionChange).not.toHaveBeenCalled();
-    expect(onUsageChange).not.toHaveBeenCalled();
-    expect(onQuotaWindowsChange).not.toHaveBeenCalled();
+    expect(onConnectionChange).toHaveBeenCalledWith(false);
+    expect(onUsageChange).toHaveBeenCalledWith(null);
+    expect(onQuotaWindowsChange).toHaveBeenCalledWith([]);
     await act(async () => renderer.unmount());
   });
 
