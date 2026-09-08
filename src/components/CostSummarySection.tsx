@@ -126,6 +126,12 @@ export function formatCostCompleteness(overview: CostOverview): string {
   return parts.join(' · ');
 }
 
+export function formatCostFreshness(overview: CostOverview): string {
+  if (overview.stale) return 'Stale';
+  if (overview.cached) return 'Cached';
+  return '';
+}
+
 function mergeCostKinds(kinds: string[]): string {
   const unique = [...new Set(kinds.filter(Boolean))];
   if (unique.length === 0) return 'none';
@@ -233,6 +239,7 @@ export function mergeCostOverviews(overviews: CostOverview[]): CostOverview {
     currency: 'USD',
     generatedAt: latestTimestamp(overviews.map((overview) => overview.generatedAt)),
     cached: overviews.every((overview) => overview.cached),
+    stale: overviews.some((overview) => Boolean(overview.stale)),
     ranges,
   };
 }
@@ -513,7 +520,7 @@ export default function CostSummarySection({
           <div className="cost-footer">
             <span>{primaryRange?.label ?? overview.displayName}</span>
             <span>
-              {[formatCostCompleteness(overview), formatUpdatedAt(overview.generatedAt)]
+              {[formatCostCompleteness(overview), formatCostFreshness(overview), formatUpdatedAt(overview.generatedAt)]
                 .filter((part) => part.length > 0)
                 .join(' · ')}
             </span>

@@ -10,8 +10,17 @@ use std::{
 /// Snapshots older than this are ignored entirely.
 pub const STALE_MAX_AGE: Duration = Duration::from_secs(24 * 60 * 60);
 
+/// Bump when the cost snapshot or range payload schema changes.
+pub const COST_CACHE_SCHEMA_VERSION: u32 = 1;
+
+/// Keep in sync with the `ccstats` version in `src-tauri/Cargo.toml`.
+pub const CCSTATS_VERSION: &str = "0.7.0";
+
 #[derive(serde::Serialize, serde::Deserialize)]
 struct Snapshot<T> {
+    schema_version: u32,
+    app_version: String,
+    ccstats_version: String,
     saved_at_unix_ms: u64,
     payload: T,
 }
@@ -25,6 +34,17 @@ pub enum SnapshotUse {
     ServeStaleOnce,
     /// Too old (or callers already served it once): ignore.
     Ignore,
+}
+
+pub fn cache_identity() -> String {
+    format!(
+        "v{COST_CACHE_SCHEMA_VERSION}|app{}|ccstats{CCSTATS_VERSION}",
+        env!("CARGO_PKG_VERSION"),
+    )
+}
+
+pub fn versioned_key(parts: &[&str]) -> String {
+    format!("{}|{}", cache_identity(), parts.join("|"))
 }
 
 pub fn classify_snapshot(age: Duration, ttl: Duration, already_served: bool) -> SnapshotUse {
@@ -61,6 +81,21 @@ pub fn write_snapshot<T: Serialize>(cache_key: &str, payload: &T) {
     write_snapshot_in(&base_dir, cache_key, payload);
 }
 
+fn current_identity() -> (u32, &'static str, &'static str) {
+    (
+        COST_CACHE_SCHEMA_VERSION,
+        env!("CARGO_PKG_VERSION"),
+        CCSTATS_VERSION,
+    )
+}
+
+fn snapshot_identity_matches<T>(snapshot: &Snapshot<T>) -> bool {
+    let (schema, app, ccstats) = current_identity();
+    snapshot.schema_version == schema
+        && snapshot.app_version == app
+        && snapshot.ccstats_version == ccstats
+}
+
 fn read_snapshot_in<T: DeserializeOwned>(
     base_dir: &Path,
     cache_key: &str,
@@ -83,10 +118,24 @@ fn read_snapshot_in<T: DeserializeOwned>(
         }
     };
 
+    if !snapshot_identity_matches(&snapshot) {
+        eprintln!(
+            "[CostCache] discarding incompatible snapshot {}",
+            path.display()
+        );
+        let _removed = fs::remove_file(&path);
+        return None;
+    }
+
     let saved_at = UNIX_EPOCH + Duration::from_millis(snapshot.saved_at_unix_ms);
-    let age = SystemTime::now()
-        .duration_since(saved_at)
-        .unwrap_or(Duration::ZERO);
+    let age = match SystemTime::now().duration_since(saved_at) {
+        Ok(age) => age,
+        Err(_) => {
+            eprintln!("[CostCache] discarding future snapshot {}", path.display());
+            let _removed = fs::remove_file(&path);
+            return None;
+        }
+    };
     Some((age, snapshot.payload))
 }
 
@@ -98,7 +147,20 @@ fn write_snapshot_in<T: Serialize>(base_dir: &Path, cache_key: &str, payload: &T
             return;
         }
     };
+    write_snapshot_in_at(base_dir, cache_key, payload, saved_at_unix_ms);
+}
+
+fn write_snapshot_in_at<T: Serialize>(
+    base_dir: &Path,
+    cache_key: &str,
+    payload: &T,
+    saved_at_unix_ms: u64,
+) {
+    let (schema_version, app_version, ccstats_version) = current_identity();
     let snapshot = Snapshot {
+        schema_version,
+        app_version: app_version.to_string(),
+        ccstats_version: ccstats_version.to_string(),
         saved_at_unix_ms,
         payload,
     };
@@ -174,13 +236,65 @@ mod tests {
     #[test]
     fn cache_keys_map_to_distinct_sanitized_files() {
         let base = PathBuf::from("/base");
-        let overview = snapshot_path(&base, "overview|claude|USD|local");
-        let daily = snapshot_path(&base, "daily|claude|30|USD|local");
-        assert_ne!(overview, daily);
-        assert_eq!(
-            overview.file_name().and_then(|name| name.to_str()),
-            Some("cost-overview-claude-USD-local.json")
+        let overview = snapshot_path(&base, &versioned_key(&["claude", "USD", "local"]));
+        let daily = snapshot_path(
+            &base,
+            &versioned_key(&["daily", "claude", "30", "USD", "local"]),
         );
+        assert_ne!(overview, daily);
+        let overview_name = overview
+            .file_name()
+            .and_then(|name| name.to_str())
+            .expect("file name");
+        assert!(overview_name.starts_with("cost-v1-app"));
+        assert!(overview_name.contains("ccstats0-7-0"));
+        assert!(overview_name.contains("claude-USD-local"));
+    }
+
+    #[test]
+    fn versioned_keys_include_schema_app_and_ccstats() {
+        let key = versioned_key(&["claude", "USD", "local"]);
+        assert!(key.starts_with(&format!("v{COST_CACHE_SCHEMA_VERSION}|app")));
+        assert!(key.contains(&format!("ccstats{CCSTATS_VERSION}")));
+        assert!(key.contains(env!("CARGO_PKG_VERSION")));
+        assert!(key.ends_with("|claude|USD|local"));
+    }
+
+    #[test]
+    fn future_saved_at_is_invalid() {
+        let base = temp_base();
+        let future_ms = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("clock")
+            .as_millis() as u64
+            + 60_000;
+        write_snapshot_in_at(&base, "future", &vec![1_i64], future_ms);
+        let path = snapshot_path(&base, "future");
+        assert!(path.exists());
+        let result: Option<(Duration, Vec<i64>)> = read_snapshot_in(&base, "future");
+        assert!(result.is_none());
+        assert!(!path.exists(), "future snapshot should be deleted");
+        let _cleanup = std::fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn mismatched_schema_is_discarded() {
+        let base = temp_base();
+        std::fs::create_dir_all(&base).expect("temp dir should create");
+        let snapshot = Snapshot {
+            schema_version: COST_CACHE_SCHEMA_VERSION + 1,
+            app_version: env!("CARGO_PKG_VERSION").to_string(),
+            ccstats_version: CCSTATS_VERSION.to_string(),
+            saved_at_unix_ms: 1,
+            payload: vec![1_i64],
+        };
+        let path = snapshot_path(&base, "mismatch");
+        std::fs::write(&path, serde_json::to_vec(&snapshot).expect("json"))
+            .expect("snapshot should write");
+        let result: Option<(Duration, Vec<i64>)> = read_snapshot_in(&base, "mismatch");
+        assert!(result.is_none());
+        assert!(!path.exists());
+        let _cleanup = std::fs::remove_dir_all(&base);
     }
 
     #[test]
