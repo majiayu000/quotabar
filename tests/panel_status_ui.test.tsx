@@ -5,6 +5,7 @@ import AntigravityPanel from '../src/components/AntigravityPanel';
 import ClaudePanel from '../src/components/ClaudePanel';
 import CodexPanel from '../src/components/CodexPanel';
 import CursorPanel from '../src/components/CursorPanel';
+import GrokPanel from '../src/components/GrokPanel';
 import OverviewPanel from '../src/components/OverviewPanel';
 import ProviderDetailHeader from '../src/components/ProviderDetailHeader';
 import { backend } from '../src/services/backend';
@@ -353,6 +354,30 @@ describe('provider status UI', () => {
     expect(text).toContain('Cursor network refresh failed');
     expect(text).toContain('Stale data');
     expect(text).toContain('Showing last known data');
+    await act(async () => renderer.unmount());
+  });
+
+  it('labels connected Grok last-good fallback as stale', async () => {
+    vi.spyOn(backend, 'getGrokInfo').mockResolvedValue({
+      connected: true,
+      percentage: 4,
+      products: [],
+      error: 'Too many open files (os error 24)',
+    });
+    let renderer!: ReactTestRenderer;
+    await act(async () => {
+      renderer = create(createElement(GrokPanel, {
+        autoRefreshIntervalMs: 0,
+        sections: hiddenSections,
+      }));
+      await Promise.resolve();
+    });
+
+    const text = renderedText(renderer);
+    expect(text).toContain('Too many open files');
+    expect(text).toContain('Stale data');
+    expect(text).toContain('Showing last known data');
+    expect(text).toContain('4%');
     await act(async () => renderer.unmount());
   });
 

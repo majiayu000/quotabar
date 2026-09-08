@@ -39,6 +39,18 @@ function grokProductUsagePercent(usagePercent: number | null | undefined): numbe
     : null;
 }
 
+function grokExtraCents(value: number | null | undefined): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+function grokScaleBasisCopy(estimate: { scaleProduct?: string; scaleUsedPct?: number }): string | null {
+  if (estimate.scaleProduct !== 'build') return null;
+  if (typeof estimate.scaleUsedPct !== 'number' || !Number.isFinite(estimate.scaleUsedPct)) {
+    return null;
+  }
+  return `Full pool dollars are extrapolated from Build ${Math.round(estimate.scaleUsedPct)}%, not from the pool gauge percent.`;
+}
+
 const USD_FORMAT = new Intl.NumberFormat('en-US', {
   style: 'currency',
   currency: 'USD',
@@ -73,12 +85,12 @@ export default function GrokPanel({
   const [error, setError] = useState<string | null>(null);
   const request_generation = useLatestRequestGeneration();
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (manual = false) => {
     const generation = request_generation.begin();
     try {
       setLoading(true);
       setError(null);
-      const data = await backend.getGrokInfo();
+      const data = await backend.getGrokInfo(manual);
       if (!request_generation.isCurrent(generation)) return;
       setGrokData(data);
       if (data.error) {
@@ -117,7 +129,7 @@ export default function GrokPanel({
 
   useEffect(() => {
     if (manualRefreshNonce > 0) {
-      fetchData();
+      void fetchData(true);
     }
   }, [manualRefreshNonce, fetchData]);
 
@@ -133,6 +145,9 @@ export default function GrokPanel({
   const windows = buildGrokQuotaWindows(grokData);
   const topWindow = sortMostConstrained(windows)[0];
   const extra = grokData?.extra;
+  const extraUsedCents = grokExtraCents(extra?.onDemandUsedCents);
+  const extraCapCents = grokExtraCents(extra?.onDemandCapCents);
+  const extraPrepaidCents = grokExtraCents(extra?.prepaidBalanceCents);
   const products = (grokData?.products ?? []).filter(
     (product) => grokProductUsagePercent(product.usagePercent) != null,
   );
@@ -225,6 +240,11 @@ export default function GrokPanel({
                               ≈{USD_FORMAT.format(displayedGrokValueEstimate.estimatedPeriodValueUsd)}
                             </strong>
                           </span>
+                          {grokScaleBasisCopy(displayedGrokValueEstimate) ? (
+                            <span className="weekly-value-token-row">
+                              {grokScaleBasisCopy(displayedGrokValueEstimate)}
+                            </span>
+                          ) : null}
                         </div>
                         <div
                           className="weekly-value-gauge"
@@ -281,33 +301,33 @@ export default function GrokPanel({
             </div>
           )}
 
-          {extra && (
+          {extraUsedCents != null && extraCapCents != null && extraPrepaidCents != null && (
             <div className="section">
               <div className="section-title">Extra credits</div>
               <div className="quota-group">
-                {extra.onDemandCapCents > 0 && (
+                {extraCapCents > 0 && (
                   <div className="quota-card">
                     <div className="quota-header">
                       <span className="quota-label">On-demand</span>
                       <span className="quota-value">
-                        {`${formatCents(extra.onDemandUsedCents)} / ${formatCents(extra.onDemandCapCents)}`}
+                        {`${formatCents(extraUsedCents)} / ${formatCents(extraCapCents)}`}
                       </span>
                     </div>
                     <div className="progress-bar">
                       <div
                         className="progress-fill"
                         style={getProgressStyle(
-                          Math.min(100, (extra.onDemandUsedCents / extra.onDemandCapCents) * 100),
+                          Math.min(100, (extraUsedCents / extraCapCents) * 100),
                         )}
                       />
                     </div>
                   </div>
                 )}
-                {extra.prepaidBalanceCents > 0 && (
+                {extraPrepaidCents > 0 && (
                   <div className="quota-card">
                     <div className="quota-header">
                       <span className="quota-label">Prepaid remaining</span>
-                      <span className="quota-value">{formatCents(extra.prepaidBalanceCents)}</span>
+                      <span className="quota-value">{formatCents(extraPrepaidCents)}</span>
                     </div>
                   </div>
                 )}

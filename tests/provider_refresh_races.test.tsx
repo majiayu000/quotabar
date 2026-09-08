@@ -728,6 +728,33 @@ describe('Grok period value', () => {
     await unmount(renderer);
   });
 
+  it('labels Full pool dollars as extrapolated from Build share, not the pool gauge', async () => {
+    const renderer = await render_grok({
+      connected: true,
+      percentage: 25,
+      periodType: 'weekly',
+      products: [{ product: 'build', label: 'Build', usagePercent: 4 }],
+      valueEstimate: {
+        observedAt: new Date().toISOString(),
+        windowStartedAt: '2026-08-23T15:25:10.879Z',
+        resetsAt: '2026-08-30T15:25:10.879Z',
+        usedPct: 25,
+        scaleUsedPct: 4,
+        scaleProduct: 'build',
+        observedCostUsd: 8,
+        estimatedPeriodValueUsd: 200,
+        observedTokens: 2_000,
+        estimatedPeriodTokens: 50_000,
+      },
+    });
+
+    const text = rendered_text(renderer);
+    expect(text).toContain('Full pool');
+    expect(text).toContain('$200.00');
+    expect(text).toContain('Full pool dollars are extrapolated from Build 4%, not from the pool gauge percent.');
+    await unmount(renderer);
+  });
+
   it('omits product rows without usagePercent instead of drawing 0%', async () => {
     const renderer = await render_grok({
       connected: true,
@@ -744,6 +771,20 @@ describe('Grok period value', () => {
     expect(text).toContain('4%');
     expect(text).not.toContain('Chat');
     expect(text).not.toMatch(/Chat[\s\S]*0%/);
+    await unmount(renderer);
+  });
+
+  it('does not show $0.00 extra used against a cap when used cents are missing', async () => {
+    const renderer = await render_grok({
+      connected: true,
+      percentage: 4,
+      products: [],
+      extra: { onDemandCapCents: 5000, prepaidBalanceCents: 0 },
+    });
+
+    const text = rendered_text(renderer);
+    expect(text).not.toContain('Extra credits');
+    expect(text).not.toContain('$0.00 / $50.00');
     await unmount(renderer);
   });
 
@@ -1139,10 +1180,13 @@ describe('login-gated polling', () => {
     await act(async () => { renderer = create(createElement(GrokPanel, { autoRefreshIntervalMs: 60_000 })); });
     await act(async () => { await vi.advanceTimersByTimeAsync(2 * 60 * 60 * 1000); });
     expect(read).toHaveBeenCalledTimes(1);
+    expect(read).toHaveBeenLastCalledWith(false);
     await act(async () => { renderer.update(createElement(GrokPanel, { autoRefreshIntervalMs: 60_000, manualRefreshNonce: 1 })); });
     expect(read).toHaveBeenCalledTimes(2);
+    expect(read).toHaveBeenLastCalledWith(true);
     await act(async () => { await vi.advanceTimersByTimeAsync(60_000); });
     expect(read).toHaveBeenCalledTimes(3);
+    expect(read).toHaveBeenLastCalledWith(false);
     await unmount(renderer);
   });
 });

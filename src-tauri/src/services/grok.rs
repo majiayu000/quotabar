@@ -17,6 +17,7 @@ use std::time::{Duration, Instant};
 const BILLING_URL: &str = "https://cli-chat-proxy.grok.com/v1/billing?format=credits";
 const TOKEN_AUTH_HEADER: &str = "xai-grok-cli";
 const QUOTA_CACHE_TTL: Duration = Duration::from_secs(120);
+const MAX_STALE_GROK_AGE: Duration = Duration::from_secs(15 * 60);
 
 struct CachedGrok {
     data: GrokData,
@@ -24,13 +25,13 @@ struct CachedGrok {
 }
 
 static GROK_CACHE: OnceLock<Mutex<Option<CachedGrok>>> = OnceLock::new();
-static LAST_GOOD: OnceLock<Mutex<Option<GrokData>>> = OnceLock::new();
+static LAST_GOOD: OnceLock<Mutex<Option<CachedGrok>>> = OnceLock::new();
 
 fn grok_cache() -> &'static Mutex<Option<CachedGrok>> {
     GROK_CACHE.get_or_init(|| Mutex::new(None))
 }
 
-fn last_good() -> &'static Mutex<Option<GrokData>> {
+fn last_good() -> &'static Mutex<Option<CachedGrok>> {
     LAST_GOOD.get_or_init(|| Mutex::new(None))
 }
 
@@ -151,12 +152,14 @@ fn read_auth_json() -> Result<serde_json::Value, String> {
     serde_json::from_str(&content).map_err(|err| format!("Failed to parse Grok auth: {err}"))
 }
 
-fn parse_cent(value: &serde_json::Value) -> i64 {
+fn parse_cent(value: &serde_json::Value) -> Option<i64> {
+    if value.is_null() {
+        return None;
+    }
     value
         .get("val")
         .and_then(|val| val.as_i64().or_else(|| val.as_f64().map(|n| n as i64)))
         .or_else(|| value.as_i64())
-        .unwrap_or(0)
 }
 
 fn clamp_percent(value: f64) -> f64 {
@@ -249,6 +252,15 @@ fn scale_used_pct(pool_pct: Option<f64>, products: &[GrokProductUsage]) -> Resul
         .ok_or_else(|| "The official Grok pool usage is unavailable.".to_string())
 }
 
+fn scale_product_id(products: &[GrokProductUsage]) -> Option<String> {
+    products
+        .iter()
+        .find(|product| product.product == "build")
+        .and_then(|product| product.usage_percent)
+        .filter(|pct| pct.is_finite() && *pct > 0.0)
+        .map(|_| "build".to_string())
+}
+
 fn period_from_config(
     config: &serde_json::Value,
 ) -> (
@@ -330,6 +342,7 @@ fn estimate_grok_period_value(
     let display_pct =
         used_pct.ok_or_else(|| "The official Grok pool usage is unavailable.".to_string())?;
     let scale_pct = scale_used_pct(used_pct, &products)?;
+    let scale_product = scale_product_id(&products);
     let started = started_at
         .and_then(parse_rfc3339)
         .ok_or_else(|| "The official Grok period start is unavailable.".to_string())?;
@@ -349,6 +362,8 @@ fn estimate_grok_period_value(
         window_started_at: started.to_rfc3339(),
         resets_at: resets.to_rfc3339(),
         used_pct: display_pct,
+        scale_used_pct: scale_pct,
+        scale_product,
         observed_cost_usd: usage.observed_cost_usd,
         estimated_period_value_usd: period_usd,
         observed_tokens: usage.observed_tokens,
@@ -377,18 +392,19 @@ fn parse_billing_payload(data: &serde_json::Value, email: Option<String>) -> Gro
         }
     });
     let (period_type, period_label, period_started_at, reset_at) = period_from_config(config);
-    let extra = GrokExtraCredits {
-        on_demand_used_cents: parse_cent(&config["onDemandUsed"]),
-        on_demand_cap_cents: parse_cent(&config["onDemandCap"]),
-        prepaid_balance_cents: parse_cent(&config["prepaidBalance"]),
-    };
-    let extra = if extra.on_demand_used_cents == 0
-        && extra.on_demand_cap_cents == 0
-        && extra.prepaid_balance_cents == 0
-    {
-        None
-    } else {
-        Some(extra)
+    let extra = match (
+        parse_cent(&config["onDemandUsed"]),
+        parse_cent(&config["onDemandCap"]),
+        parse_cent(&config["prepaidBalance"]),
+    ) {
+        (Some(used), Some(cap), Some(prepaid)) if used != 0 || cap != 0 || prepaid != 0 => {
+            Some(GrokExtraCredits {
+                on_demand_used_cents: used,
+                on_demand_cap_cents: cap,
+                prepaid_balance_cents: prepaid,
+            })
+        }
+        _ => None,
     };
 
     let plan_type = data
@@ -419,7 +435,14 @@ fn parse_billing_payload(data: &serde_json::Value, email: Option<String>) -> Gro
     }
 }
 
-fn get_cached() -> Option<GrokData> {
+fn should_read_grok_cache(manual: bool) -> bool {
+    !manual
+}
+
+fn get_cached(manual: bool) -> Option<GrokData> {
+    if !should_read_grok_cache(manual) {
+        return None;
+    }
     let guard = grok_cache().lock().ok()?;
     let cached = guard.as_ref()?;
     if cached.cached_at.elapsed() < QUOTA_CACHE_TTL {
@@ -436,27 +459,63 @@ fn save_cache(data: &GrokData) {
             cached_at: Instant::now(),
         });
     }
-    if data.connected {
+    if data.connected && data.error.is_none() {
         if let Ok(mut guard) = last_good().lock() {
-            *guard = Some(data.clone());
+            *guard = Some(CachedGrok {
+                data: data.clone(),
+                cached_at: Instant::now(),
+            });
         }
     }
+}
+
+fn mark_grok_data_stale(mut data: GrokData, error: String) -> GrokData {
+    data.error = Some(error);
+    data
+}
+
+fn stale_grok_usable(connected: bool, age: Duration) -> bool {
+    connected && age < MAX_STALE_GROK_AGE
+}
+
+fn last_good_or_disconnected(
+    error: String,
+    snapshot: Option<&GrokData>,
+    age: Duration,
+) -> GrokData {
+    match snapshot {
+        Some(data) if stale_grok_usable(data.connected, age) => {
+            mark_grok_data_stale(data.clone(), error)
+        }
+        _ => GrokData::disconnected(error),
+    }
+}
+
+fn last_good_snapshot_fallback(error: String) -> GrokData {
+    let (snapshot, age) = match last_good().lock() {
+        Ok(guard) => match guard.as_ref() {
+            Some(cached) => (Some(cached.data.clone()), cached.cached_at.elapsed()),
+            None => (None, Duration::ZERO),
+        },
+        Err(_) => (None, Duration::ZERO),
+    };
+    last_good_or_disconnected(error, snapshot.as_ref(), age)
 }
 
 fn fallback_or_disconnected(error: impl Into<String>) -> GrokData {
     let error = error.into();
     if is_transient_os_error(&error) {
-        if let Ok(guard) = last_good().lock() {
-            if let Some(stale) = guard.as_ref() {
-                return stale.clone();
-            }
-        }
+        return last_good_snapshot_fallback(error);
     }
     GrokData::disconnected(error)
 }
 
-pub async fn fetch_grok_info() -> GrokData {
-    if let Some(cached) = get_cached() {
+fn is_grok_auth_status(status: reqwest::StatusCode) -> bool {
+    status.as_u16() == 401 || status.as_u16() == 403
+}
+
+pub async fn fetch_grok_info(manual: bool) -> GrokData {
+    if let Some(cached) = get_cached(manual) {
         return cached;
     }
 
@@ -486,13 +545,13 @@ pub async fn fetch_grok_info() -> GrokData {
     };
 
     let status = response.status();
-    if status.as_u16() == 401 || status.as_u16() == 403 {
-        return GrokData::disconnected(
-            "Grok session expired. Run 'grok login', then click Refresh.",
-        );
-    }
     if !status.is_success() {
-        return GrokData::disconnected(format!("Grok billing API error: {status}"));
+        if is_grok_auth_status(status) {
+            return GrokData::disconnected(
+                "Grok session expired. Run 'grok login', then click Refresh.",
+            );
+        }
+        return last_good_snapshot_fallback(format!("Grok billing API error: {status}"));
     }
 
     let data = match response.json::<serde_json::Value>().await {
@@ -531,9 +590,45 @@ pub async fn fetch_grok_info() -> GrokData {
 
 #[cfg(test)]
 mod tests {
-    use super::{map_product, parse_billing_payload, pick_credential, scale_used_pct};
-    use crate::domain::models::GrokProductUsage;
+    use super::{
+        is_grok_auth_status, last_good_or_disconnected, map_product, mark_grok_data_stale,
+        parse_billing_payload, pick_credential, scale_product_id, scale_used_pct,
+        should_read_grok_cache, stale_grok_usable, MAX_STALE_GROK_AGE,
+    };
+    use crate::domain::models::{GrokData, GrokProductUsage};
     use serde_json::json;
+    use std::time::Duration;
+
+    fn grok_from_http_status(
+        status: reqwest::StatusCode,
+        snapshot: Option<&GrokData>,
+        age: Duration,
+    ) -> GrokData {
+        if is_grok_auth_status(status) {
+            return GrokData::disconnected(
+                "Grok session expired. Run 'grok login', then click Refresh.",
+            );
+        }
+        last_good_or_disconnected(format!("Grok billing API error: {status}"), snapshot, age)
+    }
+
+    fn sample_connected_grok() -> GrokData {
+        GrokData {
+            connected: true,
+            plan_type: Some("SuperGrok".into()),
+            email: None,
+            percentage: Some(4.0),
+            reset_at: None,
+            period_started_at: None,
+            period_type: Some("weekly".into()),
+            period_label: Some("Weekly".into()),
+            products: Vec::new(),
+            extra: None,
+            value_estimate: None,
+            value_estimate_error: None,
+            error: None,
+        }
+    }
 
     #[test]
     fn maps_live_and_proto_product_names() {
@@ -672,6 +767,33 @@ mod tests {
     }
 
     #[test]
+    fn extra_credits_hide_when_used_cents_are_missing() {
+        let payload = json!({
+            "config": {
+                "creditUsagePercent": 4.0,
+                "currentPeriod": {"type": "USAGE_PERIOD_TYPE_WEEKLY", "end": "2026-09-01T00:00:00Z"},
+                "onDemandCap": {"val": 5000},
+                "prepaidBalance": {"val": 0}
+            }
+        });
+        assert!(parse_billing_payload(&payload, None).extra.is_none());
+    }
+
+    #[test]
+    fn extra_credits_hide_when_cents_are_malformed() {
+        let payload = json!({
+            "config": {
+                "creditUsagePercent": 4.0,
+                "currentPeriod": {"type": "USAGE_PERIOD_TYPE_WEEKLY", "end": "2026-09-01T00:00:00Z"},
+                "onDemandCap": {"val": 5000},
+                "onDemandUsed": {"val": "unknown"},
+                "prepaidBalance": {"val": 0}
+            }
+        });
+        assert!(parse_billing_payload(&payload, None).extra.is_none());
+    }
+
+    #[test]
     fn missing_usage_fields_disconnect() {
         let data = parse_billing_payload(&json!({"config": {}}), None);
         assert!(!data.connected);
@@ -715,6 +837,8 @@ mod tests {
         ];
         assert_eq!(scale_used_pct(Some(25.0), &products).unwrap(), 4.0);
         assert_eq!(scale_used_pct(Some(25.0), &[]).unwrap(), 25.0);
+        assert_eq!(scale_product_id(&products).as_deref(), Some("build"));
+        assert_eq!(scale_product_id(&[]), None);
     }
 
     #[test]
@@ -756,5 +880,76 @@ mod tests {
         };
         assert!(err.contains("expired"));
         assert!(!err.contains("expired-token"));
+    }
+
+    #[test]
+    fn last_good_fallback_is_connected_with_error_not_clean_success() {
+        let data = sample_connected_grok();
+        let stale = last_good_or_disconnected(
+            "Too many open files (os error 24)".to_string(),
+            Some(&data),
+            Duration::from_secs(30),
+        );
+        assert!(stale.connected);
+        assert_eq!(stale.percentage, Some(4.0));
+        assert_eq!(
+            stale.error.as_deref(),
+            Some("Too many open files (os error 24)")
+        );
+        assert_ne!(stale.error, None);
+
+        let marked = mark_grok_data_stale(data.clone(), "EMFILE".to_string());
+        assert!(marked.connected);
+        assert_eq!(marked.error.as_deref(), Some("EMFILE"));
+
+        assert!(stale_grok_usable(true, Duration::from_secs(60)));
+        assert!(!stale_grok_usable(false, Duration::from_secs(1)));
+        assert!(!stale_grok_usable(true, MAX_STALE_GROK_AGE));
+        let expired = last_good_or_disconnected(
+            "Too many open files (os error 24)".to_string(),
+            Some(&data),
+            MAX_STALE_GROK_AGE,
+        );
+        assert!(!expired.connected);
+        assert!(expired.error.unwrap().contains("Too many open files"));
+    }
+
+    #[test]
+    fn http_429_keeps_last_good_with_error_instead_of_disconnecting() {
+        let data = sample_connected_grok();
+        let stale = grok_from_http_status(
+            reqwest::StatusCode::TOO_MANY_REQUESTS,
+            Some(&data),
+            Duration::from_secs(10),
+        );
+        assert!(stale.connected);
+        assert_eq!(stale.percentage, Some(4.0));
+        assert!(stale
+            .error
+            .as_deref()
+            .unwrap()
+            .contains("Grok billing API error: 429"));
+
+        let server = grok_from_http_status(
+            reqwest::StatusCode::BAD_GATEWAY,
+            Some(&data),
+            Duration::from_secs(10),
+        );
+        assert!(server.connected);
+        assert!(server.error.as_deref().unwrap().contains("502"));
+
+        let unauthorized = grok_from_http_status(
+            reqwest::StatusCode::UNAUTHORIZED,
+            Some(&data),
+            Duration::from_secs(10),
+        );
+        assert!(!unauthorized.connected);
+        assert!(unauthorized.error.unwrap().contains("expired"));
+    }
+
+    #[test]
+    fn manual_refresh_skips_the_success_cache() {
+        assert!(should_read_grok_cache(false));
+        assert!(!should_read_grok_cache(true));
     }
 }

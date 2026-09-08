@@ -121,9 +121,9 @@ export interface GrokProductUsage {
 }
 
 export interface GrokExtraCredits {
-  onDemandUsedCents: number;
-  onDemandCapCents: number;
-  prepaidBalanceCents: number;
+  onDemandUsedCents?: number | null;
+  onDemandCapCents?: number | null;
+  prepaidBalanceCents?: number | null;
 }
 
 export interface GrokValueEstimate {
@@ -131,6 +131,8 @@ export interface GrokValueEstimate {
   windowStartedAt: string;
   resetsAt: string;
   usedPct: number;
+  scaleUsedPct?: number;
+  scaleProduct?: string;
   observedCostUsd: number;
   estimatedPeriodValueUsd: number;
   observedTokens: number;
