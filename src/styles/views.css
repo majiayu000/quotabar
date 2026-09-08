@@ -580,3 +580,5 @@
   background: linear-gradient(180deg, var(--accent-light), color-mix(in srgb, var(--accent-light) 58%, var(--bg-card)));
   border-color: var(--accent-color);
 }
+.analysis-launch { width:100%; margin:4px 0 8px; padding:8px 12px; border:1px solid var(--hairline,#cdced6); border-radius:6px; background:var(--bg-card,#f9f9fb); color:var(--text-primary,#1c2024); cursor:pointer; text-align:left; }
+.analysis-launch span { float:right; }

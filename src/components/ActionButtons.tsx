@@ -1,3 +1,8 @@
+import { workspaceCopy } from '../utils/quota_format';
+import { useState } from 'react';
+import { backend } from '../services/backend';
+import { getSavedTab } from '../services/app_state';
+
 interface ActionButtonsProps {
   onRefresh: () => void;
   onDashboard: () => void;
@@ -21,9 +26,15 @@ export default function ActionButtons({
   statusTitle,
   showDashboard = true,
 }: ActionButtonsProps) {
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
   return (
     <>
       <div className="footer-divider" />
+      <button type="button" className="analysis-launch" onClick={() => {
+        setAnalysisError(null);
+        void backend.openAnalysis(getSavedTab()).catch((error) => setAnalysisError(`无法打开分析窗口：${String(error)}`));
+      }}>用量分析 <span aria-hidden="true">↗</span></button>
+      {analysisError && <p role="alert">{analysisError}</p>}
       <div className="action-buttons" aria-busy={loading}>
         {loading && (
           <span className="action-announcement" role="status" aria-live="polite">
@@ -50,7 +61,7 @@ export default function ActionButtons({
             title="Open dashboard"
             aria-label="Open provider dashboard"
           >
-            <span className="btn-text">Dashboard</span>
+            <span className="btn-text">{workspaceCopy("Dashboard", "服务商控制台")}</span>
             <span className="btn-icon dashboard-arrow">↗</span>
           </button>
         )}

@@ -1065,3 +1065,58 @@ afterEach(() => {
 afterAll(() => {
   delete (globalThis as Record<string, unknown>).IS_REACT_ACT_ENVIRONMENT;
 });
+
+
+describe('provider read status propagation', () => {
+  it('reports an API stale response and a rejected request to the workspace', async () => {
+    vi.spyOn(backend, 'getCursorInfo').mockResolvedValueOnce({ connected: true, percentage: 22 }).mockResolvedValueOnce({ connected: true, percentage: 22, error: 'Temporary outage' }).mockRejectedValueOnce(new Error('Offline'));
+    const readResult = vi.fn();
+    let renderer!: ReactTestRenderer;
+    const element = (nonce: number) => createElement(CursorPanel, { autoRefreshIntervalMs: 0, showCostSummary: false, manualRefreshNonce: nonce, onReadResult: readResult });
+    await act(async () => { renderer = create(element(0)); });
+    expect(readResult).toHaveBeenLastCalledWith(null);
+    await act(async () => renderer.update(element(1)));
+    expect(readResult).toHaveBeenLastCalledWith('Temporary outage');
+    await act(async () => renderer.update(element(2)));
+    expect(readResult).toHaveBeenLastCalledWith('Offline');
+    await unmount(renderer);
+  });
+});
+
+describe('login-gated polling', () => {
+  it('stops Claude after failed login and resumes only after a successful explicit recheck', async () => {
+    vi.useFakeTimers();
+    install_app_backend([]);
+    vi.mocked(backend.getQuota)
+      .mockResolvedValueOnce({ connected: false, error: 'Claude OAuth token expired or invalid. Please re-login.' })
+      .mockResolvedValue(quota(42));
+    let renderer!: ReactTestRenderer;
+    await act(async () => { renderer = create(createElement(App)); });
+    expect(backend.getQuota).toHaveBeenCalledWith(false);
+    await act(async () => { await vi.advanceTimersByTimeAsync(2 * 60 * 60 * 1000); });
+    expect(backend.getQuota).toHaveBeenCalledTimes(1);
+    await act(async () => { renderer.root.findByProps({ 'aria-label': 'Refresh current provider' }).props.onClick(); });
+    expect(backend.getQuota).toHaveBeenLastCalledWith(true);
+    expect(backend.getQuota).toHaveBeenCalledTimes(2);
+    await act(async () => { await vi.advanceTimersByTimeAsync(60_000); });
+    expect(backend.getQuota).toHaveBeenCalledTimes(3);
+    expect(backend.getQuota).toHaveBeenLastCalledWith(false);
+    await unmount(renderer);
+  });
+
+  it('stops Grok login failures until a manual recheck succeeds', async () => {
+    vi.useFakeTimers();
+    const read = vi.spyOn(backend, 'getGrokInfo')
+      .mockResolvedValueOnce({ connected: false, error: "Grok session expired. Run 'grok login'." })
+      .mockResolvedValue({ connected: true, percentage: 42 });
+    let renderer!: ReactTestRenderer;
+    await act(async () => { renderer = create(createElement(GrokPanel, { autoRefreshIntervalMs: 60_000 })); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(2 * 60 * 60 * 1000); });
+    expect(read).toHaveBeenCalledTimes(1);
+    await act(async () => { renderer.update(createElement(GrokPanel, { autoRefreshIntervalMs: 60_000, manualRefreshNonce: 1 })); });
+    expect(read).toHaveBeenCalledTimes(2);
+    await act(async () => { await vi.advanceTimersByTimeAsync(60_000); });
+    expect(read).toHaveBeenCalledTimes(3);
+    await unmount(renderer);
+  });
+});

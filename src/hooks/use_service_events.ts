@@ -8,6 +8,18 @@ import {
 } from '../services/notifications';
 import type { EventLevel } from '../services/event_log';
 import type { QuotaData } from '../types/models';
+import { STORAGE_READ_FAILURE_MESSAGE, subscribeStorageReadFailures } from '../services/storage';
+import { TRAY_GUARD_TOAST_MS } from '../services/app_state';
+
+export function subscribeStorageReadFailureToast(
+  setToast: (value: string | null) => void,
+  schedule: (callback: () => void, delayMs: number) => void = (callback, delayMs) => { setTimeout(callback, delayMs); },
+): () => void {
+  return subscribeStorageReadFailures(() => {
+    setToast(STORAGE_READ_FAILURE_MESSAGE);
+    schedule(() => setToast(null), TRAY_GUARD_TOAST_MS);
+  });
+}
 
 interface ServiceSnapshot {
   connected: boolean;
@@ -25,10 +37,12 @@ export function useServiceEvents(
   usedPercent: ServiceMap<number | null>,
   notifSettings: NotificationSettings,
   logEvent: (level: EventLevel, text: string) => void,
+  enabled = true,
 ): void {
   const prevServiceStateRef = useRef<ServiceMap<ServiceSnapshot> | null>(null);
 
   useEffect(() => {
+    if (!enabled) return;
     const current = SERVICES.reduce((acc, svc) => {
       acc[svc] = {
         connected: svc === 'claude' ? quota?.connected ?? false : connected[svc],
@@ -85,5 +99,5 @@ export function useServiceEvents(
         }
       }
     }
-  }, [quota, connected, usedPercent, logEvent, notifSettings.q80, notifSettings.q95, notifSettings.q100]);
+  }, [quota, connected, usedPercent, logEvent, notifSettings.q80, notifSettings.q95, notifSettings.q100, enabled]);
 }

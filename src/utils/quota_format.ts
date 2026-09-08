@@ -108,3 +108,8 @@ export function clampProgressValue(usedPercent: number): number {
   if (!Number.isFinite(usedPercent)) return 0;
   return Math.min(100, Math.max(0, Math.round(usedPercent)));
 }
+
+/** Desktop copy is scoped to the App document; Tray copy stays unchanged. */
+export function workspaceCopy(english: string, chinese: string): string {
+  return typeof document !== 'undefined' && document.documentElement.classList.contains('analysis-document') ? chinese : english;
+}

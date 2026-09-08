@@ -1,3 +1,5 @@
+import { workspaceCopy } from '../utils/quota_format';
+import QuotaRecovery, { quotaRecovery, useQuotaCooldown } from './QuotaRecovery';
 import CostSummarySection from './CostSummarySection';
 import QuotaCard from './QuotaCard';
 import ProviderDetailHeader from './ProviderDetailHeader';
@@ -10,6 +12,8 @@ import { getHighUsageTip } from '../services/detail_helpers';
 import { defaultPanelSections, type PanelSectionVisibility } from '../services/panel_sections';
 
 interface ClaudePanelProps {
+  workspace?: boolean;
+  retryAt?: number | null;
   quota: QuotaData | null;
   loading: boolean;
   error: string | null;
@@ -41,6 +45,8 @@ function hasWeeklyData(quota: QuotaData): boolean {
 
 export default function ClaudePanel({
   quota,
+  workspace = false,
+  retryAt,
   loading,
   error,
   windowVisible,
@@ -48,6 +54,8 @@ export default function ClaudePanel({
   onRetry,
   sections = defaultPanelSections(),
 }: ClaudePanelProps) {
+  const cooling = useQuotaCooldown(retryAt);
+  const loginNeeded = /登录/.test(quotaRecovery('claude', error)?.title ?? '');
   const windows = buildClaudeQuotaWindows(quota);
   const topWindow = sortMostConstrained(windows)[0];
 
@@ -57,12 +65,12 @@ export default function ClaudePanel({
         <div className="loading-state">Loading Claude quota...</div>
       )}
 
-      {error && (
+      {error && (workspace ? <QuotaRecovery provider="claude" read={{ error, readAt: null, retryAt }} hasData={Boolean(quota?.connected)} /> :
         <div className="error-banner" role="alert">
           <span className="error-icon">!</span>
           <span className="error-text">
             {error}
-            {quota && <span className="error-context">Showing last known data.</span>}
+            {quota && <span className="error-context">{workspaceCopy("Showing last known data.", "当前显示上次成功读取的数据。")}</span>}
           </span>
         </div>
       )}
@@ -79,7 +87,7 @@ export default function ClaudePanel({
           />
 
           <div className="section">
-            <div className="section-title">Current session</div>
+            <div className="section-title">{workspaceCopy("Current session", "当前窗口")}</div>
             <div className="quota-group">
               {quota.session ? (
                 <QuotaCard
@@ -95,7 +103,7 @@ export default function ClaudePanel({
           </div>
 
           <div className="section">
-            <div className="section-title">Weekly limits</div>
+            <div className="section-title">{workspaceCopy("Weekly limits", "每周额度")}</div>
             <div className="quota-group">
               {quota.weeklyTotal && (
                 <QuotaCard
@@ -139,7 +147,7 @@ export default function ClaudePanel({
               )}
 
               {!hasWeeklyData(quota) && (
-                <div className="no-data">No weekly data</div>
+                <div className="no-data">{workspaceCopy("No weekly data", "尚无每周额度数据")}</div>
               )}
             </div>
           </div>
@@ -156,9 +164,9 @@ export default function ClaudePanel({
 
       {!quota && !loading && (
         <div className="empty-state">
-          <p>Unable to load quota data</p>
-          <button type="button" onClick={onRetry} className="retry-btn">
-            Try Again
+          <p>{workspaceCopy("Unable to load quota data", "无法读取额度数据")}</p>
+          <button type="button" onClick={onRetry} disabled={cooling} className="retry-btn">
+            {cooling ? "等待重试" : loginNeeded && workspace ? "我已登录，重新检测" : workspaceCopy("Try Again", "重新读取")}
           </button>
         </div>
       )}

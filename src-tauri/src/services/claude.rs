@@ -261,6 +261,10 @@ fn request_quota_diagnostic(access_token: &str, count: u64, gap: Option<f64>) ->
     )
 }
 
+fn credential_expired(expires_at_ms: Option<u64>, now_ms: i64) -> bool {
+    expires_at_ms.is_some_and(|expires| expires <= now_ms.max(0) as u64)
+}
+
 fn get_oauth_token(force_refresh: bool) -> Result<String, String> {
     log_msg(&format!(
         "[OAuth] get_oauth_token called, force_refresh={force_refresh}"
@@ -270,7 +274,12 @@ fn get_oauth_token(force_refresh: bool) -> Result<String, String> {
         if let Ok(guard) = credentials_cache().lock() {
             if let Some(creds) = guard.as_ref() {
                 let elapsed = creds.cached_at.elapsed();
-                if elapsed < TOKEN_CACHE_TTL {
+                if elapsed < TOKEN_CACHE_TTL
+                    && !credential_expired(
+                        creds.expires_at_ms,
+                        chrono::Utc::now().timestamp_millis(),
+                    )
+                {
                     log_msg(&oauth_cache_hit_diagnostic(
                         &creds.access_token,
                         elapsed,
@@ -304,6 +313,15 @@ fn get_oauth_token(force_refresh: bool) -> Result<String, String> {
 
     log_msg("[OAuth] reading from keychain...");
     let keychain = read_credentials_from_system()?;
+    if keychain.access_token.trim().is_empty()
+        || credential_expired(
+            keychain.expires_at_ms,
+            chrono::Utc::now().timestamp_millis(),
+        )
+    {
+        log_msg("[OAuth] local credential expired or empty; login required, no quota request");
+        return Err(CLAUDE_AUTH_RELOGIN_MESSAGE.to_string());
+    }
     log_msg(&oauth_keychain_source_diagnostic(
         &keychain.cred_name,
         &keychain.access_token,
@@ -485,27 +503,153 @@ fn fallback_or_disconnected(error: String) -> QuotaData {
     QuotaData::disconnected(error)
 }
 
-pub async fn fetch_quota() -> QuotaData {
+// All entry points share this deadline via the serialized Claude command. Persist
+// only the retry time (no account or credential data) so reopening cannot bypass it.
+fn cooldown_path() -> Result<std::path::PathBuf, String> {
+    dirs::cache_dir()
+        .map(|dir| dir.join("quotabar/claude-retry-at"))
+        .ok_or_else(|| "Claude retry state: cache directory unavailable".to_string())
+}
+
+fn read_cooldown(path: &Path, now: i64) -> Result<Option<i64>, String> {
+    let text = match std::fs::read_to_string(path) {
+        Ok(text) => text,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(error) => return Err(format!("Cannot read Claude retry state: {error}")),
+    };
+    let until: i64 = text
+        .trim()
+        .parse()
+        .map_err(|error| format!("Invalid Claude retry state: {error}"))?;
+    Ok((until > now).then_some(until))
+}
+
+fn save_cooldown(path: &Path, until: i64) -> Result<(), String> {
+    let parent = path
+        .parent()
+        .ok_or("Claude retry state has no parent directory")?;
+    std::fs::create_dir_all(parent)
+        .map_err(|error| format!("Cannot create Claude retry directory: {error}"))?;
+    let temporary = path.with_extension("tmp");
+    std::fs::write(&temporary, until.to_string())
+        .map_err(|error| format!("Cannot save Claude retry state: {error}"))?;
+    std::fs::rename(&temporary, path)
+        .map_err(|error| format!("Cannot persist Claude retry state: {error}"))
+}
+
+fn retry_deadline(header: Option<&str>, now: i64) -> i64 {
+    let delay = header
+        .and_then(|value| value.trim().parse::<i64>().ok())
+        .filter(|seconds| *seconds >= 0);
+    let deadline = delay
+        .map(|seconds| now.saturating_add(seconds.saturating_mul(1000)))
+        .or_else(|| {
+            header
+                .and_then(|value| chrono::DateTime::parse_from_rfc2822(value).ok())
+                .map(|date| date.timestamp_millis())
+        });
+    // Missing/malformed Retry-After uses a five-minute local backoff. A past or
+    // zero server deadline gets a small floor to prevent an immediate retry loop.
+    deadline
+        .unwrap_or(now.saturating_add(300_000))
+        .max(now.saturating_add(1000))
+}
+
+fn cooldown_quota(until: i64) -> QuotaData {
+    let mut data = stale_or_disconnected("API error: 429 Too Many Requests".to_string());
+    data.retry_at = Some(until);
+    data
+}
+
+fn rate_limited_quota(response: &reqwest::Response, path: &Path) -> QuotaData {
+    let until = retry_deadline(
+        response
+            .headers()
+            .get("retry-after")
+            .and_then(|header| header.to_str().ok()),
+        chrono::Utc::now().timestamp_millis(),
+    );
+    let mut data = cooldown_quota(until);
+    if let Err(error) = save_cooldown(path, until) {
+        log_msg(&error);
+        data.error = Some(format!("API error: 429 Too Many Requests; {error}"));
+    }
+    data
+}
+
+// Failed reads stay stopped across App/Tray calls until an explicit recheck.
+static LAST_QUOTA_FAILURE: OnceLock<Mutex<Option<QuotaData>>> = OnceLock::new();
+
+pub async fn fetch_quota(manual: bool) -> QuotaData {
+    let state = LAST_QUOTA_FAILURE.get_or_init(|| Mutex::new(None));
+    if !manual {
+        match state.lock() {
+            Ok(guard) => {
+                if let Some(failure) = guard.as_ref() {
+                    return failure.clone();
+                }
+            }
+            Err(error) => {
+                return QuotaData::disconnected(format!("Claude read state unavailable: {error}"))
+            }
+        }
+    }
+    let data = fetch_quota_after_login_check(manual).await;
+    match state.lock() {
+        Ok(mut guard) => *guard = data.error.as_ref().map(|_| data.clone()),
+        Err(error) => {
+            return QuotaData::disconnected(format!("Claude read state unavailable: {error}"))
+        }
+    }
+    data
+}
+
+async fn fetch_quota_after_login_check(manual: bool) -> QuotaData {
+    // Local authentication comes first: an expired login should not be presented
+    // as a quota limit left over from an earlier request.
+    let access_token = match tauri::async_runtime::spawn_blocking(move || get_oauth_token(manual))
+        .await
+    {
+        Ok(Ok(token)) => token,
+        Ok(Err(error)) => return QuotaData::disconnected(error),
+        Err(error) => return QuotaData::disconnected(format!("OAuth token task failed: {error}")),
+    };
+    let path = match cooldown_path() {
+        Ok(path) => path,
+        Err(error) => return QuotaData::disconnected(error),
+    };
+    fetch_quota_with_cooldown(&path, manual, &access_token).await
+}
+
+async fn fetch_quota_with_cooldown(path: &Path, manual: bool, access_token: &str) -> QuotaData {
+    match read_cooldown(
+        path,
+        if manual {
+            chrono::Utc::now().timestamp_millis()
+        } else {
+            i64::MIN
+        },
+    ) {
+        Ok(Some(until)) => {
+            log_msg(&format!(
+                "[Quota] cooldown active until {until}; skipped network request"
+            ));
+            return cooldown_quota(until);
+        }
+        Ok(None) => {}
+        Err(error) => return QuotaData::disconnected(error),
+    }
+
     log_msg("[Quota] ---- fetch_quota start ----");
 
     // Return cached response if still fresh
-    if let Some(cached) = get_cached_quota() {
-        return cached;
+    if !manual {
+        if let Some(cached) = get_cached_quota() {
+            return cached;
+        }
     }
 
-    let access_token = match tauri::async_runtime::spawn_blocking(|| get_oauth_token(false)).await {
-        Ok(Ok(token)) => token,
-        Ok(Err(error)) => {
-            log_msg(&format!("[Quota] get_oauth_token failed: {error}"));
-            return fallback_or_disconnected(error);
-        }
-        Err(error) => {
-            log_msg(&format!("[Quota] oauth token task failed: {error}"));
-            return QuotaData::disconnected(format!("OAuth token task failed: {error}"));
-        }
-    };
-
-    let mut response = match request_quota(&access_token).await {
+    let mut response = match request_quota(access_token).await {
         Ok(resp) => resp,
         Err(error) => {
             log_msg(&format!("[Quota] initial request failed: {error}"));
@@ -516,14 +660,8 @@ pub async fn fetch_quota() -> QuotaData {
     let status = response.status();
     log_msg(&format!("[Quota] initial response: status={status}"));
 
-    // 429: return stale cache data if available, but always include error
-    // so the frontend can trigger adaptive backoff
     if is_rate_limited(status) {
-        log_msg("[Quota] 429 rate limited, returning stale cache if available");
-        if let Some(stale) = get_stale_cached_quota() {
-            return mark_quota_fetch_error(stale, "API error: 429 Too Many Requests".to_string());
-        }
-        return QuotaData::disconnected("API error: 429 Too Many Requests");
+        return rate_limited_quota(&response, path);
     }
 
     if is_auth_error(status) {
@@ -543,6 +681,9 @@ pub async fn fetch_quota() -> QuotaData {
                 }
             };
 
+        if fresh_access_token == access_token {
+            return QuotaData::disconnected(CLAUDE_AUTH_RELOGIN_MESSAGE);
+        }
         response = match request_quota(&fresh_access_token).await {
             Ok(resp) => resp,
             Err(error) => {
@@ -559,14 +700,7 @@ pub async fn fetch_quota() -> QuotaData {
         ));
 
         if is_rate_limited(status2) {
-            log_msg("[Quota] 429 after keychain retry, returning stale cache");
-            if let Some(stale) = get_stale_cached_quota() {
-                return mark_quota_fetch_error(
-                    stale,
-                    "API error: 429 Too Many Requests".to_string(),
-                );
-            }
-            return QuotaData::disconnected("API error: 429 Too Many Requests");
+            return rate_limited_quota(&response, path);
         }
 
         if is_auth_error(status2) {
@@ -635,6 +769,16 @@ pub async fn fetch_quota() -> QuotaData {
         weekly_fable5,
     );
 
+    match std::fs::remove_file(path) {
+        Ok(()) => {}
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+        Err(error) => {
+            return mark_quota_fetch_error(
+                result,
+                format!("Cannot clear Claude retry state: {error}"),
+            )
+        }
+    }
     save_quota_cache(&result);
     result
 }
@@ -666,6 +810,68 @@ mod tests {
             }
         }
         assert!(!diagnostic.contains("token="));
+    }
+
+    #[test]
+    fn local_expiry_requires_login_without_treating_unknown_expiry_as_expired() {
+        assert!(super::credential_expired(Some(999), 1000));
+        assert!(super::credential_expired(Some(1000), 1000));
+        assert!(!super::credential_expired(Some(1001), 1000));
+        assert!(!super::credential_expired(None, 1000));
+    }
+
+    #[test]
+    fn respects_retry_after_seconds_dates_and_missing_header() {
+        let now = 1_800_000_000_000;
+        assert_eq!(super::retry_deadline(Some("3458"), now), now + 3_458_000);
+        let date = chrono::DateTime::from_timestamp_millis(now + 3_458_000)
+            .unwrap()
+            .to_rfc2822();
+        assert_eq!(super::retry_deadline(Some(&date), now), now + 3_458_000);
+        assert_eq!(super::retry_deadline(None, now), now + 300_000);
+        assert_eq!(super::retry_deadline(Some("broken"), now), now + 300_000);
+        assert_eq!(super::retry_deadline(Some("0"), now), now + 1000);
+    }
+
+    #[test]
+    fn persisted_cooldown_blocks_repeated_network_reads() {
+        let dir = std::env::temp_dir().join(format!(
+            "quotabar-retry-{}-{}",
+            std::process::id(),
+            chrono::Utc::now().timestamp_nanos_opt().unwrap()
+        ));
+        let path = dir.join("retry-at");
+        let now = chrono::Utc::now().timestamp_millis();
+        assert_eq!(super::read_cooldown(&path, now).unwrap(), None);
+        super::save_cooldown(&path, now + 3_458_000).unwrap();
+        // Both simulated App and Tray requests (and a fresh read after restart)
+        // must stop before contacting Anthropic. No real credentials are used.
+        for _ in 0..3 {
+            let data = tauri::async_runtime::block_on(super::fetch_quota_with_cooldown(
+                &path,
+                false,
+                "unused-test-token",
+            ));
+            assert_eq!(data.retry_at, Some(now + 3_458_000));
+            assert!(data.error.unwrap().contains("429"));
+        }
+        assert_eq!(super::read_cooldown(&path, now + 3_458_000).unwrap(), None);
+        super::save_cooldown(&path, now - 1000).unwrap();
+        let stopped = tauri::async_runtime::block_on(super::fetch_quota_with_cooldown(
+            &path,
+            false,
+            "unused-test-token",
+        ));
+        assert_eq!(stopped.retry_at, Some(now - 1000));
+        assert!(stopped.error.unwrap().contains("429"));
+        std::fs::write(&path, "invalid deadline").unwrap();
+        let data = tauri::async_runtime::block_on(super::fetch_quota_with_cooldown(
+            &path,
+            false,
+            "unused-test-token",
+        ));
+        assert!(data.error.unwrap().contains("Invalid Claude retry state"));
+        std::fs::remove_dir_all(dir).unwrap();
     }
 
     #[test]
@@ -795,6 +1001,7 @@ mod tests {
                 weekly_design: None,
                 weekly_fable5: None,
                 error: None,
+                retry_at: None,
             },
             "Network error: connection reset".to_string(),
         );

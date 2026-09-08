@@ -29,10 +29,10 @@ function memoryStorage(initial: Record<string, string>) {
   };
 }
 
-async function render_app(): Promise<ReactTestRenderer> {
+async function render_app(workspace = false): Promise<ReactTestRenderer> {
   let renderer!: ReactTestRenderer;
   await act(async () => {
-    renderer = create(createElement(App));
+    renderer = create(createElement(App, { workspace }));
     await Promise.resolve();
     await Promise.resolve();
   });
@@ -87,6 +87,7 @@ afterEach(() => {
   vi.clearAllTimers();
   vi.useRealTimers();
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
   delete (globalThis as Record<string, unknown>).localStorage;
 });
 
@@ -95,6 +96,18 @@ afterAll(() => {
 });
 
 describe('tray icon sync', () => {
+  test('the independent workspace never rewrites background tray icons or Dock preferences', async () => {
+    vi.stubGlobal('window', { addEventListener: vi.fn(), removeEventListener: vi.fn() });
+    vi.spyOn(backend, 'analysisCatalog').mockResolvedValue({ sources: [], diagnostics: [] });
+    vi.spyOn(backend, 'analysisSource').mockResolvedValue('all');
+    vi.spyOn(backend, 'analysisReport').mockResolvedValue({ summaries: [], projects: [], history: [], errors: [] });
+    const renderer = await render_app(true);
+    await act(async () => { await vi.advanceTimersByTimeAsync(120_000); });
+    expect(backend.updateTrayIcon).not.toHaveBeenCalled();
+    expect(backend.setDockVisibility).not.toHaveBeenCalled();
+    await unmount(renderer);
+  });
+
   test('keeps every enabled provider tray visible when cycle is off', async () => {
     const renderer = await render_app();
     const visible = visible_calls(backend.updateTrayIcon as unknown as ReturnType<typeof vi.spyOn>);

@@ -1,3 +1,4 @@
+import { workspaceCopy } from '../utils/quota_format';
 import { useEffect, useState, useCallback, useRef, type CSSProperties } from 'react';
 import { backend } from '../services/backend';
 import CostSummarySection from './CostSummarySection';
@@ -36,6 +37,7 @@ interface CodexPanelProps {
   manualRefreshNonce?: number;
   onLoadingChange?: (loading: boolean) => void;
   onQuotaWindowsChange?: (windows: QuotaWindowSummary[]) => void;
+  onReadResult?: (error: string | null) => void;
   showCostSummary?: boolean;
   sections?: PanelSectionVisibility;
   onBonusExpiring?: (daysLeft: number) => void;
@@ -193,6 +195,7 @@ export default function CodexPanel({
   manualRefreshNonce = 0,
   onLoadingChange,
   onQuotaWindowsChange,
+  onReadResult,
   showCostSummary = true,
   sections = defaultPanelSections(),
   onBonusExpiring,
@@ -253,6 +256,7 @@ export default function CodexPanel({
       setCodexData(info);
       setRateLimits(limits);
       onQuotaWindowsChange?.(buildCodexQuotaWindows(limits));
+      onReadResult?.(limits.error ?? info.error ?? null);
       setResetCredits(credits);
 
       if (limits.error) {
@@ -275,6 +279,7 @@ export default function CodexPanel({
       if (!request_generation.isCurrent(generation)) return;
       const message = err instanceof Error ? err.message : 'Failed to fetch Codex data';
       setError(message);
+      onReadResult?.(message);
       setRateLimitsError(message);
       if (!hasResolvedData.current) {
         onConnectionChange?.(false);
@@ -286,7 +291,7 @@ export default function CodexPanel({
         setLoading(false);
       }
     }
-  }, [fetchWeeklyQuota, onConnectionChange, onQuotaWindowsChange, onUsageChange, request_generation]);
+  }, [fetchWeeklyQuota, onConnectionChange, onQuotaWindowsChange, onReadResult, onUsageChange, request_generation]);
 
   useEffect(() => {
     fetchData();
@@ -479,7 +484,7 @@ export default function CodexPanel({
           <span className="error-icon">!</span>
           <span className="error-text">
             {error}
-            {showingStaleLimits && <span className="error-context">Showing last known data.</span>}
+            {showingStaleLimits && <span className="error-context">{workspaceCopy("Showing last known data.", "当前显示上次成功读取的数据。")}</span>}
           </span>
         </div>
       )}
@@ -504,7 +509,7 @@ export default function CodexPanel({
           {/* Rate Limits Section */}
           {hasRateLimits && (
             <div className="section">
-              <div className="section-title">Usage</div>
+              <div className="section-title">{workspaceCopy("Usage", "额度用量")}</div>
 
               <div className="quota-group">
                 {rateLimits?.primary && (
@@ -533,7 +538,7 @@ export default function CodexPanel({
                     </div>
                     {rateLimits.primary.resetsAt && (
                       <div className="reset-time">
-                        <span>Resets in {formatResetTime(rateLimits.primary.resetsAt)}</span>
+                        <span>{workspaceCopy('Resets in', '重置倒计时')} {formatResetTime(rateLimits.primary.resetsAt)}</span>
                         <span>{formatResetAt(rateLimits.primary.resetsAt)}</span>
                       </div>
                     )}
@@ -579,7 +584,7 @@ export default function CodexPanel({
                     </div>
                     {rateLimits.secondary.resetsAt && (
                       <div className="reset-time">
-                        <span>Resets in {formatResetTime(rateLimits.secondary.resetsAt)}</span>
+                        <span>{workspaceCopy('Resets in', '重置倒计时')} {formatResetTime(rateLimits.secondary.resetsAt)}</span>
                         <span>{formatResetAt(rateLimits.secondary.resetsAt)}</span>
                       </div>
                     )}
@@ -615,10 +620,10 @@ export default function CodexPanel({
                       <div className="weekly-value-topline">
                         <span className="weekly-value-title">
                           <span className="weekly-value-dot" />
-                          API-equivalent week
+                          {workspaceCopy("API-equivalent week", "每周 API 等价估算")}
                         </span>
                         <span className="weekly-value-badge">
-                          {valueIsLastEstimate ? 'Last estimate' : 'Local estimate'}
+                          {valueIsLastEstimate ? workspaceCopy('Last estimate', '上次估算') : workspaceCopy('Local estimate', '本地估算')}
                         </span>
                       </div>
                       <div className="weekly-value-body">
@@ -657,7 +662,7 @@ export default function CodexPanel({
                             : `${COMPACT_TOKEN_FORMAT.format(displayedWeeklyValueEstimate.observedTokens)} observed tokens · Not an official allowance`}
                         </span>
                         <span>
-                          Standard API prices · Not a bill
+                          {workspaceCopy("Standard API prices \u00b7 Not a bill", "按标准 API 价格估算 · 不代表账单")}
                         </span>
                       </div>
                     </>
@@ -686,11 +691,11 @@ export default function CodexPanel({
           {/* Subscription Section (only if no rate limits) */}
           {!hasRateLimits && codexData && (
             <div className="section">
-              <div className="section-title">Subscription</div>
+              <div className="section-title">{workspaceCopy("Subscription", "订阅信息")}</div>
               <div className="quota-group">
                 <div className="quota-card">
                   <div className="quota-header">
-                    <span className="quota-label">Plan</span>
+                    <span className="quota-label">{workspaceCopy("Plan", "套餐")}</span>
                     <span className="quota-value plan-badge">
                       {formatPlanType(planType)}
                     </span>
@@ -698,7 +703,7 @@ export default function CodexPanel({
                 </div>
                 <div className="quota-card">
                   <div className="quota-header">
-                    <span className="quota-label">Valid Until</span>
+                    <span className="quota-label">{workspaceCopy("Valid Until", "有效期至")}</span>
                     <span className="quota-value">
                       {formatSubscriptionDate(codexData.subscriptionUntil)}
                     </span>
@@ -707,7 +712,7 @@ export default function CodexPanel({
                 {codexData.email && (
                   <div className="quota-card">
                     <div className="quota-header">
-                      <span className="quota-label">Account</span>
+                      <span className="quota-label">{workspaceCopy("Account", "账户")}</span>
                       <span className="quota-value email">{codexData.email}</span>
                     </div>
                   </div>
@@ -726,7 +731,7 @@ export default function CodexPanel({
       {!connected && !error && (
         <div className="empty-state">
           <p>Codex not connected</p>
-          <p className="hint">Run 'codex' in terminal to login</p>
+          <p className="hint">{workspaceCopy("Run 'codex' in terminal to login", "请先在终端运行 codex 完成登录")}</p>
         </div>
       )}
     </div>

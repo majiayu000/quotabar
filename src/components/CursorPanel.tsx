@@ -1,3 +1,4 @@
+import { workspaceCopy } from '../utils/quota_format';
 import { useEffect, useState, useCallback } from 'react';
 import { useRef } from 'react';
 import { backend } from '../services/backend';
@@ -19,6 +20,7 @@ interface CursorPanelProps {
   manualRefreshNonce?: number;
   onLoadingChange?: (loading: boolean) => void;
   onQuotaWindowsChange?: (windows: QuotaWindowSummary[]) => void;
+  onReadResult?: (error: string | null) => void;
   showCostSummary?: boolean;
   sections?: PanelSectionVisibility;
 }
@@ -64,6 +66,7 @@ export default function CursorPanel({
   manualRefreshNonce = 0,
   onLoadingChange,
   onQuotaWindowsChange,
+  onReadResult,
   showCostSummary = true,
   sections = defaultPanelSections(),
 }: CursorPanelProps) {
@@ -88,10 +91,12 @@ export default function CursorPanel({
       onConnectionChange?.(data.connected);
       onUsageChange?.(getCursorTrayUsedPercent(data));
       onQuotaWindowsChange?.(buildCursorQuotaWindows(data));
+      onReadResult?.(data.error ?? null);
     } catch (err) {
       if (!request_generation.isCurrent(generation)) return;
       const message = err instanceof Error ? err.message : 'Failed to fetch Cursor data';
       setError(message);
+      onReadResult?.(message);
       if (!hasResolvedData.current) {
         onConnectionChange?.(false);
         onUsageChange?.(null);
@@ -102,7 +107,7 @@ export default function CursorPanel({
         setLoading(false);
       }
     }
-  }, [onConnectionChange, onQuotaWindowsChange, onUsageChange, request_generation]);
+  }, [onConnectionChange, onQuotaWindowsChange, onReadResult, onUsageChange, request_generation]);
 
   useEffect(() => {
     fetchData();
@@ -146,7 +151,7 @@ export default function CursorPanel({
           <span className="error-icon">!</span>
           <span className="error-text">
             {error}
-            {cursorData?.connected && <span className="error-context">Showing last known data.</span>}
+            {cursorData?.connected && <span className="error-context">{workspaceCopy("Showing last known data.", "当前显示上次成功读取的数据。")}</span>}
           </span>
         </div>
       )}
@@ -163,7 +168,7 @@ export default function CursorPanel({
           />
 
           <div className="section">
-            <div className="section-title">Usage</div>
+            <div className="section-title">{workspaceCopy("Usage", "额度用量")}</div>
 
             <div className="quota-group">
               {hasDashboardWindows && windows.map((window) => {
@@ -196,7 +201,7 @@ export default function CursorPanel({
               {!hasDashboardWindows && (includedRequestValue != null || percentage != null) && (
                 <div className="quota-card">
                   <div className="quota-header">
-                    <span className="quota-label">Usage</span>
+                    <span className="quota-label">{workspaceCopy("Usage", "额度用量")}</span>
                     <span className="quota-value">
                       {includedRequestValue ?? `${Math.round(percentage ?? 0)}% used`}
                     </span>
@@ -240,7 +245,7 @@ export default function CursorPanel({
 
             {cursorData.email && (
               <div className="account-strip">
-                <span className="account-strip-label">Account</span>
+                <span className="account-strip-label">{workspaceCopy("Account", "账户")}</span>
                 <span className="account-strip-value" title={cursorData.email}>{cursorData.email}</span>
               </div>
             )}

@@ -1,7 +1,8 @@
+import type { ProviderReadState } from './services/provider_summary';
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { listen } from '@tauri-apps/api/event';
 import ActionButtons from './components/ActionButtons';
-import OverviewPanel from './components/OverviewPanel';
+import OverviewPanel, { AnalysisApp } from './components/OverviewPanel';
 import SettingsView from './components/SettingsView';
 import type { ThemeName } from './components/ThemeSelector';
 import TabSwitcher, { TabName } from './components/TabSwitcher';
@@ -10,9 +11,9 @@ import CodexPanel from './components/CodexPanel';
 import CursorPanel from './components/CursorPanel';
 import GrokPanel from './components/GrokPanel';
 import AntigravityPanel from './components/AntigravityPanel';
-import type { TrayToggleEntry } from './components/TrayToggles';
+import { buildTrayEntries } from './components/TrayToggles';
 import { backend, hasTauriBackend } from './services/backend';
-import { SERVICE_META, SERVICES } from './services/service_meta';
+import { SERVICES } from './services/service_meta';
 import { resolveTrayVisible, saveTrayEnabled, shouldShowTray, type TrayServiceName } from './services/tray_visibility';
 import {
   getSavedPanelSections,
@@ -57,6 +58,7 @@ import './styles/views.css';
 import './redesign/shell.css';
 import './redesign/panels.css';
 import './redesign-settings.css';
+import './styles/workspace.css';
 
 import {
   AUTO_REFRESH_INTERVAL_MS,
@@ -87,14 +89,13 @@ import {
   type TrayServiceActivatedPayload,
 } from './services/app_state';
 import {
-  STORAGE_READ_FAILURE_MESSAGE,
   STORAGE_WRITE_FAILURE_MESSAGE,
-  subscribeStorageReadFailures,
   subscribeStorageWriteFailures,
 } from './services/storage';
 import { bonusReadyEntered, formatBonusReadyMessage } from './services/bonus_ready';
 import { planProviderPreset, planRevealProviderPanel, type ProviderPreset } from './services/provider_presets';
-import { useServiceEvents } from './hooks/use_service_events';
+import { useServiceEvents, subscribeStorageReadFailureToast } from './hooks/use_service_events';
+export { subscribeStorageReadFailureToast } from './hooks/use_service_events';
 import { usePopoverWindow } from './hooks/use_popover_window';
 import { useLatestRequestGeneration } from './hooks/use_latest_request_generation';
 import { useFooterStatus } from './hooks/use_footer_status';
@@ -113,25 +114,10 @@ export {
 
 type ToastValue = string | null;
 type ToastSetter = (value: ToastValue | ((current: ToastValue) => ToastValue)) => void;
-type ToastScheduler = (callback: () => void, delayMs: number) => void;
 
 const SWITCHER_GUARD_MESSAGE = 'At least one provider must stay in the switcher';
 
-const scheduleToastClear: ToastScheduler = (callback, delayMs) => {
-  setTimeout(callback, delayMs);
-};
-
-export function subscribeStorageReadFailureToast(
-  setToast: ToastSetter,
-  schedule: ToastScheduler = scheduleToastClear,
-): () => void {
-  return subscribeStorageReadFailures(() => {
-    setToast(STORAGE_READ_FAILURE_MESSAGE);
-    schedule(() => setToast(null), TRAY_GUARD_TOAST_MS);
-  });
-}
-
-export default function App() {
+export default function App({ workspace = false }: { workspace?: boolean }) {
   const isMacOS = isMacOSPlatform();
 
   // Claude state (still owned by App because of adaptive backoff)
@@ -139,7 +125,6 @@ export default function App() {
   const [claudeLoading, setClaudeLoading] = useState(false);
   const [claudeError, setClaudeError] = useState<string | null>(null);
   const [claudeCostRefreshNonce, setClaudeCostRefreshNonce] = useState(0);
-  const claudeIntervalRef = useRef(AUTO_REFRESH_INTERVAL_MS);
   const claude_request_generation = useLatestRequestGeneration();
 
   // Per-service connection + usage state (set via Panel callbacks)
@@ -148,6 +133,10 @@ export default function App() {
     defaultServiceMap<number | null>(null),
   );
   const [panelLoading, setPanelLoading] = useState<ServiceMap<boolean>>(() => defaultServiceMap(false));
+  const [providerReads, setProviderReads] = useState<ServiceMap<ProviderReadState>>(() => defaultServiceMap({ error: null, readAt: null }));
+  const readResultSetters = useMemo<ServiceMap<(error: string | null, retryAt?: number | null) => void>>(() => Object.fromEntries(SERVICES.map((service) => [service, (error: string | null, retryAt?: number | null) => {
+    setProviderReads((previous) => ({ ...previous, [service]: { error, retryAt, readAt: error ? previous[service].readAt : Date.now() } }));
+  }])) as ServiceMap<(error: string | null, retryAt?: number | null) => void>, []);
   const [providerQuotaWindows, setProviderQuotaWindows] = useState<ServiceMap<QuotaWindowSummary[]>>(() =>
     defaultServiceMap<QuotaWindowSummary[]>([]),
   );
@@ -171,7 +160,7 @@ export default function App() {
     });
   }, []);
   const [activeView, setActiveView] = useState<AppViewName>(() =>
-    getSavedSettingsExpanded() ? 'settings' : getSavedTab(),
+    workspace ? 'all' : getSavedSettingsExpanded() ? 'settings' : getSavedTab(),
   );
   const [lastProviderTab, setLastProviderTab] = useState<TrayServiceName>(() => {
     const saved = getSavedTab();
@@ -187,8 +176,20 @@ export default function App() {
   const bonusReadyPrevRef = useRef<{ exhausted: boolean; availableCount: number } | null>(null);
   const [switcherVisibility, setSwitcherVisibility] = useState<SwitcherVisibility>(getSavedSwitcherVisibility);
   const containerRef = useRef<HTMLDivElement>(null);
-  const windowVisible = usePopoverWindow(containerRef, [activeView, quota, connected]);
+  const windowVisible = usePopoverWindow(containerRef, [activeView, quota, connected], !workspace);
   const lastTrayIconRequestRef = useRef<Partial<Record<TrayServiceName, TrayIconRequest>>>({});
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const syncPreferences = () => {
+      setTheme(getSavedTheme()); setDockHidden(getSavedDockHidden());
+      setTrayEnabled(getInitialTrayEnabledState()); setTrayStyle(getSavedTrayStyle()); setTrayCycle(getSavedTrayCycle());
+      setPanelSections(getSavedPanelSections()); setNotifSettings(getSavedNotificationSettings());
+      setSwitcherVisibility(getSavedSwitcherVisibility()); setEvents(getSavedEvents());
+    };
+    window.addEventListener('storage', syncPreferences);
+    return () => window.removeEventListener('storage', syncPreferences);
+  }, []);
 
   const setServiceConnected = useCallback((service: TrayServiceName, value: boolean) => {
     setConnected((prev) => (prev[service] === value ? prev : { ...prev, [service]: value }));
@@ -264,9 +265,8 @@ export default function App() {
     if (isProviderTab(tab)) {
       setLastProviderTab(tab);
     }
-    saveActiveTab(tab);
-    saveSettingsExpanded(false);
-  }, []);
+    if (!workspace) { saveActiveTab(tab); saveSettingsExpanded(false); }
+  }, [workspace]);
 
   const updateTrayIcon = useCallback(async (
     service: TrayServiceName,
@@ -294,14 +294,15 @@ export default function App() {
   }, []);
 
   // Fetch Claude quota for startup/manual/background refresh.
-  const fetchClaudeQuota = useCallback(async () => {
+  const fetchClaudeQuota = useCallback(async (manual = false) => {
     const generation = claude_request_generation.begin();
     try {
       setClaudeLoading(true);
       setClaudeError(null);
-      const data = await backend.getQuota();
+      const data = await backend.getQuota(manual);
       if (!claude_request_generation.isCurrent(generation)) return;
 
+      readResultSetters.claude(data.error ?? null, data.retryAt);
       if (data.error) {
         setClaudeError(data.error);
         if (keepClaudeQuotaOnError(data)) {
@@ -311,51 +312,52 @@ export default function App() {
         } else {
           setQuota(null);
         }
-        claudeIntervalRef.current = getClaudeRefreshIntervalMs(data.error);
       } else {
         setQuota(data);
         setClaudeError(null);
-        claudeIntervalRef.current = AUTO_REFRESH_INTERVAL_MS;
       }
       setServiceConnected('claude', data.connected);
     } catch (err) {
       if (!claude_request_generation.isCurrent(generation)) return;
       const message = err instanceof Error ? err.message : 'Unknown error';
       setClaudeError(message);
-      claudeIntervalRef.current = getClaudeRefreshIntervalMs(message);
+      readResultSetters.claude(message);
       setServiceConnected('claude', false);
     } finally {
       if (claude_request_generation.isCurrent(generation)) {
         setClaudeLoading(false);
       }
     }
-  }, [claude_request_generation, setServiceConnected]);
+  }, [claude_request_generation, readResultSetters, setServiceConnected]);
 
   useEffect(() => {
-    let timer: ReturnType<typeof setTimeout> | null = null;
-    let cancelled = false;
-
-    const run = async () => {
-      await fetchClaudeQuota();
-      if (!cancelled) {
-        timer = setTimeout(run, claudeIntervalRef.current);
-      }
-    };
-
-    run();
-    return () => {
-      cancelled = true;
-      if (timer) {
-        clearTimeout(timer);
-      }
-    };
+    if (!hasTauriBackend()) return;
+    let disposed = false;
+    let unlisten: (() => void) | undefined;
+    listen('claude-login-rechecked', () => { void fetchClaudeQuota(); })
+      .then((stop) => { if (disposed) stop(); else unlisten = stop; })
+      .catch((error) => { console.error('Failed to synchronize Claude login state:', error); setClaudeError('登录状态同步失败，请重新打开窗口。'); });
+    return () => { disposed = true; unlisten?.(); };
   }, [fetchClaudeQuota]);
+
+  const pollClaude = !workspace || windowVisible;
+  useEffect(() => {
+    if (pollClaude) void fetchClaudeQuota();
+  }, [fetchClaudeQuota, pollClaude]);
+
+  useEffect(() => {
+    const intervalMs = getClaudeRefreshIntervalMs(claudeError);
+    if (!pollClaude || !quota?.connected || intervalMs === null) return;
+    const timer = setInterval(() => { void fetchClaudeQuota(); }, intervalMs);
+    return () => clearInterval(timer);
+  }, [fetchClaudeQuota, pollClaude, quota?.connected, claudeError]);
 
   useEffect(() => {
     setServiceUsedPercent('claude', getClaudeTrayUsedPercent(quota));
   }, [quota, setServiceUsedPercent]);
 
   const syncTrayIcons = useCallback((force = false) => {
+    if (workspace) return;
     const candidates = SERVICES.filter((svc) => {
       const isConnected = svc === 'claude' ? quota?.connected ?? false : connected[svc];
       return shouldShowTray(trayEnabled[svc], isConnected);
@@ -366,26 +368,27 @@ export default function App() {
       const visible = resolveTrayVisible(svc, candidates, trayCycle, trayCycleIndex);
       updateTrayIcon(svc, pct, visible, force, trayStyle);
     }
-  }, [quota, connected, usedPercent, trayEnabled, trayCycle, trayCycleIndex, trayStyle, updateTrayIcon]);
+  }, [quota, connected, usedPercent, trayEnabled, trayCycle, trayCycleIndex, trayStyle, updateTrayIcon, workspace]);
 
   useEffect(() => {
     syncTrayIcons();
   }, [syncTrayIcons]);
 
   useEffect(() => {
+    if (workspace) return;
     const interval = setInterval(() => {
       syncTrayIcons(true);
     }, TRAY_FORCE_SYNC_INTERVAL_MS);
     return () => clearInterval(interval);
-  }, [syncTrayIcons]);
+  }, [syncTrayIcons, workspace]);
 
   useEffect(() => {
-    if (!trayCycle) return;
+    if (workspace || !trayCycle) return;
     const interval = setInterval(() => {
       setTrayCycleIndex((index) => index + 1);
     }, TRAY_CYCLE_INTERVAL_MS);
     return () => clearInterval(interval);
-  }, [trayCycle]);
+  }, [trayCycle, workspace]);
 
   const logEvent = useCallback((level: EventLevel, text: string) => {
     const now = Date.now();
@@ -394,10 +397,10 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    persistEvents(events);
-  }, [events]);
+    if (!workspace) persistEvents(events);
+  }, [events, workspace]);
 
-  useServiceEvents(quota, connected, usedPercent, notifSettings, logEvent);
+  useServiceEvents(quota, connected, usedPercent, notifSettings, logEvent, !workspace);
 
   const showSwitcherGuardToast = useCallback(() => {
     if (switcherGuardTimerRef.current !== null) {
@@ -507,10 +510,11 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    if (workspace) return;
     backend.setDockVisibility(!dockHidden).catch((err) => {
       console.error('Failed to apply dock visibility:', err);
     });
-  }, [dockHidden]);
+  }, [dockHidden, workspace]);
 
   const handleDockToggle = useCallback(() => {
     const newValue = !dockHidden;
@@ -547,7 +551,7 @@ export default function App() {
   }, [setAndPersistTab]);
 
   useEffect(() => {
-    if (!hasTauriBackend()) return;
+    if (!hasTauriBackend() || workspace) return;
     let unlisten: (() => void) | null = null;
     let mounted = true;
 
@@ -574,14 +578,14 @@ export default function App() {
         unlisten();
       }
     };
-  }, [setAndPersistTab]);
+  }, [setAndPersistTab, workspace]);
 
   const activeProvider = isProviderTab(activeView) ? activeView : lastProviderTab;
   const activeTab: TabName = activeView === 'all' ? 'all' : activeProvider;
 
   const handleRefresh = useCallback(() => {
     if (activeView === 'all') {
-      fetchClaudeQuota();
+      fetchClaudeQuota(true);
       setClaudeCostRefreshNonce((value) => value + 1);
       setRefreshNonces((prev) => {
         const next = { ...prev };
@@ -593,12 +597,17 @@ export default function App() {
       return;
     }
     if (activeProvider === 'claude') {
-      fetchClaudeQuota();
+      fetchClaudeQuota(true);
       setClaudeCostRefreshNonce((value) => value + 1);
       return;
     }
     setRefreshNonces((prev) => ({ ...prev, [activeProvider]: prev[activeProvider] + 1 }));
   }, [activeProvider, activeView, fetchClaudeQuota]);
+
+  const handleProviderRefresh = useCallback((provider: TrayServiceName) => {
+    if (provider === 'claude') { void fetchClaudeQuota(true); return; }
+    setRefreshNonces((previous) => ({ ...previous, [provider]: previous[provider] + 1 }));
+  }, [fetchClaudeQuota]);
 
   const handleOpenDashboard = useCallback(async () => {
     try {
@@ -644,21 +653,6 @@ export default function App() {
     }
   };
 
-  const trayEntries: TrayToggleEntry[] = SERVICES.map((svc) => {
-    const meta = SERVICE_META[svc];
-    const otherEnabled = SERVICES.some((other) => other !== svc && trayEnabled[other]);
-    const isConnected = svc === 'claude' ? quota?.connected ?? false : connected[svc];
-    return {
-      service: svc,
-      label: meta.trayLabel,
-      enabled: trayEnabled[svc],
-      canDisable: otherEnabled,
-      connected: isConnected,
-      connectedHint: meta.connectedHint,
-      disconnectedHint: meta.disconnectedHint,
-    };
-  });
-
   const tabConnected: ServiceMap<boolean> = {
     claude: quota?.connected ?? false,
     codex: connected.codex,
@@ -666,6 +660,7 @@ export default function App() {
     grok: connected.grok,
     antigravity: connected.antigravity,
   };
+  const trayEntries = buildTrayEntries(trayEnabled, tabConnected);
 
   const activeLoading = activeView === 'all'
     ? claudeLoading || SERVICES.some((svc) => panelLoading[svc])
@@ -688,7 +683,7 @@ export default function App() {
     claude: claudeLoading,
   };
   const { footerStatus, footerStatusTitle } = useFooterStatus(windowVisible, activeLoading, lastUpdatedAt);
-  const providerSummaries = buildProviderSummaries(tabConnected, serviceLoading, serviceUsage);
+  const providerSummaries = buildProviderSummaries(tabConnected, serviceLoading, serviceUsage, providerReads);
   const switcherSummaries = providerSummaries.filter((summary) => switcherVisibility[summary.id]);
   const allQuotaWindows = [
     ...buildClaudeQuotaWindows(quota),
@@ -701,14 +696,14 @@ export default function App() {
   const providerViewActive = isProviderTab(activeView);
   const overviewCostRefreshKey = claudeCostRefreshNonce + refreshNonces.codex + refreshNonces.cursor;
 
-  return (
+  const content = (
     <div className={`app theme-${theme}`}>
       {toast && <div className="toast">{toast}</div>}
       <div className="container" ref={containerRef}>
         {activeView === 'settings' ? (
           <div className="panel-scroll settings-scroll">
             <SettingsView
-              isMacOS={isMacOS}
+              isMacOS={isMacOS} showDockToggle={!workspace} workspace={workspace}
               theme={theme}
               dockHidden={dockHidden}
               trayEntries={trayEntries}
@@ -745,6 +740,8 @@ export default function App() {
             <div className="panel-scroll">
               {providerViewActive && activeView === 'claude' && (
                 <ClaudePanel
+                  workspace={workspace}
+                  retryAt={providerReads.claude.retryAt}
                   quota={quota}
                   loading={claudeLoading}
                   error={claudeError}
@@ -761,12 +758,13 @@ export default function App() {
                   onUsageChange={usageSetters.codex}
                   onLoadingChange={loadingSetters.codex}
                   onQuotaWindowsChange={quotaWindowSetters.codex}
+                  onReadResult={readResultSetters.codex}
                   manualRefreshNonce={refreshNonces.codex}
-                  autoRefreshIntervalMs={providerRefreshIntervalMs(windowVisible, trayEnabled.codex)}
+                  autoRefreshIntervalMs={workspace ? windowVisible ? AUTO_REFRESH_INTERVAL_MS : 0 : providerRefreshIntervalMs(windowVisible, trayEnabled.codex)}
                   showCostSummary={windowVisible && activeView === 'codex'}
                   sections={panelSections}
-                  onBonusExpiring={handleBonusExpiring}
-                  onBonusReadyChange={handleBonusReadyChange}
+                  onBonusExpiring={workspace ? undefined : handleBonusExpiring}
+                  onBonusReadyChange={workspace ? undefined : handleBonusReadyChange}
                   onOpenDashboard={handleOpenDashboard}
                 />
               </div>
@@ -777,8 +775,9 @@ export default function App() {
                   onUsageChange={usageSetters.cursor}
                   onLoadingChange={loadingSetters.cursor}
                   onQuotaWindowsChange={quotaWindowSetters.cursor}
+                  onReadResult={readResultSetters.cursor}
                   manualRefreshNonce={refreshNonces.cursor}
-                  autoRefreshIntervalMs={providerRefreshIntervalMs(windowVisible, trayEnabled.cursor)}
+                  autoRefreshIntervalMs={workspace ? windowVisible ? AUTO_REFRESH_INTERVAL_MS : 0 : providerRefreshIntervalMs(windowVisible, trayEnabled.cursor)}
                   showCostSummary={windowVisible && activeView === 'cursor'}
                   sections={panelSections}
                 />
@@ -786,18 +785,21 @@ export default function App() {
 
               <div style={{ display: activeView === 'grok' ? 'block' : 'none' }}>
                 <GrokPanel
+                  workspace={workspace}
                   onConnectionChange={connectionSetters.grok}
                   onUsageChange={usageSetters.grok}
                   onLoadingChange={loadingSetters.grok}
                   onQuotaWindowsChange={quotaWindowSetters.grok}
+                  onReadResult={readResultSetters.grok}
                   manualRefreshNonce={refreshNonces.grok}
-                  autoRefreshIntervalMs={providerRefreshIntervalMs(windowVisible, trayEnabled.grok)}
+                  autoRefreshIntervalMs={workspace ? windowVisible ? AUTO_REFRESH_INTERVAL_MS : 0 : providerRefreshIntervalMs(windowVisible, trayEnabled.grok)}
                   sections={panelSections}
                 />
               </div>
 
               <div style={{ display: activeView === 'antigravity' ? 'block' : 'none' }}>
                 <AntigravityPanel
+                  autoRefreshIntervalMs={workspace ? windowVisible ? AUTO_REFRESH_INTERVAL_MS : 0 : AUTO_REFRESH_INTERVAL_MS}
                   onConnectionChange={connectionSetters.antigravity}
                   onLoadingChange={loadingSetters.antigravity}
                   manualRefreshNonce={refreshNonces.antigravity}
@@ -809,7 +811,7 @@ export default function App() {
                   summaries={providerSummaries}
                   mostConstrained={mostConstrained}
                   upcomingResets={upcomingResets}
-                  costRefreshKey={overviewCostRefreshKey} showCostSummary={windowVisible}
+                  costRefreshKey={overviewCostRefreshKey} showCostSummary={!workspace && windowVisible}
                   onProviderSelect={setAndPersistTab}
                   sections={panelSections}
                 />
@@ -831,4 +833,5 @@ export default function App() {
       </div>
     </div>
   );
+  return workspace ? <AnalysisApp visible={windowVisible} onRefreshProvider={handleProviderRefresh} providerContent={content} providerView={activeView} theme={theme} summaries={providerSummaries} quotaWindows={allQuotaWindows} onProviderView={setActiveView} onThemeChange={handleThemeChange} /> : content;
 }

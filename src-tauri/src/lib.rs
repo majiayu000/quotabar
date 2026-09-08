@@ -41,7 +41,16 @@ pub fn run() {
             None,
         ))
         .manage(TrayState::default())
+        .manage(services::window::AnalysisWindowState::default())
         .invoke_handler(tauri::generate_handler![
+            commands::open_analysis,
+            commands::analysis_source,
+            commands::open_quota_popover,
+            commands::analysis_catalog,
+            commands::analysis_report,
+            commands::cached_analysis_report,
+            commands::cancel_analysis,
+            commands::save_analysis_summary,
             commands::get_quota,
             commands::get_codex_info,
             commands::get_codex_rate_limits,
@@ -71,8 +80,17 @@ pub fn run() {
             }
 
             services::tray::setup_tray(app.handle())?;
+            services::window::setup_workspace(app.handle());
             Ok(())
         })
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|app, event| {
+            #[cfg(target_os = "macos")]
+            if let tauri::RunEvent::Reopen { .. } = event {
+                if let Err(error) = services::window::show_workspace(app) {
+                    eprintln!("Failed to reopen QuotaBar: {error}");
+                }
+            }
+        });
 }
