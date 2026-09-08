@@ -4,6 +4,7 @@ All notable QuotaBar changes should be summarized here before a release is cut.
 
 ## Unreleased
 
+- Align the marketing site with 0.5.0 and honest privacy copy: quota polling talks to providers you already use, tokens never go to QuotaBar, and cost estimates stay local.
 - Label Overview local cost as Claude, Codex, and Cursor instead of All providers, and say Grok and Antigravity are not in that total.
 - Drive the Claude tray, switcher percent, and 80/95 alerts from the hottest quota window instead of `weeklyTotal`.
 - Explain remaining quota and reset timing in high-usage tips, distinguish imminent resets, and suppress advice from stale data.
