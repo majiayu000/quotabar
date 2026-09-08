@@ -9,21 +9,43 @@ use std::io::ErrorKind;
 use std::sync::OnceLock;
 use std::time::Duration;
 
+const BOUNDED_CLIENT_ATTEMPTS: u32 = 3;
+
+fn build_bounded_http_client() -> reqwest::Result<reqwest::Client> {
+    reqwest::Client::builder()
+        .pool_max_idle_per_host(4)
+        .pool_idle_timeout(Duration::from_secs(30))
+        .timeout(Duration::from_secs(10))
+        .build()
+}
+
+fn install_bounded_http_client<E: std::fmt::Display>(
+    mut build: impl FnMut() -> Result<reqwest::Client, E>,
+    attempts: u32,
+) -> reqwest::Client {
+    let attempts = attempts.max(1);
+    let mut last_err: Option<String> = None;
+    for attempt in 1..=attempts {
+        match build() {
+            Ok(client) => return client,
+            Err(err) => {
+                eprintln!(
+                    "[HTTP] failed to build bounded reqwest client (attempt {attempt}/{attempts}): {err}"
+                );
+                last_err = Some(err.to_string());
+            }
+        }
+    }
+    panic!(
+        "failed to build bounded HTTP client after {attempts} attempts: {}",
+        last_err.unwrap_or_else(|| "unknown error".into())
+    );
+}
+
 pub fn shared_http_client() -> &'static reqwest::Client {
     static CLIENT: OnceLock<reqwest::Client> = OnceLock::new();
     CLIENT.get_or_init(|| {
-        match reqwest::Client::builder()
-            .pool_max_idle_per_host(4)
-            .pool_idle_timeout(Duration::from_secs(30))
-            .timeout(Duration::from_secs(10))
-            .build()
-        {
-            Ok(client) => client,
-            Err(err) => {
-                eprintln!("[HTTP] failed to build shared reqwest client: {err}");
-                reqwest::Client::new()
-            }
-        }
+        install_bounded_http_client(build_bounded_http_client, BOUNDED_CLIENT_ATTEMPTS)
     })
 }
 
@@ -129,5 +151,37 @@ mod tests {
             let io_error = Error::from_raw_os_error(libc::EMFILE);
             assert!(error_is_transient(&io_error));
         }
+    }
+
+    #[test]
+    fn bounded_builder_installs_a_client_with_timeout() {
+        let client = build_bounded_http_client().expect("bounded reqwest client should build");
+        let _ = client;
+        let shared = shared_http_client();
+        let _ = shared;
+    }
+
+    #[test]
+    fn retries_bounded_builder_then_succeeds() {
+        let mut calls = 0;
+        let client = install_bounded_http_client(
+            || {
+                calls += 1;
+                if calls == 1 {
+                    Err("transient builder failure".to_string())
+                } else {
+                    build_bounded_http_client().map_err(|err| err.to_string())
+                }
+            },
+            3,
+        );
+        assert_eq!(calls, 2);
+        let _ = client;
+    }
+
+    #[test]
+    #[should_panic(expected = "failed to build bounded HTTP client")]
+    fn panics_instead_of_installing_an_unbounded_client() {
+        install_bounded_http_client(|| Err("tls backend unavailable"), 2);
     }
 }
