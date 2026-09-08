@@ -364,6 +364,10 @@ pub struct GrokValueEstimate {
     pub resets_at: String,
     #[serde(rename = "usedPct")]
     pub used_pct: f64,
+    #[serde(rename = "scaleUsedPct")]
+    pub scale_used_pct: f64,
+    #[serde(rename = "scaleProduct", skip_serializing_if = "Option::is_none")]
+    pub scale_product: Option<String>,
     #[serde(rename = "observedCostUsd")]
     pub observed_cost_usd: f64,
     #[serde(rename = "estimatedPeriodValueUsd")]

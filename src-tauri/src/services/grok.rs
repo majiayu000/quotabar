@@ -252,6 +252,15 @@ fn scale_used_pct(pool_pct: Option<f64>, products: &[GrokProductUsage]) -> Resul
         .ok_or_else(|| "The official Grok pool usage is unavailable.".to_string())
 }
 
+fn scale_product_id(products: &[GrokProductUsage]) -> Option<String> {
+    products
+        .iter()
+        .find(|product| product.product == "build")
+        .and_then(|product| product.usage_percent)
+        .filter(|pct| pct.is_finite() && *pct > 0.0)
+        .map(|_| "build".to_string())
+}
+
 fn period_from_config(
     config: &serde_json::Value,
 ) -> (
@@ -333,6 +342,7 @@ fn estimate_grok_period_value(
     let display_pct =
         used_pct.ok_or_else(|| "The official Grok pool usage is unavailable.".to_string())?;
     let scale_pct = scale_used_pct(used_pct, &products)?;
+    let scale_product = scale_product_id(&products);
     let started = started_at
         .and_then(parse_rfc3339)
         .ok_or_else(|| "The official Grok period start is unavailable.".to_string())?;
@@ -352,6 +362,8 @@ fn estimate_grok_period_value(
         window_started_at: started.to_rfc3339(),
         resets_at: resets.to_rfc3339(),
         used_pct: display_pct,
+        scale_used_pct: scale_pct,
+        scale_product,
         observed_cost_usd: usage.observed_cost_usd,
         estimated_period_value_usd: period_usd,
         observed_tokens: usage.observed_tokens,
@@ -573,8 +585,8 @@ pub async fn fetch_grok_info() -> GrokData {
 mod tests {
     use super::{
         is_grok_auth_status, last_good_or_disconnected, map_product, mark_grok_data_stale,
-        parse_billing_payload, pick_credential, scale_used_pct, stale_grok_usable,
-        MAX_STALE_GROK_AGE,
+        parse_billing_payload, pick_credential, scale_product_id, scale_used_pct,
+        stale_grok_usable, MAX_STALE_GROK_AGE,
     };
     use crate::domain::models::{GrokData, GrokProductUsage};
     use serde_json::json;
@@ -818,6 +830,8 @@ mod tests {
         ];
         assert_eq!(scale_used_pct(Some(25.0), &products).unwrap(), 4.0);
         assert_eq!(scale_used_pct(Some(25.0), &[]).unwrap(), 25.0);
+        assert_eq!(scale_product_id(&products).as_deref(), Some("build"));
+        assert_eq!(scale_product_id(&[]), None);
     }
 
     #[test]
