@@ -24,6 +24,8 @@ export interface ProviderSummary {
   loading: boolean;
   usedPercent: number | null;
   statusText: string;
+  lastSuccessAt?: number | null;
+  failed?: boolean;
 }
 
 export interface QuotaWindowSummary {

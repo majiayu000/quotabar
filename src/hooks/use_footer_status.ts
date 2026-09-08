@@ -5,6 +5,7 @@ export function useFooterStatus(
   windowVisible: boolean,
   activeLoading: boolean,
   lastUpdatedAt: number | null,
+  failed = false,
 ): { footerStatus: string; footerStatusTitle: string } {
   const [, setStatusTick] = useState(0);
 
@@ -18,10 +19,10 @@ export function useFooterStatus(
     footerStatus: activeLoading
       ? 'Updating...'
       : lastUpdatedAt != null
-        ? `Updated ${formatEventTime(new Date(lastUpdatedAt).toISOString())}`
-        : '',
+        ? `${failed ? 'Stale · ' : ''}Last success ${formatEventTime(new Date(lastUpdatedAt).toISOString())}`
+        : failed ? 'Quota unavailable · Retry' : 'No successful quota update yet',
     footerStatusTitle: lastUpdatedAt != null
-      ? `Last updated ${new Date(lastUpdatedAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`
-      : 'Not updated yet',
+      ? `Last successful quota update ${new Date(lastUpdatedAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`
+      : 'No successful quota update yet',
   };
 }

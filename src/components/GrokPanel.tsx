@@ -20,6 +20,7 @@ interface GrokPanelProps {
   autoRefreshIntervalMs?: number;
   manualRefreshNonce?: number;
   onLoadingChange?: (loading: boolean) => void;
+  onRefreshResult?: (success: boolean) => void;
   onQuotaWindowsChange?: (windows: QuotaWindowSummary[]) => void;
   onReadResult?: (error: string | null) => void;
   sections?: PanelSectionVisibility;
@@ -58,6 +59,7 @@ export default function GrokPanel({
   autoRefreshIntervalMs = 60 * 1000,
   manualRefreshNonce = 0,
   onLoadingChange,
+  onRefreshResult,
   onQuotaWindowsChange,
   onReadResult,
   sections = defaultPanelSections(),
@@ -75,6 +77,7 @@ export default function GrokPanel({
       const data = await backend.getGrokInfo();
       if (!request_generation.isCurrent(generation)) return;
       setGrokData(data);
+      onRefreshResult?.(data.connected && !data.error && buildGrokQuotaWindows(data).length > 0);
       if (data.error) {
         setError(data.error);
       }
@@ -87,6 +90,7 @@ export default function GrokPanel({
       const message = err instanceof Error ? err.message : 'Failed to fetch Grok data';
       setError(message);
       onReadResult?.(message);
+      onRefreshResult?.(false);
       onConnectionChange?.(false);
       onUsageChange?.(null);
       onQuotaWindowsChange?.([]);
@@ -95,7 +99,7 @@ export default function GrokPanel({
         setLoading(false);
       }
     }
-  }, [onConnectionChange, onQuotaWindowsChange, onReadResult, onUsageChange, request_generation]);
+  }, [onConnectionChange, onQuotaWindowsChange, onReadResult, onUsageChange, onRefreshResult, request_generation]);
 
   useEffect(() => { void fetchData(); }, [fetchData]);
 
@@ -146,7 +150,7 @@ export default function GrokPanel({
       {error && (workspace ? <QuotaRecovery provider="grok" read={{ error, readAt: null }} hasData={Boolean(grokData?.connected)} /> :
         <div className="error-banner">
           <span className="error-icon">!</span>
-          <span className="error-text">{error}</span>
+          <span className="error-text">{error}{grokData?.connected && <span className="error-context">Showing last known data.</span>}</span>
         </div>
       )}
 
@@ -154,7 +158,8 @@ export default function GrokPanel({
         <div className="codex-content">
           <ProviderDetailHeader
             service="grok"
-            status="Connected"
+            status={error ? 'Stale data' : 'Connected'}
+            tone={error ? 'pending' : 'online'}
             plan={grokData.planType || 'Grok'}
             usedPercent={topWindow?.usedPercent ?? null}
           />

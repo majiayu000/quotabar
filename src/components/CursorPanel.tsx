@@ -19,6 +19,7 @@ interface CursorPanelProps {
   autoRefreshIntervalMs?: number;
   manualRefreshNonce?: number;
   onLoadingChange?: (loading: boolean) => void;
+  onRefreshResult?: (success: boolean) => void;
   onQuotaWindowsChange?: (windows: QuotaWindowSummary[]) => void;
   onReadResult?: (error: string | null) => void;
   showCostSummary?: boolean;
@@ -65,6 +66,7 @@ export default function CursorPanel({
   autoRefreshIntervalMs = 60 * 1000,
   manualRefreshNonce = 0,
   onLoadingChange,
+  onRefreshResult,
   onQuotaWindowsChange,
   onReadResult,
   showCostSummary = true,
@@ -84,6 +86,7 @@ export default function CursorPanel({
       const data = await backend.getCursorInfo();
       if (!request_generation.isCurrent(generation)) return;
       setCursorData(data);
+      onRefreshResult?.(data.connected && !data.error && buildCursorQuotaWindows(data).length > 0);
       hasResolvedData.current = true;
       if (data.error) {
         setError(data.error);
@@ -97,6 +100,7 @@ export default function CursorPanel({
       const message = err instanceof Error ? err.message : 'Failed to fetch Cursor data';
       setError(message);
       onReadResult?.(message);
+      onRefreshResult?.(false);
       if (!hasResolvedData.current) {
         onConnectionChange?.(false);
         onUsageChange?.(null);
@@ -107,7 +111,7 @@ export default function CursorPanel({
         setLoading(false);
       }
     }
-  }, [onConnectionChange, onQuotaWindowsChange, onReadResult, onUsageChange, request_generation]);
+  }, [onConnectionChange, onQuotaWindowsChange, onReadResult, onUsageChange, onRefreshResult, request_generation]);
 
   useEffect(() => {
     fetchData();

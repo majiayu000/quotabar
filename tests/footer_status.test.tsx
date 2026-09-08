@@ -53,7 +53,7 @@ describe('useFooterStatus', () => {
     });
     expect(latestStatus).toEqual({
       footerStatus: 'Updating...',
-      footerStatusTitle: 'Not updated yet',
+      footerStatusTitle: 'No successful quota update yet',
     });
   });
 
@@ -64,12 +64,12 @@ describe('useFooterStatus', () => {
         <FooterStatusHarness visible loading={false} lastUpdatedAt={lastUpdatedAt} />,
       );
     });
-    expect(latestStatus?.footerStatus).toBe('Updated now');
+    expect(latestStatus?.footerStatus).toBe('Last success now');
 
     await act(async () => {
       vi.advanceTimersByTime(30_000);
     });
-    expect(latestStatus?.footerStatus).toBe('Updated 1m ago');
+    expect(latestStatus?.footerStatus).toBe('Last success 1m ago');
   });
 
   it('runs and cleans up the timer only while visible', async () => {

@@ -9,6 +9,7 @@ import '../styles/views.css';
 import type { ProviderSummary, QuotaWindowSummary } from '../services/provider_summary';
 import type { TrayServiceName } from '../services/tray_visibility';
 import { clampProgressValue, getProgressStyle } from '../utils/quota_format';
+import { formatEventTime } from '../services/event_log';
 import ProviderSetup from './ProviderSetup';
 import { SERVICE_META } from '../services/service_meta';
 import CostSummarySection from './CostSummarySection';
@@ -466,7 +467,9 @@ export default function OverviewPanel({
       <div className="section">
         <div className="section-title">Most constrained</div>
         <div className="quota-group">
-          {mostConstrained.length > 0 ? mostConstrained.map((window, index) => (
+          {mostConstrained.length > 0 ? mostConstrained.map((window, index) => {
+            const summary = summaries.find((item) => item.id === window.provider);
+            return (
             <button
               type="button"
               className={`quota-card overview-quota-row${index === 0 ? ' primary' : ''}`}
@@ -489,9 +492,13 @@ export default function OverviewPanel({
               >
                 <div className="progress-fill" style={getProgressStyle(window.usedPercent)} />
               </div>
+              {summary?.failed && <div className="error-context">Stale data · Refresh or check your connection</div>}
+              {summary?.lastSuccessAt != null && (
+                <div className="reset-time">Last success {formatEventTime(new Date(summary.lastSuccessAt).toISOString())}</div>
+              )}
               {window.resetLabel && <div className="reset-time">Resets in {window.resetLabel}</div>}
             </button>
-          )) : (
+          ); }) : (
             <div className="no-data">{summaries.some((summary) => summary.loading)
               ? 'Checking your services…'
               : 'Connect a service to see your remaining quota.'}</div>
@@ -504,8 +511,9 @@ export default function OverviewPanel({
         <p className="setup-privacy">QuotaBar reads existing local sign-ins to request usage from each service. It does not manage your login or refresh your tokens. Cost estimates use local usage logs.</p>
         {summaries.map((summary) => (
           <details className="setup-service" key={summary.id}>
-            <summary>{summary.label} · {summary.loading ? 'Checking…' : summary.connected ? 'Connected' : summary.id === 'antigravity' ? 'Coming later' : 'Not connected'}</summary>
-            {summary.connected ? (
+            <summary>{summary.label} · {summary.loading ? 'Checking…' : summary.failed ? 'Needs attention' : summary.connected ? 'Connected' : summary.id === 'antigravity' ? 'Coming later' : 'Not connected'}</summary>
+            {summary.lastSuccessAt != null && <p>Last success {formatEventTime(new Date(summary.lastSuccessAt).toISOString())}</p>}
+            {summary.connected && !summary.failed ? (
               <button type="button" className="retry-btn" onClick={() => onProviderSelect(summary.id)}>View usage</button>
             ) : summary.id === 'antigravity' ? (
               <p>{SERVICE_META.antigravity.setupHint}</p>

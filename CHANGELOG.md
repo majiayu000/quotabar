@@ -4,6 +4,8 @@ All notable QuotaBar changes should be summarized here before a release is cut.
 
 ## Unreleased
 
+- Track successful quota refreshes per service; failed refreshes no longer advance the displayed timestamp.
+
 - Start new installs on Overview with service detection, login instructions, and connection checks.
 
 ## 0.5.0 - 2026-09-06

@@ -166,7 +166,19 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
     const saved = getSavedTab();
     return isProviderTab(saved) ? saved : 'claude';
   });
-  const [lastUpdatedAt, setLastUpdatedAt] = useState<number | null>(null);
+  const [refreshStatus, setRefreshStatus] = useState<ServiceMap<{ lastSuccessAt: number | null; failed: boolean }>>(
+    () => defaultServiceMap({ lastSuccessAt: null, failed: false }),
+  );
+  const refreshResultSetters = useMemo(() => Object.fromEntries(SERVICES.map((service) => [
+    service,
+    (success: boolean) => setRefreshStatus((previous) => ({
+      ...previous,
+      [service]: {
+        lastSuccessAt: success ? Date.now() : previous[service].lastSuccessAt,
+        failed: !success,
+      },
+    })),
+  ])) as ServiceMap<(success: boolean) => void>, []);
   const [panelSections, setPanelSections] = useState<PanelSectionVisibility>(getSavedPanelSections);
   const [trayStyle, setTrayStyle] = useState<TrayStyle>(getSavedTrayStyle);
   const [trayCycle, setTrayCycle] = useState<boolean>(getSavedTrayCycle);
@@ -303,6 +315,7 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
       if (!claude_request_generation.isCurrent(generation)) return;
 
       readResultSetters.claude(data.error ?? null, data.retryAt);
+      refreshResultSetters.claude(data.connected && !data.error && buildClaudeQuotaWindows(data).length > 0);
       if (data.error) {
         setClaudeError(data.error);
         if (keepClaudeQuotaOnError(data)) {
@@ -320,6 +333,7 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
     } catch (err) {
       if (!claude_request_generation.isCurrent(generation)) return;
       const message = err instanceof Error ? err.message : 'Unknown error';
+      refreshResultSetters.claude(false);
       setClaudeError(message);
       readResultSetters.claude(message);
       setServiceConnected('claude', false);
@@ -328,7 +342,7 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
         setClaudeLoading(false);
       }
     }
-  }, [claude_request_generation, readResultSetters, setServiceConnected]);
+  }, [claude_request_generation, readResultSetters, setServiceConnected, refreshResultSetters]);
 
   useEffect(() => {
     if (!hasTauriBackend()) return;
@@ -666,14 +680,6 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
     ? claudeLoading || SERVICES.some((svc) => panelLoading[svc])
     : activeProvider === 'claude' ? claudeLoading : panelLoading[activeProvider];
 
-  const prevLoadingRef = useRef(false);
-  useEffect(() => {
-    if (prevLoadingRef.current && !activeLoading) {
-      setLastUpdatedAt(Date.now());
-    }
-    prevLoadingRef.current = activeLoading;
-  }, [activeLoading]);
-
   const serviceUsage: ServiceMap<number | null> = {
     ...usedPercent,
     claude: getClaudeTrayUsedPercent(quota),
@@ -682,8 +688,10 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
     ...panelLoading,
     claude: claudeLoading,
   };
-  const { footerStatus, footerStatusTitle } = useFooterStatus(windowVisible, activeLoading, lastUpdatedAt);
-  const providerSummaries = buildProviderSummaries(tabConnected, serviceLoading, serviceUsage, providerReads);
+  const { footerStatus, footerStatusTitle } = useFooterStatus(windowVisible, activeLoading, activeView === 'all' ? null : refreshStatus[activeProvider].lastSuccessAt, activeView !== 'all' && refreshStatus[activeProvider].failed);
+  const providerSummaries = buildProviderSummaries(tabConnected, serviceLoading, serviceUsage, providerReads).map((summary) => ({
+    ...summary, ...refreshStatus[summary.id],
+  }));
   const switcherSummaries = providerSummaries.filter((summary) => switcherVisibility[summary.id]);
   const allQuotaWindows = [
     ...buildClaudeQuotaWindows(quota),
@@ -757,6 +765,7 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
                   onConnectionChange={connectionSetters.codex}
                   onUsageChange={usageSetters.codex}
                   onLoadingChange={loadingSetters.codex}
+                  onRefreshResult={refreshResultSetters.codex}
                   onQuotaWindowsChange={quotaWindowSetters.codex}
                   onReadResult={readResultSetters.codex}
                   manualRefreshNonce={refreshNonces.codex}
@@ -774,6 +783,7 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
                   onConnectionChange={connectionSetters.cursor}
                   onUsageChange={usageSetters.cursor}
                   onLoadingChange={loadingSetters.cursor}
+                  onRefreshResult={refreshResultSetters.cursor}
                   onQuotaWindowsChange={quotaWindowSetters.cursor}
                   onReadResult={readResultSetters.cursor}
                   manualRefreshNonce={refreshNonces.cursor}
@@ -789,6 +799,7 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
                   onConnectionChange={connectionSetters.grok}
                   onUsageChange={usageSetters.grok}
                   onLoadingChange={loadingSetters.grok}
+                  onRefreshResult={refreshResultSetters.grok}
                   onQuotaWindowsChange={quotaWindowSetters.grok}
                   onReadResult={readResultSetters.grok}
                   manualRefreshNonce={refreshNonces.grok}
@@ -825,7 +836,7 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
               onSettings={handleSettingsViewToggle}
               onQuit={handleQuit}
               loading={activeLoading}
-              statusText={footerStatus}
+              statusText={activeView === 'all' && !activeLoading ? 'Check freshness per service' : footerStatus}
               statusTitle={footerStatusTitle}
               showDashboard={providerViewActive}
             />

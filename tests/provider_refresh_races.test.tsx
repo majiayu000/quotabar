@@ -2,6 +2,7 @@ import { createElement, type ReactElement } from 'react';
 import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 import App from '../src/App';
+import TabSwitcher from '../src/components/TabSwitcher';
 import AntigravityPanel from '../src/components/AntigravityPanel';
 import CodexPanel from '../src/components/CodexPanel';
 import CostSummarySection from '../src/components/CostSummarySection';
@@ -823,6 +824,7 @@ async function start_claude_race() {
     renderer = create(createElement(App));
     await Promise.resolve();
   });
+  await act(async () => renderer.root.findByType(TabSwitcher).props.onTabChange('claude'));
   const refresh = renderer.root.findByProps({ 'aria-label': 'Refresh current provider' });
   await act(async () => refresh.props.onClick());
   return { new_request, old_request, renderer };
