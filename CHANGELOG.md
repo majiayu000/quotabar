@@ -4,6 +4,7 @@ All notable QuotaBar changes should be summarized here before a release is cut.
 
 ## Unreleased
 
+- Drive Cursor 80/95 alerts from the most-constrained dashboard window; the tray still shows Cursor Models.
 - Write Claude and Codex diagnostic logs to the OS cache or local data directory on Windows and Linux, keep macOS on `~/Library/Logs/quotabar`, and skip logging when that directory cannot be resolved.
 - Apply the saved Hide Dock preference during native startup so the Dock icon does not flash before the webview mounts.
 - Keep Codex used percent above 100 when ChatGPT reports an over-limit week, instead of clamping it to 100 at parse. Tray PNG digits still cap at 100.
