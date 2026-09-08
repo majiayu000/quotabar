@@ -62,8 +62,12 @@ pub struct CostRangeSummary {
     pub cost_usd: Option<f64>,
     pub tokens: CostTokenBreakdown,
     pub models: Vec<CostModelSummary>,
+    pub cost_kind: String,
+    pub estimated_cost: Option<f64>,
+    pub estimated_cost_usd: Option<f64>,
     pub valid_entries: i64,
     pub skipped_entries: i64,
+    pub parse_error_entries: i64,
     pub elapsed_ms: f64,
 }
 
@@ -475,16 +479,20 @@ impl CostRangeSummary {
             since: summary.since.map(|date| date.to_string()),
             until: summary.until.map(|date| date.to_string()),
             currency: summary.currency,
-            cost: summary.cost,
-            cost_usd: summary.cost_usd,
+            cost: summary.cost.or(summary.estimated_cost),
+            cost_usd: summary.cost_usd.or(summary.estimated_cost_usd),
             tokens: CostTokenBreakdown::from(summary.tokens),
             models: summary
                 .models
                 .into_iter()
                 .map(CostModelSummary::from)
                 .collect(),
+            cost_kind: summary.cost_kind,
+            estimated_cost: summary.estimated_cost,
+            estimated_cost_usd: summary.estimated_cost_usd,
             valid_entries: summary.valid_entries,
             skipped_entries: summary.skipped_entries,
+            parse_error_entries: i64::try_from(summary.parse_error_entries).unwrap_or(i64::MAX),
             elapsed_ms: summary.elapsed_ms,
         }
     }
@@ -647,6 +655,43 @@ mod tests {
             .ranges
             .iter()
             .all(|range| range.cost_usd == Some(12.34)));
+    }
+
+    #[test]
+    fn prefers_estimated_usd_and_copies_completeness_fields() {
+        let mut item = summary(UsageRange::Today, 3);
+        item.cost = None;
+        item.cost_usd = None;
+        item.estimated_cost = Some(4.25);
+        item.estimated_cost_usd = Some(4.25);
+        item.cost_kind = "estimated_proxy".to_string();
+        item.skipped_entries = 5;
+        item.parse_error_entries = 2;
+
+        let mapped = CostRangeSummary::from_summary("today", "Today", item);
+        assert_eq!(mapped.cost, Some(4.25));
+        assert_eq!(mapped.cost_usd, Some(4.25));
+        assert_eq!(mapped.estimated_cost, Some(4.25));
+        assert_eq!(mapped.estimated_cost_usd, Some(4.25));
+        assert_eq!(mapped.cost_kind, "estimated_proxy");
+        assert_eq!(mapped.skipped_entries, 5);
+        assert_eq!(mapped.parse_error_entries, 2);
+    }
+
+    #[test]
+    fn recorded_cost_is_not_replaced_by_estimated() {
+        let mut item = summary(UsageRange::Today, 1);
+        item.cost = Some(1.5);
+        item.cost_usd = Some(1.5);
+        item.estimated_cost = Some(9.0);
+        item.estimated_cost_usd = Some(9.0);
+        item.cost_kind = "real".to_string();
+
+        let mapped = CostRangeSummary::from_summary("today", "Today", item);
+        assert_eq!(mapped.cost, Some(1.5));
+        assert_eq!(mapped.cost_usd, Some(1.5));
+        assert_eq!(mapped.estimated_cost_usd, Some(9.0));
+        assert_eq!(mapped.cost_kind, "real");
     }
 
     #[test]

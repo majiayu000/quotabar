@@ -899,6 +899,8 @@ function cost_overview(marker: number): CostOverview {
       models: [],
       validEntries: 1,
       skippedEntries: 0,
+      parseErrorEntries: 0,
+      costKind: 'real',
       elapsedMs: 1,
     }],
   };
