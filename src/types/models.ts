@@ -131,6 +131,8 @@ export interface GrokValueEstimate {
   windowStartedAt: string;
   resetsAt: string;
   usedPct: number;
+  scaleUsedPct?: number;
+  scaleProduct?: string;
   observedCostUsd: number;
   estimatedPeriodValueUsd: number;
   observedTokens: number;

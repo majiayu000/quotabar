@@ -43,6 +43,14 @@ function grokExtraCents(value: number | null | undefined): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null;
 }
 
+function grokScaleBasisCopy(estimate: { scaleProduct?: string; scaleUsedPct?: number }): string | null {
+  if (estimate.scaleProduct !== 'build') return null;
+  if (typeof estimate.scaleUsedPct !== 'number' || !Number.isFinite(estimate.scaleUsedPct)) {
+    return null;
+  }
+  return `Full pool dollars are extrapolated from Build ${Math.round(estimate.scaleUsedPct)}%, not from the pool gauge percent.`;
+}
+
 const USD_FORMAT = new Intl.NumberFormat('en-US', {
   style: 'currency',
   currency: 'USD',
@@ -232,6 +240,11 @@ export default function GrokPanel({
                               ≈{USD_FORMAT.format(displayedGrokValueEstimate.estimatedPeriodValueUsd)}
                             </strong>
                           </span>
+                          {grokScaleBasisCopy(displayedGrokValueEstimate) ? (
+                            <span className="weekly-value-token-row">
+                              {grokScaleBasisCopy(displayedGrokValueEstimate)}
+                            </span>
+                          ) : null}
                         </div>
                         <div
                           className="weekly-value-gauge"
