@@ -1,7 +1,7 @@
 import type { ThemeName } from '../components/ThemeSelector';
 import type { QuotaData } from '../types/models';
 import { SERVICES } from './service_meta';
-import type { AppTabName } from './provider_summary';
+import { buildClaudeQuotaWindows, sortMostConstrained, type AppTabName } from './provider_summary';
 import { readStorageValue, writeStorageItem } from './storage';
 import { getSavedTrayEnabled, saveTrayEnabled, type TrayServiceName } from './tray_visibility';
 import type { TrayStyle } from './tray_style';
@@ -126,28 +126,7 @@ export function getInitialTrayEnabledState(): TrayEnabledState {
 }
 
 export function getClaudeTrayUsedPercent(quota: QuotaData | null): number | null {
-  if (!quota) return null;
-
-  if (quota.weeklyTotal) {
-    return quota.weeklyTotal.percentage;
-  }
-
-  const weeklyUsedCandidates = [
-    quota.weeklyOpus?.percentage,
-    quota.weeklySonnet?.percentage,
-    quota.weeklyDesign?.percentage,
-    quota.weeklyFable5?.percentage,
-  ]
-    .filter((value): value is number => typeof value === 'number');
-  if (weeklyUsedCandidates.length > 0) {
-    return Math.max(...weeklyUsedCandidates);
-  }
-
-  if (quota.session) {
-    return quota.session.percentage;
-  }
-
-  return null;
+  return sortMostConstrained(buildClaudeQuotaWindows(quota))[0]?.usedPercent ?? null;
 }
 
 export function isClaudeAuthError(error: string): boolean {

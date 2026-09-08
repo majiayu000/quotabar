@@ -4,16 +4,12 @@ All notable QuotaBar changes should be summarized here before a release is cut.
 
 ## Unreleased
 
+- Drive the Claude tray, switcher percent, and 80/95 alerts from the hottest quota window instead of `weeklyTotal`.
 - Explain remaining quota and reset timing in high-usage tips, distinguish imminent resets, and suppress advice from stale data.
-
 - Enlarge provider labels, wrap navigation and freshness text, lead Overview with remaining quota, and collapse secondary usage details. Clarify API-price estimates are not actual bills.
-
 - Automatically show detected services until users choose their own panel visibility; keep disconnected services reachable and add a setup shortcut.
-
 - Replace the misleading All percentage with connection counts and label each provider percentage with its quota window.
-
 - Track successful quota refreshes per service; failed refreshes no longer advance the displayed timestamp.
-
 - Start new installs on Overview with service detection, login instructions, and connection checks.
 
 ## 0.5.0 - 2026-09-06

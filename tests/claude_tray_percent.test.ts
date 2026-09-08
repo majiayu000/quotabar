@@ -5,6 +5,7 @@ import {
   getClaudeTrayUsedPercent,
   keepClaudeQuotaOnError,
 } from '../src/App';
+import { buildClaudeQuotaWindows, sortMostConstrained } from '../src/services/provider_summary';
 import type { QuotaData, UsageInfo } from '../src/types/models';
 
 const usage = (percentage: number): UsageInfo => ({
@@ -14,13 +15,35 @@ const usage = (percentage: number): UsageInfo => ({
 });
 
 describe('getClaudeTrayUsedPercent', () => {
-  test('uses weekly total before individual weekly buckets', () => {
-    expect(getClaudeTrayUsedPercent({
+  test('uses the hottest Claude window, not weeklyTotal', () => {
+    const quota: QuotaData = {
       connected: true,
       weeklyTotal: usage(42),
       weeklyDesign: usage(91),
       weeklyFable5: usage(96),
-    })).toBe(42);
+    };
+
+    expect(getClaudeTrayUsedPercent(quota)).toBe(96);
+    expect(getClaudeTrayUsedPercent(quota)).toBe(
+      sortMostConstrained(buildClaudeQuotaWindows(quota))[0]?.usedPercent,
+    );
+  });
+
+  test('keeps weeklyTotal when it is the most constrained window', () => {
+    expect(getClaudeTrayUsedPercent({
+      connected: true,
+      session: usage(12),
+      weeklyTotal: usage(88),
+      weeklyOpus: usage(20),
+    })).toBe(88);
+  });
+
+  test('lets a hotter 5-hour session beat a cooler weeklyTotal', () => {
+    expect(getClaudeTrayUsedPercent({
+      connected: true,
+      session: usage(99),
+      weeklyTotal: usage(42),
+    })).toBe(99);
   });
 
   test('includes Claude Design in weekly bucket fallback', () => {
