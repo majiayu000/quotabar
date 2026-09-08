@@ -406,7 +406,7 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
     if (!workspace) persistEvents(events);
   }, [events, workspace]);
 
-  useServiceEvents(quota, connected, usedPercent, notifSettings, logEvent, !workspace);
+  useServiceEvents(quota, connected, usedPercent, notifSettings, logEvent, !workspace, providerQuotaWindows.cursor);
 
   const showSwitcherGuardToast = useCallback(() => {
     if (switcherGuardTimerRef.current !== null) {
