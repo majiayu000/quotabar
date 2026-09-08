@@ -307,7 +307,11 @@ export default function CostSummarySection({
         </span>
       </div>
 
-      <p className="cost-estimate-explanation">Estimated at API prices from local Claude, Codex, and Cursor logs. Not your actual bill. Grok and Antigravity are not included.</p>
+      <p className="cost-estimate-explanation">
+        {Array.isArray(source)
+          ? 'Estimated at API prices from local Claude, Codex, and Cursor logs. Not your actual bill. Grok and Antigravity are not included.'
+          : 'Estimated at API prices from local logs. Not your actual bill.'}
+      </p>
 
       {loading && !overview && (
         <div className="cost-loading">Loading cost...</div>
