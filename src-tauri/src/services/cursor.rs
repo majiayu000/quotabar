@@ -265,9 +265,14 @@ pub async fn fetch_cursor_info() -> CursorData {
         return cached;
     }
 
-    let session = match get_cursor_session() {
-        Ok(session) => session,
-        Err(error) => return fallback_or_disconnected(error),
+    // rusqlite open+query on state.vscdb can block on a locked DB; keep it off
+    // the async worker the same way Claude OAuth and cost summaries do.
+    let session = match tauri::async_runtime::spawn_blocking(get_cursor_session).await {
+        Ok(Ok(session)) => session,
+        Ok(Err(error)) => return fallback_or_disconnected(error),
+        Err(error) => {
+            return fallback_or_disconnected(format!("Cursor session task failed: {error}"))
+        }
     };
 
     let cookie = match workos_cookie_value(&session.token) {

@@ -4,6 +4,7 @@ All notable QuotaBar changes should be summarized here before a release is cut.
 
 ## Unreleased
 
+- Move Cursor `state.vscdb` sqlite open and query onto `spawn_blocking` so a locked database cannot stall other quota and tray commands.
 - Clear Codex and Cursor tray connection after a later current-generation fetch failure instead of keeping the previous percent.
 - Show Antigravity as Preview instead of Offline while quota tracking is still a placeholder.
 - Drive Cursor 80/95 alerts from the most-constrained dashboard window; the tray still shows Cursor Models.
