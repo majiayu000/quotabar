@@ -4,6 +4,7 @@ All notable QuotaBar changes should be summarized here before a release is cut.
 
 ## Unreleased
 
+- Ignore slower in-flight tray IPC completions so the skip-cache cannot hide a newer icon tuple until the 60s force tick.
 - Omit Grok product rows that lack `usagePercent` instead of drawing a fake 0%.
 - Move Cursor `state.vscdb` sqlite open and query onto `spawn_blocking` so a locked database cannot stall other quota and tray commands.
 - Clear Codex and Cursor tray connection after a later current-generation fetch failure instead of keeping the previous percent.
