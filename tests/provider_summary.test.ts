@@ -168,6 +168,12 @@ describe('provider summary helpers', () => {
     expect(windows[0].usedPercent).toBe(42);
     expect(windows[1].usedPercent).toBe(6);
     expect(buildGrokQuotaWindows({ connected: true, products: [] })).toEqual([]);
+    expect(buildGrokQuotaWindows({
+      connected: true,
+      percentage: 42,
+      products: [],
+      extra: { onDemandCapCents: 5000, prepaidBalanceCents: 0 },
+    }).map((window) => window.label)).toEqual(['Usage pool']);
   });
 });
 

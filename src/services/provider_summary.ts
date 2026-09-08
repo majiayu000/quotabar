@@ -217,7 +217,13 @@ export function buildGrokQuotaWindows(grokData: GrokData | null): QuotaWindowSum
     resetAtMs: resetAtMsFromValue(grokData.resetAt),
   }];
   const extra = grokData.extra;
-  if (extra && extra.onDemandCapCents > 0) {
+  if (
+    extra
+    && typeof extra.onDemandUsedCents === 'number'
+    && Number.isFinite(extra.onDemandUsedCents)
+    && typeof extra.onDemandCapCents === 'number'
+    && extra.onDemandCapCents > 0
+  ) {
     windows.push({
       provider: 'grok',
       providerLabel: SERVICE_META.grok.label,

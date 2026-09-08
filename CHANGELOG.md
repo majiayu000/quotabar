@@ -4,6 +4,7 @@ All notable QuotaBar changes should be summarized here before a release is cut.
 
 ## Unreleased
 
+- Hide Grok extra credits unless used, cap, and prepaid cents all parse; missing cents are not $0.00.
 - Keep unpriced local-cost days as a sparkline gap or n/a instead of drawing them as $0.00.
 - Ignore slower in-flight tray IPC completions so the skip-cache cannot hide a newer icon tuple until the 60s force tick.
 - Omit Grok product rows that lack `usagePercent` instead of drawing a fake 0%.

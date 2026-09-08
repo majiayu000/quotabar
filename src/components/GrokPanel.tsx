@@ -39,6 +39,10 @@ function grokProductUsagePercent(usagePercent: number | null | undefined): numbe
     : null;
 }
 
+function grokExtraCents(value: number | null | undefined): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
 const USD_FORMAT = new Intl.NumberFormat('en-US', {
   style: 'currency',
   currency: 'USD',
@@ -133,6 +137,9 @@ export default function GrokPanel({
   const windows = buildGrokQuotaWindows(grokData);
   const topWindow = sortMostConstrained(windows)[0];
   const extra = grokData?.extra;
+  const extraUsedCents = grokExtraCents(extra?.onDemandUsedCents);
+  const extraCapCents = grokExtraCents(extra?.onDemandCapCents);
+  const extraPrepaidCents = grokExtraCents(extra?.prepaidBalanceCents);
   const products = (grokData?.products ?? []).filter(
     (product) => grokProductUsagePercent(product.usagePercent) != null,
   );
@@ -281,33 +288,33 @@ export default function GrokPanel({
             </div>
           )}
 
-          {extra && (
+          {extraUsedCents != null && extraCapCents != null && extraPrepaidCents != null && (
             <div className="section">
               <div className="section-title">Extra credits</div>
               <div className="quota-group">
-                {extra.onDemandCapCents > 0 && (
+                {extraCapCents > 0 && (
                   <div className="quota-card">
                     <div className="quota-header">
                       <span className="quota-label">On-demand</span>
                       <span className="quota-value">
-                        {`${formatCents(extra.onDemandUsedCents)} / ${formatCents(extra.onDemandCapCents)}`}
+                        {`${formatCents(extraUsedCents)} / ${formatCents(extraCapCents)}`}
                       </span>
                     </div>
                     <div className="progress-bar">
                       <div
                         className="progress-fill"
                         style={getProgressStyle(
-                          Math.min(100, (extra.onDemandUsedCents / extra.onDemandCapCents) * 100),
+                          Math.min(100, (extraUsedCents / extraCapCents) * 100),
                         )}
                       />
                     </div>
                   </div>
                 )}
-                {extra.prepaidBalanceCents > 0 && (
+                {extraPrepaidCents > 0 && (
                   <div className="quota-card">
                     <div className="quota-header">
                       <span className="quota-label">Prepaid remaining</span>
-                      <span className="quota-value">{formatCents(extra.prepaidBalanceCents)}</span>
+                      <span className="quota-value">{formatCents(extraPrepaidCents)}</span>
                     </div>
                   </div>
                 )}
