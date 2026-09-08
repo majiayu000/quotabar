@@ -747,6 +747,20 @@ describe('Grok period value', () => {
     await unmount(renderer);
   });
 
+  it('does not show $0.00 extra used against a cap when used cents are missing', async () => {
+    const renderer = await render_grok({
+      connected: true,
+      percentage: 4,
+      products: [],
+      extra: { onDemandCapCents: 5000, prepaidBalanceCents: 0 },
+    });
+
+    const text = rendered_text(renderer);
+    expect(text).not.toContain('Extra credits');
+    expect(text).not.toContain('$0.00 / $50.00');
+    await unmount(renderer);
+  });
+
   it('keeps the pool value error visible without hiding official usage', async () => {
     const renderer = await render_grok({
       connected: true,

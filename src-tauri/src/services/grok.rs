@@ -151,12 +151,14 @@ fn read_auth_json() -> Result<serde_json::Value, String> {
     serde_json::from_str(&content).map_err(|err| format!("Failed to parse Grok auth: {err}"))
 }
 
-fn parse_cent(value: &serde_json::Value) -> i64 {
+fn parse_cent(value: &serde_json::Value) -> Option<i64> {
+    if value.is_null() {
+        return None;
+    }
     value
         .get("val")
         .and_then(|val| val.as_i64().or_else(|| val.as_f64().map(|n| n as i64)))
         .or_else(|| value.as_i64())
-        .unwrap_or(0)
 }
 
 fn clamp_percent(value: f64) -> f64 {
@@ -377,18 +379,19 @@ fn parse_billing_payload(data: &serde_json::Value, email: Option<String>) -> Gro
         }
     });
     let (period_type, period_label, period_started_at, reset_at) = period_from_config(config);
-    let extra = GrokExtraCredits {
-        on_demand_used_cents: parse_cent(&config["onDemandUsed"]),
-        on_demand_cap_cents: parse_cent(&config["onDemandCap"]),
-        prepaid_balance_cents: parse_cent(&config["prepaidBalance"]),
-    };
-    let extra = if extra.on_demand_used_cents == 0
-        && extra.on_demand_cap_cents == 0
-        && extra.prepaid_balance_cents == 0
-    {
-        None
-    } else {
-        Some(extra)
+    let extra = match (
+        parse_cent(&config["onDemandUsed"]),
+        parse_cent(&config["onDemandCap"]),
+        parse_cent(&config["prepaidBalance"]),
+    ) {
+        (Some(used), Some(cap), Some(prepaid)) if used != 0 || cap != 0 || prepaid != 0 => {
+            Some(GrokExtraCredits {
+                on_demand_used_cents: used,
+                on_demand_cap_cents: cap,
+                prepaid_balance_cents: prepaid,
+            })
+        }
+        _ => None,
     };
 
     let plan_type = data
@@ -669,6 +672,33 @@ mod tests {
         assert_eq!(extra.on_demand_cap_cents, 5000);
         assert_eq!(extra.on_demand_used_cents, 300);
         assert_eq!(extra.prepaid_balance_cents, 1250);
+    }
+
+    #[test]
+    fn extra_credits_hide_when_used_cents_are_missing() {
+        let payload = json!({
+            "config": {
+                "creditUsagePercent": 4.0,
+                "currentPeriod": {"type": "USAGE_PERIOD_TYPE_WEEKLY", "end": "2026-09-01T00:00:00Z"},
+                "onDemandCap": {"val": 5000},
+                "prepaidBalance": {"val": 0}
+            }
+        });
+        assert!(parse_billing_payload(&payload, None).extra.is_none());
+    }
+
+    #[test]
+    fn extra_credits_hide_when_cents_are_malformed() {
+        let payload = json!({
+            "config": {
+                "creditUsagePercent": 4.0,
+                "currentPeriod": {"type": "USAGE_PERIOD_TYPE_WEEKLY", "end": "2026-09-01T00:00:00Z"},
+                "onDemandCap": {"val": 5000},
+                "onDemandUsed": {"val": "unknown"},
+                "prepaidBalance": {"val": 0}
+            }
+        });
+        assert!(parse_billing_payload(&payload, None).extra.is_none());
     }
 
     #[test]
