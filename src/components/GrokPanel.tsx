@@ -238,7 +238,7 @@ export default function GrokPanel({
                       </div>
                       <div className="weekly-value-footer">
                         <span>Projected from local Grok usage</span>
-                        <span>Not an official allowance</span>
+                        <span>API-price estimate · Not your bill</span>
                       </div>
                     </>
                   ) : (

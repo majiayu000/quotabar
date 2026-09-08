@@ -67,7 +67,7 @@ afterAll(() => {
 });
 
 describe('Overview cost visibility lifecycle', () => {
-  it('mounts cost work only while the popover is visible', async () => {
+  it('mounts cost work only when details are expanded and the popover is visible', async () => {
     let renderer!: ReactTestRenderer;
     await act(async () => {
       renderer = create(panel(false));
@@ -80,6 +80,10 @@ describe('Overview cost visibility lifecycle', () => {
       renderer.update(panel(true));
       await Promise.resolve();
       await Promise.resolve();
+    });
+    expect(backend.getCostOverview).not.toHaveBeenCalled();
+    await act(async () => {
+      renderer.root.findByProps({ className: 'usage-details' }).props.onToggle({ currentTarget: { open: true } });
     });
     expect(backend.getCostOverview).toHaveBeenCalledTimes(3);
     expect(backend.getCostDaily).toHaveBeenCalledTimes(3);

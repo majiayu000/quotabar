@@ -569,8 +569,17 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
 
   const handleTabChange = useCallback((tab: TabName) => {
     setAddingService(false);
+    if (isProviderTab(tab) && !switcherVisibility[tab]) {
+      if (savedSwitcherVisibility === null) {
+        setDetectedProviders((previous) => ({ ...previous, [tab]: true }));
+      } else {
+        const next = { ...switcherVisibility, [tab]: true };
+        setSwitcherVisibility(next);
+        saveSwitcherVisibility(next);
+      }
+    }
     setAndPersistTab(tab);
-  }, [setAndPersistTab]);
+  }, [setAndPersistTab, savedSwitcherVisibility, switcherVisibility]);
 
   useEffect(() => {
     if (!hasTauriBackend() || workspace) return;
@@ -580,7 +589,7 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
     listen<TrayServiceActivatedPayload>(TRAY_SERVICE_ACTIVATED_EVENT, (event) => {
       const service = event.payload?.service;
       if (service && VALID_TABS.has(service)) {
-        setAndPersistTab(service);
+        handleTabChange(service);
       }
     })
       .then((stopListening) => {
@@ -600,7 +609,7 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
         unlisten();
       }
     };
-  }, [setAndPersistTab, workspace]);
+  }, [handleTabChange, workspace]);
 
   const activeProvider = isProviderTab(activeView) ? activeView : lastProviderTab;
   const activeTab: TabName = activeView === 'all' ? 'all' : activeProvider;
@@ -835,7 +844,7 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
                   mostConstrained={mostConstrained}
                   upcomingResets={upcomingResets}
                   costRefreshKey={overviewCostRefreshKey} showCostSummary={!workspace && windowVisible}
-                  onProviderSelect={setAndPersistTab}
+                  onProviderSelect={handleTabChange}
                   sections={panelSections}
                 />
               )}

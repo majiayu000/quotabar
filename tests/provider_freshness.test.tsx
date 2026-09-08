@@ -72,6 +72,14 @@ describe('successful quota freshness', () => {
     expect(status(service === 'claude' ? 'cursor' : 'claude').lastSuccessAt).toBe(successAt);
   });
 
+  it('keeps a deliberately opened service visible before detection completes', async () => {
+    vi.mocked(backend.getCursorInfo).mockResolvedValue({ connected: false });
+    await mount();
+    await act(async () => renderer!.root.findByType(OverviewPanel).props.onProviderSelect('cursor'));
+    expect(renderer!.root.findByType(TabSwitcher).props.activeTab).toBe('cursor');
+    expect(renderer!.root.findByType(TabSwitcher).props.summaries.map((item: { id: string }) => item.id)).toContain('cursor');
+  });
+
   it('does not call a disconnected or error payload a successful update', async () => {
     vi.mocked(backend.getQuota).mockResolvedValue({ connected: true, error: 'Cached data', session: { used: 20, limit: 100, percentage: 20 } });
     vi.mocked(backend.getCursorInfo).mockResolvedValue({ connected: false });

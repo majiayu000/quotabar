@@ -1059,3 +1059,28 @@
 .provider-setup { text-align: left; font-size: 13px; line-height: 1.5; }
 .provider-setup .retry-btn { margin-top: 4px; }
 .setup-services summary:focus-visible { outline: 2px solid var(--acc); outline-offset: 3px; }
+
+/* Keep quota, recovery time, and freshness readable at the 340px popover width. */
+.provider-detail-header { flex-wrap: wrap; padding-bottom: 8px; }
+.provider-detail-meta { max-width: 100%; flex-wrap: wrap; white-space: normal; }
+.provider-detail-state { font-size: 12px; }
+.quota-header { gap: 8px; flex-wrap: wrap; }
+.quota-used-caption { margin: 3px 0 7px; font-size: 12px; color: var(--sub); }
+.overview-quota-row .quota-value { font-size: 19px; }
+.usage-details { margin: 12px 2px; }
+.usage-details > summary { padding: 10px 0; font-size: 13px; font-weight: 600; cursor: pointer; }
+.usage-details > summary:focus-visible { outline: 2px solid var(--acc); outline-offset: 2px; }
+.cost-estimate-explanation { font-size: 12px; line-height: 1.5; color: var(--sub); margin: 6px 0 10px; }
+.action-buttons { flex-wrap: wrap; }
+.action-status {
+  order: 1;
+  flex: 0 0 100%;
+  text-align: left;
+  white-space: normal;
+  font-size: 12px;
+  line-height: 1.5;
+  padding: 4px 0 0;
+}
+.action-btn { min-height: 32px; }
+.icon-action { width: 32px; height: 32px; }
+.settings-btn { margin-left: auto; }

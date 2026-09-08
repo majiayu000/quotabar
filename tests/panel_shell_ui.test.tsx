@@ -229,6 +229,7 @@ describe('panel shell UI', () => {
     const text = JSON.stringify(renderer.toJSON());
     expect(text).toContain('API-equivalent usage');
     expect(text).toContain('Local estimate');
+    expect(text).toContain('Not your actual bill.');
     const trendButtons = renderer.root.findAll((node) => (
       node.type === 'button'
       && typeof node.props.className === 'string'

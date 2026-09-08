@@ -4,6 +4,8 @@ All notable QuotaBar changes should be summarized here before a release is cut.
 
 ## Unreleased
 
+- Enlarge provider labels, wrap navigation and freshness text, lead Overview with remaining quota, and collapse secondary usage details. Clarify API-price estimates are not actual bills.
+
 - Automatically show detected services until users choose their own panel visibility; keep disconnected services reachable and add a setup shortcut.
 
 - Replace the misleading All percentage with connection counts and label each provider percentage with its quota window.

@@ -452,6 +452,7 @@ export default function OverviewPanel({
   onProviderSelect,
   sections = defaultPanelSections(),
 }: OverviewPanelProps) {
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const connectedCount = summaries.filter((summary) => summary.connected).length;
 
   return (
@@ -461,17 +462,15 @@ export default function OverviewPanel({
         label="Overview"
         status={`${connectedCount} of ${summaries.length} connected`}
         plan="All providers"
-        usedPercent={mostConstrained[0]?.usedPercent ?? null}
-        usageLabel={mostConstrained[0] ? `${mostConstrained[0].providerLabel} · ${mostConstrained[0].label}` : undefined}
         tone={connectedCount > 0 ? 'online' : 'offline'}
       />
 
-      <details className="setup-services" open={connectedCount === 0 || setupOpen ? true : undefined}>
+      {(connectedCount === 0 || setupOpen) && <details className="setup-services" open={connectedCount === 0 || setupOpen ? true : undefined}>
         <summary>{connectedCount === 0 ? 'Connect your first service' : 'Add or reconnect a service'}</summary>
         <p className="setup-privacy">QuotaBar reads existing local sign-ins to request usage from each service. It does not manage your login or refresh your tokens. Cost estimates use local usage logs.</p>
         {summaries.map((summary) => (
           <details className="setup-service" key={summary.id}>
-            <summary>{summary.label} · {summary.loading ? 'Checking…' : summary.failed ? 'Needs attention' : summary.connected ? 'Connected' : summary.id === 'antigravity' ? 'Coming later' : 'Not connected'}</summary>
+            <summary>{summary.label} · {summary.loading ? 'Checking…' : summary.failed && summary.lastSuccessAt != null ? 'Needs attention' : summary.connected ? 'Connected' : summary.id === 'antigravity' ? 'Coming later' : 'Not connected'}</summary>
             {summary.lastSuccessAt != null && <p>Last success {formatEventTime(new Date(summary.lastSuccessAt).toISOString())}</p>}
             {summary.connected && !summary.failed ? (
               <button type="button" className="retry-btn" onClick={() => onProviderSelect(summary.id)}>View usage</button>
@@ -482,10 +481,10 @@ export default function OverviewPanel({
             )}
           </details>
         ))}
-      </details>
+      </details>}
 
       <div className="section">
-        <div className="section-title">Most constrained</div>
+        <div className="section-title">Quota remaining</div>
         <div className="quota-group">
           {mostConstrained.length > 0 ? mostConstrained.map((window, index) => {
             const summary = summaries.find((item) => item.id === window.provider);
@@ -499,8 +498,9 @@ export default function OverviewPanel({
             >
               <div className="quota-header">
                 <span className="quota-label">{`${window.providerLabel} · ${window.label}`}</span>
-                <span className="quota-value">{Math.round(window.usedPercent)}% used</span>
+                <span className="quota-value">{Math.max(0, Math.round(100 - window.usedPercent))}% left</span>
               </div>
+              <div className="quota-used-caption">{Math.round(window.usedPercent)}% used</div>
               <div
                 className="progress-bar"
                 role="progressbar"
@@ -528,9 +528,14 @@ export default function OverviewPanel({
 
 
 
-      {sections.timeline && <ResetTimeline windows={upcomingResets} />}
-      {sections.cost && showCostSummary && (
-        <CostSummarySection source={ALL_COST_SOURCES} refreshKey={costRefreshKey} showTrend={sections.trend} />
+      {(sections.timeline || sections.cost) && (
+        <details className="usage-details" onToggle={(event) => setDetailsOpen(event.currentTarget.open)}>
+          <summary>Usage details</summary>
+          {detailsOpen && sections.timeline && <ResetTimeline windows={upcomingResets} />}
+          {detailsOpen && sections.cost && showCostSummary && (
+            <CostSummarySection source={ALL_COST_SOURCES} refreshKey={costRefreshKey} showTrend={sections.trend} />
+          )}
+        </details>
       )}
     </div>
   );

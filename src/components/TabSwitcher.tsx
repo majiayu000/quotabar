@@ -17,7 +17,7 @@ export default function TabSwitcher({
   onAddService,
 }: TabSwitcherProps) {
   const connectedCount = summaries.filter((summary) => summary.connected).length;
-  const attentionCount = summaries.filter((summary) => summary.failed || (summary.usedPercent ?? 0) >= 80).length;
+  const attentionCount = summaries.filter((summary) => (summary.failed && (summary.connected || summary.lastSuccessAt != null)) || (summary.usedPercent ?? 0) >= 80).length;
   const overviewStatus = `${connectedCount} connected${attentionCount ? ` · ${attentionCount} need attention` : ''}`;
   return (
     <>
@@ -63,9 +63,9 @@ export default function TabSwitcher({
               </span>
               <span className="provider-card-status" aria-hidden="true" />
             </span>
-            <span className="provider-card-label">{summary.shortLabel}</span>
+            <span className="provider-card-label">{summary.label}</span>
             <span className="provider-card-percent">{usageLabel}</span>
-            <span className="provider-card-window">{summary.id === 'all' ? attentionCount ? `${attentionCount} need attention` : 'Services' : summary.failed ? 'Check connection' : summary.usageLabel ?? 'Quota window unavailable'}</span>
+            <span className="provider-card-window">{summary.id === 'all' ? attentionCount ? `${attentionCount} need attention` : 'Services' : summary.failed ? 'Check connection' : summary.id === 'antigravity' ? 'Coming later' : summary.usageLabel ?? 'No quota data'}</span>
           </button>
         );
       })}
