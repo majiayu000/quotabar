@@ -167,19 +167,6 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
     const saved = getSavedTab();
     return isProviderTab(saved) ? saved : 'claude';
   });
-  const [refreshStatus, setRefreshStatus] = useState<ServiceMap<{ lastSuccessAt: number | null; failed: boolean }>>(
-    () => defaultServiceMap({ lastSuccessAt: null, failed: false }),
-  );
-  const refreshResultSetters = useMemo(() => Object.fromEntries(SERVICES.map((service) => [
-    service,
-    (success: boolean) => setRefreshStatus((previous) => ({
-      ...previous,
-      [service]: {
-        lastSuccessAt: success ? Date.now() : previous[service].lastSuccessAt,
-        failed: !success,
-      },
-    })),
-  ])) as ServiceMap<(success: boolean) => void>, []);
   const [panelSections, setPanelSections] = useState<PanelSectionVisibility>(getSavedPanelSections);
   const [trayStyle, setTrayStyle] = useState<TrayStyle>(getSavedTrayStyle);
   const [trayCycle, setTrayCycle] = useState<boolean>(getSavedTrayCycle);
@@ -321,8 +308,7 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
       const data = await backend.getQuota(manual);
       if (!claude_request_generation.isCurrent(generation)) return;
 
-      readResultSetters.claude(data.error ?? null, data.retryAt);
-      refreshResultSetters.claude(data.connected && !data.error && buildClaudeQuotaWindows(data).length > 0);
+      readResultSetters.claude(data.error ?? (data.connected && buildClaudeQuotaWindows(data).length > 0 ? null : 'Quota unavailable'), data.retryAt);
       if (data.error) {
         setClaudeError(data.error);
         if (keepClaudeQuotaOnError(data)) {
@@ -340,7 +326,6 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
     } catch (err) {
       if (!claude_request_generation.isCurrent(generation)) return;
       const message = err instanceof Error ? err.message : 'Unknown error';
-      refreshResultSetters.claude(false);
       setClaudeError(message);
       readResultSetters.claude(message);
       setServiceConnected('claude', false);
@@ -349,7 +334,7 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
         setClaudeLoading(false);
       }
     }
-  }, [claude_request_generation, readResultSetters, setServiceConnected, refreshResultSetters]);
+  }, [claude_request_generation, readResultSetters, setServiceConnected]);
 
   useEffect(() => {
     if (!hasTauriBackend()) return;
@@ -705,7 +690,7 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
     ...panelLoading,
     claude: claudeLoading,
   };
-  const { footerStatus, footerStatusTitle } = useFooterStatus(windowVisible, activeLoading, activeView === 'all' ? null : refreshStatus[activeProvider].lastSuccessAt, activeView !== 'all' && refreshStatus[activeProvider].failed);
+  const { footerStatus, footerStatusTitle } = useFooterStatus(windowVisible, activeLoading, activeView === 'all' ? null : providerReads[activeProvider].readAt, activeView !== 'all' && Boolean(providerReads[activeProvider].error));
   const allQuotaWindows = [
     ...buildClaudeQuotaWindows(quota),
     ...providerQuotaWindows.codex,
@@ -713,7 +698,7 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
     ...providerQuotaWindows.grok,
   ];
   const providerSummaries = buildProviderSummaries(tabConnected, serviceLoading, serviceUsage, providerReads).map((summary) => ({
-    ...summary, ...refreshStatus[summary.id],
+    ...summary, lastSuccessAt: providerReads[summary.id].readAt, failed: Boolean(providerReads[summary.id].error),
     usageLabel: summaryUsageLabel(summary.id, allQuotaWindows, summary.usedPercent),
   }));
   const switcherSummaries = providerSummaries.filter((summary) => switcherVisibility[summary.id]);
@@ -784,7 +769,6 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
                   onConnectionChange={connectionSetters.codex}
                   onUsageChange={usageSetters.codex}
                   onLoadingChange={loadingSetters.codex}
-                  onRefreshResult={refreshResultSetters.codex}
                   onQuotaWindowsChange={quotaWindowSetters.codex}
                   onReadResult={readResultSetters.codex}
                   manualRefreshNonce={refreshNonces.codex}
@@ -802,7 +786,6 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
                   onConnectionChange={connectionSetters.cursor}
                   onUsageChange={usageSetters.cursor}
                   onLoadingChange={loadingSetters.cursor}
-                  onRefreshResult={refreshResultSetters.cursor}
                   onQuotaWindowsChange={quotaWindowSetters.cursor}
                   onReadResult={readResultSetters.cursor}
                   manualRefreshNonce={refreshNonces.cursor}
@@ -818,7 +801,6 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
                   onConnectionChange={connectionSetters.grok}
                   onUsageChange={usageSetters.grok}
                   onLoadingChange={loadingSetters.grok}
-                  onRefreshResult={refreshResultSetters.grok}
                   onQuotaWindowsChange={quotaWindowSetters.grok}
                   onReadResult={readResultSetters.grok}
                   manualRefreshNonce={refreshNonces.grok}

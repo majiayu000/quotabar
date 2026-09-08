@@ -36,7 +36,6 @@ interface CodexPanelProps {
   autoRefreshIntervalMs?: number;
   manualRefreshNonce?: number;
   onLoadingChange?: (loading: boolean) => void;
-  onRefreshResult?: (success: boolean) => void;
   onQuotaWindowsChange?: (windows: QuotaWindowSummary[]) => void;
   onReadResult?: (error: string | null) => void;
   showCostSummary?: boolean;
@@ -195,7 +194,6 @@ export default function CodexPanel({
   autoRefreshIntervalMs = 60 * 1000,
   manualRefreshNonce = 0,
   onLoadingChange,
-  onRefreshResult,
   onQuotaWindowsChange,
   onReadResult,
   showCostSummary = true,
@@ -257,9 +255,8 @@ export default function CodexPanel({
       hasResolvedData.current = true;
       setCodexData(info);
       setRateLimits(limits);
-      onRefreshResult?.(Boolean(limits.connected && !limits.error && (limits.primary || limits.secondary)));
       onQuotaWindowsChange?.(buildCodexQuotaWindows(limits));
-      onReadResult?.(limits.error ?? info.error ?? null);
+      onReadResult?.(limits.error ?? info.error ?? (limits.connected && (limits.primary || limits.secondary) ? null : 'Quota unavailable'));
       setResetCredits(credits);
 
       if (limits.error) {
@@ -284,7 +281,6 @@ export default function CodexPanel({
       setError(message);
       onReadResult?.(message);
       setRateLimitsError(message);
-      onRefreshResult?.(false);
       if (!hasResolvedData.current) {
         onConnectionChange?.(false);
         onUsageChange?.(null);
@@ -295,7 +291,7 @@ export default function CodexPanel({
         setLoading(false);
       }
     }
-  }, [fetchWeeklyQuota, onConnectionChange, onQuotaWindowsChange, onReadResult, onUsageChange, onRefreshResult, request_generation]);
+  }, [fetchWeeklyQuota, onConnectionChange, onQuotaWindowsChange, onReadResult, onUsageChange, request_generation]);
 
   useEffect(() => {
     fetchData();

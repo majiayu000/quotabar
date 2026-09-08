@@ -20,7 +20,6 @@ interface GrokPanelProps {
   autoRefreshIntervalMs?: number;
   manualRefreshNonce?: number;
   onLoadingChange?: (loading: boolean) => void;
-  onRefreshResult?: (success: boolean) => void;
   onQuotaWindowsChange?: (windows: QuotaWindowSummary[]) => void;
   onReadResult?: (error: string | null) => void;
   sections?: PanelSectionVisibility;
@@ -59,7 +58,6 @@ export default function GrokPanel({
   autoRefreshIntervalMs = 60 * 1000,
   manualRefreshNonce = 0,
   onLoadingChange,
-  onRefreshResult,
   onQuotaWindowsChange,
   onReadResult,
   sections = defaultPanelSections(),
@@ -77,20 +75,18 @@ export default function GrokPanel({
       const data = await backend.getGrokInfo();
       if (!request_generation.isCurrent(generation)) return;
       setGrokData(data);
-      onRefreshResult?.(data.connected && !data.error && buildGrokQuotaWindows(data).length > 0);
       if (data.error) {
         setError(data.error);
       }
       onConnectionChange?.(data.connected);
       onUsageChange?.(data.percentage ?? null);
       onQuotaWindowsChange?.(buildGrokQuotaWindows(data));
-      onReadResult?.(data.error ?? null);
+      onReadResult?.(data.error ?? (data.connected && buildGrokQuotaWindows(data).length > 0 ? null : 'Quota unavailable'));
     } catch (err) {
       if (!request_generation.isCurrent(generation)) return;
       const message = err instanceof Error ? err.message : 'Failed to fetch Grok data';
       setError(message);
       onReadResult?.(message);
-      onRefreshResult?.(false);
       onConnectionChange?.(false);
       onUsageChange?.(null);
       onQuotaWindowsChange?.([]);
@@ -99,7 +95,7 @@ export default function GrokPanel({
         setLoading(false);
       }
     }
-  }, [onConnectionChange, onQuotaWindowsChange, onReadResult, onUsageChange, onRefreshResult, request_generation]);
+  }, [onConnectionChange, onQuotaWindowsChange, onReadResult, onUsageChange, request_generation]);
 
   useEffect(() => { void fetchData(); }, [fetchData]);
 

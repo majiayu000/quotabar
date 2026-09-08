@@ -18,7 +18,7 @@ describe('detail helpers', () => {
       providerLabel: 'Claude',
       label: 'Session',
       usedPercent: 80,
-    }])).toBe('Claude Session is at 80%.');
+    }])).toBe('Claude Session: 20% remaining. Reset time unavailable; check the provider dashboard.');
   });
 
   test('builds exhausted-week decision copy', () => {
