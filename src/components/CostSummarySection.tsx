@@ -122,7 +122,7 @@ export function formatCostCompleteness(overview: CostOverview): string {
   );
   if (kinds.has('mixed') || kinds.size > 1) parts.push('mixed');
   else if (kinds.has('estimated_proxy')) parts.push('estimated');
-  else if (kinds.size === 1) parts.push([...kinds][0].replaceAll('_', ' '));
+  else if (kinds.size === 1) parts.push([...kinds][0].split('_').join(' '));
   return parts.join(' · ');
 }
 
