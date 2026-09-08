@@ -7,17 +7,20 @@ interface TabSwitcherProps {
   activeTab: TabName;
   onTabChange: (tab: TabName) => void;
   summaries: ProviderSummary[];
+  onAddService?: () => void;
 }
 
 export default function TabSwitcher({
   activeTab,
   onTabChange,
   summaries,
+  onAddService,
 }: TabSwitcherProps) {
   const connectedCount = summaries.filter((summary) => summary.connected).length;
   const attentionCount = summaries.filter((summary) => summary.failed || (summary.usedPercent ?? 0) >= 80).length;
   const overviewStatus = `${connectedCount} connected${attentionCount ? ` · ${attentionCount} need attention` : ''}`;
   return (
+    <>
     <nav className="provider-grid" aria-label="Provider views">
       {[
         {
@@ -67,5 +70,7 @@ export default function TabSwitcher({
         );
       })}
     </nav>
+    {onAddService && <button type="button" className="add-service-btn" onClick={onAddService}>+ Add service</button>}
+    </>
   );
 }

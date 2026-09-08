@@ -24,8 +24,8 @@ afterEach(() => {
 });
 
 describe('switcher provider visibility', () => {
-  test('defaults to all visible', () => {
-    expect(getSavedSwitcherVisibility()).toEqual(defaultSwitcherVisibility());
+  test('uses automatic discovery without saved preferences', () => {
+    expect(getSavedSwitcherVisibility()).toBeNull();
   });
 
   test('round-trips saved visibility', () => {
@@ -41,6 +41,6 @@ describe('switcher provider visibility', () => {
       'claude-quota-switcher-providers',
       JSON.stringify({ claude: false, codex: false, cursor: false, grok: false, antigravity: false }),
     );
-    expect(getSavedSwitcherVisibility()).toEqual(defaultSwitcherVisibility());
+    expect(getSavedSwitcherVisibility()).toBeNull();
   });
 });

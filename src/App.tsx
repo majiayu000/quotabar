@@ -187,7 +187,10 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
   const [events, setEvents] = useState<AppEvent[]>(getSavedEvents);
   const [notifSettings, setNotifSettings] = useState<NotificationSettings>(getSavedNotificationSettings);
   const bonusReadyPrevRef = useRef<{ exhausted: boolean; availableCount: number } | null>(null);
-  const [switcherVisibility, setSwitcherVisibility] = useState<SwitcherVisibility>(getSavedSwitcherVisibility);
+  const [savedSwitcherVisibility, setSwitcherVisibility] = useState<SwitcherVisibility | null>(getSavedSwitcherVisibility);
+  const [detectedProviders, setDetectedProviders] = useState<SwitcherVisibility>(() => defaultServiceMap(false));
+  const switcherVisibility = savedSwitcherVisibility ?? detectedProviders;
+  const [addingService, setAddingService] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const windowVisible = usePopoverWindow(containerRef, [activeView, quota, connected], !workspace);
   const lastTrayIconRequestRef = useRef<Partial<Record<TrayServiceName, TrayIconRequest>>>({});
@@ -206,6 +209,9 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
 
   const setServiceConnected = useCallback((service: TrayServiceName, value: boolean) => {
     setConnected((prev) => (prev[service] === value ? prev : { ...prev, [service]: value }));
+    if (value && service !== 'antigravity') {
+      setDetectedProviders((previous) => previous[service] ? previous : { ...previous, [service]: true });
+    }
   }, []);
 
   const setServiceUsedPercent = useCallback((service: TrayServiceName, value: number | null) => {
@@ -562,6 +568,7 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
   }, [panelSections]);
 
   const handleTabChange = useCallback((tab: TabName) => {
+    setAddingService(false);
     setAndPersistTab(tab);
   }, [setAndPersistTab]);
 
@@ -744,6 +751,7 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
                 activeTab={activeTab}
                 onTabChange={handleTabChange}
                 summaries={switcherSummaries}
+                onAddService={() => { setAndPersistTab('all'); setAddingService(true); }}
               />
             </div>
 
@@ -822,6 +830,7 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
               {activeView === 'all' && (
                 <OverviewPanel
                   summaries={providerSummaries}
+                  setupOpen={addingService}
                   onRetry={handleRefresh}
                   mostConstrained={mostConstrained}
                   upcomingResets={upcomingResets}

@@ -39,6 +39,17 @@ function status(service: string) {
 }
 
 describe('successful quota freshness', () => {
+  it('discovers connected services, keeps a failed service reachable, and opens setup', async () => {
+    vi.mocked(backend.getCursorInfo).mockResolvedValue({ connected: false });
+    await mount();
+    expect(renderer!.root.findByType(TabSwitcher).props.summaries.map((item: { id: string }) => item.id)).toEqual(['claude', 'codex', 'grok']);
+    await act(async () => renderer!.root.findByType(TabSwitcher).props.onAddService());
+    expect(renderer!.root.findByType(OverviewPanel).props.setupOpen).toBe(true);
+    vi.mocked(backend.getGrokInfo).mockRejectedValueOnce(new Error('Network unavailable'));
+    await act(async () => renderer!.root.findByType(ActionButtons).props.onRefresh());
+    expect(renderer!.root.findByType(TabSwitcher).props.summaries.map((item: { id: string }) => item.id)).toContain('grok');
+  });
+
   it.each(['claude', 'codex', 'cursor', 'grok'])('keeps %s success time after a rejected refresh and recovers independently', async (service) => {
     await mount();
     const successAt = status(service).lastSuccessAt;

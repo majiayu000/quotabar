@@ -85,7 +85,7 @@ const userVisibleReadCases: UserVisibleReadCase[] = [
     malformedRaw: 'unknown',
     read: getSavedTab,
     expectedValue: 'codex',
-    expectedDefault: 'claude',
+    expectedDefault: 'all',
   },
   {
     name: 'theme',
@@ -148,7 +148,7 @@ const userVisibleReadCases: UserVisibleReadCase[] = [
     malformedRaw: JSON.stringify({ cursor: 0 }),
     read: getSavedSwitcherVisibility,
     expectedValue: { ...defaultSwitcherVisibility(), cursor: false },
-    expectedDefault: defaultSwitcherVisibility(),
+    expectedDefault: null,
   },
   {
     name: 'tray style',
@@ -256,7 +256,7 @@ describe('user-visible storage readers', () => {
     const listener = vi.fn();
     const unsubscribe = subscribeStorageReadFailures(listener);
 
-    expect(getSavedSwitcherVisibility()).toEqual(defaultSwitcherVisibility());
+    expect(getSavedSwitcherVisibility()).toBeNull();
     expect(consoleError).toHaveBeenCalledExactlyOnceWith('Failed to decode local storage value.');
     expect(listener).toHaveBeenCalledTimes(1);
     unsubscribe();

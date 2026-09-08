@@ -436,6 +436,7 @@ interface OverviewPanelProps {
   costRefreshKey: number;
   showCostSummary?: boolean;
   onRetry?: () => void;
+  setupOpen?: boolean;
   onProviderSelect: (provider: TrayServiceName) => void;
   sections?: PanelSectionVisibility;
 }
@@ -447,6 +448,7 @@ export default function OverviewPanel({
   costRefreshKey,
   showCostSummary = true,
   onRetry,
+  setupOpen = false,
   onProviderSelect,
   sections = defaultPanelSections(),
 }: OverviewPanelProps) {
@@ -463,6 +465,24 @@ export default function OverviewPanel({
         usageLabel={mostConstrained[0] ? `${mostConstrained[0].providerLabel} · ${mostConstrained[0].label}` : undefined}
         tone={connectedCount > 0 ? 'online' : 'offline'}
       />
+
+      <details className="setup-services" open={connectedCount === 0 || setupOpen ? true : undefined}>
+        <summary>{connectedCount === 0 ? 'Connect your first service' : 'Add or reconnect a service'}</summary>
+        <p className="setup-privacy">QuotaBar reads existing local sign-ins to request usage from each service. It does not manage your login or refresh your tokens. Cost estimates use local usage logs.</p>
+        {summaries.map((summary) => (
+          <details className="setup-service" key={summary.id}>
+            <summary>{summary.label} · {summary.loading ? 'Checking…' : summary.failed ? 'Needs attention' : summary.connected ? 'Connected' : summary.id === 'antigravity' ? 'Coming later' : 'Not connected'}</summary>
+            {summary.lastSuccessAt != null && <p>Last success {formatEventTime(new Date(summary.lastSuccessAt).toISOString())}</p>}
+            {summary.connected && !summary.failed ? (
+              <button type="button" className="retry-btn" onClick={() => onProviderSelect(summary.id)}>View usage</button>
+            ) : summary.id === 'antigravity' ? (
+              <p>{SERVICE_META.antigravity.setupHint}</p>
+            ) : (
+              <ProviderSetup service={summary.id} loading={summary.loading} onRetry={onRetry ?? (() => onProviderSelect(summary.id))} />
+            )}
+          </details>
+        ))}
+      </details>
 
       <div className="section">
         <div className="section-title">Most constrained</div>
@@ -506,23 +526,7 @@ export default function OverviewPanel({
         </div>
       </div>
 
-      <details className="setup-services" open={connectedCount === 0 ? true : undefined}>
-        <summary>{connectedCount === 0 ? 'Connect your first service' : 'Add or reconnect a service'}</summary>
-        <p className="setup-privacy">QuotaBar reads existing local sign-ins to request usage from each service. It does not manage your login or refresh your tokens. Cost estimates use local usage logs.</p>
-        {summaries.map((summary) => (
-          <details className="setup-service" key={summary.id}>
-            <summary>{summary.label} · {summary.loading ? 'Checking…' : summary.failed ? 'Needs attention' : summary.connected ? 'Connected' : summary.id === 'antigravity' ? 'Coming later' : 'Not connected'}</summary>
-            {summary.lastSuccessAt != null && <p>Last success {formatEventTime(new Date(summary.lastSuccessAt).toISOString())}</p>}
-            {summary.connected && !summary.failed ? (
-              <button type="button" className="retry-btn" onClick={() => onProviderSelect(summary.id)}>View usage</button>
-            ) : summary.id === 'antigravity' ? (
-              <p>{SERVICE_META.antigravity.setupHint}</p>
-            ) : (
-              <ProviderSetup service={summary.id} loading={summary.loading} onRetry={onRetry ?? (() => onProviderSelect(summary.id))} />
-            )}
-          </details>
-        ))}
-      </details>
+
 
       {sections.timeline && <ResetTimeline windows={upcomingResets} />}
       {sections.cost && showCostSummary && (

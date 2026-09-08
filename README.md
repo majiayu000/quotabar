@@ -177,6 +177,8 @@ Release candidates should be built by the `release-artifacts` GitHub Actions wor
 
 ## Install / Run
 
+With no saved panel preferences, the switcher shows detected services and keeps them accessible if a connection later fails. Use **Add service** for setup, or Settings to choose providers manually.
+
 On first launch, Overview shows detected connections and instructions for signing in through each provider. Use **Check connection** after signing in. QuotaBar reads existing local sign-ins; it does not manage login or refresh tokens. Antigravity quota tracking is still pending.
 
 For normal use, download the current installer from [GitHub Releases](https://github.com/majiayu000/quotabar/releases/latest). For development, install from a local build.

@@ -13,7 +13,7 @@ export function defaultSwitcherVisibility(): SwitcherVisibility {
   }, {} as SwitcherVisibility);
 }
 
-export function getSavedSwitcherVisibility(): SwitcherVisibility {
+export function getSavedSwitcherVisibility(): SwitcherVisibility | null {
   const defaults = defaultSwitcherVisibility();
   const result = readStorageValue(STORAGE_KEY, (raw) => {
     const parsed: unknown = JSON.parse(raw);
@@ -31,7 +31,7 @@ export function getSavedSwitcherVisibility(): SwitcherVisibility {
     }
     return defaults;
   }, { notifyUser: true });
-  return result.status === 'value' ? result.value : defaultSwitcherVisibility();
+  return result.status === 'value' ? result.value : null;
 }
 
 export function saveSwitcherVisibility(visibility: SwitcherVisibility): boolean {

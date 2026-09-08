@@ -4,6 +4,8 @@ All notable QuotaBar changes should be summarized here before a release is cut.
 
 ## Unreleased
 
+- Automatically show detected services until users choose their own panel visibility; keep disconnected services reachable and add a setup shortcut.
+
 - Replace the misleading All percentage with connection counts and label each provider percentage with its quota window.
 
 - Track successful quota refreshes per service; failed refreshes no longer advance the displayed timestamp.
