@@ -198,6 +198,14 @@ export function getCursorTrayUsedPercent(cursorData: CursorData | null): number 
   return null;
 }
 
+export function getCursorAlertUsedPercent(
+  source: CursorData | QuotaWindowSummary[] | null,
+): number | null {
+  if (source == null) return null;
+  const windows = Array.isArray(source) ? source : buildCursorQuotaWindows(source);
+  return sortMostConstrained(windows)[0]?.usedPercent ?? null;
+}
+
 export function buildGrokQuotaWindows(grokData: GrokData | null): QuotaWindowSummary[] {
   if (!grokData?.connected || typeof grokData.percentage !== 'number') return [];
   const windows: QuotaWindowSummary[] = [{
