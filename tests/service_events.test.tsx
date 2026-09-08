@@ -29,15 +29,24 @@ function Host({
   used,
   settings = ALL_ON,
   enabled = true,
+  cursorWindows = [],
   logEvent,
 }: {
   used: ServiceMap<number | null>;
   settings?: NotificationSettings;
   enabled?: boolean;
+  cursorWindows?: Array<{ provider: 'cursor'; providerLabel: string; label: string; usedPercent: number }>;
   logEvent: (level: 'info' | 'warning' | 'critical', text: string) => void;
 }) {
-  useServiceEvents(null, defaultServiceMap(true), used, settings, logEvent, enabled);
+  useServiceEvents(null, defaultServiceMap(true), used, settings, logEvent, enabled, cursorWindows);
   return null;
+}
+
+function cursorDashboardWindows(autoPercent: number, apiPercent: number) {
+  return [
+    { provider: 'cursor' as const, providerLabel: 'Cursor', label: 'Cursor Models', usedPercent: autoPercent },
+    { provider: 'cursor' as const, providerLabel: 'Cursor', label: 'Other Models', usedPercent: apiPercent },
+  ];
 }
 
 describe('useServiceEvents 100% crossings', () => {
@@ -126,6 +135,90 @@ describe('useServiceEvents 100% crossings', () => {
     });
 
     expect(logEvent.mock.calls.some((call) => String(call[1]).includes('bonus reset'))).toBe(false);
+    await act(async () => renderer.unmount());
+  });
+});
+
+describe('useServiceEvents Cursor hottest-window alerts', () => {
+  afterEach(() => {
+    vi.mocked(notifications.notify).mockClear();
+  });
+
+  it('fires 80/95 from Other Models even when the tray stays on Cursor Models', async () => {
+    const logEvent = vi.fn();
+    const trayUsed = { ...defaultServiceMap<number | null>(null), cursor: 2.888 };
+    let renderer!: ReactTestRenderer;
+    await act(async () => {
+      renderer = create(createElement(Host, {
+        used: trayUsed,
+        cursorWindows: cursorDashboardWindows(2.888, 70),
+        logEvent,
+      }));
+    });
+    await act(async () => {
+      renderer.update(createElement(Host, {
+        used: trayUsed,
+        cursorWindows: cursorDashboardWindows(2.888, 96),
+        logEvent,
+      }));
+    });
+
+    expect(logEvent).toHaveBeenCalledWith('critical', 'Cursor usage crossed 95%');
+    expect(logEvent).not.toHaveBeenCalledWith('warning', 'Cursor usage crossed 80%');
+    expect(vi.mocked(notifications.notify).mock.calls.map((call) => call[1])).toEqual([
+      'Cursor usage crossed 95%',
+    ]);
+    await act(async () => renderer.unmount());
+  });
+
+  it('fires 80 from Other Models while the tray Models percent stays low', async () => {
+    const logEvent = vi.fn();
+    const trayUsed = { ...defaultServiceMap<number | null>(null), cursor: 3 };
+    let renderer!: ReactTestRenderer;
+    await act(async () => {
+      renderer = create(createElement(Host, {
+        used: trayUsed,
+        cursorWindows: cursorDashboardWindows(3, 70),
+        logEvent,
+      }));
+    });
+    await act(async () => {
+      renderer.update(createElement(Host, {
+        used: trayUsed,
+        cursorWindows: cursorDashboardWindows(3, 81),
+        logEvent,
+      }));
+    });
+
+    expect(logEvent).toHaveBeenCalledWith('warning', 'Cursor usage crossed 80%');
+    expect(logEvent).not.toHaveBeenCalledWith('critical', 'Cursor usage crossed 95%');
+    expect(vi.mocked(notifications.notify).mock.calls.map((call) => call[1])).toEqual([
+      'Cursor usage crossed 80%',
+    ]);
+    await act(async () => renderer.unmount());
+  });
+
+  it('does not fire Cursor 80/95 from the Models tray percent when Other Models is already the hottest window', async () => {
+    const logEvent = vi.fn();
+    let renderer!: ReactTestRenderer;
+    await act(async () => {
+      renderer = create(createElement(Host, {
+        used: { ...defaultServiceMap<number | null>(null), cursor: 3 },
+        cursorWindows: cursorDashboardWindows(3, 90),
+        logEvent,
+      }));
+    });
+    await act(async () => {
+      renderer.update(createElement(Host, {
+        used: { ...defaultServiceMap<number | null>(null), cursor: 81 },
+        cursorWindows: cursorDashboardWindows(81, 90),
+        logEvent,
+      }));
+    });
+
+    expect(logEvent).not.toHaveBeenCalledWith('warning', 'Cursor usage crossed 80%');
+    expect(logEvent).not.toHaveBeenCalledWith('critical', 'Cursor usage crossed 95%');
+    expect(notifications.notify).not.toHaveBeenCalled();
     await act(async () => renderer.unmount());
   });
 });

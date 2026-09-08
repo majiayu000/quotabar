@@ -181,6 +181,7 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const windowVisible = usePopoverWindow(containerRef, [activeView, quota, connected], !workspace);
   const lastTrayIconRequestRef = useRef<Partial<Record<TrayServiceName, TrayIconRequest>>>({});
+  const trayIconGenerationRef = useRef<Partial<Record<TrayServiceName, number>>>({});
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -291,8 +292,12 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
       return;
     }
 
+    const generation = (trayIconGenerationRef.current[service] ?? 0) + 1;
+    trayIconGenerationRef.current[service] = generation;
+
     try {
       await backend.updateTrayIcon(service, percentage, visible, force, style);
+      if (trayIconGenerationRef.current[service] !== generation) return;
       lastTrayIconRequestRef.current[service] = { percentage, visible, style };
     } catch (err) {
       console.error(`Failed to update ${service} tray icon:`, err);
@@ -406,7 +411,7 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
     if (!workspace) persistEvents(events);
   }, [events, workspace]);
 
-  useServiceEvents(quota, connected, usedPercent, notifSettings, logEvent, !workspace);
+  useServiceEvents(quota, connected, usedPercent, notifSettings, logEvent, !workspace, providerQuotaWindows.cursor);
 
   const showSwitcherGuardToast = useCallback(() => {
     if (switcherGuardTimerRef.current !== null) {

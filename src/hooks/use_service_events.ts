@@ -8,6 +8,7 @@ import {
 } from '../services/notifications';
 import type { EventLevel } from '../services/event_log';
 import type { QuotaData } from '../types/models';
+import { getCursorAlertUsedPercent, type QuotaWindowSummary } from '../services/provider_summary';
 import { STORAGE_READ_FAILURE_MESSAGE, subscribeStorageReadFailures } from '../services/storage';
 import { TRAY_GUARD_TOAST_MS } from '../services/app_state';
 
@@ -38,6 +39,7 @@ export function useServiceEvents(
   notifSettings: NotificationSettings,
   logEvent: (level: EventLevel, text: string) => void,
   enabled = true,
+  cursorWindows: QuotaWindowSummary[] = [],
 ): void {
   const prevServiceStateRef = useRef<ServiceMap<ServiceSnapshot> | null>(null);
 
@@ -46,7 +48,11 @@ export function useServiceEvents(
     const current = SERVICES.reduce((acc, svc) => {
       acc[svc] = {
         connected: svc === 'claude' ? quota?.connected ?? false : connected[svc],
-        used: svc === 'claude' ? getClaudeTrayUsedPercent(quota) : usedPercent[svc],
+        used: svc === 'claude'
+          ? getClaudeTrayUsedPercent(quota)
+          : svc === 'cursor'
+            ? (getCursorAlertUsedPercent(cursorWindows) ?? usedPercent.cursor)
+            : usedPercent[svc],
       };
       return acc;
     }, {} as ServiceMap<ServiceSnapshot>);
@@ -99,5 +105,5 @@ export function useServiceEvents(
         }
       }
     }
-  }, [quota, connected, usedPercent, logEvent, notifSettings.q80, notifSettings.q95, notifSettings.q100, enabled]);
+  }, [quota, connected, usedPercent, logEvent, notifSettings.q80, notifSettings.q95, notifSettings.q100, enabled, cursorWindows]);
 }

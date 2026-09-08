@@ -117,7 +117,7 @@ export interface AntigravityData {
 export interface GrokProductUsage {
   product: string;
   label: string;
-  usagePercent: number;
+  usagePercent?: number | null;
 }
 
 export interface GrokExtraCredits {

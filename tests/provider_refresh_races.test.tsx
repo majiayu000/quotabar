@@ -728,6 +728,25 @@ describe('Grok period value', () => {
     await unmount(renderer);
   });
 
+  it('omits product rows without usagePercent instead of drawing 0%', async () => {
+    const renderer = await render_grok({
+      connected: true,
+      percentage: 4,
+      periodLabel: 'Weekly',
+      products: [
+        { product: 'build', label: 'Build', usagePercent: 4 },
+        { product: 'chat', label: 'Chat' },
+      ],
+    });
+
+    const text = rendered_text(renderer);
+    expect(text).toContain('Build');
+    expect(text).toContain('4%');
+    expect(text).not.toContain('Chat');
+    expect(text).not.toMatch(/Chat[\s\S]*0%/);
+    await unmount(renderer);
+  });
+
   it('keeps the pool value error visible without hiding official usage', async () => {
     const renderer = await render_grok({
       connected: true,

@@ -1,14 +1,13 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Capabilities for the tray panel and analysis workspace",
+  "description": "Shared capabilities for the tray panel and analysis workspace. The analysis window does not open URLs.",
   "windows": [
     "main",
     "analysis"
   ],
   "permissions": [
     "core:default",
-    "opener:default",
     "notification:default",
     "autostart:default"
   ]
