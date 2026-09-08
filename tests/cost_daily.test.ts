@@ -48,4 +48,9 @@ describe('daily cost helpers', () => {
     expect(sliceSparkDays(days, '30d')).toHaveLength(30);
     expect(sumDailyCost(sliceSparkDays(days, '7d'))).toBe(7);
   });
+
+  test('keeps unpriced days as null instead of summing them as zero', () => {
+    expect(sumDailyCost([day('2026-07-05', null, 1200)])).toBeNull();
+    expect(sumDailyCost([day('2026-07-04', 2), day('2026-07-05', null, 50)])).toBe(2);
+  });
 });
