@@ -451,8 +451,12 @@ pub async fn get_codex_weekly_quota() -> Result<CodexWeeklyQuotaData, String> {
 }
 
 #[tauri::command]
-pub async fn get_cursor_info() -> Result<CursorData, String> {
-    Ok(provider_read(&CURSOR_READ, cursor::fetch_cursor_info()).await)
+pub async fn get_cursor_info(manual: Option<bool>) -> Result<CursorData, String> {
+    Ok(provider_read(
+        &CURSOR_READ,
+        cursor::fetch_cursor_info(manual.unwrap_or(false)),
+    )
+    .await)
 }
 
 #[tauri::command]
