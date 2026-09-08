@@ -229,7 +229,8 @@ describe('panel shell UI', () => {
     const text = JSON.stringify(renderer.toJSON());
     expect(text).toContain('API-equivalent usage');
     expect(text).toContain('Local estimate');
-    expect(text).toContain('Not your actual bill.');
+    expect(text).toContain('Estimated at API prices from local logs. Not your actual bill.');
+    expect(text).not.toContain('Grok and Antigravity are not included');
     const trendButtons = renderer.root.findAll((node) => (
       node.type === 'button'
       && typeof node.props.className === 'string'
@@ -276,6 +277,39 @@ describe('panel shell UI', () => {
     await act(async () => trend.props.onKeyDown({ key: 'End', preventDefault: vi.fn() }));
     expect(renderer.root.findByProps({ role: 'slider' }).props['aria-valuenow']).toBe(30);
     expect(renderer.root.findAllByProps({ role: 'progressbar' })).toHaveLength(1);
+    await act(async () => renderer.unmount());
+  });
+
+  it('names Claude, Codex, and Cursor only on the merged overview cost disclaimer', async () => {
+    vi.spyOn(backend, 'getCostOverview').mockResolvedValue({
+      source: 'claude',
+      displayName: 'Claude',
+      currency: 'USD',
+      generatedAt: '2026-08-24T08:00:00Z',
+      cached: false,
+      ranges: [],
+    });
+    vi.spyOn(backend, 'getCostDaily').mockResolvedValue({
+      source: 'claude',
+      currency: 'USD',
+      generatedAt: '2026-08-24T08:00:00Z',
+      cached: false,
+      days: [],
+    });
+
+    let renderer!: ReactTestRenderer;
+    await act(async () => {
+      renderer = create(createElement(CostSummarySection, {
+        source: ['claude', 'codex', 'cursor'],
+        autoRefreshIntervalMs: 0,
+      }));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const text = JSON.stringify(renderer.toJSON());
+    expect(text).toContain('local Claude, Codex, and Cursor logs');
+    expect(text).toContain('Grok and Antigravity are not included');
     await act(async () => renderer.unmount());
   });
 });

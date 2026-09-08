@@ -22,6 +22,7 @@ import ResetTimeline from './ResetTimeline';
 import { calendarDays, HourlyPlot, PeriodComparison, TokenComposition, UsageActivity } from './UsageExtras';
 import { defaultPanelSections, type PanelSectionVisibility } from '../services/panel_sections';
 
+// Log-backed CostSource values only. Grok and Antigravity are not merged here.
 const ALL_COST_SOURCES = ['claude', 'codex', 'cursor'] as const;
 
 type WorkspaceView = AnalysisView | 'quota' | 'settings';
@@ -463,7 +464,7 @@ export default function OverviewPanel({
         service="claude"
         label="Overview"
         status={`${connectedCount} of ${summaries.length} connected`}
-        plan="All providers"
+        plan="Claude, Codex, Cursor"
         tone={connectedCount > 0 ? 'online' : 'offline'}
       />
 
