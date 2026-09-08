@@ -196,6 +196,7 @@ export interface CostOverview {
   currency: string;
   generatedAt: string;
   cached: boolean;
+  stale?: boolean;
   ranges: CostRangeSummary[];
 }
 
@@ -211,5 +212,6 @@ export interface CostDailySeries {
   currency: string;
   generatedAt: string;
   cached: boolean;
+  stale?: boolean;
   days: CostDailyPoint[];
 }
