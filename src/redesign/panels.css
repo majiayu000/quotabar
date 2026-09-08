@@ -1043,3 +1043,19 @@
 .quit-btn {
   font-size: 13px;
 }
+
+.setup-services {
+  margin: 12px 0;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--card);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.setup-services summary { cursor: pointer; font-weight: 600; }
+.setup-privacy { color: var(--sub); font-size: 12px; }
+.setup-service { padding: 10px 0; border-top: 1px solid var(--line); }
+.provider-setup { text-align: left; font-size: 13px; line-height: 1.5; }
+.provider-setup .retry-btn { margin-top: 4px; }
+.setup-services summary:focus-visible { outline: 2px solid var(--acc); outline-offset: 3px; }

@@ -9,6 +9,8 @@ import '../styles/views.css';
 import type { ProviderSummary, QuotaWindowSummary } from '../services/provider_summary';
 import type { TrayServiceName } from '../services/tray_visibility';
 import { clampProgressValue, getProgressStyle } from '../utils/quota_format';
+import ProviderSetup from './ProviderSetup';
+import { SERVICE_META } from '../services/service_meta';
 import CostSummarySection from './CostSummarySection';
 import ProviderDetailHeader from './ProviderDetailHeader';
 import ProviderIcon from './ProviderIcon';
@@ -432,6 +434,7 @@ interface OverviewPanelProps {
   upcomingResets: QuotaWindowSummary[];
   costRefreshKey: number;
   showCostSummary?: boolean;
+  onRetry?: () => void;
   onProviderSelect: (provider: TrayServiceName) => void;
   sections?: PanelSectionVisibility;
 }
@@ -442,6 +445,7 @@ export default function OverviewPanel({
   upcomingResets,
   costRefreshKey,
   showCostSummary = true,
+  onRetry,
   onProviderSelect,
   sections = defaultPanelSections(),
 }: OverviewPanelProps) {
@@ -488,10 +492,29 @@ export default function OverviewPanel({
               {window.resetLabel && <div className="reset-time">Resets in {window.resetLabel}</div>}
             </button>
           )) : (
-            <div className="no-data">No provider data</div>
+            <div className="no-data">{summaries.some((summary) => summary.loading)
+              ? 'Checking your services…'
+              : 'Connect a service to see your remaining quota.'}</div>
           )}
         </div>
       </div>
+
+      <details className="setup-services" open={connectedCount === 0 ? true : undefined}>
+        <summary>{connectedCount === 0 ? 'Connect your first service' : 'Add or reconnect a service'}</summary>
+        <p className="setup-privacy">QuotaBar reads existing local sign-ins to request usage from each service. It does not manage your login or refresh your tokens. Cost estimates use local usage logs.</p>
+        {summaries.map((summary) => (
+          <details className="setup-service" key={summary.id}>
+            <summary>{summary.label} · {summary.loading ? 'Checking…' : summary.connected ? 'Connected' : summary.id === 'antigravity' ? 'Coming later' : 'Not connected'}</summary>
+            {summary.connected ? (
+              <button type="button" className="retry-btn" onClick={() => onProviderSelect(summary.id)}>View usage</button>
+            ) : summary.id === 'antigravity' ? (
+              <p>{SERVICE_META.antigravity.setupHint}</p>
+            ) : (
+              <ProviderSetup service={summary.id} loading={summary.loading} onRetry={onRetry ?? (() => onProviderSelect(summary.id))} />
+            )}
+          </details>
+        ))}
+      </details>
 
       {sections.timeline && <ResetTimeline windows={upcomingResets} />}
       {sections.cost && showCostSummary && (

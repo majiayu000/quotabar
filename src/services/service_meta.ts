@@ -9,6 +9,7 @@ export interface ServiceMeta {
   accent: string;
   connectedHint?: string;
   disconnectedHint: string;
+  setupHint: string;
 }
 
 export const SERVICES: TrayServiceName[] = ['claude', 'codex', 'cursor', 'grok', 'antigravity'];
@@ -16,6 +17,7 @@ export const SERVICES: TrayServiceName[] = ['claude', 'codex', 'cursor', 'grok',
 export const SERVICE_META: Record<TrayServiceName, ServiceMeta> = {
   claude: {
     id: 'claude',
+    setupHint: 'Sign in with Claude Code using claude login in Terminal, then check again. If your session expired, sign in again.',
     label: 'Claude',
     shortLabel: 'Claude',
     initials: 'C',
@@ -25,6 +27,7 @@ export const SERVICE_META: Record<TrayServiceName, ServiceMeta> = {
   },
   codex: {
     id: 'codex',
+    setupHint: 'Open Codex and sign in, or run codex login in Terminal, then check again.',
     label: 'Codex',
     shortLabel: 'Codex',
     initials: 'Co',
@@ -34,6 +37,7 @@ export const SERVICE_META: Record<TrayServiceName, ServiceMeta> = {
   },
   cursor: {
     id: 'cursor',
+    setupHint: 'Open Cursor and sign in to your account, then check again.',
     label: 'Cursor',
     shortLabel: 'Cursor',
     initials: 'Cu',
@@ -43,6 +47,7 @@ export const SERVICE_META: Record<TrayServiceName, ServiceMeta> = {
   },
   grok: {
     id: 'grok',
+    setupHint: 'Run grok login in Terminal to sign in to Grok Build, then check again.',
     label: 'Grok',
     shortLabel: 'Grok',
     initials: 'Gk',
@@ -52,6 +57,7 @@ export const SERVICE_META: Record<TrayServiceName, ServiceMeta> = {
   },
   antigravity: {
     id: 'antigravity',
+    setupHint: 'Quota tracking is not available yet. Detecting an Antigravity installation does not provide usage limits.',
     label: 'Antigravity',
     shortLabel: 'Anti',
     initials: 'Ag',

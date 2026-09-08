@@ -809,6 +809,7 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
               {activeView === 'all' && (
                 <OverviewPanel
                   summaries={providerSummaries}
+                  onRetry={handleRefresh}
                   mostConstrained={mostConstrained}
                   upcomingResets={upcomingResets}
                   costRefreshKey={overviewCostRefreshKey} showCostSummary={!workspace && windowVisible}

@@ -4,6 +4,8 @@ All notable QuotaBar changes should be summarized here before a release is cut.
 
 ## Unreleased
 
+- Start new installs on Overview with service detection, login instructions, and connection checks.
+
 ## 0.5.0 - 2026-09-06
 
 - Add a resizable desktop workspace alongside the existing independent provider tray panels.

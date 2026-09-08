@@ -1,5 +1,6 @@
 import { workspaceCopy } from '../utils/quota_format';
 import QuotaRecovery, { quotaRecovery, useQuotaCooldown } from './QuotaRecovery';
+import ProviderSetup from './ProviderSetup';
 import CostSummarySection from './CostSummarySection';
 import QuotaCard from './QuotaCard';
 import ProviderDetailHeader from './ProviderDetailHeader';
@@ -165,9 +166,11 @@ export default function ClaudePanel({
       {!quota && !loading && (
         <div className="empty-state">
           <p>{workspaceCopy("Unable to load quota data", "无法读取额度数据")}</p>
-          <button type="button" onClick={onRetry} disabled={cooling} className="retry-btn">
-            {cooling ? "等待重试" : loginNeeded && workspace ? "我已登录，重新检测" : workspaceCopy("Try Again", "重新读取")}
-          </button>
+          {workspace ? (
+            <button type="button" onClick={onRetry} disabled={cooling} className="retry-btn">
+              {cooling ? "等待重试" : loginNeeded ? "我已登录，重新检测" : "重新读取"}
+            </button>
+          ) : <ProviderSetup service="claude" onRetry={onRetry} loading={loading || cooling} />}
         </div>
       )}
     </>

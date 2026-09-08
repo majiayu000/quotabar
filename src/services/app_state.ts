@@ -54,7 +54,7 @@ export function getSavedTab(): AppTabName {
     if (!VALID_TABS.has(raw)) throw new Error('Invalid saved tab');
     return raw as AppTabName;
   }, { notifyUser: true });
-  return result.status === 'value' ? result.value : 'claude';
+  return result.status === 'value' ? result.value : 'all';
 }
 
 export function getSavedTheme(): ThemeName {
