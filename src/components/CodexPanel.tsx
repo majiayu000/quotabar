@@ -595,7 +595,7 @@ export default function CodexPanel({
                       <span className="quota-value">
                         {rateLimits.credits.unlimited
                           ? 'Unlimited'
-                          : rateLimits.credits.balance || '0'}
+                          : rateLimits.credits.balance ?? 'n/a'}
                       </span>
                     </div>
                   </div>

@@ -4,6 +4,7 @@ All notable QuotaBar changes should be summarized here before a release is cut.
 
 ## Unreleased
 
+- Show n/a when Codex credits exist without a balance instead of treating a missing value as 0.
 - Let Cursor Refresh skip the 120s success cache so a manual refresh hits the network like Claude.
 - Keep last-known tray percents labeled in the tooltip when a provider refresh returns an error, without changing the percent, ring, or icon style.
 - Version local cost cache keys and snapshots, reject future timestamps, and label cached or stale cost data.

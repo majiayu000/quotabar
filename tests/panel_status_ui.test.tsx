@@ -489,6 +489,49 @@ describe('provider status UI', () => {
     expect(progress.props['aria-label']).toBe('Cursor usage');
     await act(async () => renderer.unmount());
   });
+
+  it('shows n/a when Codex credits exist without a balance', async () => {
+    async function renderCredits(credits: { hasCredits: boolean; unlimited: boolean; balance?: string }) {
+      vi.spyOn(backend, 'getCodexInfo').mockResolvedValue({ connected: true, planType: 'plus' });
+      vi.spyOn(backend, 'getCodexRateLimits').mockResolvedValue({
+        connected: true,
+        planType: 'plus',
+        primary: { usedPercent: 10, windowMinutes: 300 },
+        credits,
+      });
+      vi.spyOn(backend, 'getCodexResetCredits').mockResolvedValue({
+        connected: true,
+        availableCount: 0,
+        credits: [],
+      });
+      vi.spyOn(backend, 'getCodexWeeklyQuota').mockResolvedValue({});
+      let renderer!: ReactTestRenderer;
+      await act(async () => {
+        renderer = create(createElement(CodexPanel, {
+          autoRefreshIntervalMs: 0,
+          showCostSummary: false,
+          sections: hiddenSections,
+        }));
+        await Promise.resolve();
+      });
+      return renderer;
+    }
+
+    function creditValue(renderer: ReactTestRenderer): string {
+      const label = renderer.root.findAllByProps({ className: 'quota-label' })
+        .find((node) => node.children.includes('Credits'));
+      expect(label).toBeDefined();
+      return label!.parent!.findByProps({ className: 'quota-value' }).children.join('');
+    }
+
+    const missing = await renderCredits({ hasCredits: true, unlimited: false });
+    expect(creditValue(missing)).toBe('n/a');
+    await act(async () => missing.unmount());
+
+    const zero = await renderCredits({ hasCredits: true, unlimited: false, balance: '0' });
+    expect(creditValue(zero)).toBe('0');
+    await act(async () => zero.unmount());
+  });
 });
 
 
