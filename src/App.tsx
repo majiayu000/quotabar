@@ -73,6 +73,7 @@ import {
   getClaudeRefreshIntervalMs,
   getClaudeTrayUsedPercent,
   keepClaudeQuotaOnError,
+  isStaleTrayPercent,
   getInitialTrayEnabledState,
   getSavedDockHidden,
   getSavedSettingsExpanded,
@@ -110,6 +111,7 @@ export {
   getClaudeRefreshIntervalMs,
   getClaudeTrayUsedPercent,
   keepClaudeQuotaOnError,
+  isStaleTrayPercent,
   providerRefreshIntervalMs,
 } from './services/app_state';
 
@@ -281,13 +283,15 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
     visible: boolean,
     force = false,
     style: TrayStyle = 'percent',
+    stale = false,
   ) => {
     const previous = lastTrayIconRequestRef.current[service];
     if (
       !force &&
       previous?.percentage === percentage &&
       previous.visible === visible &&
-      previous.style === style
+      previous.style === style &&
+      previous.stale === stale
     ) {
       return;
     }
@@ -296,9 +300,9 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
     trayIconGenerationRef.current[service] = generation;
 
     try {
-      await backend.updateTrayIcon(service, percentage, visible, force, style);
+      await backend.updateTrayIcon(service, percentage, visible, force, style, stale);
       if (trayIconGenerationRef.current[service] !== generation) return;
-      lastTrayIconRequestRef.current[service] = { percentage, visible, style };
+      lastTrayIconRequestRef.current[service] = { percentage, visible, style, stale };
     } catch (err) {
       console.error(`Failed to update ${service} tray icon:`, err);
     }
@@ -377,9 +381,10 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
     for (const svc of SERVICES) {
       const pct = svc === 'claude' ? getClaudeTrayUsedPercent(quota) : usedPercent[svc];
       const visible = resolveTrayVisible(svc, candidates, trayCycle, trayCycleIndex);
-      updateTrayIcon(svc, pct, visible, force, trayStyle);
+      const stale = isStaleTrayPercent(providerReads[svc].error, pct);
+      updateTrayIcon(svc, pct, visible, force, trayStyle, stale);
     }
-  }, [quota, connected, usedPercent, trayEnabled, trayCycle, trayCycleIndex, trayStyle, updateTrayIcon, workspace]);
+  }, [quota, connected, usedPercent, providerReads, trayEnabled, trayCycle, trayCycleIndex, trayStyle, updateTrayIcon, workspace]);
 
   useEffect(() => {
     syncTrayIcons();

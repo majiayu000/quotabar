@@ -26,6 +26,22 @@ describe('tray IPC percentage boundary', () => {
       visible: true,
       force: false,
       style: 'percent',
+      stale: false,
+    });
+  });
+
+  it('passes a last-known stale flag without changing the user style', async () => {
+    vi.stubGlobal('window', { __TAURI_INTERNALS__: {} });
+
+    await backend.updateTrayIcon('claude', 42, true, false, 'percent', true);
+
+    expect(tauri.invoke).toHaveBeenCalledWith('update_tray_icon', {
+      service: 'claude',
+      percentage: 42,
+      visible: true,
+      force: false,
+      style: 'percent',
+      stale: true,
     });
   });
 

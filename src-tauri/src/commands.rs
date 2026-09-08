@@ -534,6 +534,7 @@ pub async fn update_tray_icon(
     visible: bool,
     force: Option<bool>,
     style: Option<tray_icon::TrayIconStyle>,
+    stale: Option<bool>,
 ) -> Result<(), String> {
     tray::update_tray_icon(
         app,
@@ -543,6 +544,7 @@ pub async fn update_tray_icon(
         visible,
         force.unwrap_or(false),
         style,
+        stale.unwrap_or(false),
     )
     .await
 }

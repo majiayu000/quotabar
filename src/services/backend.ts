@@ -163,6 +163,7 @@ export const backend = {
     visible: boolean,
     force = false,
     style: 'percent' | 'ring' | 'icon' = 'percent',
+    stale = false,
   ) {
     return invokeBackend<void>('update_tray_icon', {
       service,
@@ -170,6 +171,7 @@ export const backend = {
       visible,
       force,
       style,
+      stale,
     });
   },
 

@@ -223,4 +223,77 @@ describe('tray icon sync', () => {
 
     await unmount(renderer);
   });
+
+  test('keeps the user tray style and marks a stale Claude percent as last known', async () => {
+    (globalThis as Record<string, unknown>).localStorage = memoryStorage({
+      'claude-tray-enabled': 'true',
+      'codex-tray-enabled': 'false',
+      'cursor-tray-enabled': 'false',
+      'grok-tray-enabled': 'false',
+      'antigravity-tray-enabled': 'false',
+      'claude-quota-tray-cycle': 'false',
+    });
+
+    const hung = () => new Promise<never>(() => {});
+    vi.spyOn(backend, 'getCodexInfo').mockImplementation(hung);
+    vi.spyOn(backend, 'getCodexRateLimits').mockImplementation(hung);
+    vi.spyOn(backend, 'getCodexResetCredits').mockImplementation(hung);
+    vi.spyOn(backend, 'getCodexWeeklyQuota').mockImplementation(hung);
+    vi.spyOn(backend, 'getCursorInfo').mockImplementation(hung);
+    vi.spyOn(backend, 'getGrokInfo').mockImplementation(hung);
+    vi.spyOn(backend, 'getAntigravityInfo').mockImplementation(hung);
+    vi.spyOn(backend, 'getQuota').mockResolvedValue({
+      ...quota_with_percent(42),
+      error: 'API error: 429 Too Many Requests',
+    });
+
+    const renderer = await render_app();
+    await flush();
+    await flush();
+
+    const staleCall = claude_visible_calls().find((args) => args[1] === 42);
+    expect(staleCall).toBeDefined();
+    expect(staleCall?.[4]).toBe('percent');
+    expect(staleCall?.[5]).toBe(true);
+
+    await unmount(renderer);
+  });
+
+  test('marks Cursor last-known percents stale when the DTO still carries an error', async () => {
+    (globalThis as Record<string, unknown>).localStorage = memoryStorage({
+      'claude-tray-enabled': 'false',
+      'codex-tray-enabled': 'false',
+      'cursor-tray-enabled': 'true',
+      'grok-tray-enabled': 'false',
+      'antigravity-tray-enabled': 'false',
+      'claude-quota-tray-cycle': 'false',
+    });
+
+    const hung = () => new Promise<never>(() => {});
+    vi.spyOn(backend, 'getCodexInfo').mockImplementation(hung);
+    vi.spyOn(backend, 'getCodexRateLimits').mockImplementation(hung);
+    vi.spyOn(backend, 'getCodexResetCredits').mockImplementation(hung);
+    vi.spyOn(backend, 'getCodexWeeklyQuota').mockImplementation(hung);
+    vi.spyOn(backend, 'getGrokInfo').mockImplementation(hung);
+    vi.spyOn(backend, 'getAntigravityInfo').mockImplementation(hung);
+    vi.spyOn(backend, 'getQuota').mockImplementation(hung);
+    vi.spyOn(backend, 'getCursorInfo').mockResolvedValue({
+      connected: true,
+      percentage: 22,
+      error: 'Network error: timed out',
+    });
+
+    const renderer = await render_app();
+    await flush();
+    await flush();
+
+    const staleCall = (backend.updateTrayIcon as unknown as Mock).mock.calls.find(
+      (args) => args[0] === 'cursor' && args[2] === true && args[1] === 22,
+    );
+    expect(staleCall).toBeDefined();
+    expect(staleCall?.[4]).toBe('percent');
+    expect(staleCall?.[5]).toBe(true);
+
+    await unmount(renderer);
+  });
 });

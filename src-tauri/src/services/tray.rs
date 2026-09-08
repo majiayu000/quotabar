@@ -35,6 +35,7 @@ struct TraySnapshot {
     percentage: Option<u8>,
     visible: bool,
     style: tray_icon::TrayIconStyle,
+    stale: bool,
 }
 
 #[derive(Default)]
@@ -380,8 +381,9 @@ fn set_status_item_collapsed(app: &AppHandle, tray_id: &str, collapsed: bool) {
     });
 }
 
-fn format_tooltip(service: TrayService, percentage: Option<u8>) -> String {
+fn format_tooltip(service: TrayService, percentage: Option<u8>, stale: bool) -> String {
     match percentage {
+        Some(value) if stale => format!("{}: {}% used (last known)", service.label(), value),
         Some(value) => format!("{}: {}% used", service.label(), value),
         None => format!("{}: unavailable", service.label()),
     }
@@ -518,6 +520,7 @@ pub async fn update_tray_icon(
     visible: bool,
     force: bool,
     style: Option<tray_icon::TrayIconStyle>,
+    stale: bool,
 ) -> Result<(), String> {
     let runtime = tray_state.runtime.clone();
     let style = style.unwrap_or_default();
@@ -525,6 +528,7 @@ pub async fn update_tray_icon(
         percentage,
         visible,
         style,
+        stale,
     };
     let request_generation = {
         let mut state = runtime
@@ -592,7 +596,7 @@ pub async fn update_tray_icon(
                 .map_err(|e| e.to_string())?;
             tray.set_title(Some(service.extra_title()))
                 .map_err(|e| e.to_string())?;
-            tray.set_tooltip(Some(format_tooltip(service, percentage)))
+            tray.set_tooltip(Some(format_tooltip(service, percentage, stale)))
                 .map_err(|e| e.to_string())?;
             tray.set_visible(true).map_err(|e| e.to_string())?;
 
@@ -628,15 +632,23 @@ mod tests {
     #[test]
     fn tooltip_marks_unavailable() {
         assert_eq!(
-            format_tooltip(TrayService::Claude, None),
+            format_tooltip(TrayService::Claude, None, false),
             "Claude Code: unavailable"
+        );
+    }
+
+    #[test]
+    fn tooltip_marks_stale_last_known_percent() {
+        assert_eq!(
+            format_tooltip(TrayService::Claude, Some(42), true),
+            "Claude Code: 42% used (last known)"
         );
     }
 
     #[test]
     fn tooltip_preserves_over_limit_usage() {
         assert_eq!(
-            format_tooltip(TrayService::Codex, Some(130)),
+            format_tooltip(TrayService::Codex, Some(130), false),
             "Codex: 130% used"
         );
     }
@@ -648,6 +660,7 @@ mod tests {
             percentage: Some(100),
             visible: true,
             style: TrayIconStyle::Percent,
+            stale: false,
         };
 
         assert_eq!(state.snapshot(TrayService::Claude), None);
@@ -666,12 +679,21 @@ mod tests {
             percentage: Some(42),
             visible: true,
             style: TrayIconStyle::Percent,
+            stale: false,
         };
 
         state.set_snapshot(TrayService::Claude, snapshot);
 
         assert!(state.should_skip_update(TrayService::Claude, snapshot, false));
         assert!(!state.should_skip_update(TrayService::Claude, snapshot, true));
+        assert!(!state.should_skip_update(
+            TrayService::Claude,
+            TraySnapshot {
+                stale: true,
+                ..snapshot
+            },
+            false
+        ));
     }
 
     #[test]
