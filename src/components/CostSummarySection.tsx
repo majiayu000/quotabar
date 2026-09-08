@@ -109,6 +109,30 @@ function formatCostNote(range: CostRangeSummary | null): string {
   return `${formatCompactNumber(range.tokens.totalTokens)} tokens`;
 }
 
+export function formatCostCompleteness(overview: CostOverview): string {
+  const skipped = overview.ranges.reduce((total, range) => total + (range.skippedEntries ?? 0), 0);
+  const parseErrors = overview.ranges.reduce((total, range) => total + (range.parseErrorEntries ?? 0), 0);
+  const parts: string[] = [];
+  if (skipped > 0) parts.push(`${skipped} skipped`);
+  if (parseErrors > 0) parts.push(`${parseErrors} parse errors`);
+  const kinds = new Set(
+    overview.ranges
+      .map((range) => range.costKind)
+      .filter((kind): kind is string => Boolean(kind) && kind !== 'real' && kind !== 'none'),
+  );
+  if (kinds.has('mixed') || kinds.size > 1) parts.push('mixed');
+  else if (kinds.has('estimated_proxy')) parts.push('estimated');
+  else if (kinds.size === 1) parts.push([...kinds][0].split('_').join(' '));
+  return parts.join(' · ');
+}
+
+function mergeCostKinds(kinds: string[]): string {
+  const unique = [...new Set(kinds.filter(Boolean))];
+  if (unique.length === 0) return 'none';
+  if (unique.length === 1) return unique[0];
+  return 'mixed';
+}
+
 function pickPrimaryRange(overview: CostOverview | null): CostRangeSummary | null {
   if (!overview) return null;
   return (
@@ -195,6 +219,10 @@ export function mergeCostOverviews(overviews: CostOverview[]): CostOverview {
       models: Array.from(modelMap.values()).sort((left, right) => (right.costUsd ?? right.cost ?? 0) - (left.costUsd ?? left.cost ?? 0)),
       validEntries: matching.reduce((total, range) => total + range.validEntries, 0),
       skippedEntries: matching.reduce((total, range) => total + range.skippedEntries, 0),
+      parseErrorEntries: matching.reduce((total, range) => total + (range.parseErrorEntries ?? 0), 0),
+      costKind: mergeCostKinds(matching.map((range) => range.costKind)),
+      estimatedCost: sumNullable(matching.map((range) => range.estimatedCost)),
+      estimatedCostUsd: sumNullable(matching.map((range) => range.estimatedCostUsd)),
       elapsedMs: matching.reduce((total, range) => total + range.elapsedMs, 0),
     };
   });
@@ -484,7 +512,11 @@ export default function CostSummarySection({
 
           <div className="cost-footer">
             <span>{primaryRange?.label ?? overview.displayName}</span>
-            <span>{formatUpdatedAt(overview.generatedAt)}</span>
+            <span>
+              {[formatCostCompleteness(overview), formatUpdatedAt(overview.generatedAt)]
+                .filter((part) => part.length > 0)
+                .join(' · ')}
+            </span>
           </div>
 
           {error && <div className="cost-inline-error compact">{error}</div>}
