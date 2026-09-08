@@ -38,8 +38,13 @@ export function sliceSparkDays(days: CostDailyPoint[], range: SparkRange): CostD
   return range === '7d' ? days.slice(-7) : days.slice(-30);
 }
 
-export function sumDailyCost(days: CostDailyPoint[]): number {
-  return days.reduce((total, day) => total + (day.costUsd ?? day.cost ?? 0), 0);
+export function dayCost(day: Pick<CostDailyPoint, 'cost' | 'costUsd'>): number | null {
+  const value = day.costUsd ?? day.cost;
+  return value == null || !Number.isFinite(value) ? null : value;
+}
+
+export function sumDailyCost(days: CostDailyPoint[]): number | null {
+  return sumNullable(days.map((day) => dayCost(day)));
 }
 
 export function startCostSummaryAutoRefresh(
@@ -366,7 +371,8 @@ export default function CostSummarySection({
               {showTrend && daily && daily.length > 0 ? (
                 (() => {
                   const sparkDays = sliceSparkDays(daily, sparkRange);
-                  const maxCost = Math.max(...sparkDays.map((day) => day.costUsd ?? day.cost ?? 0), 0);
+                  const knownCosts = sparkDays.map((day) => dayCost(day)).filter((value): value is number => value != null);
+                  const maxCost = knownCosts.length > 0 ? Math.max(...knownCosts) : 0;
                   const focusedIndex = focusedDay
                     ? sparkDays.findIndex((day) => day.date === focusedDay.date)
                     : -1;
@@ -377,7 +383,7 @@ export default function CostSummarySection({
                   const inspectedDay = inspectedIndex >= 0 ? sparkDays[inspectedIndex] : null;
                   const activeIndex = inspectedIndex >= 0 ? inspectedIndex : sparkDays.length - 1;
                   const activeDay = sparkDays[activeIndex];
-                  const activeValue = activeDay?.costUsd ?? activeDay?.cost ?? 0;
+                  const activeValue = activeDay ? dayCost(activeDay) : null;
                   const focusDay = (index: number) => {
                     const day = sparkDays[index];
                     if (day) setFocusedDay(day);
@@ -392,7 +398,7 @@ export default function CostSummarySection({
                         aria-valuemin={1}
                         aria-valuemax={sparkDays.length}
                         aria-valuenow={activeIndex + 1}
-                        aria-valuetext={`${activeDay.date}: ${formatMoney(activeValue, primaryRange.currency)}`}
+                        aria-valuetext={activeDay ? `${activeDay.date}: ${formatMoney(activeValue, primaryRange.currency)}` : 'n/a'}
                         onFocus={() => focusDay(activeIndex)}
                         onBlur={() => setFocusedDay(null)}
                         onMouseLeave={() => setHoveredDay(null)}
@@ -410,20 +416,27 @@ export default function CostSummarySection({
                         }}
                       >
                         {sparkDays.map((day, index) => {
-                          const value = day.costUsd ?? day.cost ?? 0;
-                          const height = maxCost > 0 ? Math.max(8, (value / maxCost) * 100) : 8;
+                          const value = dayCost(day);
+                          const isGap = value == null;
+                          const height = isGap
+                            ? 0
+                            : maxCost > 0
+                              ? Math.max(8, (value / maxCost) * 100)
+                              : 8;
                           const isHovered = inspectedDay?.date === day.date;
                           return (
                             <span
-                              className={`spark-bar-hit ${isHovered ? 'hovered' : ''}`}
+                              className={`spark-bar-hit${isHovered ? ' hovered' : ''}${isGap ? ' gap' : ''}`}
                               key={day.date}
                               onMouseEnter={() => setHoveredDay(day)}
                               aria-hidden="true"
                             >
-                              <span
-                                className={`spark-bar ${index === sparkDays.length - 1 ? 'latest' : ''} ${isHovered ? 'hovered' : ''}`}
-                                style={{ height: `${height}%` }}
-                              />
+                              {isGap ? null : (
+                                <span
+                                  className={`spark-bar ${index === sparkDays.length - 1 ? 'latest' : ''} ${isHovered ? 'hovered' : ''}`}
+                                  style={{ height: `${height}%` }}
+                                />
+                              )}
                             </span>
                           );
                         })}
@@ -431,7 +444,7 @@ export default function CostSummarySection({
                       <div className="cost-footer">
                         <span className={inspectedDay ? 'spark-hover-label' : undefined}>
                           {inspectedDay
-                            ? `${inspectedDay.date} · ${formatMoney(inspectedDay.costUsd ?? inspectedDay.cost ?? 0, primaryRange.currency)}`
+                            ? `${inspectedDay.date} · ${formatMoney(dayCost(inspectedDay), primaryRange.currency)}`
                             : `${sparkRange === '7d' ? 'Past 7 days' : 'Past 30 days'} · ${formatMoney(sumDailyCost(sparkDays), primaryRange.currency)}`}
                         </span>
                         <span className="spark-range-chips">
