@@ -57,7 +57,10 @@ describe('panel shell UI', () => {
     expect(html).not.toContain('tabindex="-1"');
     expect(html).toContain('provider-card-label">Claude');
     expect(html).toContain('provider-card-label">Codex');
-    expect(html).toContain('48%');
+    expect(html).toContain('48% used');
+    expect(html).toContain('1 connected');
+    const overview = html.slice(html.indexOf('data-provider="all"'), html.indexOf('</button>'));
+    expect(overview).not.toContain('48%');
   });
 
   it('hides the provider dashboard action and keeps passive timestamps quiet', () => {

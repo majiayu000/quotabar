@@ -47,6 +47,7 @@ import {
   buildProviderSummaries,
   isProviderTab,
   sortMostConstrained,
+  summaryUsageLabel,
   sortUpcomingResets,
   type AppViewName,
   type QuotaWindowSummary,
@@ -689,16 +690,17 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
     claude: claudeLoading,
   };
   const { footerStatus, footerStatusTitle } = useFooterStatus(windowVisible, activeLoading, activeView === 'all' ? null : refreshStatus[activeProvider].lastSuccessAt, activeView !== 'all' && refreshStatus[activeProvider].failed);
-  const providerSummaries = buildProviderSummaries(tabConnected, serviceLoading, serviceUsage, providerReads).map((summary) => ({
-    ...summary, ...refreshStatus[summary.id],
-  }));
-  const switcherSummaries = providerSummaries.filter((summary) => switcherVisibility[summary.id]);
   const allQuotaWindows = [
     ...buildClaudeQuotaWindows(quota),
     ...providerQuotaWindows.codex,
     ...providerQuotaWindows.cursor,
     ...providerQuotaWindows.grok,
   ];
+  const providerSummaries = buildProviderSummaries(tabConnected, serviceLoading, serviceUsage, providerReads).map((summary) => ({
+    ...summary, ...refreshStatus[summary.id],
+    usageLabel: summaryUsageLabel(summary.id, allQuotaWindows, summary.usedPercent),
+  }));
+  const switcherSummaries = providerSummaries.filter((summary) => switcherVisibility[summary.id]);
   const mostConstrained = sortMostConstrained(allQuotaWindows).slice(0, 4);
   const upcomingResets = sortUpcomingResets(allQuotaWindows).slice(0, 5);
   const providerViewActive = isProviderTab(activeView);

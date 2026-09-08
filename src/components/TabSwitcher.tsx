@@ -14,6 +14,9 @@ export default function TabSwitcher({
   onTabChange,
   summaries,
 }: TabSwitcherProps) {
+  const connectedCount = summaries.filter((summary) => summary.connected).length;
+  const attentionCount = summaries.filter((summary) => summary.failed || (summary.usedPercent ?? 0) >= 80).length;
+  const overviewStatus = `${connectedCount} connected${attentionCount ? ` · ${attentionCount} need attention` : ''}`;
   return (
     <nav className="provider-grid" aria-label="Provider views">
       {[
@@ -23,18 +26,16 @@ export default function TabSwitcher({
           shortLabel: 'All',
           accent: '#0A84FF',
           connected: summaries.some((summary) => summary.connected),
-          usedPercent: summaries.reduce<number | null>((max, summary) => {
-            if (summary.usedPercent == null) return max;
-            return max == null ? summary.usedPercent : Math.max(max, summary.usedPercent);
-          }, null),
+          usedPercent: null,
+          usageLabel: undefined,
+          failed: false,
+          statusText: overviewStatus,
         },
         ...summaries,
       ].map((summary) => {
         const isActive = activeTab === summary.id;
-        const usageLabel = summary.usedPercent == null ? '—' : `${Math.round(summary.usedPercent)}%`;
-        const statusText = 'statusText' in summary
-          ? summary.statusText
-          : summary.connected ? 'Providers connected' : 'No providers connected';
+        const usageLabel = summary.id === 'all' ? `${connectedCount} connected` : summary.usedPercent == null ? '—' : `${Math.round(summary.usedPercent)}% used`;
+        const statusText = [summary.failed ? 'Stale or unavailable' : summary.statusText, summary.usageLabel].filter(Boolean).join(' · ');
 
         return (
           <button
@@ -61,6 +62,7 @@ export default function TabSwitcher({
             </span>
             <span className="provider-card-label">{summary.shortLabel}</span>
             <span className="provider-card-percent">{usageLabel}</span>
+            <span className="provider-card-window">{summary.id === 'all' ? attentionCount ? `${attentionCount} need attention` : 'Services' : summary.failed ? 'Check connection' : summary.usageLabel ?? 'Quota window unavailable'}</span>
           </button>
         );
       })}

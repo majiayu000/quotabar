@@ -24,6 +24,7 @@ export interface ProviderSummary {
   loading: boolean;
   usedPercent: number | null;
   statusText: string;
+  usageLabel?: string;
   lastSuccessAt?: number | null;
   failed?: boolean;
 }
@@ -206,6 +207,17 @@ export function buildGrokQuotaWindows(grokData: GrokData | null): QuotaWindowSum
     });
   }
   return windows;
+}
+
+export function summaryUsageLabel(service: TrayServiceName, windows: QuotaWindowSummary[], usedPercent: number | null): string | undefined {
+  const matching = windows.filter((window) => window.provider === service && window.usedPercent === usedPercent);
+  if (service === 'claude') {
+    return (matching.find((window) => window.label === '7-day usage')
+      ?? matching.find((window) => window.label !== '5-hour usage')
+      ?? matching[0])?.label;
+  }
+  if (service === 'codex') return matching[matching.length - 1]?.label;
+  return matching[0]?.label;
 }
 
 export function sortMostConstrained(windows: QuotaWindowSummary[]): QuotaWindowSummary[] {

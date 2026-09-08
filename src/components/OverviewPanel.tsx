@@ -479,7 +479,7 @@ export default function OverviewPanel({
             >
               <div className="quota-header">
                 <span className="quota-label">{`${window.providerLabel} · ${window.label}`}</span>
-                <span className="quota-value">{Math.round(window.usedPercent)}%</span>
+                <span className="quota-value">{Math.round(window.usedPercent)}% used</span>
               </div>
               <div
                 className="progress-bar"

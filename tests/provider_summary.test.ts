@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import {
   buildProviderSummaries,
+  summaryUsageLabel,
   buildClaudeQuotaWindows,
   buildCursorQuotaWindows,
   buildGrokQuotaWindows,
@@ -126,5 +127,22 @@ describe('provider summary helpers', () => {
     expect(windows[0].usedPercent).toBe(42);
     expect(windows[1].usedPercent).toBe(6);
     expect(buildGrokQuotaWindows({ connected: true, products: [] })).toEqual([]);
+  });
+});
+
+describe('summary window labels', () => {
+  test('labels the same window as the tray including fallback cases', () => {
+    const windows = buildClaudeQuotaWindows({ connected: true,
+      session: { used: 50, limit: 100, percentage: 50 },
+      weeklyTotal: { used: 50, limit: 100, percentage: 50 },
+    });
+    expect(summaryUsageLabel('claude', windows, 50)).toBe('7-day usage');
+    expect(summaryUsageLabel('claude', windows.slice(0, 1), 50)).toBe('5-hour usage');
+    expect(summaryUsageLabel('cursor', buildCursorQuotaWindows({ connected: true, autoPercent: 20, apiPercent: 95 }), 20)).toBe('Cursor Models');
+    expect(summaryUsageLabel('codex', [
+      { provider: 'codex', providerLabel: 'Codex', label: '5h', usedPercent: 10 },
+      { provider: 'codex', providerLabel: 'Codex', label: 'Weekly', usedPercent: 10 },
+    ], 10)).toBe('Weekly');
+    expect(summaryUsageLabel('grok', [], null)).toBeUndefined();
   });
 });

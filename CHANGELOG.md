@@ -4,6 +4,8 @@ All notable QuotaBar changes should be summarized here before a release is cut.
 
 ## Unreleased
 
+- Replace the misleading All percentage with connection counts and label each provider percentage with its quota window.
+
 - Track successful quota refreshes per service; failed refreshes no longer advance the displayed timestamp.
 
 - Start new installs on Overview with service detection, login instructions, and connection checks.
