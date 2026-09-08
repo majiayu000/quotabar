@@ -106,8 +106,8 @@ export const backend = {
     return invokeBackend<CodexWeeklyQuotaData>('get_codex_weekly_quota');
   },
 
-  getCursorInfo() {
-    return invokeBackend<CursorData>('get_cursor_info');
+  getCursorInfo(manual = false) {
+    return invokeBackend<CursorData>('get_cursor_info', { manual });
   },
 
   getAntigravityInfo() {

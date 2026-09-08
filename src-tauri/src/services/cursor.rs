@@ -205,6 +205,14 @@ fn get_cached_cursor() -> Option<CursorData> {
     }
 }
 
+fn cached_cursor_for_fetch(manual: bool) -> Option<CursorData> {
+    if manual {
+        None
+    } else {
+        get_cached_cursor()
+    }
+}
+
 /// Return last cached value regardless of TTL, but only if it represents a
 /// successful connection. Used to absorb transient OS errors without flashing
 /// the UI.
@@ -260,8 +268,8 @@ fn save_cursor_cache(data: &CursorData) {
     }
 }
 
-pub async fn fetch_cursor_info() -> CursorData {
-    if let Some(cached) = get_cached_cursor() {
+pub async fn fetch_cursor_info(manual: bool) -> CursorData {
+    if let Some(cached) = cached_cursor_for_fetch(manual) {
         return cached;
     }
 
@@ -678,6 +686,23 @@ mod tests {
         }));
         assert!(connected.connected);
         assert!(should_persist_cursor_cache(&connected));
+    }
+
+    #[test]
+    fn manual_refresh_skips_fresh_success_cache() {
+        let connected = parse_cursor_payload(&serde_json::json!({
+            "membershipType": "pro",
+            "individualUsage": {
+                "plan": { "totalPercentUsed": 12.0 }
+            }
+        }));
+        save_cursor_cache(&connected);
+        assert!(get_cached_cursor().is_some());
+        assert!(cached_cursor_for_fetch(false).is_some());
+        assert!(cached_cursor_for_fetch(true).is_none());
+        if let Ok(mut guard) = cursor_cache().lock() {
+            *guard = None;
+        }
     }
 
     #[test]
