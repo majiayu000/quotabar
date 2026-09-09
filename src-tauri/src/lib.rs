@@ -86,7 +86,7 @@ pub fn run() {
         .run(|app, event| {
             #[cfg(target_os = "macos")]
             if let tauri::RunEvent::Reopen { .. } = event {
-                if let Err(error) = services::window::show_workspace(app) {
+                if let Err(error) = services::window::open_quota_popover(app.clone()) {
                     eprintln!("Failed to reopen QuotaBar: {error}");
                 }
             }

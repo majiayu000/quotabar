@@ -13,7 +13,7 @@ Website: https://majiayu000.github.io/quotabar/
 
 ## Features
 
-- Overview: remaining quota and per-service freshness, with optional usage details. The overview count is connected services, not an aggregate quota percentage.
+- Overview: remaining quota and per-service freshness, with optional usage details.
 - High-usage tips explain remaining quota and reset timing; stale data does not produce usage advice.
 - Provider switcher: overview plus full-name cards for Claude, Codex, Cursor, Grok, and Antigravity.
 - Claude quota: 5-hour, 7-day, Opus, Sonnet, and Claude Design windows.
@@ -97,10 +97,10 @@ This `v0.4.0` screenshot was refreshed on 2026-08-31 from the production React U
 
 ## Development
 
-QuotaBar opens a resizable desktop workspace with Overview, Quota, Usage,
-History, Sources, and Settings. The original provider tray panels remain
-available independently. Closing the workspace keeps tray monitoring running;
-Quit exits the application.
+QuotaBar starts as a menu bar app. Click a tray icon for the quota popover.
+A resizable desktop workspace (Overview, Quota, Usage, History, Sources, and
+Settings) is optional: open it from the tray menu. It does not open on launch. Closing the workspace keeps tray
+monitoring running; Quit exits the application.
 
 Local analytics use one filtered ccstats report for summaries, projects,
 sessions, daily/hourly history, activity, and period comparisons. Missing source

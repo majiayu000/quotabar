@@ -1,5 +1,5 @@
 .app {
-  --pop: rgba(248, 248, 252, 0.94);
+  --pop: rgba(248, 248, 252, 0.68);
   --card: rgba(255, 255, 255, 0.5);
   --text: #1d1d1f;
   --sub: rgba(60, 60, 67, 0.75);
@@ -86,61 +86,56 @@
   min-height: 128px;
   padding: 0 3px 0 0;
   overflow-y: auto;
-  /* Keep scrolling available without visible scrollbar chrome. */
+  /* Keep a slim scrollbar visible so it is obvious more content follows. */
   scrollbar-width: thin;
-  scrollbar-color: transparent transparent;
+  scrollbar-color: color-mix(in srgb, var(--sub) 55%, transparent) transparent;
 }
 
 .panel-scroll::-webkit-scrollbar {
   width: 5px;
 }
 
-.panel-scroll::-webkit-scrollbar-track,
-.provider-grid::-webkit-scrollbar-track {
+.panel-scroll::-webkit-scrollbar-track {
   background: transparent;
 }
 
-.panel-scroll::-webkit-scrollbar-thumb,
-.provider-grid::-webkit-scrollbar-thumb {
+.panel-scroll::-webkit-scrollbar-thumb {
   border-radius: 2.5px;
-  background: transparent;
+  background: color-mix(in srgb, var(--sub) 45%, transparent);
 }
 
 .panel-scroll::-webkit-scrollbar-thumb:hover {
-  background: transparent;
+  background: color-mix(in srgb, var(--sub) 70%, transparent);
 }
 
 .settings-scroll {
   min-height: 128px;
 }
 
-.provider-grid {
+.app .provider-grid {
   display: grid;
   grid-template-columns: none;
   grid-auto-flow: column;
-  grid-auto-columns: minmax(max-content, 1fr);
-  overflow-x: auto;
-  scrollbar-width: thin;
-  scrollbar-color: transparent transparent;
+  grid-auto-columns: minmax(0, 1fr);
   gap: 2px;
-  padding: 2px;
+  padding: 3px;
   border: 0;
   border-radius: 12px;
   background: var(--track);
   box-shadow: none;
 }
 
-.provider-card {
+.app .provider-card {
   min-width: 0;
   min-height: 0;
   display: flex;
   flex-direction: row;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: center;
   column-gap: 4px;
-  row-gap: 2px;
-  padding: 7px 4px;
+  row-gap: 1px;
+  padding: 6px 3px 5px;
   border: 0;
   border-radius: 9px;
   background: transparent;
@@ -150,16 +145,17 @@
   cursor: pointer;
   font: inherit;
   text-align: center;
+  white-space: normal;
   transition: background 0.14s ease, box-shadow 0.14s ease, opacity 0.14s ease;
 }
 
-.provider-card:hover {
+.app .provider-card:hover {
   transform: none;
   background: var(--hover);
   box-shadow: none;
 }
 
-.provider-card.active {
+.app .provider-card.active {
   opacity: 1;
   background: var(--seg);
   box-shadow:
@@ -174,12 +170,12 @@
 
 .provider-card-topline {
   position: relative;
-  flex: 0 0 16px;
+  flex: 0 0 18px;
 }
 
 .provider-card-icon {
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -210,15 +206,45 @@
   display: block;
 }
 
-.provider-card-label {
+.provider-card-status {
+  position: absolute;
+  right: -2px;
+  bottom: -1px;
+  width: 5px;
+  height: 5px;
+  border: 1.5px solid var(--track);
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--sub) 70%, transparent);
+}
+
+.provider-card.connected .provider-card-status {
+  background: var(--target-green);
+}
+
+.provider-card.active .provider-card-status {
+  border-color: var(--seg);
+}
+
+.app .provider-card-label {
+  flex: 0 1 auto;
   min-width: 0;
   overflow: hidden;
   color: var(--text);
-  text-overflow: ellipsis;
+  text-overflow: clip;
   white-space: nowrap;
-  font-size: 12px;
-  line-height: 16px;
+  font-size: 11px;
+  line-height: 13px;
   font-weight: 600;
+}
+
+.app .provider-card-percent {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--text);
+  font-size: 13px;
+  line-height: 15px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
 }
 
 .app button:focus-visible,
@@ -228,7 +254,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .provider-card {
+  .app .provider-card {
     transition: none;
   }
 }
@@ -236,10 +262,3 @@
 .theme-dark.app::before,
 .theme-claude-dark.app::before,
 .theme-minimal-dark.app::before { opacity: 0.12; }
-
-/* The popover is a compact quota view; account details live in the workspace. */
-.app[data-surface="tray"] .provider-detail-header[data-tone="online"],
-.app[data-surface="tray"] .provider-detail-meta,
-.app[data-surface="tray"] .codex-updated,
-.app[data-surface="tray"] .account-strip,
-.app[data-surface="tray"] .quota-card:has(.email) { display: none; }

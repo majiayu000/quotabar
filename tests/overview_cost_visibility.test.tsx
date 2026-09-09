@@ -5,7 +5,6 @@ import OverviewPanel, { AnalysisApp, AnalysisSessionName, analysisCostLabel } fr
 import { backend, type AnalysisReport, type AnalysisSession } from '../src/services/backend';
 import type { CostDailySeries, CostOverview } from '../src/types/models';
 import ActionButtons from '../src/components/ActionButtons';
-import { TAB_STORAGE_KEY } from '../src/services/app_state';
 
 const overview: CostOverview = {
   source: 'claude',
@@ -153,14 +152,14 @@ describe('Analysis window', () => {
     expect(renderer.root.findByType('h1').children).toEqual(['安心开工，额度一目了然。']);
     await act(async () => renderer.unmount());
   });
-  it('opens analysis with the selected tray source and reports launch failures', async () => {
-    localStorage.setItem(TAB_STORAGE_KEY, 'codex');
-    const open = vi.spyOn(backend, 'openAnalysis').mockRejectedValue(new Error('Window unavailable'));
+  it('keeps the tray footer on Refresh and Dashboard without a usage-analysis launch row', async () => {
     let renderer!: ReactTestRenderer;
     await act(async () => { renderer = create(createElement(ActionButtons, { onRefresh: vi.fn(), onDashboard: vi.fn(), onSettings: vi.fn(), onQuit: vi.fn(), loading: false })); });
-    await act(async () => renderer.root.findByProps({ className: 'analysis-launch' }).props.onClick());
-    expect(open).toHaveBeenCalledWith('codex');
-    expect(renderer.root.findByProps({ role: 'alert' }).children.join('')).toContain('Window unavailable');
+    const html = JSON.stringify(renderer.toJSON());
+    expect(html).toContain('Dashboard');
+    expect(html).not.toContain('用量分析');
+    expect(html).not.toContain('Usage analysis');
+    expect(renderer.root.findAllByProps({ className: 'analysis-launch' })).toHaveLength(0);
     await act(async () => renderer.unmount());
   });
   it('distinguishes reference prices, lower bounds and unknown costs without rounding tiny usage to zero', () => {

@@ -28,7 +28,7 @@ const SESSION_WINDOW_MINUTES = 5 * 60;
 
 function formatClaudeResetTime(resetTime?: string): string {
   return formatResetTime(resetTime, {
-    emptyLabel: '',
+    emptyLabel: 'N/A',
     expiredLabel: 'Soon',
     showZeroHours: true,
   });
@@ -111,6 +111,7 @@ export default function ClaudePanel({
                   label="All models"
                   percentage={Math.round(quota.weeklyTotal.percentage)}
                   resetsIn={formatClaudeResetTime(quota.weeklyTotal.resetTime)}
+                  featured
                 />
               )}
 

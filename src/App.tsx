@@ -46,7 +46,7 @@ import {
   buildClaudeQuotaWindows,
   buildProviderSummaries,
   isProviderTab,
-  pickMostConstrainedPerProvider,
+  sortMostConstrained,
   summaryUsageLabel,
   sortUpcomingResets,
   type AppViewName,
@@ -710,14 +710,13 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
     usageLabel: summaryUsageLabel(summary.id, allQuotaWindows, summary.usedPercent),
   }));
   const switcherSummaries = providerSummaries.filter((summary) => switcherVisibility[summary.id]);
-  const mostConstrained = pickMostConstrainedPerProvider(allQuotaWindows, 4);
+  const mostConstrained = sortMostConstrained(allQuotaWindows).slice(0, 4);
   const upcomingResets = sortUpcomingResets(allQuotaWindows).slice(0, 5);
   const providerViewActive = isProviderTab(activeView);
-  const visiblePanelSections = workspace ? panelSections : { timeline: false, cost: false, trend: false, tips: false };
   const overviewCostRefreshKey = claudeCostRefreshNonce + refreshNonces.codex + refreshNonces.cursor;
 
   const content = (
-    <div className={`app theme-${theme}`} data-surface={workspace ? 'workspace' : 'tray'}>
+    <div className={`app theme-${theme}`}>
       {toast && <div className="toast">{toast}</div>}
       <div className="container" ref={containerRef}>
         {activeView === 'settings' ? (
@@ -754,7 +753,6 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
                 activeTab={activeTab}
                 onTabChange={handleTabChange}
                 summaries={switcherSummaries}
-                allSummaries={providerSummaries}
               />
             </div>
 
@@ -769,7 +767,7 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
                   windowVisible={windowVisible}
                   costRefreshKey={claudeCostRefreshNonce}
                   onRetry={handleRefresh}
-                  sections={visiblePanelSections}
+                  sections={panelSections}
                 />
               )}
 
@@ -783,7 +781,7 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
                   manualRefreshNonce={refreshNonces.codex}
                   autoRefreshIntervalMs={workspace ? windowVisible ? AUTO_REFRESH_INTERVAL_MS : 0 : providerRefreshIntervalMs(windowVisible, trayEnabled.codex)}
                   showCostSummary={windowVisible && activeView === 'codex'}
-                  sections={visiblePanelSections}
+                  sections={panelSections}
                   onBonusExpiring={workspace ? undefined : handleBonusExpiring}
                   onBonusReadyChange={workspace ? undefined : handleBonusReadyChange}
                   onOpenDashboard={handleOpenDashboard}
@@ -800,7 +798,7 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
                   manualRefreshNonce={refreshNonces.cursor}
                   autoRefreshIntervalMs={workspace ? windowVisible ? AUTO_REFRESH_INTERVAL_MS : 0 : providerRefreshIntervalMs(windowVisible, trayEnabled.cursor)}
                   showCostSummary={windowVisible && activeView === 'cursor'}
-                  sections={visiblePanelSections}
+                  sections={panelSections}
                 />
               </div>
 
@@ -814,7 +812,7 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
                   onReadResult={readResultSetters.grok}
                   manualRefreshNonce={refreshNonces.grok}
                   autoRefreshIntervalMs={workspace ? windowVisible ? AUTO_REFRESH_INTERVAL_MS : 0 : providerRefreshIntervalMs(windowVisible, trayEnabled.grok)}
-                  sections={visiblePanelSections}
+                  sections={panelSections}
                 />
               </div>
 
@@ -835,7 +833,7 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
                   upcomingResets={upcomingResets}
                   costRefreshKey={overviewCostRefreshKey} showCostSummary={!workspace && windowVisible}
                   onProviderSelect={handleTabChange}
-                  sections={visiblePanelSections}
+                  sections={panelSections}
                 />
               )}
             </div>
@@ -846,7 +844,7 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
               onSettings={handleSettingsViewToggle}
               onQuit={handleQuit}
               loading={activeLoading}
-              statusText={activeLoading || activeView !== 'all' && providerReads[activeProvider].error ? footerStatus : undefined}
+              statusText={activeView === 'all' && !activeLoading ? 'Check freshness per service' : footerStatus}
               statusTitle={footerStatusTitle}
               showDashboard={providerViewActive}
             />

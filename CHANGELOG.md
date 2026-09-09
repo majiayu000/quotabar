@@ -4,8 +4,9 @@ All notable QuotaBar changes should be summarized here before a release is cut.
 
 ## Unreleased
 
-- Simplify the quota popover to provider navigation, usage, reset times, and necessary warnings. Remove Add service, redundant summaries and status dots; keep timeline and cost details in the main window, with transparent popover scrollbars.
-
+- Drop the Overview connection-count header so the tray opens on remaining quota.
+- Keep tray provider chips on one equal-width row, with the name fully visible and the percent on the line below.
+- Restore the pre-workspace tray popover: compact provider tiles with short labels and percents, no Add service or Usage analysis row, and English footer actions. The analysis workspace stays opt-in from the tray menu and does not open on launch.
 - Skip the 120s Grok success cache on Refresh so a manual recheck hits the network.
 - Label Grok Full pool dollars as extrapolated from the Build share, not the pool gauge percent.
 - Keep last-good Grok usage across 429 and other non-auth HTTP errors instead of flashing disconnected.
@@ -30,8 +31,8 @@ All notable QuotaBar changes should be summarized here before a release is cut.
 - Label Overview local cost as Claude, Codex, and Cursor instead of All providers, and say Grok and Antigravity are not in that total.
 - Drive the Claude tray, switcher percent, and 80/95 alerts from the hottest quota window instead of `weeklyTotal`.
 - Explain remaining quota and reset timing in high-usage tips, distinguish imminent resets, and suppress advice from stale data.
-- Keep provider labels readable and clarify that API-price estimates are not actual bills.
-- Automatically show detected services until users choose their own panel visibility; keep disconnected services reachable and show setup guidance when no services are connected.
+- Enlarge provider labels, wrap navigation and freshness text, lead Overview with remaining quota, and collapse secondary usage details. Clarify API-price estimates are not actual bills.
+- Automatically show detected services until users choose their own panel visibility; keep disconnected services reachable and add a setup shortcut.
 - Replace the misleading All percentage with connection counts and label each provider percentage with its quota window.
 - Track successful quota refreshes per service; failed refreshes no longer advance the displayed timestamp.
 - Start new installs on Overview with service detection, login instructions, and connection checks.

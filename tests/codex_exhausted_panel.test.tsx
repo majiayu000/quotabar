@@ -142,8 +142,7 @@ describe('Codex exhausted panel', () => {
     });
     const text = rendered_text(renderer);
 
-    expect(text).not.toContain('provider-detail-header');
-    expect(renderer.root.findAllByProps({ role: 'progressbar' }).some(bar => bar.props['aria-valuenow'] === 40)).toBe(true);
+    expect(text).toContain('Connected');
     expect(text).not.toContain('Weekly exhausted');
     expect(text).toContain('Local estimate');
     expect(text).not.toContain('Last estimate');

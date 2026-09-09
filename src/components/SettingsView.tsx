@@ -281,8 +281,8 @@ export default function SettingsView({
         <div className="settings-group-header">
           <span className="settings-group-index">03</span>
           <div>
-            <h2 id="settings-sections-title">{text('Detail sections', '详细信息区块')}</h2>
-            <p>{text('Shown in the main window. The popover stays focused on quota.', '用于主窗口账户详情；菜单栏弹窗只显示额度与必要提示。')}</p>
+            <h2 id="settings-sections-title">{text('Panel content', '快捷面板内容')}</h2>
+            <p>{text('Show only the sections you use', '调整原有菜单栏面板中的信息区块。')}</p>
           </div>
         </div>
         {PANEL_SECTION_ORDER.map((key) => (

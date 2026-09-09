@@ -57,10 +57,11 @@ describe('panel shell UI', () => {
     expect(html).not.toContain('tabindex="-1"');
     expect(html).toContain('provider-card-label">Claude');
     expect(html).toContain('provider-card-label">Codex');
-    expect(html).toContain('48% used');
-    expect(html).toContain('1 connected');
-    const overview = html.slice(html.indexOf('data-provider="all"'), html.indexOf('</button>'));
-    expect(overview).not.toContain('48%');
+    expect(html).toContain('provider-card-label">All');
+    expect(html).toContain('provider-card-percent">48%');
+    expect(html).not.toContain('provider-card-percent">48% used');
+    expect(html).not.toContain('Add service');
+    expect(html).not.toContain('provider-card-window');
   });
 
   it('hides the provider dashboard action and keeps passive timestamps quiet', () => {
@@ -160,6 +161,14 @@ describe('panel shell UI', () => {
     expect(html).toContain('>Preview<');
     expect(html).toContain('>Launch at Login<');
     expect(html).toContain('aria-label="Launch at Login"');
+  });
+
+  it('keeps every provider chip on one row without truncating names onto the percent', () => {
+    const css = readFileSync(new URL('../src/redesign/shell.css', import.meta.url), 'utf8');
+    expect(css).toMatch(/\.app \.provider-grid \{[^}]*grid-auto-flow: column;/s);
+    expect(css).toMatch(/\.app \.provider-card-percent \{[^}]*flex-basis: 100%;/s);
+    expect(css).not.toMatch(/grid-template-columns:\s*repeat\(3/);
+    expect(css).not.toMatch(/text-overflow: ellipsis/);
   });
 
   it('keeps compact settings controls visually self-contained at panel width', () => {

@@ -1,4 +1,3 @@
-import { useEffect, useRef } from 'react';
 import type { AppTabName, ProviderSummary } from '../services/provider_summary';
 import ProviderIcon from './ProviderIcon';
 
@@ -8,24 +7,15 @@ interface TabSwitcherProps {
   activeTab: TabName;
   onTabChange: (tab: TabName) => void;
   summaries: ProviderSummary[];
-  allSummaries?: ProviderSummary[];
 }
 
 export default function TabSwitcher({
   activeTab,
   onTabChange,
   summaries,
-  allSummaries = summaries,
 }: TabSwitcherProps) {
-  const navigation = useRef<HTMLElement>(null);
-  useEffect(() => {
-    navigation.current?.querySelector('[aria-current="page"]')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
-  }, [activeTab, summaries.length]);
-  const connectedCount = allSummaries.filter((summary) => summary.connected).length;
-  const attentionCount = allSummaries.filter((summary) => (summary.failed && (summary.connected || summary.lastSuccessAt != null)) || (summary.usedPercent ?? 0) >= 80).length;
-  const overviewStatus = `${connectedCount} connected${attentionCount ? ` · ${attentionCount} need attention` : ''}`;
   return (
-    <nav ref={navigation} className="provider-grid" aria-label="Provider views">
+    <nav className="provider-grid" aria-label="Provider views">
       {[
         {
           id: 'all' as const,
@@ -33,16 +23,18 @@ export default function TabSwitcher({
           shortLabel: 'All',
           accent: '#0A84FF',
           connected: summaries.some((summary) => summary.connected),
-          usedPercent: null,
-          usageLabel: undefined,
-          failed: false,
-          statusText: overviewStatus,
+          usedPercent: summaries.reduce<number | null>((max, summary) => {
+            if (summary.usedPercent == null) return max;
+            return max == null ? summary.usedPercent : Math.max(max, summary.usedPercent);
+          }, null),
         },
         ...summaries,
       ].map((summary) => {
         const isActive = activeTab === summary.id;
-        const usageLabel = summary.id === 'all' ? `${connectedCount} connected` : summary.usedPercent == null ? '—' : `${Math.round(summary.usedPercent)}% used`;
-        const statusText = [summary.failed ? 'Stale or unavailable' : summary.statusText, summary.usageLabel].filter(Boolean).join(' · ');
+        const usageLabel = summary.usedPercent == null ? '—' : `${Math.round(summary.usedPercent)}%`;
+        const statusText = 'statusText' in summary
+          ? summary.statusText
+          : summary.connected ? 'Providers connected' : 'No providers connected';
 
         return (
           <button
@@ -51,8 +43,8 @@ export default function TabSwitcher({
             className={`provider-card ${isActive ? 'active' : ''} ${summary.connected ? 'connected' : 'disconnected'}`}
             data-provider={summary.id}
             aria-current={isActive ? 'page' : undefined}
-            aria-label={`${summary.label}: ${usageLabel} · ${statusText}`}
-            title={`${summary.label} · ${usageLabel} · ${statusText}`}
+            aria-label={`${summary.label}: ${statusText}`}
+            title={`${summary.label} · ${statusText}`}
             onClick={() => onTabChange(summary.id)}
           >
             <span className="provider-card-topline">
@@ -65,9 +57,10 @@ export default function TabSwitcher({
                 <ProviderIcon service={summary.id} className="provider-card-svg" />
               )}
               </span>
+              <span className="provider-card-status" aria-hidden="true" />
             </span>
             <span className="provider-card-label">{summary.shortLabel}</span>
-
+            <span className="provider-card-percent">{usageLabel}</span>
           </button>
         );
       })}

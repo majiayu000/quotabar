@@ -39,7 +39,7 @@
         "transparent": false,
         "alwaysOnTop": false,
         "backgroundThrottling": "disabled",
-        "visible": true,
+        "visible": false,
         "skipTaskbar": false,
         "label": "analysis",
         "url": "index.html"

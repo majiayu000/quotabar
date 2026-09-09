@@ -35,9 +35,10 @@ export default function ProviderDetailHeader({
     : null;
 
   return (
-    <div className="provider-detail-header" data-tone={tone}>
+    <div className="provider-detail-header">
       <div className="provider-detail-identity">
         <span className="provider-detail-name">{label ?? meta.label}</span>
+        <span className={`provider-detail-dot ${tone}`} aria-hidden="true" />
         <span className="provider-detail-state">{status === 'Connected' ? workspaceCopy(status, '已连接') : status === 'Offline' ? workspaceCopy(status, '未连接') : status}</span>
       </div>
       <span className="provider-detail-spacer" />

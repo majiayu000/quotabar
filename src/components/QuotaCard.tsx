@@ -5,6 +5,7 @@ interface QuotaCardProps {
   percentage: number;
   resetsIn: string;
   pace?: string | null;
+  featured?: boolean;
 }
 
 function getStatusColor(percentage: number): string {
@@ -13,11 +14,11 @@ function getStatusColor(percentage: number): string {
   return 'good';
 }
 
-export default function QuotaCard({ label, percentage, resetsIn, pace }: QuotaCardProps) {
+export default function QuotaCard({ label, percentage, resetsIn, pace, featured = false }: QuotaCardProps) {
   const status = getStatusColor(percentage);
 
   return (
-    <div className="quota-card">
+    <div className={`quota-card${featured ? ' featured' : ''}`}>
       <div className="quota-header">
         <span className="quota-label">{label}</span>
         <span className="quota-percentage">{percentage}% used</span>
@@ -39,7 +40,7 @@ export default function QuotaCard({ label, percentage, resetsIn, pace }: QuotaCa
       </div>
 
       <div className="quota-footer">
-        <span className="reset-text">{resetsIn ? `Resets in ${resetsIn}` : 'Reset time unavailable'}</span>
+        <span className="reset-text">Resets in {resetsIn}</span>
         <span className="reset-at-text" />
       </div>
 
