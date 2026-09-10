@@ -6,6 +6,7 @@ All notable QuotaBar changes should be summarized here before a release is cut.
 
 - Keep Hide Dock on the native preference across restarts instead of letting a missing webview cache turn the icon back on.
 - Tie cost-cache identity to the vendored ccstats version at build time so SDK bumps cannot reuse stale snapshots.
+- Show used quota percentages and matching progress bars in the tray overview instead of remaining quota.
 
 - Remove redundant summary headers from every provider detail panel while retaining quota details and error messages; rename 总览 to 额度用量 in tray and desktop navigation.
 

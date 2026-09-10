@@ -476,7 +476,7 @@ export default function OverviewPanel({
       </details>}
 
       <div className="section">
-        <div className="section-title overview-section-heading"><span>剩余额度</span><small>最紧张的窗口优先</small></div>
+        <div className="section-title overview-section-heading"><span>额度用量</span><small>用量最高的窗口优先</small></div>
         <div className="quota-group">
           {mostConstrained.length > 0 ? mostConstrained.map((window, index) => {
             const summary = summaries.find((item) => item.id === window.provider);
@@ -490,19 +490,18 @@ export default function OverviewPanel({
             >
               <div className="quota-header">
                 <span className="quota-label">{`${window.providerLabel} · ${window.label}`}</span>
-                <span className="quota-value">{Math.max(0, Math.round(100 - window.usedPercent))}% 剩余</span>
+                <span className="quota-value">{Math.round(window.usedPercent)}% 已用</span>
               </div>
-              <div className="quota-used-caption">{Math.round(window.usedPercent)}% 已用</div>
               <div
                 className="progress-bar"
                 role="progressbar"
-                aria-label={`${window.providerLabel} ${window.label} remaining`}
+                aria-label={`${window.providerLabel} ${window.label} usage`}
                 aria-valuemin={0}
                 aria-valuemax={100}
-                aria-valuenow={clampProgressValue(100 - window.usedPercent)}
-                aria-valuetext={`${Math.max(0, Math.round(100 - window.usedPercent))}% remaining`}
+                aria-valuenow={clampProgressValue(window.usedPercent)}
+                aria-valuetext={`${Math.round(window.usedPercent)}% 已用`}
               >
-                <div className="progress-fill" style={{ ...getProgressStyle(window.usedPercent), width: `${clampProgressValue(100 - window.usedPercent)}%` }} />
+                <div className="progress-fill" style={getProgressStyle(window.usedPercent)} />
               </div>
               {summary?.failed && <div className="error-context">Stale data · Refresh or check your connection</div>}
               <div className="overview-timing">
@@ -513,7 +512,7 @@ export default function OverviewPanel({
           ); }) : (
             <div className="no-data">{summaries.some((summary) => summary.loading)
               ? 'Checking your services…'
-              : 'Connect a service to see your remaining quota.'}</div>
+              : '连接服务以查看额度用量。'}</div>
           )}
         </div>
       </div>

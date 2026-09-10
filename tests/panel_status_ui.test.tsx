@@ -29,7 +29,7 @@ afterAll(() => {
 });
 
 describe('provider status UI', () => {
-  it('opens overview on remaining quota without a connection-count header', async () => {
+  it('shows used quota consistently in overview values and progress bars', async () => {
     let renderer!: ReactTestRenderer;
     await act(async () => {
       renderer = create(createElement(OverviewPanel, {
@@ -46,11 +46,13 @@ describe('provider status UI', () => {
     });
 
     const text = renderedText(renderer);
-    expect(text).toContain('剩余额度');
+    expect(text).toContain('额度用量');
+    expect(text).not.toContain('剩余');
+    expect(renderer.root.findByProps({ className: 'quota-value' }).children).toEqual(['82', '% 已用']);
     const progress = renderer.root.findByProps({ role: 'progressbar' });
-    expect(progress.props['aria-valuenow']).toBe(18);
-    expect(progress.props['aria-valuetext']).toBe('18% remaining');
-    expect(progress.findByProps({ className: 'progress-fill' }).props.style.width).toBe('18%');
+    expect(progress.props['aria-valuenow']).toBe(82);
+    expect(progress.props['aria-valuetext']).toBe('82% 已用');
+    expect(progress.findByProps({ className: 'progress-fill' }).props.style.width).toBe('82%');
     expect(text).toContain('Claude · 7-day usage');
     expect(text).not.toContain('Overview');
     expect(text).not.toContain('connected');
