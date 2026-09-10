@@ -7,13 +7,13 @@ interface Theme {
 }
 
 const themes: Theme[] = [
-  { id: 'light', name: 'Light', shortName: 'Light' },
-  { id: 'dark', name: 'Dark', shortName: 'Dark' },
+  { id: 'light', name: '浅色', shortName: '浅色' },
+  { id: 'dark', name: '深色', shortName: '深色' },
   { id: 'claude', name: 'Claude', shortName: 'Claude' },
-  { id: 'claude-dark', name: 'Claude Dark', shortName: 'C. Dark' },
-  { id: 'minimal', name: 'Minimal', shortName: 'Minimal' },
-  { id: 'minimal-dark', name: 'Minimal Dark', shortName: 'M. Dark' },
-  { id: 'ocean', name: 'Ocean', shortName: 'Ocean' },
+  { id: 'claude-dark', name: 'Claude Dark', shortName: 'Claude 深色' },
+  { id: 'minimal', name: '极简', shortName: '极简' },
+  { id: 'minimal-dark', name: 'Minimal Dark', shortName: '极简深色' },
+  { id: 'ocean', name: '海洋', shortName: '海洋' },
 ];
 
 interface ThemeSelectorProps {

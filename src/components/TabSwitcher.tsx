@@ -20,18 +20,16 @@ export default function TabSwitcher({
         {
           id: 'all' as const,
           label: 'Overview',
-          shortLabel: 'All',
+          shortLabel: '总览',
           accent: '#0A84FF',
           connected: summaries.some((summary) => summary.connected),
-          usedPercent: summaries.reduce<number | null>((max, summary) => {
-            if (summary.usedPercent == null) return max;
-            return max == null ? summary.usedPercent : Math.max(max, summary.usedPercent);
-          }, null),
+          usedPercent: null,
         },
         ...summaries,
       ].map((summary) => {
         const isActive = activeTab === summary.id;
-        const usageLabel = summary.usedPercent == null ? '—' : `${Math.round(summary.usedPercent)}%`;
+        const usageLabel = summary.id === 'all' ? '全部服务' : summary.usedPercent == null ? '—' : `${Math.round(summary.usedPercent)}%`;
+        const quotaLabel = summary.usedPercent == null ? usageLabel : `${usageLabel} 已用${'usageLabel' in summary && summary.usageLabel ? ` · ${summary.usageLabel}` : ''}`;
         const statusText = 'statusText' in summary
           ? summary.statusText
           : summary.connected ? 'Providers connected' : 'No providers connected';
@@ -43,8 +41,8 @@ export default function TabSwitcher({
             className={`provider-card ${isActive ? 'active' : ''} ${summary.connected ? 'connected' : 'disconnected'}`}
             data-provider={summary.id}
             aria-current={isActive ? 'page' : undefined}
-            aria-label={`${summary.label}: ${statusText}`}
-            title={`${summary.label} · ${statusText}`}
+            aria-label={`${summary.label}: ${quotaLabel} · ${statusText}`}
+            title={`${summary.label} · ${quotaLabel} · ${statusText}`}
             onClick={() => onTabChange(summary.id)}
           >
             <span className="provider-card-topline">
@@ -60,7 +58,6 @@ export default function TabSwitcher({
               <span className="provider-card-status" aria-hidden="true" />
             </span>
             <span className="provider-card-label">{summary.shortLabel}</span>
-            <span className="provider-card-percent">{usageLabel}</span>
           </button>
         );
       })}

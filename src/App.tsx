@@ -67,8 +67,6 @@ import {
   TRAY_FORCE_SYNC_INTERVAL_MS,
   TRAY_GUARD_MESSAGE,
   TRAY_GUARD_TOAST_MS,
-  TRAY_SERVICE_ACTIVATED_EVENT,
-  VALID_TABS,
   defaultServiceMap,
   getClaudeRefreshIntervalMs,
   getClaudeTrayUsedPercent,
@@ -88,7 +86,6 @@ import {
   type ServiceMap,
   type TrayEnabledState,
   type TrayIconRequest,
-  type TrayServiceActivatedPayload,
 } from './services/app_state';
 import {
   STORAGE_WRITE_FAILURE_MESSAGE,
@@ -101,6 +98,7 @@ export { subscribeStorageReadFailureToast } from './hooks/use_service_events';
 import { usePopoverWindow } from './hooks/use_popover_window';
 import { useLatestRequestGeneration } from './hooks/use_latest_request_generation';
 import { useFooterStatus } from './hooks/use_footer_status';
+import { useProviderNavigation } from './hooks/use_provider_navigation';
 
 // Re-exported for existing tests/importers.
 export {
@@ -574,38 +572,9 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
     setAndPersistTab(tab);
   }, [setAndPersistTab, savedSwitcherVisibility, switcherVisibility]);
 
-  useEffect(() => {
-    if (!hasTauriBackend() || workspace) return;
-    let unlisten: (() => void) | null = null;
-    let mounted = true;
-
-    listen<TrayServiceActivatedPayload>(TRAY_SERVICE_ACTIVATED_EVENT, (event) => {
-      const service = event.payload?.service;
-      if (service && VALID_TABS.has(service)) {
-        handleTabChange(service);
-      }
-    })
-      .then((stopListening) => {
-        if (mounted) {
-          unlisten = stopListening;
-          return;
-        }
-        stopListening();
-      })
-      .catch((error) => {
-        console.error('Failed to subscribe tray activation event:', error);
-      });
-
-    return () => {
-      mounted = false;
-      if (unlisten) {
-        unlisten();
-      }
-    };
-  }, [handleTabChange, workspace]);
-
-  const activeProvider = isProviderTab(activeView) ? activeView : lastProviderTab;
-  const activeTab: TabName = activeView === 'all' ? 'all' : activeProvider;
+  const { activeProvider, activeTab, handleOpenDashboard, handleSettingsViewToggle, handleCloseSettings, handleQuit } = useProviderNavigation(
+    activeView, lastProviderTab, handleTabChange, setActiveView, workspace, showTimedToast,
+  );
 
   const handleRefresh = useCallback(() => {
     if (activeView === 'all') {
@@ -632,50 +601,6 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
     if (provider === 'claude') { void fetchClaudeQuota(true); return; }
     setRefreshNonces((previous) => ({ ...previous, [provider]: previous[provider] + 1 }));
   }, [fetchClaudeQuota]);
-
-  const handleOpenDashboard = useCallback(async () => {
-    try {
-      switch (activeProvider) {
-        case 'claude':
-          await backend.openClaudeDashboard();
-          break;
-        case 'codex':
-          await backend.openCodexDashboard();
-          break;
-        case 'cursor':
-          await backend.openCursorDashboard();
-          break;
-        case 'grok':
-          await backend.openGrokDashboard();
-          break;
-        case 'antigravity':
-          await backend.openAntigravityDashboard();
-          break;
-      }
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to open dashboard';
-      showTimedToast(message);
-    }
-  }, [activeProvider, showTimedToast]);
-
-  const handleSettingsViewToggle = useCallback(() => {
-    const opening = activeView !== 'settings';
-    saveSettingsExpanded(opening);
-    setActiveView(opening ? 'settings' : getSavedTab());
-  }, [activeView]);
-
-  const handleCloseSettings = useCallback(() => {
-    saveSettingsExpanded(false);
-    setActiveView(getSavedTab());
-  }, []);
-
-  const handleQuit = async () => {
-    try {
-      await backend.quitApp();
-    } catch (err) {
-      console.error('Failed to quit:', err);
-    }
-  };
 
   const tabConnected: ServiceMap<boolean> = {
     claude: quota?.connected ?? false,
@@ -839,12 +764,13 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
             </div>
 
             <ActionButtons
+              onAnalysis={workspace ? undefined : () => { void backend.openAnalysis(activeTab).catch((error) => showTimedToast(`无法打开分析窗口：${String(error)}`)); }}
               onRefresh={handleRefresh}
               onDashboard={handleOpenDashboard}
               onSettings={handleSettingsViewToggle}
               onQuit={handleQuit}
               loading={activeLoading}
-              statusText={activeView === 'all' && !activeLoading ? 'Check freshness per service' : footerStatus}
+              statusText={activeView === 'all' && !activeLoading ? '各服务的读取时间见上方' : footerStatus}
               statusTitle={footerStatusTitle}
               showDashboard={providerViewActive}
             />

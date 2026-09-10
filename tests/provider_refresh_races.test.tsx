@@ -382,20 +382,20 @@ describe('Codex weekly pace', () => {
     expect(rendered_text(renderer)).not.toContain('Local pace:');
     expect(rendered_text(renderer)).not.toContain('Likely to exhaust');
     expect(rendered_text(renderer)).not.toContain('% at reset');
-    expect(rendered_text(renderer)).toContain('API-equivalent week');
+    expect(rendered_text(renderer)).toContain('每周 API 等价估算');
     expect(rendered_text(renderer)).toContain('$200.00');
     expect(rendered_text(renderer)).toContain('4M');
     expect(rendered_text(renderer)).toContain('tokens at current mix');
-    expect(rendered_text(renderer)).toContain('Local estimate');
-    expect(rendered_text(renderer)).toContain('Based on 40% used');
+    expect(rendered_text(renderer)).toContain('本地估算');
+    expect(rendered_text(renderer)).toContain('Based on 40% 已用');
     expect(renderer.root.findByProps({ className: 'weekly-value-amount' }).children.join('')).toBe('≈$200.00');
-    expect(rendered_text(renderer)).toContain('Standard API prices · Not a bill');
+    expect(rendered_text(renderer)).toContain('按标准 API 价格估算 · 不代表账单');
     expect(renderer.root.findByProps({ className: 'weekly-value-token-row' }).findByType('strong').children.join('')).toBe('≈4M');
     expect(rendered_text(renderer)).toContain('1.6M observed tokens');
     expect(rendered_text(renderer)).toContain('$80.00 local');
     expect(rendered_text(renderer)).toContain('Not an official allowance');
     expect(renderer.root.findByProps({
-      'aria-label': 'Estimate based on 40% used',
+      'aria-label': 'Estimate based on 40% 已用',
     })).toBeDefined();
     expect(rendered_text(renderer)).not.toContain('Estimated depletion');
     const weekly_value_card = renderer.root.findByProps({
@@ -433,7 +433,7 @@ describe('Codex weekly pace', () => {
       resetsAt: 1_787_961_600,
     });
 
-    expect(rendered_text(renderer)).toContain('API-equivalent week');
+    expect(rendered_text(renderer)).toContain('每周 API 等价估算');
     expect(rendered_text(renderer)).toContain('$200.00');
     expect(rendered_text(renderer)).not.toContain('Local pace:');
     await unmount(renderer);
@@ -490,8 +490,8 @@ describe('Codex weekly pace', () => {
       },
     });
 
-    expect(rendered_text(renderer)).not.toContain('API-equivalent week');
-    expect(rendered_text(renderer)).not.toContain('Last estimate');
+    expect(rendered_text(renderer)).not.toContain('每周 API 等价估算');
+    expect(rendered_text(renderer)).not.toContain('上次估算');
     expect(rendered_text(renderer)).not.toContain('Weekly value unavailable');
     await unmount(renderer);
   });
@@ -519,8 +519,8 @@ describe('Codex weekly pace', () => {
       },
     });
 
-    expect(rendered_text(renderer)).toContain('API-equivalent week');
-    expect(rendered_text(renderer)).toContain('Last estimate');
+    expect(rendered_text(renderer)).toContain('每周 API 等价估算');
+    expect(rendered_text(renderer)).toContain('上次估算');
     expect(rendered_text(renderer)).toContain('$200.00');
     expect(rendered_text(renderer)).not.toContain('Weekly value unavailable');
     expect(rendered_text(renderer)).toContain('Local extras paused');
@@ -718,12 +718,12 @@ describe('Grok period value', () => {
       },
     });
 
-    expect(rendered_text(renderer)).toContain('API-equivalent week');
+    expect(rendered_text(renderer)).toContain('每周 API 等价估算');
     expect(rendered_text(renderer)).toContain('$8.00');
     expect(rendered_text(renderer)).toContain('billed so far this period');
     expect(rendered_text(renderer)).toContain('Full pool');
     expect(rendered_text(renderer)).toContain('$200.00');
-    expect(rendered_text(renderer)).toContain('Local estimate');
+    expect(rendered_text(renderer)).toContain('本地估算');
     expect(rendered_text(renderer)).toContain('Projected from local Grok usage');
     await unmount(renderer);
   });
@@ -822,7 +822,7 @@ describe('Grok period value', () => {
       },
     });
 
-    expect(rendered_text(renderer)).toContain('API-equivalent period');
+    expect(rendered_text(renderer)).toContain('周期 API 等价估算');
     expect(rendered_text(renderer)).toContain('$8.00');
     expect(rendered_text(renderer)).not.toContain('does not match the official usage');
     await unmount(renderer);
@@ -847,7 +847,7 @@ describe('Grok period value', () => {
       },
     });
 
-    expect(rendered_text(renderer)).toContain('API-equivalent period');
+    expect(rendered_text(renderer)).toContain('周期 API 等价估算');
     expect(rendered_text(renderer)).toContain('$200.00');
     expect(rendered_text(renderer)).not.toContain('does not match the official period start');
     await unmount(renderer);

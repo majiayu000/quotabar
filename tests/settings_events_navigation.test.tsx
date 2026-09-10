@@ -61,9 +61,9 @@ describe('settings event navigation', () => {
     expect(html).toContain('Codex usage crossed 95%');
     expect(html).toContain('Failed to persist local setting.');
     expect((html.match(/event-text-link/g) ?? [])).toHaveLength(1);
-    expect(html).toContain('>Limits<');
-    expect(html).toContain('>Alerts<');
-    expect(html).toContain('>All<');
+    expect(html).toContain('>用量参考预算<');
+    expect(html).toContain('>提醒<');
+    expect(html).toContain('>全部<');
     expect(html).toContain('>Codex<');
   });
 });

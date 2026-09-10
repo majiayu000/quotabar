@@ -1,5 +1,6 @@
 interface ActionButtonsProps {
   onRefresh: () => void;
+  onAnalysis?: () => void;
   onDashboard: () => void;
   onSettings: () => void;
   onQuit: () => void;
@@ -12,6 +13,7 @@ interface ActionButtonsProps {
 
 export default function ActionButtons({
   onRefresh,
+  onAnalysis,
   onDashboard,
   onSettings,
   onQuit,
@@ -39,18 +41,18 @@ export default function ActionButtons({
           aria-label="Refresh current provider"
         >
           <span className="btn-icon">{loading ? '...' : '↻'}</span>
-          <span className="btn-text">{loading ? 'Loading' : 'Refresh'}</span>
+          <span className="btn-text">{loading ? '刷新中' : '刷新'}</span>
         </button>
 
-        {showDashboard && (
+        {(onAnalysis || showDashboard) && (
           <button
             type="button"
             className="action-btn dashboard-btn"
-            onClick={onDashboard}
-            title="Open dashboard"
-            aria-label="Open provider dashboard"
+            onClick={onAnalysis ?? onDashboard}
+            title={onAnalysis ? '打开用量分析' : 'Open dashboard'}
+            aria-label={onAnalysis ? '打开用量分析' : 'Open provider dashboard'}
           >
-            <span className="btn-text">Dashboard</span>
+            <span className="btn-text">{onAnalysis ? '用量分析' : '服务商控制台'}</span>
             <span className="btn-icon dashboard-arrow">↗</span>
           </button>
         )}

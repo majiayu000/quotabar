@@ -277,7 +277,7 @@
   background: linear-gradient(90deg, rgba(52, 199, 89, 0.73), #34c759);
   transform: none;
   transform-origin: initial;
-  transition: width 0.4s ease;
+  transition: none;
 }
 
 .quota-footer,

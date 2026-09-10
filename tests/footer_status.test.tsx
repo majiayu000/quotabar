@@ -52,8 +52,8 @@ describe('useFooterStatus', () => {
       );
     });
     expect(latestStatus).toEqual({
-      footerStatus: 'Updating...',
-      footerStatusTitle: 'No successful quota update yet',
+      footerStatus: '正在刷新…',
+      footerStatusTitle: '尚未成功读取额度',
     });
   });
 
@@ -64,12 +64,12 @@ describe('useFooterStatus', () => {
         <FooterStatusHarness visible loading={false} lastUpdatedAt={lastUpdatedAt} />,
       );
     });
-    expect(latestStatus?.footerStatus).toBe('Last success now');
+    expect(latestStatus?.footerStatus).toBe('最近成功读取 now');
 
     await act(async () => {
       vi.advanceTimersByTime(30_000);
     });
-    expect(latestStatus?.footerStatus).toBe('Last success 1m ago');
+    expect(latestStatus?.footerStatus).toBe('最近成功读取 1m ago');
   });
 
   it('runs and cleans up the timer only while visible', async () => {

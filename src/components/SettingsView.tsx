@@ -22,7 +22,6 @@ import {
 } from '../services/notifications';
 import type { CostSource } from '../types/models';
 import {
-  PANEL_SECTION_LABELS,
   PANEL_SECTION_ORDER,
   type PanelSectionKey,
   type PanelSectionVisibility,
@@ -81,7 +80,7 @@ export default function SettingsView({
   onSelectEventProvider,
   onAutostartNotice,
 }: SettingsViewProps) {
-  const text = (en: string, zh: string) => workspace ? zh : en;
+  const text = (_en: string, zh: string) => zh;
   const [budgets, setBudgets] = useState<MonthlyBudgets>(getSavedMonthlyBudgets);
   const [launchAtLogin, setLaunchAtLogin] = useState(false);
   const [autostartError, setAutostartError] = useState<string | null>(null);
@@ -147,8 +146,8 @@ export default function SettingsView({
           ‹
         </button>
         <div>
-          <div className="overview-kicker">Settings</div>
-          <h1>Controls</h1>
+          <div className="overview-kicker">QuotaBar</div>
+          <h1>设置</h1>
         </div>
       </div>
 
@@ -157,7 +156,7 @@ export default function SettingsView({
           <span className="settings-group-index">01</span>
           <div>
             <h2 id="settings-appearance-title">{text('Appearance', '外观与菜单栏')}</h2>
-            <p>{text('Theme and menu bar presentation', 'App 使用统一浅深色外观，菜单栏可选择独立的配色风格。')}</p>
+            <p>{text('Theme and menu bar presentation', '下方配色用于额度面板；桌面分析区随所选配色使用浅色或深色外观。')}</p>
           </div>
         </div>
         <ThemeSelector currentTheme={theme} onThemeChange={onThemeChange} />
@@ -171,7 +170,7 @@ export default function SettingsView({
               onClick={() => onTrayStyleChange(option.id)}
               aria-pressed={trayStyle === option.id}
             >
-              {workspace ? ({ percent: '百分比', ring: '圆环', icon: '仅图标' })[option.id] : option.label}
+              {({ percent: '百分比', ring: '圆环', icon: '仅图标' })[option.id]}
             </button>
           ))}
         </div>
@@ -199,7 +198,7 @@ export default function SettingsView({
           </div>
         </div>
         <div className="settings-subsection-title">{text('Presets', '快速选择')}</div>
-        <div className="settings-seg">
+        <div className="settings-seg settings-presets">
           <button
             type="button"
             className="settings-seg-btn"
@@ -230,9 +229,7 @@ export default function SettingsView({
             const panelEnabled = switcherVisibility[service];
             const panelLocked = panelEnabled && enabledSwitcherCount === 1;
             const trayLocked = !trayEntry || (trayEntry.enabled && !trayEntry.canDisable);
-            const connectionHint = workspace ? (trayEntry?.connected ? '已连接' : '未连接') : trayEntry?.connected
-              ? trayEntry.connectedHint ?? 'Connected'
-              : trayEntry?.disconnectedHint ?? 'Offline';
+            const connectionHint = trayEntry?.connected ? '已连接' : service === 'antigravity' ? '预览' : '需登录';
             return (
               <div className="provider-visibility-row" key={service}>
                 <span className="provider-visibility-service">
@@ -287,12 +284,12 @@ export default function SettingsView({
         </div>
         {PANEL_SECTION_ORDER.map((key) => (
           <div className="settings-line" key={key}>
-            <span>{workspace ? ({ timeline: '重置时间线', cost: 'API 等价用量', trend: '用量趋势', tips: '使用提示' })[key] : PANEL_SECTION_LABELS[key]}</span>
+            <span>{({ timeline: '重置时间线', cost: 'API 等价用量', trend: '用量趋势', tips: '使用提示' })[key]}</span>
             <button
               type="button"
               role="switch"
               aria-checked={panelSections[key]}
-              aria-label={`Show ${workspace ? ({ timeline: '重置时间线', cost: 'API 等价用量', trend: '用量趋势', tips: '使用提示' })[key] : PANEL_SECTION_LABELS[key]}`}
+              aria-label={`Show ${({ timeline: '重置时间线', cost: 'API 等价用量', trend: '用量趋势', tips: '使用提示' })[key]}`}
               className={`target-switch ${panelSections[key] ? 'on' : ''}`}
               onClick={() => onPanelSectionToggle(key)}
             >
@@ -341,7 +338,7 @@ export default function SettingsView({
         </div>
         {NOTIFICATION_ROWS.map(({ key, label }) => (
           <div className="settings-line" key={key}>
-            <span>{workspace ? ({ q80: '使用达到 80% 时提醒', q95: '使用达到 95% 时紧急提醒', q100: '使用达到 100% 时提醒', bonusReady: '额度用尽但有未使用奖励重置时提醒', bonus: '奖励到期提醒' })[key] : label}</span>
+            <span>{({ q80: '使用达到 80% 时提醒', q95: '使用达到 95% 时紧急提醒', q100: '使用达到 100% 时提醒', bonusReady: '额度用尽但有未使用奖励重置时提醒', bonus: '奖励到期提醒' })[key]}</span>
             <button
               type="button"
               role="switch"

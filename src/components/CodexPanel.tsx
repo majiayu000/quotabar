@@ -515,7 +515,7 @@ export default function CodexPanel({
                         {formatWindowLabel(rateLimits.primary.windowMinutes, 'primary')}
                       </span>
                       <span className="quota-value">
-                        {Math.round(rateLimits.primary.usedPercent)}%
+                        {Math.round(rateLimits.primary.usedPercent)}% 已用
                       </span>
                     </div>
                     <div
@@ -525,7 +525,7 @@ export default function CodexPanel({
                       aria-valuemin={0}
                       aria-valuemax={100}
                       aria-valuenow={clampProgressValue(rateLimits.primary.usedPercent)}
-                      aria-valuetext={`${Math.round(rateLimits.primary.usedPercent)}% used`}
+                      aria-valuetext={`${Math.round(rateLimits.primary.usedPercent)}% 已用`}
                     >
                       <div
                         className="progress-fill"
@@ -561,7 +561,7 @@ export default function CodexPanel({
                         {formatWindowLabel(rateLimits.secondary.windowMinutes, 'secondary')}
                       </span>
                       <span className="quota-value">
-                        {Math.round(rateLimits.secondary.usedPercent)}%
+                        {Math.round(rateLimits.secondary.usedPercent)}% 已用
                       </span>
                     </div>
                     <div
@@ -571,7 +571,7 @@ export default function CodexPanel({
                       aria-valuemin={0}
                       aria-valuemax={100}
                       aria-valuenow={clampProgressValue(rateLimits.secondary.usedPercent)}
-                      aria-valuetext={`${Math.round(rateLimits.secondary.usedPercent)}% used`}
+                      aria-valuetext={`${Math.round(rateLimits.secondary.usedPercent)}% 已用`}
                     >
                       <div
                         className="progress-fill"
@@ -637,20 +637,20 @@ export default function CodexPanel({
                         <div
                           className="weekly-value-gauge"
                           role="img"
-                          aria-label={`Estimate based on ${Math.round(displayedWeeklyValueEstimate.usedPct)}% used`}
+                          aria-label={`Estimate based on ${Math.round(displayedWeeklyValueEstimate.usedPct)}% 已用`}
                           style={{
                             '--weekly-value-used': `${Math.min(Math.max(displayedWeeklyValueEstimate.usedPct, 0), 100)}%`,
                           } as CSSProperties}
                         >
                           <span className="weekly-value-gauge-center">
                             <strong>{Math.round(displayedWeeklyValueEstimate.usedPct)}%</strong>
-                            <small>used</small>
+                            <small>已用</small>
                           </span>
                         </div>
                       </div>
                       <div className="weekly-value-footer weekly-value-footer-basis">
                         <span>
-                          {`Based on ${Math.round(displayedWeeklyValueEstimate.usedPct)}% used · ${USD_FORMAT.format(displayedWeeklyValueEstimate.observedCostUsd)} local`}
+                          {`Based on ${Math.round(displayedWeeklyValueEstimate.usedPct)}% 已用 · ${USD_FORMAT.format(displayedWeeklyValueEstimate.observedCostUsd)} local`}
                         </span>
                         <span>
                           {valueIsLastEstimate

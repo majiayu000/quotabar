@@ -43,10 +43,10 @@ describe('provider status UI', () => {
 
     const text = renderedText(renderer);
     expect(text).toContain('Cursor');
-    expect(text).toContain('Connected');
+    expect(text).toContain('已连接');
     expect(text).toContain('Cursor Pro');
     expect(text).toContain('Fast requests');
-    expect(text).toContain('47% used');
+    expect(text).toContain('47% 已使用');
   });
 
   it('opens overview on remaining quota without a connection-count header', async () => {
@@ -66,7 +66,11 @@ describe('provider status UI', () => {
     });
 
     const text = renderedText(renderer);
-    expect(text).toContain('Quota remaining');
+    expect(text).toContain('剩余额度');
+    const progress = renderer.root.findByProps({ role: 'progressbar' });
+    expect(progress.props['aria-valuenow']).toBe(18);
+    expect(progress.props['aria-valuetext']).toBe('18% remaining');
+    expect(progress.findByProps({ className: 'progress-fill' }).props.style.width).toBe('18%');
     expect(text).toContain('Claude · 7-day usage');
     expect(text).not.toContain('Overview');
     expect(text).not.toContain('connected');
@@ -92,7 +96,7 @@ describe('provider status UI', () => {
 
     const text = renderedText(renderer);
     expect(text).toContain('Refresh failed');
-    expect(text).toContain('Showing last known data');
+    expect(text).toContain('当前显示上次成功读取的数据');
     expect(text).toContain('41%');
   });
 
@@ -160,8 +164,8 @@ describe('provider status UI', () => {
     const text = renderedText(renderer);
     expect(text).toContain('Rate limit refresh failed');
     expect(text).toContain('Stale data');
-    expect(text).toContain('Showing last known data');
-    expect(text).toContain('5h · 64% used');
+    expect(text).toContain('当前显示上次成功读取的数据');
+    expect(text).toContain('5h · 64% 已使用');
     await act(async () => renderer.unmount());
   });
 
@@ -190,7 +194,7 @@ describe('provider status UI', () => {
     const text = renderedText(renderer);
     expect(text).toContain('Quota unavailable');
     expect(text).not.toContain('Stale data');
-    expect(text).not.toContain('Showing last known data');
+    expect(text).not.toContain('当前显示上次成功读取的数据');
     await act(async () => renderer.unmount());
   });
 
@@ -222,10 +226,10 @@ describe('provider status UI', () => {
 
     const text = renderedText(renderer);
     expect(text).toContain('Codex ID token is unavailable');
-    expect(text).toContain('Connected');
-    expect(text).toContain('5h · 64% used');
+    expect(text).toContain('已连接');
+    expect(text).toContain('5h · 64% 已使用');
     expect(text).not.toContain('Stale data');
-    expect(text).not.toContain('Showing last known data');
+    expect(text).not.toContain('当前显示上次成功读取的数据');
     await act(async () => renderer.unmount());
   });
 
@@ -268,7 +272,7 @@ describe('provider status UI', () => {
     const text = renderedText(renderer);
     expect(text).toContain('Cursor refresh failed');
     expect(text).toContain('Stale data');
-    expect(text).toContain('Showing last known data');
+    expect(text).toContain('当前显示上次成功读取的数据');
     expect(text).toContain('231 / 500 · 46%');
     expect(onConnectionChange).toHaveBeenCalledWith(false);
     expect(onUsageChange).toHaveBeenCalledWith(null);
@@ -326,7 +330,7 @@ describe('provider status UI', () => {
     const text = renderedText(renderer);
     expect(text).toContain('Codex refresh failed');
     expect(text).toContain('Stale data');
-    expect(text).toContain('5h · 64% used');
+    expect(text).toContain('5h · 64% 已使用');
     expect(onConnectionChange).toHaveBeenCalledWith(false);
     expect(onUsageChange).toHaveBeenCalledWith(null);
     expect(onQuotaWindowsChange).toHaveBeenCalledWith([]);
@@ -354,7 +358,7 @@ describe('provider status UI', () => {
     const text = renderedText(renderer);
     expect(text).toContain('Cursor network refresh failed');
     expect(text).toContain('Stale data');
-    expect(text).toContain('Showing last known data');
+    expect(text).toContain('当前显示上次成功读取的数据');
     await act(async () => renderer.unmount());
   });
 
@@ -377,7 +381,7 @@ describe('provider status UI', () => {
     const text = renderedText(renderer);
     expect(text).toContain('Too many open files');
     expect(text).toContain('Stale data');
-    expect(text).toContain('Showing last known data');
+    expect(text).toContain('当前显示上次成功读取的数据');
     expect(text).toContain('4%');
     await act(async () => renderer.unmount());
   });
@@ -404,7 +408,7 @@ describe('provider status UI', () => {
     expect(renderer.root.findAllByProps({ className: 'account-strip' })).toHaveLength(1);
     const progress = renderer.root.findByProps({ role: 'progressbar' });
     expect(progress.props['aria-valuenow']).toBe(100);
-    expect(progress.props['aria-valuetext']).toBe('123% used');
+    expect(progress.props['aria-valuetext']).toBe('123% 已用');
     await act(async () => renderer.unmount());
   });
 
@@ -431,9 +435,9 @@ describe('provider status UI', () => {
 
     const text = renderedText(renderer);
     expect(text).toContain('Cursor Models');
-    expect(text).toContain('3% used');
+    expect(text).toContain('3% 已用');
     expect(text).toContain('Other Models');
-    expect(text).toContain('91% used');
+    expect(text).toContain('91% 已用');
     expect(text).toContain('Includes Cursor Grok and Composer');
     expect(text).not.toContain('on-demand spend');
     expect(text).toContain('On-demand');
@@ -510,7 +514,7 @@ describe('provider status UI', () => {
 
     const text = renderedText(renderer);
     expect(text).toContain('Usage');
-    expect(text).toContain('25% used');
+    expect(text).toContain('25% 已用');
     const progress = renderer.root.findByProps({ role: 'progressbar' });
     expect(progress.props['aria-label']).toBe('Cursor usage');
     await act(async () => renderer.unmount());
@@ -570,8 +574,8 @@ it('withholds current usage advice when a high-usage snapshot is stale', async (
       costRefreshKey: 0, onRetry: vi.fn(), sections: { ...hiddenSections, tips: true },
     }));
   });
-  expect(renderedText(renderer)).toContain('95% used');
-  expect(renderedText(renderer)).toContain('Showing last known data.');
+  expect(renderedText(renderer)).toContain('95% 已用');
+  expect(renderedText(renderer)).toContain('当前显示上次成功读取的数据。');
   expect(renderer.root.findAllByProps({ className: 'smart-tip' })).toHaveLength(0);
   await act(async () => renderer.unmount());
 });

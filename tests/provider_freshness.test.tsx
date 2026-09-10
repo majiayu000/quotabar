@@ -68,13 +68,13 @@ describe('successful quota freshness', () => {
     vi.mocked(request).mockRejectedValueOnce(new Error('Network unavailable'));
     await act(async () => renderer!.root.findByType(TabSwitcher).props.onTabChange(service));
     await act(async () => renderer!.root.findByType(ActionButtons).props.onRefresh());
-    expect(renderer!.root.findByType(ActionButtons).props.statusText).toBe('Stale · Last success 2m ago');
+    expect(renderer!.root.findByType(ActionButtons).props.statusText).toBe('旧数据 · 最近成功读取 2m ago');
     await act(async () => renderer!.root.findByType(TabSwitcher).props.onTabChange('all'));
     expect(status(service).lastSuccessAt).toBe(successAt);
     expect(status(service).failed).toBe(true);
     await act(async () => renderer!.root.findByType(TabSwitcher).props.onTabChange(service));
     await act(async () => renderer!.root.findByType(ActionButtons).props.onRefresh());
-    expect(renderer!.root.findByType(ActionButtons).props.statusText).toBe('Last success now');
+    expect(renderer!.root.findByType(ActionButtons).props.statusText).toBe('最近成功读取 now');
     await act(async () => renderer!.root.findByType(TabSwitcher).props.onTabChange('all'));
     expect(status(service).failed).toBe(false);
     expect(status(service).lastSuccessAt).toBe(Date.now());

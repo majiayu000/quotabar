@@ -25,9 +25,10 @@ export function usePopoverWindow(
 
     const updateHeight = async () => {
       if (containerRef.current) {
-        const height = containerRef.current.scrollHeight + 24;
+        // The tray frame has only a 1px border on each side, no outer padding.
+        const height = containerRef.current.scrollHeight + 2;
         try {
-          await backend.resizeWindow(Math.min(Math.max(height, 300), 620));
+          await backend.resizeWindow(Math.min(Math.max(height, 300), 582));
         } catch (err) {
           console.error('Failed to resize window:', err);
         }

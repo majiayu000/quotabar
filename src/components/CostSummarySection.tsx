@@ -503,14 +503,11 @@ export default function CostSummarySection({
                   );
                 })()
               ) : showTrend && topModels.length > 0 ? (
-                <div className="spark-bars">
-                  {topModels.map((model, index) => (
-                    <div
-                      className="spark-bar"
-                      key={model.model}
-                      title={`${model.model}: ${formatMoney(model.cost, primaryRange.currency)}`}
-                      style={{ height: `${Math.max(18, 44 - index * 9)}%` }}
-                    />
+                <div className="cost-model-list" aria-label="模型费用">
+                  {topModels.map((model) => (
+                    <div className="cost-footer" key={model.model}>
+                      <span>{model.model}</span><span>{formatMoney(model.cost, primaryRange.currency)}</span>
+                    </div>
                   ))}
                 </div>
               ) : null}

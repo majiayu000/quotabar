@@ -4,9 +4,18 @@ All notable QuotaBar changes should be summarized here before a release is cut.
 
 ## Unreleased
 
+- Rebuilt both windows around the getdesign.md Linear reference: shared dark/light
+  tokens, a flat menu quota list, a compact desktop navigation bar, and grouped
+  settings. Preserved quota reads, recovery, filters, session details and exports.
+
+- Align remaining quota bars with their numbers, label used quota in navigation tooltips, and remove the ambiguous All percentage.
+- Put records first on desktop detail pages, restore the tray analysis entry, and clarify shared Chinese controls and theme scope.
+- Improve light-theme contrast and small text, reflow narrow tray navigation, and expose a dedicated source recheck action.
+- Show unknown history costs explicitly and replace decorative model-cost bars with actual labeled amounts.
+- Refresh the landing preview with clearly labeled illustrative data and separate installer use from source-build prerequisites.
+
+- Keep tray navigation on one scrollable row; place a single usage-analysis action in the footer and shrink the window cap from 620px to 582px without the old 24px padding.
 - Drop the Overview connection-count header so the tray opens on remaining quota.
-- Keep tray provider chips on one equal-width row, with the name fully visible and the percent on the line below.
-- Restore the pre-workspace tray popover: compact provider tiles with short labels and percents, no Add service or Usage analysis row, and English footer actions. The analysis workspace stays opt-in from the tray menu and does not open on launch.
 - Skip the 120s Grok success cache on Refresh so a manual recheck hits the network.
 - Label Grok Full pool dollars as extrapolated from the Build share, not the pool gauge percent.
 - Keep last-good Grok usage across 429 and other non-auth HTTP errors instead of flashing disconnected.

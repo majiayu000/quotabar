@@ -57,9 +57,9 @@ describe('panel shell UI', () => {
     expect(html).not.toContain('tabindex="-1"');
     expect(html).toContain('provider-card-label">Claude');
     expect(html).toContain('provider-card-label">Codex');
-    expect(html).toContain('provider-card-label">All');
-    expect(html).toContain('provider-card-percent">48%');
-    expect(html).not.toContain('provider-card-percent">48% used');
+    expect(html).toContain('provider-card-label">总览');
+    expect(html).toContain('title="Claude · 48% 已用');
+    expect(html).not.toContain('provider-card-percent');
     expect(html).not.toContain('Add service');
     expect(html).not.toContain('provider-card-window');
   });
@@ -81,6 +81,25 @@ describe('panel shell UI', () => {
     expect(html).not.toContain('role="status"');
     expect(html).toContain('aria-live="off"');
     expect(html).toContain('Updated now');
+  });
+
+  it('opens analysis from the single tray footer action, including the overview', async () => {
+    const onAnalysis = vi.fn();
+    const onDashboard = vi.fn();
+    let renderer!: ReactTestRenderer;
+    await act(async () => {
+      renderer = create(createElement(ActionButtons, {
+        onRefresh: vi.fn(), onAnalysis, onDashboard, onSettings: vi.fn(),
+        onQuit: vi.fn(), loading: false, showDashboard: false,
+      }));
+    });
+    const button = renderer.root.findByProps({ 'aria-label': '打开用量分析' });
+    await act(async () => button.props.onClick());
+    expect(onAnalysis).toHaveBeenCalledTimes(1);
+    expect(onDashboard).not.toHaveBeenCalled();
+    expect(JSON.stringify(renderer.toJSON())).not.toContain('服务商控制台');
+    expect(renderer.root.findAllByProps({ className: 'analysis-launch' })).toHaveLength(0);
+    await act(async () => renderer.unmount());
   });
 
   it('announces refresh loading without guessing its outcome', async () => {
@@ -146,28 +165,27 @@ describe('panel shell UI', () => {
     );
 
     expect((html.match(/class="settings-group"/g) ?? [])).toHaveLength(6);
-    expect(html).toContain('>Limits<');
-    expect(html).toContain('>Alerts<');
+    expect(html).toContain('>用量参考预算<');
+    expect(html).toContain('>提醒<');
     expect(html).toContain('Alert at 100% used');
     expect(html).toContain('Alert when a bonus reset is unused at 100%');
-    expect(html).toContain('>Providers<');
-    expect(html).toContain('>Panel<');
-    expect(html).toContain('>Menu<');
+    expect(html).toContain('>来源显示<');
+    expect(html).toContain('>面板<');
+    expect(html).toContain('>菜单栏<');
     expect(html).toContain('aria-label="Show Claude in panel"');
     expect(html).toContain('aria-label="Show Claude in menu bar"');
-    expect(html).toContain('theme-option-label">Light');
-    expect(html).toContain('>Ready<');
-    expect(html).toContain('>Sign in<');
-    expect(html).toContain('>Preview<');
-    expect(html).toContain('>Launch at Login<');
+    expect(html).toContain('theme-option-label">浅色');
+    expect(html).toContain('>已连接<');
+    expect(html).toContain('>需登录<');
+    expect(html).toContain('>预览<');
+    expect(html).toContain('>登录时启动<');
     expect(html).toContain('aria-label="Launch at Login"');
   });
 
-  it('keeps every provider chip on one row without truncating names onto the percent', () => {
+  it('keeps service navigation on one horizontally scrollable row', () => {
     const css = readFileSync(new URL('../src/redesign/shell.css', import.meta.url), 'utf8');
-    expect(css).toMatch(/\.app \.provider-grid \{[^}]*grid-auto-flow: column;/s);
-    expect(css).toMatch(/\.app \.provider-card-percent \{[^}]*flex-basis: 100%;/s);
-    expect(css).not.toMatch(/grid-template-columns:\s*repeat\(3/);
+    expect(css).toMatch(/\.app \.provider-grid \{[^}]*overflow-x:auto/s);
+    expect(css).toMatch(/\.app \.provider-card \{[^}]*flex-wrap:nowrap/s);
     expect(css).not.toMatch(/text-overflow: ellipsis/);
   });
 

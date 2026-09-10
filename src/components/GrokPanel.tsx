@@ -64,9 +64,9 @@ const COMPACT_TOKEN_FORMAT = new Intl.NumberFormat('en-US', {
 });
 
 function periodValueTitle(periodType?: string): string {
-  if (periodType === 'monthly') return 'API-equivalent month';
-  if (periodType === 'weekly') return 'API-equivalent week';
-  return 'API-equivalent period';
+  if (periodType === 'monthly') return '每月 API 等价估算';
+  if (periodType === 'weekly') return '每周 API 等价估算';
+  return '周期 API 等价估算';
 }
 
 export default function GrokPanel({
@@ -169,7 +169,7 @@ export default function GrokPanel({
       {error && (workspace ? <QuotaRecovery provider="grok" read={{ error, readAt: null }} hasData={Boolean(grokData?.connected)} /> :
         <div className="error-banner">
           <span className="error-icon">!</span>
-          <span className="error-text">{error}{grokData?.connected && <span className="error-context">Showing last known data.</span>}</span>
+          <span className="error-text">{error}{grokData?.connected && <span className="error-context">当前显示上次成功读取的数据。</span>}</span>
         </div>
       )}
 
@@ -190,12 +190,12 @@ export default function GrokPanel({
                 <div className="quota-card">
                   <div className="quota-header">
                     <span className="quota-label">{poolLabel(grokData)}</span>
-                    <span className="quota-value">{`${Math.round(percentage)}%`}</span>
+                    <span className="quota-value">{`${Math.round(percentage)}% 已用`}</span>
                   </div>
                   <div className="progress-bar">
                     <div className="progress-fill" style={getProgressStyle(percentage)} />
                   </div>
-                  {resetLabel && <div className="reset-time">Resets in {resetLabel}</div>}
+                  {resetLabel && <div className="reset-time">重置倒计时 {resetLabel}</div>}
                 </div>
               )}
 
@@ -221,7 +221,7 @@ export default function GrokPanel({
                           <span className="weekly-value-dot" />
                           {periodValueTitle(grokData.periodType)}
                         </span>
-                        <span className="weekly-value-badge">Local estimate</span>
+                        <span className="weekly-value-badge">本地估算</span>
                       </div>
                       <div className="weekly-value-body">
                         <div className="weekly-value-metrics">
@@ -249,14 +249,14 @@ export default function GrokPanel({
                         <div
                           className="weekly-value-gauge"
                           role="img"
-                          aria-label={`Estimate based on ${Math.round(displayedGrokValueEstimate.usedPct)}% used`}
+                          aria-label={`Estimate based on ${Math.round(displayedGrokValueEstimate.usedPct)}% 已用`}
                           style={{
                             '--weekly-value-used': `${Math.min(Math.max(displayedGrokValueEstimate.usedPct, 0), 100)}%`,
                           } as CSSProperties}
                         >
                           <span className="weekly-value-gauge-center">
                             <strong>{Math.round(displayedGrokValueEstimate.usedPct)}%</strong>
-                            <small>used</small>
+                            <small>已用</small>
                           </span>
                         </div>
                       </div>
@@ -277,7 +277,7 @@ export default function GrokPanel({
 
           {products.length > 0 && (
             <div className="section">
-              <div className="section-title">By product</div>
+              <div className="section-title">共享额度的产品份额</div>
               <div className="quota-group">
                 {products.map((product) => {
                   const usagePercent = grokProductUsagePercent(product.usagePercent);
@@ -286,7 +286,7 @@ export default function GrokPanel({
                     <div className="quota-card" key={product.product}>
                       <div className="quota-header">
                         <span className="quota-label">{product.label}</span>
-                        <span className="quota-value">{`${Math.round(usagePercent)}%`}</span>
+                        <span className="quota-value">{`${Math.round(usagePercent)}% 已用`}</span>
                       </div>
                       <div className="progress-bar">
                         <div className="progress-fill" style={getProgressStyle(usagePercent)} />

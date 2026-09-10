@@ -17,12 +17,12 @@ export function useFooterStatus(
 
   return {
     footerStatus: activeLoading
-      ? 'Updating...'
+      ? '正在刷新…'
       : lastUpdatedAt != null
-        ? `${failed ? 'Stale · ' : ''}Last success ${formatEventTime(new Date(lastUpdatedAt).toISOString())}`
-        : failed ? 'Quota unavailable · Retry' : 'No successful quota update yet',
+        ? `${failed ? '旧数据 · ' : ''}最近成功读取 ${formatEventTime(new Date(lastUpdatedAt).toISOString())}`
+        : failed ? '额度不可用 · 请重试' : '尚未成功读取额度',
     footerStatusTitle: lastUpdatedAt != null
-      ? `Last successful quota update ${new Date(lastUpdatedAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`
-      : 'No successful quota update yet',
+      ? `最近成功读取 ${new Date(lastUpdatedAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`
+      : '尚未成功读取额度',
   };
 }

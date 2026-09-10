@@ -140,7 +140,7 @@ describe('Analysis window', () => {
     const initialReads = read.mock.calls.length;
     const click = (label: string) => renderer.root.findAllByType('button').find((button) => button.children.includes(label))!.props.onClick();
     await act(async () => click('订阅额度'));
-    expect(renderer.root.findByType('h1').children).toEqual(['安心开工，额度一目了然。']);
+    expect(renderer.root.findByType('h1').children).toEqual(['订阅额度']);
     expect(select).toHaveBeenLastCalledWith('all');
     await act(async () => click('设置'));
     expect(select).toHaveBeenLastCalledWith('settings');
@@ -149,14 +149,14 @@ describe('Analysis window', () => {
     expect(popup).not.toHaveBeenCalled();
     expect(mounted).toHaveBeenCalledTimes(1);
     await act(async () => renderer.update(createElement(AnalysisApp, { providerContent: content, providerView: 'codex', onProviderView: select })));
-    expect(renderer.root.findByType('h1').children).toEqual(['安心开工，额度一目了然。']);
+    expect(renderer.root.findByType('h1').children).toEqual(['订阅额度']);
     await act(async () => renderer.unmount());
   });
   it('keeps the tray footer on Refresh and Dashboard without a usage-analysis launch row', async () => {
     let renderer!: ReactTestRenderer;
     await act(async () => { renderer = create(createElement(ActionButtons, { onRefresh: vi.fn(), onDashboard: vi.fn(), onSettings: vi.fn(), onQuit: vi.fn(), loading: false })); });
     const html = JSON.stringify(renderer.toJSON());
-    expect(html).toContain('Dashboard');
+    expect(html).toContain('服务商控制台');
     expect(html).not.toContain('用量分析');
     expect(html).not.toContain('Usage analysis');
     expect(renderer.root.findAllByProps({ className: 'analysis-launch' })).toHaveLength(0);
@@ -248,7 +248,7 @@ describe('Analysis window', () => {
     const save = vi.spyOn(backend, 'saveAnalysisSummary').mockResolvedValueOnce('/Downloads/QuotaBar.json').mockRejectedValueOnce(new Error('Disk full'));
     let renderer!: ReactTestRenderer;
     await act(async () => { renderer = create(createElement(AnalysisApp)); });
-    await act(async () => renderer.root.findAllByType('button').find((button) => button.children.includes('分享摘要'))!.props.onClick());
+    await act(async () => renderer.root.findAllByType('button').find((button) => button.children.includes('导出摘要'))!.props.onClick());
     await act(async () => renderer.root.findByProps({ type: 'checkbox' }).props.onChange({ target: { checked: true } }));
     await act(async () => { renderer.root.findByProps({ className: 'workspace-primary' }).props.onClick(); await Promise.resolve(); });
     expect(save).toHaveBeenCalledWith(expect.objectContaining({ total_tokens: 120, source: undefined, range: 'last_30_days', data_incomplete: false, malformed_records: 0 }), 'json');
@@ -321,7 +321,7 @@ describe('coherent workspace queries', () => {
     await act(async () => { renderer = create(createElement(AnalysisApp)); });
     await act(async () => renderer.root.findByProps({ 'aria-label': '筛选模型' }).props.onChange({ target: { value: 'gpt-5' } }));
     expect(read).toHaveBeenLastCalledWith('codex', 'last_30_days', { model: 'gpt-5', project: null, since: null, until: null }, expect.any(AbortSignal), expect.any(Function));
-    expect(renderer.root.findByType('h1').children).toEqual(['每一份用量，都心中有数。']);
+    expect(renderer.root.findByType('h1').children).toEqual(['总览']);
     expect(JSON.stringify(renderer.toJSON())).toContain('456');
     await act(async () => renderer.root.findByProps({ 'aria-label': '筛选项目' }).props.onChange({ target: { value: '/work/app' } }));
     expect(read).toHaveBeenLastCalledWith('codex', 'last_30_days', { model: 'gpt-5', project: '/work/app', since: null, until: null }, expect.any(AbortSignal), expect.any(Function));
@@ -398,4 +398,29 @@ describe('startup snapshot display', () => {
     await act(async()=>renderer.unmount());
   });
 
+});
+
+
+describe('history cost completeness presentation', () => {
+  it('distinguishes unknown, actual zero and a partially priced total', async () => {
+    vi.stubGlobal('window', { addEventListener: vi.fn(), removeEventListener: vi.fn() });
+    vi.spyOn(backend, 'analysisSource').mockResolvedValue('all');
+    vi.spyOn(backend, 'analysisCatalog').mockResolvedValue({ sources: [], diagnostics: [] });
+    const report = analysisReport(120);
+    report.until = '2026-09-03';
+    const point = (date: string, cost: number | null) => ({ date, tokens: { total_tokens: 120 }, cost, cost_usd: cost, cost_status: cost === null ? 'unknown' : 'known', cost_kind: 'real', pricing_source: 'recorded', api_equivalent_cost_coverage: null, records: 1 });
+    report.history = [
+      { source_name: 'claude', display_name: 'Claude', currency: 'USD', points: [point('2026-09-01', null), point('2026-09-02', 0), point('2026-09-03', 2)] },
+      { source_name: 'codex', display_name: 'Codex', currency: 'USD', points: [point('2026-09-03', null)] },
+    ];
+    vi.spyOn(backend, 'analysisReport').mockResolvedValue(report);
+    let renderer!: ReactTestRenderer;
+    await act(async () => { renderer = create(createElement(AnalysisApp)); });
+    await act(async () => renderer.root.findAllByType('button').find((button) => button.children.includes('费用'))!.props.onClick());
+    const labels = renderer.root.findByProps({ 'aria-label': '每日用量趋势' }).findAllByType('button').map((button) => button.props['aria-label']);
+    expect(labels[0]).toBe('2026-09-01 · 费用未知');
+    expect(labels[1]).toBe('2026-09-02 · $0.00 USD 费用参考');
+    expect(labels[2]).toBe('2026-09-03 · ≥ $2.00 USD 费用参考 · 价格不完整');
+    await act(async () => renderer.unmount());
+  });
 });

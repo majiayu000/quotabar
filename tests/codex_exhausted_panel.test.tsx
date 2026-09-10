@@ -91,8 +91,8 @@ describe('Codex exhausted panel', () => {
 
     expect(text).toContain('100%');
     expect(text).toContain('Weekly exhausted');
-    expect(text).toContain('API-equivalent week');
-    expect(text).toContain('Last estimate');
+    expect(text).toContain('每周 API 等价估算');
+    expect(text).toContain('上次估算');
     expect(text).toContain('$186.00');
     expect(text).not.toContain('Weekly value unavailable');
     expect(text).not.toContain('Local pace unavailable');
@@ -129,7 +129,7 @@ describe('Codex exhausted panel', () => {
     const text = rendered_text(renderer);
 
     expect(text).toContain('100%');
-    expect(text).not.toContain('API-equivalent week');
+    expect(text).not.toContain('每周 API 等价估算');
     expect(text).not.toContain('$186.00');
     await unmount(renderer);
   });
@@ -142,10 +142,10 @@ describe('Codex exhausted panel', () => {
     });
     const text = rendered_text(renderer);
 
-    expect(text).toContain('Connected');
+    expect(text).toContain('已连接');
     expect(text).not.toContain('Weekly exhausted');
-    expect(text).toContain('Local estimate');
-    expect(text).not.toContain('Last estimate');
+    expect(text).toContain('本地估算');
+    expect(text).not.toContain('上次估算');
     expect(text).not.toContain('Weekly is used up.');
     await unmount(renderer);
   });

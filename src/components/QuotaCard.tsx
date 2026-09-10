@@ -21,7 +21,7 @@ export default function QuotaCard({ label, percentage, resetsIn, pace, featured 
     <div className={`quota-card${featured ? ' featured' : ''}`}>
       <div className="quota-header">
         <span className="quota-label">{label}</span>
-        <span className="quota-percentage">{percentage}% used</span>
+        <span className="quota-percentage">{percentage}% 已用</span>
       </div>
 
       <div
@@ -31,7 +31,7 @@ export default function QuotaCard({ label, percentage, resetsIn, pace, featured 
         aria-valuemin={0}
         aria-valuemax={100}
         aria-valuenow={clampProgressValue(percentage)}
-        aria-valuetext={`${Math.round(percentage)}% used`}
+        aria-valuetext={`${Math.round(percentage)}% 已用`}
       >
         <div
           className={`progress-fill ${status}`}
@@ -40,7 +40,7 @@ export default function QuotaCard({ label, percentage, resetsIn, pace, featured 
       </div>
 
       <div className="quota-footer">
-        <span className="reset-text">Resets in {resetsIn}</span>
+        <span className="reset-text">重置倒计时 {resetsIn}</span>
         <span className="reset-at-text" />
       </div>
 

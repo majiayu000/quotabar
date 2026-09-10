@@ -174,7 +174,7 @@ export default function CursorPanel({
                   <div className="quota-card" key={window.label}>
                     <div className="quota-header">
                       <span className="quota-label">{window.label}</span>
-                      <span className="quota-value">{`${Math.round(window.usedPercent)}% used`}</span>
+                      <span className="quota-value">{`${Math.round(window.usedPercent)}% 已用`}</span>
                     </div>
                     <div
                       className="progress-bar"
@@ -183,7 +183,7 @@ export default function CursorPanel({
                       aria-valuemin={0}
                       aria-valuemax={100}
                       aria-valuenow={clampProgressValue(window.usedPercent)}
-                      aria-valuetext={`${Math.round(window.usedPercent)}% used`}
+                      aria-valuetext={`${Math.round(window.usedPercent)}% 已用`}
                     >
                       <div className="progress-fill" style={getProgressStyle(window.usedPercent)} />
                     </div>
@@ -200,7 +200,7 @@ export default function CursorPanel({
                   <div className="quota-header">
                     <span className="quota-label">{workspaceCopy("Usage", "额度用量")}</span>
                     <span className="quota-value">
-                      {includedRequestValue ?? `${Math.round(percentage ?? 0)}% used`}
+                      {includedRequestValue ?? `${Math.round(percentage ?? 0)}% 已用`}
                     </span>
                   </div>
                   {percentage != null && (
@@ -211,7 +211,7 @@ export default function CursorPanel({
                       aria-valuemin={0}
                       aria-valuemax={100}
                       aria-valuenow={clampProgressValue(percentage)}
-                      aria-valuetext={`${Math.round(percentage)}% used`}
+                      aria-valuetext={`${Math.round(percentage)}% 已用`}
                     >
                       <div className="progress-fill" style={getProgressStyle(percentage)} />
                     </div>

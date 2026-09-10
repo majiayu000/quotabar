@@ -8,19 +8,19 @@
 <link rel="icon" type="image/svg+xml" href="assets/app-icon.svg" />
 <style>
   :root {
-    --bg: #0b1220;
-    --bg-soft: #101a2e;
-    --card: #131f36;
-    --card-border: #223152;
-    --text: #e6edf7;
-    --text-dim: #93a4bd;
-    --text-faint: #64748b;
-    --accent: #38bdf8;
+    --bg: #010102;
+    --bg-soft: #141516;
+    --card: #0f1011;
+    --card-border: #23252a;
+    --text: #f7f8f8;
+    --text-dim: #a0a4ae;
+    --text-faint: #8a8f98;
+    --accent: #929bf3;
     --green: #22c55e;
     --amber: #f59e0b;
     --red: #ef4444;
     --violet: #a78bfa;
-    --radius: 16px;
+    --radius: 12px;
     --maxw: 1080px;
   }
 
@@ -45,8 +45,8 @@
   /* ---------- Nav ---------- */
   nav {
     position: sticky; top: 0; z-index: 50;
-    backdrop-filter: blur(14px);
-    background: rgba(11, 18, 32, 0.72);
+
+    background: var(--bg);
     border-bottom: 1px solid rgba(148, 163, 184, 0.08);
   }
   nav .wrap {
@@ -54,7 +54,7 @@
     height: 60px;
   }
   nav img { width: 28px; height: 28px; }
-  nav .brand { font-weight: 700; font-size: 17px; letter-spacing: 0.2px; }
+  nav .brand { font-weight: 600; font-size: 17px; letter-spacing: 0.2px; }
   nav .spacer { flex: 1; }
   nav .links { display: flex; gap: 22px; align-items: center; font-size: 14px; }
   nav .links a { color: var(--text-dim); }
@@ -62,7 +62,7 @@
   .gh-btn {
     display: inline-flex; align-items: center; gap: 7px;
     border: 1px solid var(--card-border);
-    border-radius: 999px;
+    border-radius: 6px;
     padding: 6px 14px;
     color: var(--text) !important;
     font-weight: 600;
@@ -78,15 +78,6 @@
     overflow: hidden;
     padding: 96px 0 80px;
   }
-  header.hero::before {
-    content: "";
-    position: absolute; inset: -40% -20% auto;
-    height: 640px;
-    background:
-      radial-gradient(520px 320px at 28% 30%, rgba(56, 189, 248, 0.16), transparent 70%),
-      radial-gradient(480px 300px at 74% 24%, rgba(167, 139, 250, 0.13), transparent 70%);
-    pointer-events: none;
-  }
   .hero-grid {
     position: relative;
     display: grid;
@@ -98,23 +89,20 @@
     display: inline-flex; align-items: center; gap: 8px;
     font-size: 13px; color: var(--text-dim);
     border: 1px solid var(--card-border);
-    background: rgba(19, 31, 54, 0.7);
-    padding: 5px 12px; border-radius: 999px;
+    background: var(--bg-soft);
+    padding: 5px 12px; border-radius: 6px;
     margin-bottom: 22px;
   }
   .badge .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); }
   h1 {
+    font-weight: 600;
     font-size: clamp(34px, 5vw, 52px);
     line-height: 1.12;
     letter-spacing: -0.02em;
     margin-bottom: 18px;
   }
-  h1 .grad {
-    background: linear-gradient(92deg, #38bdf8, #a78bfa 70%);
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
-  }
+  h1 .grad { color: var(--accent); }
+
   .hero p.lede {
     font-size: 17px; color: var(--text-dim);
     max-width: 520px; margin-bottom: 30px;
@@ -122,90 +110,29 @@
   .cta-row { display: flex; gap: 14px; flex-wrap: wrap; }
   .btn {
     display: inline-flex; align-items: center; gap: 9px;
-    padding: 12px 22px; border-radius: 12px;
+    padding: 12px 22px; border-radius: 8px;
     font-weight: 650; font-size: 15px;
     transition: transform 0.12s ease, box-shadow 0.12s ease;
   }
   .btn:hover { text-decoration: none; transform: translateY(-1px); }
   .btn-primary {
-    background: linear-gradient(180deg, #38bdf8, #0ea5e9);
-    color: #04121f;
-    box-shadow: 0 8px 24px rgba(14, 165, 233, 0.35);
+    background: #5e6ad2;
+    color: #ffffff;
+    box-shadow: none;
   }
   .btn-ghost {
     border: 1px solid var(--card-border);
     color: var(--text);
     background: var(--bg-soft);
   }
+  .product-preview { margin: 0; justify-self: center; max-width: 340px; }
+  .product-preview img { display: block; max-width: 100%; height: auto; border-radius: 12px; }
+  .product-preview figcaption { font-size: 13px; line-height: 1.5; color: var(--text-dim); margin-top: 12px; }
   .hero .meta {
     margin-top: 26px; font-size: 13px; color: var(--text-faint);
     display: flex; gap: 18px; flex-wrap: wrap;
   }
   .hero .meta span { display: inline-flex; align-items: center; gap: 6px; }
-
-  /* ---------- Popover mockup ---------- */
-  .popover {
-    position: relative;
-    background: linear-gradient(180deg, rgba(30, 41, 59, 0.85), rgba(15, 23, 42, 0.92));
-    border: 1px solid rgba(148, 163, 184, 0.16);
-    border-radius: 22px;
-    padding: 18px;
-    box-shadow: 0 30px 80px rgba(2, 6, 17, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.05);
-    backdrop-filter: blur(10px);
-    transform: rotate(1.2deg);
-  }
-  .popover .tiles {
-    display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px;
-    margin-bottom: 16px;
-  }
-  .tile {
-    background: rgba(148, 163, 184, 0.08);
-    border: 1px solid rgba(148, 163, 184, 0.12);
-    border-radius: 14px;
-    padding: 10px 8px 12px;
-    text-align: center;
-  }
-  .tile .ico {
-    width: 34px; height: 34px; margin: 0 auto 8px;
-    border-radius: 10px;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 17px; font-weight: 700; color: #0b1220;
-  }
-  .tile .val { font-size: 15px; font-weight: 700; }
-  .tile .bar {
-    margin-top: 7px; height: 4px; border-radius: 4px;
-    background: rgba(148, 163, 184, 0.18); overflow: hidden;
-  }
-  .tile .bar i { display: block; height: 100%; border-radius: 4px; }
-  .tile.active { outline: 2px solid rgba(56, 189, 248, 0.5); }
-
-  .quota-card {
-    background: rgba(2, 6, 23, 0.45);
-    border: 1px solid rgba(148, 163, 184, 0.1);
-    border-radius: 16px;
-    padding: 14px 16px;
-  }
-  .quota-card h4 { font-size: 13px; color: var(--text-dim); font-weight: 600; margin-bottom: 12px; }
-  .qrow { margin-bottom: 12px; }
-  .qrow:last-child { margin-bottom: 0; }
-  .qrow .lbl {
-    display: flex; justify-content: space-between;
-    font-size: 12.5px; color: var(--text-dim); margin-bottom: 5px;
-  }
-  .qrow .lbl b { color: var(--text); font-variant-numeric: tabular-nums; }
-  .qrow .track {
-    height: 6px; border-radius: 6px;
-    background: rgba(148, 163, 184, 0.15); overflow: hidden;
-  }
-  .qrow .track i { display: block; height: 100%; border-radius: 6px; }
-
-  .popover .foot {
-    display: flex; align-items: center; gap: 14px;
-    margin-top: 14px; padding-top: 12px;
-    border-top: 1px solid rgba(148, 163, 184, 0.1);
-    font-size: 12.5px; color: var(--text-faint);
-  }
-  .popover .foot .cost { margin-left: auto; color: var(--text-dim); font-variant-numeric: tabular-nums; }
 
   /* ---------- Sections ---------- */
   section { padding: 84px 0; }
@@ -228,12 +155,12 @@
     padding: 24px;
     transition: border-color 0.15s ease, transform 0.15s ease;
   }
-  .card:hover { border-color: #33507f; transform: translateY(-2px); }
+  .card:hover { border-color: #34343a; }
   .card .glyph {
     width: 42px; height: 42px; border-radius: 12px;
     display: flex; align-items: center; justify-content: center;
     font-size: 20px; margin-bottom: 16px;
-    background: rgba(56, 189, 248, 0.12);
+    background: var(--bg-soft);
   }
   .card h3 { font-size: 17px; margin-bottom: 8px; }
   .card p { font-size: 14.5px; color: var(--text-dim); }
@@ -244,12 +171,12 @@
   .provider .p-ico {
     width: 40px; height: 40px; border-radius: 11px;
     display: flex; align-items: center; justify-content: center;
-    font-weight: 800; font-size: 16px; color: #0b1220;
+    font-weight: 800; font-size: 16px; color: #010102;
   }
   .provider h3 { font-size: 16px; margin: 0; }
   .provider .tag {
     font-size: 11px; color: var(--text-faint);
-    border: 1px solid var(--card-border); border-radius: 999px;
+    border: 1px solid var(--card-border); border-radius: 6px;
     padding: 2px 9px; margin-left: auto;
   }
   .provider ul { list-style: none; font-size: 13.5px; color: var(--text-dim); }
@@ -267,7 +194,7 @@
     display: flex; align-items: center; gap: 10px;
     background: rgba(2, 6, 23, 0.6);
     border: 1px solid var(--card-border);
-    border-radius: 999px;
+    border-radius: 6px;
     padding: 10px 18px;
     width: max-content; max-width: 100%;
     margin: 0 auto 40px;
@@ -278,7 +205,7 @@
   .tray-pill {
     display: inline-flex; align-items: center; gap: 7px;
     background: rgba(148, 163, 184, 0.1);
-    border-radius: 999px; padding: 4px 12px;
+    border-radius: 6px; padding: 4px 12px;
     font-variant-numeric: tabular-nums; font-weight: 600; color: var(--text);
   }
   .tray-pill .sw { width: 9px; height: 9px; border-radius: 3px; }
@@ -308,6 +235,7 @@
     color: #bae6fd;
   }
 
+  .grid > *, .step > div { min-width: 0; }
   pre.term {
     background: #060b16;
     border: 1px solid var(--card-border);
@@ -385,51 +313,11 @@
       </div>
     </div>
 
-    <!-- Pure-CSS preview of the popover UI -->
-    <div class="popover" aria-hidden="true">
-      <div class="tiles">
-        <div class="tile">
-          <div class="ico bg-claude">C</div>
-          <div class="val">42%</div>
-          <div class="bar"><i style="width:42%;background:var(--green)"></i></div>
-        </div>
-        <div class="tile active">
-          <div class="ico bg-codex">⌘</div>
-          <div class="val">67%</div>
-          <div class="bar"><i style="width:67%;background:var(--amber)"></i></div>
-        </div>
-        <div class="tile">
-          <div class="ico bg-cursor">▣</div>
-          <div class="val">18%</div>
-          <div class="bar"><i style="width:18%;background:var(--green)"></i></div>
-        </div>
-        <div class="tile">
-          <div class="ico bg-grok">G</div>
-          <div class="val">24%</div>
-          <div class="bar"><i style="width:24%;background:var(--green)"></i></div>
-        </div>
-        <div class="tile">
-          <div class="ico bg-anti">✦</div>
-          <div class="val">—</div>
-          <div class="bar"><i style="width:0%"></i></div>
-        </div>
-      </div>
-      <div class="quota-card">
-        <h4>Codex · usage windows</h4>
-        <div class="qrow">
-          <div class="lbl"><span>5-hour window</span><b>67% · resets in 2h 14m</b></div>
-          <div class="track"><i style="width:67%;background:var(--amber)"></i></div>
-        </div>
-        <div class="qrow">
-          <div class="lbl"><span>Weekly window</span><b>31% · resets in 4d 6h</b></div>
-          <div class="track"><i style="width:31%;background:var(--green)"></i></div>
-        </div>
-      </div>
-      <div class="foot">
-        <span>⟳ Refresh</span><span>Dashboard ↗</span><span>⚙</span>
-        <span class="cost">Today ≈ $3.42 · Week ≈ $21.07</span>
-      </div>
-    </div>
+    <figure class="product-preview">
+      <img src="assets/quota-tray-preview.png" width="340" height="582"
+        alt="QuotaBar showing remaining quota, reset times and the usage analysis entry" />
+      <figcaption>Current interface with illustrative data. No account data is shown.</figcaption>
+    </figure>
   </div>
 </header>
 
@@ -596,8 +484,8 @@
 
 <span class="c"># Local macOS app bundle</span>
 <span class="p">$</span> npm run tauri build -- --bundles app</pre>
-        <p style="margin-top:14px;font-size:13.5px;color:var(--text-faint)">
-          Requires macOS or Windows, Node.js with npm, the Rust toolchain, and Tauri prerequisites.
+        <p style="margin-top:14px;font-size:14px;color:var(--text-dim)">
+          Building from source requires Node.js with npm, Rust, and the Tauri prerequisites for your OS. These tools are not required to run a downloaded installer.
         </p>
       </div>
     </div>
