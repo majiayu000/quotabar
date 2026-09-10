@@ -7,12 +7,12 @@ import CodexPanel from '../src/components/CodexPanel';
 import CursorPanel from '../src/components/CursorPanel';
 import GrokPanel from '../src/components/GrokPanel';
 import OverviewPanel from '../src/components/OverviewPanel';
-import ProviderDetailHeader from '../src/components/ProviderDetailHeader';
 import { backend } from '../src/services/backend';
 
 const hiddenSections = { timeline: false, cost: false, trend: false, tips: false };
 
 function renderedText(renderer: ReactTestRenderer): string {
+  expect(renderer.root.findAllByProps({ className: 'provider-detail-header' })).toHaveLength(0);
   return JSON.stringify(renderer.toJSON());
 }
 
@@ -29,26 +29,6 @@ afterAll(() => {
 });
 
 describe('provider status UI', () => {
-  it('keeps connection, plan, and usage visible in the provider header', async () => {
-    let renderer!: ReactTestRenderer;
-    await act(async () => {
-      renderer = create(createElement(ProviderDetailHeader, {
-        service: 'cursor',
-        status: 'Connected',
-        plan: 'Cursor Pro',
-        usedPercent: 47,
-        usageLabel: 'Fast requests',
-      }));
-    });
-
-    const text = renderedText(renderer);
-    expect(text).toContain('Cursor');
-    expect(text).toContain('已连接');
-    expect(text).toContain('Cursor Pro');
-    expect(text).toContain('Fast requests');
-    expect(text).toContain('47% 已使用');
-  });
-
   it('opens overview on remaining quota without a connection-count header', async () => {
     let renderer!: ReactTestRenderer;
     await act(async () => {
@@ -109,7 +89,7 @@ describe('provider status UI', () => {
     });
 
     const text = renderedText(renderer);
-    expect(text).toContain('CLI detected');
+    expect(text).toContain('The CLI session is available');
     expect(text).toContain('Antigravity is connected');
     expect(text).not.toContain('Antigravity is not connected');
     expect(text).not.toContain('⧉');
@@ -129,7 +109,6 @@ describe('provider status UI', () => {
     });
 
     const text = renderedText(renderer);
-    expect(text).toContain('Preview');
     expect(text).toContain('Quota tracking is in preview');
     expect(text).toContain('stable usage API');
     expect(text).not.toContain('Unavailable');
@@ -163,9 +142,9 @@ describe('provider status UI', () => {
 
     const text = renderedText(renderer);
     expect(text).toContain('Rate limit refresh failed');
-    expect(text).toContain('Stale data');
+    expect(renderer.root.findAllByProps({ className: 'error-banner' })).toHaveLength(1);
     expect(text).toContain('当前显示上次成功读取的数据');
-    expect(text).toContain('5h · 64% 已使用');
+    expect(renderer.root.findByProps({ 'aria-label': '5-hour window usage' }).props['aria-valuenow']).toBe(64);
     await act(async () => renderer.unmount());
   });
 
@@ -192,7 +171,7 @@ describe('provider status UI', () => {
     });
 
     const text = renderedText(renderer);
-    expect(text).toContain('Quota unavailable');
+    expect(text).toContain('Codex rate limit request failed: 401');
     expect(text).not.toContain('Stale data');
     expect(text).not.toContain('当前显示上次成功读取的数据');
     await act(async () => renderer.unmount());
@@ -226,8 +205,8 @@ describe('provider status UI', () => {
 
     const text = renderedText(renderer);
     expect(text).toContain('Codex ID token is unavailable');
-    expect(text).toContain('已连接');
-    expect(text).toContain('5h · 64% 已使用');
+    expect(renderer.root.findAllByProps({ className: 'codex-content' })).toHaveLength(1);
+    expect(renderer.root.findByProps({ 'aria-label': '5-hour window usage' }).props['aria-valuenow']).toBe(64);
     expect(text).not.toContain('Stale data');
     expect(text).not.toContain('当前显示上次成功读取的数据');
     await act(async () => renderer.unmount());
@@ -271,7 +250,7 @@ describe('provider status UI', () => {
 
     const text = renderedText(renderer);
     expect(text).toContain('Cursor refresh failed');
-    expect(text).toContain('Stale data');
+    expect(renderer.root.findAllByProps({ className: 'error-banner' })).toHaveLength(1);
     expect(text).toContain('当前显示上次成功读取的数据');
     expect(text).toContain('231 / 500 · 46%');
     expect(onConnectionChange).toHaveBeenCalledWith(false);
@@ -329,8 +308,8 @@ describe('provider status UI', () => {
 
     const text = renderedText(renderer);
     expect(text).toContain('Codex refresh failed');
-    expect(text).toContain('Stale data');
-    expect(text).toContain('5h · 64% 已使用');
+    expect(text).toContain('当前显示上次成功读取的数据');
+    expect(renderer.root.findByProps({ 'aria-label': '5-hour window usage' }).props['aria-valuenow']).toBe(64);
     expect(onConnectionChange).toHaveBeenCalledWith(false);
     expect(onUsageChange).toHaveBeenCalledWith(null);
     expect(onQuotaWindowsChange).toHaveBeenCalledWith([]);
@@ -357,7 +336,7 @@ describe('provider status UI', () => {
 
     const text = renderedText(renderer);
     expect(text).toContain('Cursor network refresh failed');
-    expect(text).toContain('Stale data');
+    expect(renderer.root.findAllByProps({ className: 'error-banner' })).toHaveLength(1);
     expect(text).toContain('当前显示上次成功读取的数据');
     await act(async () => renderer.unmount());
   });
@@ -380,7 +359,7 @@ describe('provider status UI', () => {
 
     const text = renderedText(renderer);
     expect(text).toContain('Too many open files');
-    expect(text).toContain('Stale data');
+    expect(renderer.root.findAllByProps({ className: 'error-banner' })).toHaveLength(1);
     expect(text).toContain('当前显示上次成功读取的数据');
     expect(text).toContain('4%');
     await act(async () => renderer.unmount());
@@ -405,6 +384,7 @@ describe('provider status UI', () => {
     });
 
     expect(renderedText(renderer)).toContain('615 / 500 · 123%');
+    expect(renderer.root.findAllByProps({ className: 'provider-detail-header' })).toHaveLength(0);
     expect(renderer.root.findAllByProps({ className: 'account-strip' })).toHaveLength(1);
     const progress = renderer.root.findByProps({ role: 'progressbar' });
     expect(progress.props['aria-valuenow']).toBe(100);
@@ -513,7 +493,7 @@ describe('provider status UI', () => {
     });
 
     const text = renderedText(renderer);
-    expect(text).toContain('Usage');
+    expect(text).toContain('额度用量');
     expect(text).toContain('25% 已用');
     const progress = renderer.root.findByProps({ role: 'progressbar' });
     expect(progress.props['aria-label']).toBe('Cursor usage');

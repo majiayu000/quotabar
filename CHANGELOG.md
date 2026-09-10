@@ -4,6 +4,8 @@ All notable QuotaBar changes should be summarized here before a release is cut.
 
 ## Unreleased
 
+- Remove redundant summary headers from every provider detail panel while retaining quota details and error messages; rename 总览 to 额度用量 in tray and desktop navigation.
+
 - Rebuilt both windows around the getdesign.md Linear reference: shared dark/light
   tokens, a flat menu quota list, a compact desktop navigation bar, and grouped
   settings. Preserved quota reads, recovery, filters, session details and exports.

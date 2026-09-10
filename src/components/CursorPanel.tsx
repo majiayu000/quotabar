@@ -2,13 +2,12 @@ import { workspaceCopy } from '../utils/quota_format';
 import { useEffect, useState, useCallback } from 'react';
 import { backend } from '../services/backend';
 import CostSummarySection from './CostSummarySection';
-import ProviderDetailHeader from './ProviderDetailHeader';
 import ResetTimeline from './ResetTimeline';
 import SmartTip from './SmartTip';
 import type { CursorData } from '../types/models';
-import { buildCursorQuotaWindows, getCursorTrayUsedPercent, sortMostConstrained, type QuotaWindowSummary } from '../services/provider_summary';
+import { buildCursorQuotaWindows, getCursorTrayUsedPercent, type QuotaWindowSummary } from '../services/provider_summary';
 import { getHighUsageTip } from '../services/detail_helpers';
-import { clampProgressValue, formatPlanType, getProgressStyle } from '../utils/quota_format';
+import { clampProgressValue, getProgressStyle } from '../utils/quota_format';
 import { defaultPanelSections, type PanelSectionVisibility } from '../services/panel_sections';
 import { useLatestRequestGeneration } from '../hooks/use_latest_request_generation';
 
@@ -135,7 +134,6 @@ export default function CursorPanel({
   const percentage = cursorData?.percentage ?? null;
   const resetLabel = formatResetDate(cursorData?.resetAt);
   const windows = buildCursorQuotaWindows(cursorData);
-  const topWindow = sortMostConstrained(windows)[0];
   const hasDashboardWindows = cursorData?.autoPercent != null || cursorData?.apiPercent != null;
   const includedRequestValue = cursorData?.fastUsed != null && cursorData.fastLimit != null
     ? `${cursorData.fastUsed} / ${cursorData.fastLimit}${percentage != null ? ` · ${Math.round(percentage)}%` : ''}`
@@ -155,15 +153,6 @@ export default function CursorPanel({
 
       {cursorData?.connected && (
         <div className="codex-content">
-          <ProviderDetailHeader
-            service="cursor"
-            status={error ? 'Stale data' : 'Connected'}
-            plan={`Cursor ${formatPlanType(cursorData.planType, 'Unknown')}`}
-            usedPercent={topWindow?.usedPercent ?? null}
-            usageLabel={topWindow?.label}
-            tone={error ? 'pending' : 'online'}
-          />
-
           <div className="section">
             <div className="section-title">{workspaceCopy("Usage", "额度用量")}</div>
 

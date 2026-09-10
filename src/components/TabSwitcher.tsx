@@ -20,7 +20,7 @@ export default function TabSwitcher({
         {
           id: 'all' as const,
           label: 'Overview',
-          shortLabel: '总览',
+          shortLabel: '额度用量',
           accent: '#0A84FF',
           connected: summaries.some((summary) => summary.connected),
           usedPercent: null,

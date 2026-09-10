@@ -2,11 +2,10 @@ import { workspaceCopy } from '../utils/quota_format';
 import { useEffect, useState, useCallback, type CSSProperties } from 'react';
 import { backend } from '../services/backend';
 import QuotaRecovery from './QuotaRecovery';
-import ProviderDetailHeader from './ProviderDetailHeader';
 import ResetTimeline from './ResetTimeline';
 import SmartTip from './SmartTip';
 import type { GrokData } from '../types/models';
-import { buildGrokQuotaWindows, sortMostConstrained, type QuotaWindowSummary } from '../services/provider_summary';
+import { buildGrokQuotaWindows, type QuotaWindowSummary } from '../services/provider_summary';
 import { getHighUsageTip } from '../services/detail_helpers';
 import { formatResetTime, getProgressStyle } from '../utils/quota_format';
 import { defaultPanelSections, type PanelSectionVisibility } from '../services/panel_sections';
@@ -143,7 +142,6 @@ export default function GrokPanel({
 
   const percentage = grokData?.percentage ?? null;
   const windows = buildGrokQuotaWindows(grokData);
-  const topWindow = sortMostConstrained(windows)[0];
   const extra = grokData?.extra;
   const extraUsedCents = grokExtraCents(extra?.onDemandUsedCents);
   const extraCapCents = grokExtraCents(extra?.onDemandCapCents);
@@ -175,14 +173,6 @@ export default function GrokPanel({
 
       {grokData?.connected && (
         <div className="codex-content">
-          <ProviderDetailHeader
-            service="grok"
-            status={error ? 'Stale data' : 'Connected'}
-            tone={error ? 'pending' : 'online'}
-            plan={grokData.planType || 'Grok'}
-            usedPercent={topWindow?.usedPercent ?? null}
-          />
-
           <div className="section">
             <div className="section-title">{workspaceCopy("Usage", "额度用量")}</div>
             <div className="quota-group">

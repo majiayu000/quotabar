@@ -26,7 +26,7 @@ const ALL_COST_SOURCES = ['claude', 'codex', 'cursor'] as const;
 
 type WorkspaceView = AnalysisView | 'quota' | 'settings';
 const ANALYSIS_VIEWS: [WorkspaceView, string, string][] = [
-  ['overview', '总览', '◫'], ['quota', '订阅额度', '◴'], ['usage', '用量明细', '▤'], ['history', '历史趋势', '↗'], ['sources', '数据来源', '⊙'], ['settings', '设置', '⚙'],
+  ['overview', '额度用量', '◫'], ['quota', '订阅额度', '◴'], ['usage', '用量明细', '▤'], ['history', '历史趋势', '↗'], ['sources', '数据来源', '⊙'], ['settings', '设置', '⚙'],
 ];
 const ANALYSIS_RANGES: [AnalysisRange, string][] = [['today', '今天'], ['last_7_days', '7 天'], ['last_30_days', '30 天']];
 const number = (value: number) => new Intl.NumberFormat('zh-CN').format(value);

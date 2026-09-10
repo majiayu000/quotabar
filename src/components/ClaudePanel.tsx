@@ -3,12 +3,11 @@ import QuotaRecovery, { quotaRecovery, useQuotaCooldown } from './QuotaRecovery'
 import ProviderSetup from './ProviderSetup';
 import CostSummarySection from './CostSummarySection';
 import QuotaCard from './QuotaCard';
-import ProviderDetailHeader from './ProviderDetailHeader';
 import ResetTimeline from './ResetTimeline';
 import SmartTip from './SmartTip';
 import type { QuotaData } from '../types/models';
 import { formatPaceText, formatResetTime } from '../utils/quota_format';
-import { buildClaudeQuotaWindows, sortMostConstrained } from '../services/provider_summary';
+import { buildClaudeQuotaWindows } from '../services/provider_summary';
 import { getHighUsageTip } from '../services/detail_helpers';
 import { defaultPanelSections, type PanelSectionVisibility } from '../services/panel_sections';
 
@@ -58,7 +57,6 @@ export default function ClaudePanel({
   const cooling = useQuotaCooldown(retryAt);
   const loginNeeded = /登录/.test(quotaRecovery('claude', error)?.title ?? '');
   const windows = buildClaudeQuotaWindows(quota);
-  const topWindow = sortMostConstrained(windows)[0];
 
   return (
     <>
@@ -78,15 +76,6 @@ export default function ClaudePanel({
 
       {quota && (
         <div className="detail-stack">
-          <ProviderDetailHeader
-            service="claude"
-            status={error ? 'Stale data' : quota.connected ? 'Connected' : 'Offline'}
-            plan="Claude Code"
-            usedPercent={topWindow?.usedPercent ?? null}
-            usageLabel={topWindow?.label}
-            tone={error ? 'pending' : quota.connected ? 'online' : 'offline'}
-          />
-
           <div className="section">
             <div className="section-title">{workspaceCopy("Current session", "当前窗口")}</div>
             <div className="quota-group">

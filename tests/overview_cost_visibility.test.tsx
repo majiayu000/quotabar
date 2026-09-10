@@ -321,7 +321,7 @@ describe('coherent workspace queries', () => {
     await act(async () => { renderer = create(createElement(AnalysisApp)); });
     await act(async () => renderer.root.findByProps({ 'aria-label': '筛选模型' }).props.onChange({ target: { value: 'gpt-5' } }));
     expect(read).toHaveBeenLastCalledWith('codex', 'last_30_days', { model: 'gpt-5', project: null, since: null, until: null }, expect.any(AbortSignal), expect.any(Function));
-    expect(renderer.root.findByType('h1').children).toEqual(['总览']);
+    expect(renderer.root.findByType('h1').children).toEqual(['额度用量']);
     expect(JSON.stringify(renderer.toJSON())).toContain('456');
     await act(async () => renderer.root.findByProps({ 'aria-label': '筛选项目' }).props.onChange({ target: { value: '/work/app' } }));
     expect(read).toHaveBeenLastCalledWith('codex', 'last_30_days', { model: 'gpt-5', project: '/work/app', since: null, until: null }, expect.any(AbortSignal), expect.any(Function));

@@ -1,7 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { backend } from '../services/backend';
 import type { AntigravityData } from '../types/models';
-import ProviderDetailHeader from './ProviderDetailHeader';
 import { useLatestRequestGeneration } from '../hooks/use_latest_request_generation';
 
 interface AntigravityPanelProps {
@@ -61,15 +60,6 @@ export default function AntigravityPanel({
   const isConnected = data?.connected === true;
   const isPreview = data?.status === 'preview' && !isConnected;
   const hasError = data?.status === 'error' && Boolean(data.error) && !loading;
-  const headerStatus = loading && !data
-    ? 'Checking'
-    : hasError
-      ? 'Unavailable'
-      : isConnected
-        ? 'CLI detected'
-        : isPreview
-          ? 'Preview'
-        : 'Not connected';
   const panelTitle = hasError
     ? 'Unable to check Antigravity'
     : isConnected
@@ -87,14 +77,6 @@ export default function AntigravityPanel({
 
   return (
     <div className="codex-panel">
-      <ProviderDetailHeader
-        service="antigravity"
-        status={headerStatus}
-        plan="Quota preview"
-        usedPercent={null}
-        tone={hasError ? 'error' : loading && !data || isPreview ? 'pending' : isConnected ? 'online' : 'offline'}
-      />
-
       <div className={`offline-panel${isConnected ? ' connected' : ''}`}>
         <div className="offline-tile">Ag</div>
         <div className="offline-title">{panelTitle}</div>

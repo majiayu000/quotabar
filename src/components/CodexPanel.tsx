@@ -2,7 +2,6 @@ import { workspaceCopy } from '../utils/quota_format';
 import { useEffect, useState, useCallback, type CSSProperties } from 'react';
 import { backend } from '../services/backend';
 import CostSummarySection from './CostSummarySection';
-import ProviderDetailHeader from './ProviderDetailHeader';
 import ResetTimeline from './ResetTimeline';
 import SmartTip from './SmartTip';
 import type {
@@ -14,7 +13,7 @@ import type {
   CodexWeeklyQuota,
   CodexWeeklyValueEstimate,
 } from '../types/models';
-import { buildCodexQuotaWindows, sortMostConstrained, type QuotaWindowSummary } from '../services/provider_summary';
+import { buildCodexQuotaWindows, type QuotaWindowSummary } from '../services/provider_summary';
 import { canReportBonusReady } from '../services/bonus_ready';
 import {
   checkWeeklyQuotaWindow,
@@ -57,10 +56,6 @@ function formatSubscriptionDate(dateStr?: string): string {
   } catch {
     return dateStr;
   }
-}
-
-function formatCodexPlan(planType?: string): string {
-  return `ChatGPT ${formatPlanType(planType, 'Pro')}`;
 }
 
 function formatWindowLabel(minutes?: number, kind: 'primary' | 'secondary' = 'primary'): string {
@@ -355,9 +350,7 @@ export default function CodexPanel({
   const connected = rateLimits?.connected || codexData?.connected;
   const planType = rateLimits?.planType || codexData?.planType;
   const windows = buildCodexQuotaWindows(rateLimits);
-  const topWindow = sortMostConstrained(windows)[0];
   const showingStaleLimits = Boolean(rateLimitsError && hasRateLimits);
-  const quotaUnavailable = Boolean(rateLimitsError && !hasRateLimits);
   const bonusGrantGroups = buildBonusGrantGroups(availableResetCredits);
   const officialWeeklyWindow = selectOfficialWeeklyWindow(rateLimits, weeklyQuota);
   const weeklyQuotaCheck = weeklyQuota
@@ -405,22 +398,6 @@ export default function CodexPanel({
     }
     return null;
   };
-  const headerStatus = showingStaleLimits
-    ? 'Stale data'
-    : quotaUnavailable
-      ? 'Quota unavailable'
-      : weeklyExhausted
-        ? 'Weekly exhausted'
-        : connected
-          ? 'Connected'
-          : 'Offline';
-  const headerTone = showingStaleLimits
-    ? 'pending'
-    : quotaUnavailable || weeklyExhausted
-      ? 'error'
-      : connected
-        ? 'online'
-        : 'offline';
   const exhaustedTip = weeklyExhausted
     ? getExhaustedWeekTip(formatResetAt(officialWeeklyLimit?.resetsAt), availableResetCredits.length)
     : null;
@@ -487,14 +464,6 @@ export default function CodexPanel({
 
       {connected && (
         <div className="codex-content">
-          <ProviderDetailHeader
-            service="codex"
-            status={headerStatus}
-            plan={formatCodexPlan(planType)}
-            usedPercent={topWindow?.usedPercent ?? null}
-            usageLabel={topWindow?.label}
-            tone={headerTone}
-          />
           {officialUpdatedAt != null && (
             <div className="codex-updated">
               <span>{formatOfficialUpdatedAt(officialUpdatedAt)}</span>

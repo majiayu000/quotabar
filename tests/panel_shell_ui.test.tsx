@@ -57,7 +57,7 @@ describe('panel shell UI', () => {
     expect(html).not.toContain('tabindex="-1"');
     expect(html).toContain('provider-card-label">Claude');
     expect(html).toContain('provider-card-label">Codex');
-    expect(html).toContain('provider-card-label">总览');
+    expect(html).toContain('provider-card-label">额度用量');
     expect(html).toContain('title="Claude · 48% 已用');
     expect(html).not.toContain('provider-card-percent');
     expect(html).not.toContain('Add service');
