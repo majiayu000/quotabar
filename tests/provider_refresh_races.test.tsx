@@ -863,6 +863,7 @@ function install_app_backend(quota_requests: Array<Deferred<QuotaData>>): void {
   vi.spyOn(backend, 'getCursorInfo').mockResolvedValue({ connected: true });
   vi.spyOn(backend, 'getGrokInfo').mockResolvedValue({ connected: true, percentage: 4, products: [] });
   vi.spyOn(backend, 'getAntigravityInfo').mockResolvedValue({ connected: false, status: 'pending' });
+  vi.spyOn(backend, 'getDockVisibility').mockResolvedValue(true);
   vi.spyOn(backend, 'setDockVisibility').mockResolvedValue(undefined);
   vi.spyOn(backend, 'updateTrayIcon').mockResolvedValue(undefined);
 }

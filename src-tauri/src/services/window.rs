@@ -115,14 +115,11 @@ fn write_dock_hidden_to(path: &Path, hidden: bool) -> Result<(), String> {
 }
 
 #[cfg(target_os = "macos")]
-fn persist_dock_hidden(hidden: bool) {
+fn persist_dock_hidden(hidden: bool) -> Result<(), String> {
     let Some(path) = dock_pref_path() else {
-        eprintln!("[Dock] data directory unavailable; skip persisting Hide Dock");
-        return;
+        return Err("data directory unavailable; cannot persist Hide Dock".into());
     };
-    if let Err(error) = write_dock_hidden_to(&path, hidden) {
-        eprintln!("[Dock] {error}");
-    }
+    write_dock_hidden_to(&path, hidden)
 }
 
 fn dock_visible_from_pref(hidden: Option<bool>) -> bool {
@@ -156,9 +153,20 @@ pub async fn resize_window(app: AppHandle, height: f64) -> Result<(), String> {
     Ok(())
 }
 
+pub fn get_dock_visibility() -> bool {
+    #[cfg(target_os = "macos")]
+    {
+        load_persisted_dock_visible()
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        DOCK_VISIBLE.load(Ordering::SeqCst)
+    }
+}
+
 pub async fn set_dock_visibility(app: AppHandle, visible: bool) -> Result<(), String> {
     #[cfg(target_os = "macos")]
-    persist_dock_hidden(!visible);
+    persist_dock_hidden(!visible)?;
     DOCK_VISIBLE.store(visible, Ordering::SeqCst);
     apply_dock_visibility(&app).map_err(|e| e.to_string())
 }

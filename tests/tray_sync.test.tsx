@@ -101,6 +101,7 @@ beforeEach(() => {
   vi.spyOn(backend, 'getCursorInfo').mockResolvedValue({ connected: true });
   vi.spyOn(backend, 'getGrokInfo').mockResolvedValue({ connected: true, percentage: 39, products: [] });
   vi.spyOn(backend, 'getAntigravityInfo').mockResolvedValue({ connected: false, status: 'pending' });
+  vi.spyOn(backend, 'getDockVisibility').mockResolvedValue(true);
   vi.spyOn(backend, 'setDockVisibility').mockResolvedValue(undefined);
   vi.spyOn(backend, 'updateTrayIcon').mockResolvedValue(undefined);
 });
@@ -126,6 +127,7 @@ describe('tray icon sync', () => {
     const renderer = await render_app(true);
     await act(async () => { await vi.advanceTimersByTimeAsync(120_000); });
     expect(backend.updateTrayIcon).not.toHaveBeenCalled();
+    expect(backend.getDockVisibility).not.toHaveBeenCalled();
     expect(backend.setDockVisibility).not.toHaveBeenCalled();
     await unmount(renderer);
   });

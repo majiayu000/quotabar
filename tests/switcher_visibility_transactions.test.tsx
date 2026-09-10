@@ -150,6 +150,7 @@ beforeEach(() => {
     cached: false,
     days: [],
   }));
+  vi.spyOn(backend, 'getDockVisibility').mockResolvedValue(true);
   vi.spyOn(backend, 'setDockVisibility').mockResolvedValue(undefined);
   vi.spyOn(backend, 'updateTrayIcon').mockResolvedValue(undefined);
 });

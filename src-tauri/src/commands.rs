@@ -521,6 +521,11 @@ pub async fn resize_window(app: AppHandle, height: f64) -> Result<(), String> {
 }
 
 #[tauri::command]
+pub fn get_dock_visibility() -> bool {
+    window::get_dock_visibility()
+}
+
+#[tauri::command]
 pub async fn set_dock_visibility(app: AppHandle, visible: bool) -> Result<(), String> {
     window::set_dock_visibility(app, visible).await
 }

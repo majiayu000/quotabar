@@ -185,7 +185,7 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const syncPreferences = () => {
-      setTheme(getSavedTheme()); setDockHidden(getSavedDockHidden());
+      setTheme(getSavedTheme());
       setTrayEnabled(getInitialTrayEnabledState()); setTrayStyle(getSavedTrayStyle()); setTrayCycle(getSavedTrayCycle());
       setPanelSections(getSavedPanelSections()); setNotifSettings(getSavedNotificationSettings());
       setSwitcherVisibility(getSavedSwitcherVisibility()); setEvents(getSavedEvents());
@@ -524,15 +524,28 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
 
   useEffect(() => {
     if (workspace) return;
-    backend.setDockVisibility(!dockHidden).catch((err) => {
-      console.error('Failed to apply dock visibility:', err);
+    let cancelled = false;
+    backend.getDockVisibility().then((visible) => {
+      if (cancelled) return;
+      const hidden = !visible;
+      setDockHidden(hidden);
+      saveDockHidden(hidden);
+    }).catch((err) => {
+      console.error('Failed to read dock visibility:', err);
     });
-  }, [dockHidden, workspace]);
+    return () => {
+      cancelled = true;
+    };
+  }, [workspace]);
 
   const handleDockToggle = useCallback(() => {
     const newValue = !dockHidden;
-    saveDockHidden(newValue);
-    setDockHidden(newValue);
+    backend.setDockVisibility(!newValue).then(() => {
+      saveDockHidden(newValue);
+      setDockHidden(newValue);
+    }).catch((err) => {
+      console.error('Failed to apply dock visibility:', err);
+    });
   }, [dockHidden]);
 
   const showTrayGuardToast = useCallback(() => {

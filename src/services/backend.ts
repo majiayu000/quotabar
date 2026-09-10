@@ -179,6 +179,10 @@ export const backend = {
     return invokeBackend<void>('resize_window', { height });
   },
 
+  getDockVisibility() {
+    return invokeBackend<boolean>('get_dock_visibility');
+  },
+
   setDockVisibility(visible: boolean) {
     return invokeBackend<void>('set_dock_visibility', { visible });
   },

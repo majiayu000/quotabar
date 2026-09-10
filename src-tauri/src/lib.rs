@@ -67,6 +67,7 @@ pub fn run() {
             commands::open_antigravity_dashboard,
             commands::open_grok_dashboard,
             commands::resize_window,
+            commands::get_dock_visibility,
             commands::set_dock_visibility,
             commands::update_tray_icon,
             commands::quit_app,

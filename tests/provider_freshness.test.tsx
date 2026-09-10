@@ -20,6 +20,7 @@ beforeEach(() => {
   vi.spyOn(backend, 'getCursorInfo').mockResolvedValue({ connected: true, percentage: 40 });
   vi.spyOn(backend, 'getGrokInfo').mockResolvedValue({ connected: true, percentage: 50 });
   vi.spyOn(backend, 'getAntigravityInfo').mockResolvedValue({ connected: false, status: 'pending' });
+  vi.spyOn(backend, 'getDockVisibility').mockResolvedValue(true);
   vi.spyOn(backend, 'setDockVisibility').mockResolvedValue();
   vi.spyOn(backend, 'updateTrayIcon').mockResolvedValue();
 });
