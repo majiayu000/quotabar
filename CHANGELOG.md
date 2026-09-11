@@ -4,22 +4,18 @@ All notable QuotaBar changes should be summarized here before a release is cut.
 
 ## Unreleased
 
+## 0.5.0 - 2026-09-11
+
 - Keep Hide Dock on the native preference across restarts instead of letting a missing webview cache turn the icon back on.
 - Tie cost-cache identity to the vendored ccstats version at build time so SDK bumps cannot reuse stale snapshots.
 - Show used quota percentages and matching progress bars in the tray overview instead of remaining quota.
-
 - Remove redundant summary headers from every provider detail panel while retaining quota details and error messages; rename 总览 to 额度用量 in tray and desktop navigation.
-
-- Rebuilt both windows around the getdesign.md Linear reference: shared dark/light
-  tokens, a flat menu quota list, a compact desktop navigation bar, and grouped
-  settings. Preserved quota reads, recovery, filters, session details and exports.
-
+- Rebuilt both windows around the getdesign.md Linear reference: shared dark/light tokens, a flat menu quota list, a compact desktop navigation bar, and grouped settings. Preserved quota reads, recovery, filters, session details and exports.
 - Align remaining quota bars with their numbers, label used quota in navigation tooltips, and remove the ambiguous All percentage.
 - Put records first on desktop detail pages, restore the tray analysis entry, and clarify shared Chinese controls and theme scope.
 - Improve light-theme contrast and small text, reflow narrow tray navigation, and expose a dedicated source recheck action.
 - Show unknown history costs explicitly and replace decorative model-cost bars with actual labeled amounts.
 - Refresh the landing preview with clearly labeled illustrative data and separate installer use from source-build prerequisites.
-
 - Keep tray navigation on one scrollable row; place a single usage-analysis action in the footer and shrink the window cap from 620px to 582px without the old 24px padding.
 - Drop the Overview connection-count header so the tray opens on remaining quota.
 - Skip the 120s Grok success cache on Refresh so a manual recheck hits the network.
@@ -51,9 +47,6 @@ All notable QuotaBar changes should be summarized here before a release is cut.
 - Replace the misleading All percentage with connection counts and label each provider percentage with its quota window.
 - Track successful quota refreshes per service; failed refreshes no longer advance the displayed timestamp.
 - Start new installs on Overview with service detection, login instructions, and connection checks.
-
-## 0.5.0 - 2026-09-06
-
 - Add a resizable desktop workspace alongside the existing independent provider tray panels.
 - Add unified local usage analytics, projects and sessions, custom date ranges, daily/hourly history, activity calendar, token composition, and period comparison.
 - Read source-provided session titles and support local manual names without sending conversations to a model.
