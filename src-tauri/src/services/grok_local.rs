@@ -85,7 +85,8 @@ fn scale_partial_coverage(
     if coverage.complete || coverage.total_tokens <= coverage.priced_tokens {
         return Ok((observed_cost_usd, coverage.priced_tokens));
     }
-    let filled_cost = observed_cost_usd * coverage.total_tokens as f64 / coverage.priced_tokens as f64;
+    let filled_cost =
+        observed_cost_usd * coverage.total_tokens as f64 / coverage.priced_tokens as f64;
     if !filled_cost.is_finite() || filled_cost <= 0.0 {
         return Err(
             "no positive API-equivalent cost was available for the active Grok period".to_string(),
@@ -111,8 +112,8 @@ mod tests {
     #[test]
     fn accepts_complete_inference_pricing() {
         let coverage = complete_coverage();
-        let usage = validate_period_summary(Some(1.25), 2, 0, Some(&coverage))
-            .expect("complete summary");
+        let usage =
+            validate_period_summary(Some(1.25), 2, 0, Some(&coverage)).expect("complete summary");
 
         assert_eq!(usage.observed_cost_usd, 1.25);
         assert_eq!(usage.observed_tokens, 150);
@@ -131,8 +132,8 @@ mod tests {
             cost_is_lower_bound: true,
         };
 
-        let usage = validate_period_summary(Some(1.25), 2, 0, Some(&coverage))
-            .expect("partial summary");
+        let usage =
+            validate_period_summary(Some(1.25), 2, 0, Some(&coverage)).expect("partial summary");
         assert!((usage.observed_cost_usd - 1.25 * 200.0 / 150.0).abs() < 1e-12);
         assert_eq!(usage.observed_tokens, 200);
         assert_eq!(usage.coverage_percent, 75.0);

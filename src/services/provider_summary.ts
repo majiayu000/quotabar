@@ -2,7 +2,7 @@ import type { CSSProperties } from 'react';
 import type { CodexRateLimits, CursorData, GrokData, QuotaData, UsageInfo } from '../types/models';
 import { SERVICE_META, SERVICES } from './service_meta';
 import type { TrayServiceName } from './tray_visibility';
-import { formatResetTime, getProgressStyle } from '../utils/quota_format';
+import { formatResetTime, getProgressStyle, workspaceCopy } from '../utils/quota_format';
 
 export type AppTabName = TrayServiceName | 'all';
 export type AppViewName = AppTabName | 'settings';
@@ -206,14 +206,26 @@ export function getCursorAlertUsedPercent(
   return sortMostConstrained(windows)[0]?.usedPercent ?? null;
 }
 
+export function grokPoolWindowLabel(data: Pick<GrokData, 'periodType' | 'periodLabel'>): string {
+  if (data.periodType === 'monthly' || data.periodLabel === 'Monthly') {
+    return workspaceCopy('Monthly pool', '每月额度池');
+  }
+  if (data.periodType === 'weekly' || data.periodLabel === 'Weekly') {
+    return workspaceCopy('Weekly pool', '每周额度池');
+  }
+  return workspaceCopy('Usage pool', '额度池');
+}
+
 export function buildGrokQuotaWindows(grokData: GrokData | null): QuotaWindowSummary[] {
   if (!grokData?.connected || typeof grokData.percentage !== 'number') return [];
   const windows: QuotaWindowSummary[] = [{
     provider: 'grok',
     providerLabel: SERVICE_META.grok.label,
-    label: grokData.periodLabel ? `${grokData.periodLabel} pool` : 'Usage pool',
+    label: grokPoolWindowLabel(grokData),
     usedPercent: grokData.percentage,
-    resetLabel: grokData.resetAt ? formatResetTime(grokData.resetAt, { expiredLabel: 'soon' }) : undefined,
+    resetLabel: grokData.resetAt
+      ? formatResetTime(grokData.resetAt, { expiredLabel: workspaceCopy('soon', '即将重置') })
+      : undefined,
     resetAtMs: resetAtMsFromValue(grokData.resetAt),
   }];
   const extra = grokData.extra;
@@ -227,7 +239,7 @@ export function buildGrokQuotaWindows(grokData: GrokData | null): QuotaWindowSum
     windows.push({
       provider: 'grok',
       providerLabel: SERVICE_META.grok.label,
-      label: 'Extra credits',
+      label: workspaceCopy('Extra credits', '额外额度'),
       usedPercent: Math.min(100, (extra.onDemandUsedCents / extra.onDemandCapCents) * 100),
     });
   }

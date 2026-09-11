@@ -25,14 +25,14 @@ describe('validateGrokValueEstimate', () => {
 
   test('rejects invalid totals', () => {
     expect(validateGrokValueEstimate(estimate({ observedCostUsd: 0 }), NOW))
-      .toContain('invalid totals');
+      .toContain('合计无效');
   });
 
   test('rejects stale observation times', () => {
     expect(validateGrokValueEstimate(
       estimate({ observedAt: new Date(NOW - 11 * 60 * 1000).toISOString() }),
       NOW,
-    )).toContain('stale');
+    )).toContain('已过期');
   });
 
   test('does not compare copied official usedPct or reset fields', () => {

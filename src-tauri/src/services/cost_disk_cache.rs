@@ -11,7 +11,7 @@ use std::{
 pub const STALE_MAX_AGE: Duration = Duration::from_secs(24 * 60 * 60);
 
 /// Bump when the cost snapshot or range payload schema changes.
-pub const COST_CACHE_SCHEMA_VERSION: u32 = 1;
+pub const COST_CACHE_SCHEMA_VERSION: u32 = 2;
 
 /// Identity of the compiled `ccstats` crate, injected by `src-tauri/build.rs`.
 pub const CCSTATS_VERSION: &str = env!("CCSTATS_VERSION");
@@ -246,7 +246,7 @@ mod tests {
             .file_name()
             .and_then(|name| name.to_str())
             .expect("file name");
-        assert!(overview_name.starts_with("cost-v1-app"));
+        assert!(overview_name.starts_with("cost-v2-app"));
         let ccstats_file_token: String = CCSTATS_VERSION
             .chars()
             .map(|ch| if ch.is_ascii_alphanumeric() { ch } else { '-' })

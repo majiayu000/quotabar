@@ -53,10 +53,39 @@ fn state_vscdb_path() -> Option<PathBuf> {
 }
 
 fn read_env_token() -> Option<String> {
-    std::env::var(CURSOR_TOKEN_ENV_KEY)
+    env_nonempty(CURSOR_TOKEN_ENV_KEY)
+}
+
+pub(crate) fn env_nonempty(key: &str) -> Option<String> {
+    std::env::var(key)
         .ok()
-        .map(|v| v.trim().to_string())
-        .filter(|v| !v.is_empty())
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+}
+
+#[cfg(test)]
+fn usage_api_token_to_export(
+    has_api_key: bool,
+    has_session_env: bool,
+    has_usage_file: bool,
+    local_token: Option<&str>,
+) -> Option<String> {
+    if has_api_key || has_session_env || has_usage_file {
+        return None;
+    }
+    workos_cookie_value(local_token?).ok()
+}
+
+pub(crate) fn set_env_var(key: &str, value: &str) {
+    // `set_var` is unsafe on recent rustc because it mutates process-global state.
+    #[allow(unused_unsafe)]
+    unsafe {
+        std::env::set_var(key, value);
+    }
+}
+
+pub(crate) fn usage_api_cookie() -> Result<String, String> {
+    workos_cookie_value(&get_cursor_session()?.token)
 }
 
 fn open_state_db(path: &Path) -> Result<Connection, String> {
@@ -568,6 +597,34 @@ mod tests {
     fn rejects_garbage_session_token() {
         assert!(workos_cookie_value("not-a-token").is_err());
         assert!(workos_cookie_value("").is_err());
+    }
+
+    #[test]
+    fn does_not_export_session_when_usage_api_already_configured() {
+        let jwt = encode_jwt("user_test");
+        assert_eq!(
+            usage_api_token_to_export(true, false, false, Some(&jwt)),
+            None
+        );
+        assert_eq!(
+            usage_api_token_to_export(false, true, false, Some(&jwt)),
+            None
+        );
+        assert_eq!(
+            usage_api_token_to_export(false, false, true, Some(&jwt)),
+            None
+        );
+        assert_eq!(usage_api_token_to_export(false, false, false, None), None);
+    }
+
+    #[test]
+    fn exports_workos_cookie_from_local_access_token() {
+        let jwt = encode_jwt("user_test");
+        let expected = format!("user_test%3A%3A{jwt}");
+        assert_eq!(
+            usage_api_token_to_export(false, false, false, Some(&jwt)),
+            Some(expected)
+        );
     }
 
     #[test]

@@ -720,11 +720,11 @@ describe('Grok period value', () => {
 
     expect(rendered_text(renderer)).toContain('每周 API 等价估算');
     expect(rendered_text(renderer)).toContain('$8.00');
-    expect(rendered_text(renderer)).toContain('billed so far this period');
-    expect(rendered_text(renderer)).toContain('Full pool');
+    expect(rendered_text(renderer)).toContain('本周期已计入');
+    expect(rendered_text(renderer)).toContain('整池估值');
     expect(rendered_text(renderer)).toContain('$200.00');
     expect(rendered_text(renderer)).toContain('本地估算');
-    expect(rendered_text(renderer)).toContain('Projected from local Grok usage');
+    expect(rendered_text(renderer)).toContain('按本机 Grok 用量推算');
     await unmount(renderer);
   });
 
@@ -749,9 +749,9 @@ describe('Grok period value', () => {
     });
 
     const text = rendered_text(renderer);
-    expect(text).toContain('Full pool');
+    expect(text).toContain('整池估值');
     expect(text).toContain('$200.00');
-    expect(text).toContain('Full pool dollars are extrapolated from Build 4%, not from the pool gauge percent.');
+    expect(text).toContain('整池金额按 Build 4% 外推，不是按总池百分比');
     await unmount(renderer);
   });
 
@@ -783,6 +783,7 @@ describe('Grok period value', () => {
     });
 
     const text = rendered_text(renderer);
+    expect(text).not.toContain('额外额度');
     expect(text).not.toContain('Extra credits');
     expect(text).not.toContain('$0.00 / $50.00');
     await unmount(renderer);
@@ -798,7 +799,7 @@ describe('Grok period value', () => {
     });
 
     expect(rendered_text(renderer)).toContain('4%');
-    expect(rendered_text(renderer)).toContain('Pool value unavailable');
+    expect(rendered_text(renderer)).toContain('整池估值不可用');
     expect(rendered_text(renderer)).toContain('no Grok token usage matched');
     await unmount(renderer);
   });
@@ -827,6 +828,7 @@ describe('Grok period value', () => {
     expect(text).toContain('$13.14');
     expect(text).toContain('价格覆盖率 95.1% · 未标价部分按已标价推理外推');
     expect(text).not.toContain('≥');
+    expect(text).not.toContain('整池估值不可用');
     expect(text).not.toContain('Pool value unavailable');
     await unmount(renderer);
   });

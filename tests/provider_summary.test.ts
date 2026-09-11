@@ -164,7 +164,7 @@ describe('provider summary helpers', () => {
       products: [{ product: 'build', label: 'Build', usagePercent: 40 }],
       extra: { onDemandUsedCents: 300, onDemandCapCents: 5000, prepaidBalanceCents: 0 },
     });
-    expect(windows.map((window) => window.label)).toEqual(['Weekly pool', 'Extra credits']);
+    expect(windows.map((window) => window.label)).toEqual(['每周额度池', '额外额度']);
     expect(windows[0].usedPercent).toBe(42);
     expect(windows[1].usedPercent).toBe(6);
     expect(buildGrokQuotaWindows({ connected: true, products: [] })).toEqual([]);
@@ -173,7 +173,7 @@ describe('provider summary helpers', () => {
       percentage: 42,
       products: [],
       extra: { onDemandCapCents: 5000, prepaidBalanceCents: 0 },
-    }).map((window) => window.label)).toEqual(['Usage pool']);
+    }).map((window) => window.label)).toEqual(['额度池']);
   });
 });
 

@@ -7,6 +7,7 @@ pub mod codex_weekly;
 pub mod cost;
 mod cost_disk_cache;
 pub mod cursor;
+mod cursor_usage;
 pub mod grok;
 mod grok_local;
 pub mod http;

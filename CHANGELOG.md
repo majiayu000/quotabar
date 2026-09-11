@@ -5,6 +5,8 @@ All notable QuotaBar changes should be summarized here before a release is cut.
 ## Unreleased
 
 - Keep the Grok pool-value card when local inference pricing is incomplete, and scale the observed dollars to full local-turn coverage.
+- Feed Cursor's signed-in IDE session into local cost and load dashboard usage events through QuotaBar's HTTP client so the monthly card is not stuck at $0.
+- Keep Grok tray copy in Chinese so the pool-value card does not mix English labels with Chinese notes.
 
 ## 0.5.0 - 2026-09-11
 

@@ -159,6 +159,8 @@ fn build_cost_daily(
         }
     }
 
+    prepare_cost_source(source)?;
+
     // ccstats resolves range boundaries in the requested timezone; the app
     // always passes the local timezone (None), so local dates line up.
     let today = Local::now().date_naive();
@@ -367,6 +369,8 @@ fn build_cost_overview(
         }
     }
 
+    prepare_cost_source(source)?;
+
     let range_specs = cost_range_specs();
     let batch = summarize_cost_ranges(MultiSummaryOptions {
         source,
@@ -458,6 +462,13 @@ fn normalize_optional(value: Option<String>) -> Option<String> {
     value
         .map(|item| item.trim().to_string())
         .filter(|item| !item.is_empty())
+}
+
+fn prepare_cost_source(source: UsageSource) -> Result<(), String> {
+    if source == UsageSource::Cursor {
+        super::cursor_usage::ensure_replay()?;
+    }
+    Ok(())
 }
 
 fn get_cached_overview(cache_key: &str) -> Result<Option<CostOverview>, String> {
