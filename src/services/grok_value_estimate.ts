@@ -31,3 +31,17 @@ export function validateGrokValueEstimate(
 
   return null;
 }
+
+export function grokCoverageLabel(estimate: GrokValueEstimate): string | null {
+  const percent = estimate.coveragePercent;
+  if (typeof percent !== 'number' || !Number.isFinite(percent)) {
+    return null;
+  }
+  if (!estimate.costIsLowerBound && percent >= 99.95) {
+    return null;
+  }
+  if (estimate.costIsLowerBound) {
+    return `价格覆盖率 ${percent.toFixed(1)}% · 未标价推理未计入，金额为下限`;
+  }
+  return `价格覆盖率 ${percent.toFixed(1)}% · 未标价部分按已标价推理外推`;
+}

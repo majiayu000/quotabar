@@ -4,6 +4,8 @@ All notable QuotaBar changes should be summarized here before a release is cut.
 
 ## Unreleased
 
+- Keep the Grok pool-value card when local inference pricing is incomplete, and scale the observed dollars to full local-turn coverage.
+
 ## 0.5.0 - 2026-09-11
 
 - Keep Hide Dock on the native preference across restarts instead of letting a missing webview cache turn the icon back on.

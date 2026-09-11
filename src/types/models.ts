@@ -137,6 +137,8 @@ export interface GrokValueEstimate {
   estimatedPeriodValueUsd: number;
   observedTokens: number;
   estimatedPeriodTokens: number;
+  coveragePercent?: number;
+  costIsLowerBound?: boolean;
 }
 
 export interface GrokData {

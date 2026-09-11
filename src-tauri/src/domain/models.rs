@@ -376,6 +376,14 @@ pub struct GrokValueEstimate {
     pub observed_tokens: i64,
     #[serde(rename = "estimatedPeriodTokens")]
     pub estimated_period_tokens: f64,
+    #[serde(rename = "coveragePercent", default = "complete_coverage_percent")]
+    pub coverage_percent: f64,
+    #[serde(rename = "costIsLowerBound", default)]
+    pub cost_is_lower_bound: bool,
+}
+
+fn complete_coverage_percent() -> f64 {
+    100.0
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

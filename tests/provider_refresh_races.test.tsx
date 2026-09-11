@@ -803,6 +803,34 @@ describe('Grok period value', () => {
     await unmount(renderer);
   });
 
+  it('shows a scaled Grok pool estimate when inference pricing coverage is incomplete', async () => {
+    const renderer = await render_grok({
+      connected: true,
+      percentage: 58,
+      periodType: 'weekly',
+      products: [],
+      valueEstimate: {
+        observedAt: new Date().toISOString(),
+        windowStartedAt: '2026-09-06T15:25:10.879Z',
+        resetsAt: '2026-09-13T15:25:10.879Z',
+        usedPct: 58,
+        observedCostUsd: 13.14,
+        estimatedPeriodValueUsd: 22.66,
+        observedTokens: 2_103,
+        estimatedPeriodTokens: 5_943,
+        coveragePercent: 95.1,
+        costIsLowerBound: false,
+      },
+    });
+
+    const text = rendered_text(renderer);
+    expect(text).toContain('$13.14');
+    expect(text).toContain('价格覆盖率 95.1% · 未标价部分按已标价推理外推');
+    expect(text).not.toContain('≥');
+    expect(text).not.toContain('Pool value unavailable');
+    await unmount(renderer);
+  });
+
   it('still shows a Grok pool estimate when usedPct differs from official usage', async () => {
     const renderer = await render_grok({
       connected: true,

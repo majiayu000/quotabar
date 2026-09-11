@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { validateGrokValueEstimate } from '../src/services/grok_value_estimate';
+import { grokCoverageLabel, validateGrokValueEstimate } from '../src/services/grok_value_estimate';
 import type { GrokValueEstimate } from '../src/types/models';
 
 const NOW = Date.parse('2026-09-04T07:00:00Z');
@@ -41,5 +41,16 @@ describe('validateGrokValueEstimate', () => {
       resetsAt: '2099-01-01T00:00:00Z',
       windowStartedAt: '1999-01-01T00:00:00Z',
     }), NOW)).toBeNull();
+  });
+});
+
+describe('grokCoverageLabel', () => {
+  test('labels incomplete coverage as a scaled estimate', () => {
+    expect(grokCoverageLabel(estimate({ coveragePercent: 95.1, costIsLowerBound: false })))
+      .toBe('价格覆盖率 95.1% · 未标价部分按已标价推理外推');
+    expect(grokCoverageLabel(estimate({ coveragePercent: 95.1, costIsLowerBound: true })))
+      .toBe('价格覆盖率 95.1% · 未标价推理未计入，金额为下限');
+    expect(grokCoverageLabel(estimate({ coveragePercent: 100, costIsLowerBound: false })))
+      .toBeNull();
   });
 });

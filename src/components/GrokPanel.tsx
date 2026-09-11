@@ -10,7 +10,7 @@ import { getHighUsageTip } from '../services/detail_helpers';
 import { formatResetTime, getProgressStyle } from '../utils/quota_format';
 import { defaultPanelSections, type PanelSectionVisibility } from '../services/panel_sections';
 import { useLatestRequestGeneration } from '../hooks/use_latest_request_generation';
-import { validateGrokValueEstimate } from '../services/grok_value_estimate';
+import { validateGrokValueEstimate, grokCoverageLabel } from '../services/grok_value_estimate';
 
 interface GrokPanelProps {
   workspace?: boolean;
@@ -161,6 +161,10 @@ export default function GrokPanel({
   const displayedGrokValueEstimateError = grokValueValidationError
     ?? grokData?.valueEstimateError
     ?? null;
+  const grokCoverageNote = displayedGrokValueEstimate
+    ? grokCoverageLabel(displayedGrokValueEstimate)
+    : null;
+  const grokCostPrefix = displayedGrokValueEstimate?.costIsLowerBound ? '≥' : '≈';
 
   return (
     <div className="codex-panel">
@@ -216,20 +220,25 @@ export default function GrokPanel({
                       <div className="weekly-value-body">
                         <div className="weekly-value-metrics">
                           <span className="weekly-value-amount">
-                          ≈{USD_FORMAT.format(displayedGrokValueEstimate.observedCostUsd)}
+                          {grokCostPrefix}{USD_FORMAT.format(displayedGrokValueEstimate.observedCostUsd)}
                           </span>
                           <span className="weekly-value-token-row">
                             <strong>
-                              ≈{COMPACT_TOKEN_FORMAT.format(displayedGrokValueEstimate.observedTokens)}
+                              {grokCostPrefix}{COMPACT_TOKEN_FORMAT.format(displayedGrokValueEstimate.observedTokens)}
                             </strong>
                             <span>billed so far this period</span>
                           </span>
                           <span className="weekly-value-token-row">
                             <span>Full pool</span>
                             <strong>
-                              ≈{USD_FORMAT.format(displayedGrokValueEstimate.estimatedPeriodValueUsd)}
+                              {grokCostPrefix}{USD_FORMAT.format(displayedGrokValueEstimate.estimatedPeriodValueUsd)}
                             </strong>
                           </span>
+                          {grokCoverageNote ? (
+                            <span className="weekly-value-token-row">
+                              {grokCoverageNote}
+                            </span>
+                          ) : null}
                           {grokScaleBasisCopy(displayedGrokValueEstimate) ? (
                             <span className="weekly-value-token-row">
                               {grokScaleBasisCopy(displayedGrokValueEstimate)}

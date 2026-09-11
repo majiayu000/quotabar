@@ -368,6 +368,8 @@ fn estimate_grok_period_value(
         estimated_period_value_usd: period_usd,
         observed_tokens: usage.observed_tokens,
         estimated_period_tokens: period_tokens,
+        coverage_percent: usage.coverage_percent,
+        cost_is_lower_bound: usage.cost_is_lower_bound,
     })
 }
 
