@@ -172,7 +172,7 @@ Expected output locations:
 
 The latest published release is available from [GitHub Releases](https://github.com/majiayu000/quotabar/releases/latest).
 
-The v0.5.0 Apple Silicon and Intel macOS artifacts are unsigned and not notarized. macOS may require users to approve the app in Privacy & Security before first launch. Future public macOS candidates must pass the repository's opt-in Developer ID signing and notarization workflow; unsigned workflow artifacts remain tester builds.
+The v0.5.1 Apple Silicon and Intel macOS artifacts are unsigned and not notarized. macOS may require users to approve the app in Privacy & Security before first launch. Future public macOS candidates must pass the repository's opt-in Developer ID signing and notarization workflow; unsigned workflow artifacts remain tester builds.
 
 Release candidates should be built by the `release-artifacts` GitHub Actions workflow or from a clean checkout, then attached manually to the matching GitHub release only after final human approval. The workflow uploads build artifacts and SHA-256 manifests for inspection; it does not publish a GitHub Release. See [docs/release.md](docs/release.md) for the release checklist and signing-secret requirements.
 
