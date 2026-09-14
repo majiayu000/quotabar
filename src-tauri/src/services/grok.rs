@@ -136,7 +136,10 @@ fn pick_credential(auth: &serde_json::Value) -> Result<GrokCredential, String> {
         return Ok(cred);
     }
     if saw_entry {
-        return Err("Grok session expired. Run 'grok login', then click Refresh.".to_string());
+        return Err(
+            "Grok session expired. Run 'grok login'; QuotaBar will check again automatically."
+                .to_string(),
+        );
     }
     Err("Grok Build not configured. Run 'grok login'.".to_string())
 }
@@ -517,10 +520,6 @@ fn is_grok_auth_status(status: reqwest::StatusCode) -> bool {
 }
 
 pub async fn fetch_grok_info(manual: bool) -> GrokData {
-    if let Some(cached) = get_cached(manual) {
-        return cached;
-    }
-
     let auth = match read_auth_json() {
         Ok(value) => value,
         Err(error) => return fallback_or_disconnected(error),
@@ -529,6 +528,11 @@ pub async fn fetch_grok_info(manual: bool) -> GrokData {
         Ok(value) => value,
         Err(error) => return fallback_or_disconnected(error),
     };
+
+    // Check local expiry on every poll, even while a quota snapshot is cached.
+    if let Some(cached) = get_cached(manual) {
+        return cached;
+    }
 
     let mut request = shared_http_client()
         .get(BILLING_URL)
@@ -550,7 +554,7 @@ pub async fn fetch_grok_info(manual: bool) -> GrokData {
     if !status.is_success() {
         if is_grok_auth_status(status) {
             return GrokData::disconnected(
-                "Grok session expired. Run 'grok login', then click Refresh.",
+                "Grok authentication failed (401/403). Run 'grok login'; QuotaBar will check again automatically.",
             );
         }
         return last_good_snapshot_fallback(format!("Grok billing API error: {status}"));
@@ -608,7 +612,7 @@ mod tests {
     ) -> GrokData {
         if is_grok_auth_status(status) {
             return GrokData::disconnected(
-                "Grok session expired. Run 'grok login', then click Refresh.",
+                "Grok authentication failed (401/403). Run 'grok login'; QuotaBar will check again automatically.",
             );
         }
         last_good_or_disconnected(format!("Grok billing API error: {status}"), snapshot, age)
@@ -946,7 +950,10 @@ mod tests {
             Duration::from_secs(10),
         );
         assert!(!unauthorized.connected);
-        assert!(unauthorized.error.unwrap().contains("expired"));
+        assert!(unauthorized
+            .error
+            .unwrap()
+            .contains("authentication failed"));
     }
 
     #[test]

@@ -7,12 +7,14 @@ export function quotaRecovery(provider: TrayServiceName, error?: string | null) 
   if (!error) return null;
   if (error.includes('429')) return {
     title: '额度暂时无法更新',
-    description: '服务商暂时限制了额度查询。自动刷新已停止，请在等待结束后手动重试。',
+    description: provider === 'grok'
+      ? '服务商暂时限制了额度查询，将按刷新周期自动重试。'
+      : '服务商暂时限制了额度查询。自动刷新已停止，请在等待结束后手动重试。',
     command: null,
   };
-  if (provider === 'grok' && /session expired|not configured/i.test(error)) return {
-    title: /expired/i.test(error) ? '登录已过期' : '请先登录',
-    description: '在终端完成 Grok 登录，再点击“我已登录，重新检测”。已有的本地用量记录仍可查看。',
+  if (provider === 'grok' && /session expired|not configured|authentication failed/i.test(error)) return {
+    title: /expired/i.test(error) ? '登录已过期' : /authentication failed/i.test(error) ? '认证失败，请检查登录' : '请先登录',
+    description: '在终端完成 Grok 登录，随后会自动检测并恢复连接；也可点击“我已登录，重新检测”立即检查。已有的本地用量记录仍可查看。',
     command: 'grok login',
   };
   if (provider === 'claude' && isClaudeAuthError(error)) return {

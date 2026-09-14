@@ -29,7 +29,7 @@ Website: https://majiayu000.github.io/quotabar/
 - Notifications: 80%, 95%, 100%, unused bonus reset, and bonus-expiry alerts.
 - Background polling: refreshes every 60 seconds, backs off to 5 minutes on 429, and backs off to 1 hour on Claude auth failures.
 - Read-only Claude OAuth: reads Claude Code credentials from the correct source, but never refreshes or writes OAuth tokens.
-- Read-only Grok auth: reads `~/.grok/auth.json`, but never refreshes or writes tokens.
+- Read-only Grok auth: checks `~/.grok/auth.json` on each polling cycle, skips quota requests while credentials are locally expired, and automatically detects a new `grok login`. Network failures keep retrying on the existing refresh schedule; QuotaBar never refreshes or writes tokens.
 - Hidden-window polling: disables macOS webview throttling so menubar mode keeps working.
 
 ## Demo Proof

@@ -2,6 +2,7 @@ import { createElement } from 'react';
 import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { WorkspaceQuotaCard } from '../src/components/OverviewPanel';
+import { quotaRecovery } from '../src/components/QuotaRecovery';
 import type { ProviderSummary } from '../src/services/provider_summary';
 
 let renderer: ReactTestRenderer | undefined;
@@ -71,4 +72,13 @@ it('asks for Claude login and lets the user explicitly recheck without showing q
   expect(retry.props.disabled).toBe(false);
   await act(async () => retry.props.onClick());
   expect(refresh).toHaveBeenCalledWith('claude');
+});
+
+it('distinguishes Grok local expiry from API auth rejection and describes automatic recovery', () => {
+  expect(quotaRecovery('grok', 'Grok session expired.')?.title).toBe('登录已过期');
+  const rejected = quotaRecovery('grok', 'Grok authentication failed (401/403).');
+  expect(rejected?.title).toBe('认证失败，请检查登录');
+  expect(rejected?.command).toBe('grok login');
+  expect(rejected?.description).toContain('自动检测并恢复连接');
+  expect(quotaRecovery('grok', 'Grok billing API error: 429')?.description).toContain('自动重试');
 });

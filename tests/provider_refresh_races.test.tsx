@@ -1201,22 +1201,49 @@ describe('login-gated polling', () => {
     await unmount(renderer);
   });
 
-  it('stops Grok login failures until a manual recheck succeeds', async () => {
+  it.each([
+    "Grok session expired. Run 'grok login'.",
+    'Grok Build not configured.',
+    'Grok authentication failed (401/403).',
+    'Network error: timeout',
+    'Grok billing API error: 429',
+  ])('automatically recovers Grok after %s', async (error) => {
     vi.useFakeTimers();
     const read = vi.spyOn(backend, 'getGrokInfo')
-      .mockResolvedValueOnce({ connected: false, error: "Grok session expired. Run 'grok login'." })
+      .mockResolvedValueOnce({ connected: false, error })
+      .mockResolvedValue({ connected: true, percentage: 42 });
+    const connection = vi.fn();
+    let renderer!: ReactTestRenderer;
+    await act(async () => { renderer = create(createElement(GrokPanel, { autoRefreshIntervalMs: 60_000, onConnectionChange: connection })); });
+    expect(connection).toHaveBeenLastCalledWith(false);
+    await act(async () => { await vi.advanceTimersByTimeAsync(60_000); });
+    expect(read).toHaveBeenCalledTimes(2);
+    expect(read).toHaveBeenLastCalledWith(false);
+    expect(connection).toHaveBeenLastCalledWith(true);
+    expect(rendered_text(renderer)).not.toContain(error);
+    await act(async () => { await vi.advanceTimersByTimeAsync(60_000); });
+    expect(read).toHaveBeenCalledTimes(3);
+    await unmount(renderer);
+  });
+
+  it('does not overlap Grok automatic reads and stops polling when disabled or unmounted', async () => {
+    vi.useFakeTimers();
+    const pending = deferred<GrokData>();
+    const read = vi.spyOn(backend, 'getGrokInfo').mockReturnValueOnce(pending.promise)
       .mockResolvedValue({ connected: true, percentage: 42 });
     let renderer!: ReactTestRenderer;
     await act(async () => { renderer = create(createElement(GrokPanel, { autoRefreshIntervalMs: 60_000 })); });
-    await act(async () => { await vi.advanceTimersByTimeAsync(2 * 60 * 60 * 1000); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(120_000); });
     expect(read).toHaveBeenCalledTimes(1);
-    expect(read).toHaveBeenLastCalledWith(false);
-    await act(async () => { renderer.update(createElement(GrokPanel, { autoRefreshIntervalMs: 60_000, manualRefreshNonce: 1 })); });
-    expect(read).toHaveBeenCalledTimes(2);
-    expect(read).toHaveBeenLastCalledWith(true);
+    await settle(() => pending.reject(new Error('Network error: timeout')));
     await act(async () => { await vi.advanceTimersByTimeAsync(60_000); });
-    expect(read).toHaveBeenCalledTimes(3);
-    expect(read).toHaveBeenLastCalledWith(false);
+    expect(read).toHaveBeenCalledTimes(2);
+    await act(async () => { renderer.update(createElement(GrokPanel, { autoRefreshIntervalMs: 0 })); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(120_000); });
+    expect(read).toHaveBeenCalledTimes(2);
+    await act(async () => { renderer.update(createElement(GrokPanel, { autoRefreshIntervalMs: 60_000 })); });
     await unmount(renderer);
+    await act(async () => { await vi.advanceTimersByTimeAsync(120_000); });
+    expect(read).toHaveBeenCalledTimes(2);
   });
 });

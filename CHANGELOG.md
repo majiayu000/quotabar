@@ -12,6 +12,7 @@ All notable QuotaBar changes should be summarized here before a release is cut.
 - Share lightweight provider tabs, compact actions and solid-color quota indicators across tray pages. Provider details start directly with quota and usage content and retain estimates, bonus resets, costs and trends.
 - Organize settings into Display, Alerts and Accounts. Persist overview percentage and weekly-detail preferences while keeping the most constrained limit in the headline.
 - Standardize common usage/reset copy and display failures when cost trends cannot be read.
+- Keep Grok polling after login and network failures, check local credential expiry before cached quota, and automatically recover after `grok login`. Distinguish API authentication rejection from confirmed local expiry.
 
 ## 0.5.1 - 2026-09-11
 

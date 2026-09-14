@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, type CSSProperties } from 'react';
+import { useEffect, useState, useCallback, useRef, type CSSProperties } from 'react';
 import { backend } from '../services/backend';
 import QuotaRecovery from './QuotaRecovery';
 import ResetTimeline from './ResetTimeline';
@@ -85,8 +85,11 @@ export default function GrokPanel({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const request_generation = useLatestRequestGeneration();
+  const pendingRequests = useRef(0);
 
   const fetchData = useCallback(async (manual = false) => {
+    if (!manual && pendingRequests.current > 0) return;
+    pendingRequests.current += 1;
     const generation = request_generation.begin();
     try {
       setLoading(true);
@@ -110,6 +113,7 @@ export default function GrokPanel({
       onUsageChange?.(null);
       onQuotaWindowsChange?.([]);
     } finally {
+      pendingRequests.current -= 1;
       if (request_generation.isCurrent(generation)) {
         setLoading(false);
       }
@@ -119,10 +123,10 @@ export default function GrokPanel({
   useEffect(() => { void fetchData(); }, [fetchData]);
 
   useEffect(() => {
-    if (autoRefreshIntervalMs <= 0 || !grokData?.connected || error) return;
+    if (autoRefreshIntervalMs <= 0) return;
     const interval = setInterval(fetchData, autoRefreshIntervalMs);
     return () => clearInterval(interval);
-  }, [fetchData, autoRefreshIntervalMs, grokData?.connected, error]);
+  }, [fetchData, autoRefreshIntervalMs]);
 
   useEffect(() => {
     onLoadingChange?.(loading);
@@ -354,7 +358,7 @@ export default function GrokPanel({
       {!grokData?.connected && !error && (
         <div className="empty-state">
           <p>{workspaceCopy('Grok not connected', '未连接 Grok')}</p>
-          <p className="hint">{workspaceCopy('Run grok login, then click Refresh', '请先运行 grok login，再点 Refresh')}</p>
+          <p className="hint">{workspaceCopy('Run grok login; the connection will be checked automatically', '请先运行 grok login，随后会自动检测连接')}</p>
         </div>
       )}
     </div>
