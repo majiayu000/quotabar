@@ -1,0 +1,197 @@
+/* Codenotch-inspired quota overview: one reading per account, detail on demand. */
+html:not(.analysis-document) .app.quota-popover {
+  --quota-good: #168773;
+  --quota-warning: #b27512;
+  --quota-critical: #d24349;
+  --a-blue: #168773;
+  border-radius: 16px;
+}
+html:not(.analysis-document) .app.quota-popover:is(.theme-dark,.theme-claude-dark,.theme-minimal-dark) {
+  --a-bg: #25282b;
+  --a-surface: #303438;
+  --a-control: #3b4044;
+  --a-line: #41464a;
+  --a-border: #53585d;
+  --a-muted: #acb3b9;
+  --a-text: #f4f6f7;
+  --a-blue: #54d4bd;
+  --quota-good: #54d4bd;
+  --quota-warning: #efb85a;
+  --quota-critical: #ff7c83;
+}
+.quota-popover .quota-popover-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex: none;
+  padding: 7px 18px;
+  min-height: 44px;
+  border-bottom: 1px solid var(--line);
+}
+.quota-popover-header h1 { margin: 0; font-size: 18px; font-weight: 650; letter-spacing: -.5px; }
+.quota-popover-header button {
+  display: grid; place-items: center; width: 30px; height: 30px;
+  border: 0; border-radius: 7px; color: var(--sub); background: transparent; cursor: pointer;
+}
+.quota-popover-header button:hover { background: var(--hover); color: var(--text); }
+.quota-popover-header svg { width: 21px; height: 21px; }
+html:not(.analysis-document) .app.quota-home .panel-scroll { padding: 0; }
+.quota-account { padding: 14px 20px; border-bottom: 1px solid var(--line); }
+.quota-account-header { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.quota-account-header h2 { font-size: 15px; font-weight: 600; margin: 0; }
+.quota-account-header button, .quota-account-notice button {
+  border: 0; padding: 3px 0; background: transparent; color: var(--sub); font: inherit; font-size: 11px; cursor: pointer;
+}
+.quota-account-header button:hover, .quota-account-notice button:hover { color: var(--text); }
+.quota-account-header button span { margin-left: 4px; font-size: 15px; }
+.quota-account-reading { display: flex; align-items: center; gap: 20px; padding: 8px 0 10px; }
+.quota-dial { width: 64px; height: 64px; flex: none; position: relative; display: grid; place-items: center; }
+.quota-dial-track { position: absolute; inset: 0; width: 100%; height: 100%; fill: none; stroke: var(--track); stroke-width: 7px; }
+.quota-dial-fill { stroke: var(--quota-color); stroke-linecap: round; transform: rotate(-90deg); transform-origin: center; transition: stroke-dasharray .5s ease, stroke .2s; }
+.quota-dial-icon { width: 28px; height: 28px; fill: currentColor; color: var(--text); }
+.quota-account-value { display: flex; flex-direction: column; min-width: 0; gap: 3px; }
+.quota-account-value strong { font-size: 33px; line-height: 1.08; font-weight: 600; letter-spacing: -1.2px; font-variant-numeric: tabular-nums; }
+.quota-account-value > span { color: var(--sub); font-size: 12px; }
+.quota-account-value small { color: var(--sub); font-size: 10px; line-height: 1.4; }
+.quota-account-windows { display: grid; gap: 10px; }
+.quota-window-label { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; font-size: 12px; line-height: 1.5; }
+.quota-window-label > span:last-child { flex: none; color: var(--sub); font-variant-numeric: tabular-nums; }
+.quota-window-track { height: 5px; border-radius: 4px; background: var(--track); margin-top: 5px; overflow: hidden; }
+.quota-window-track > span { display: block; height: 100%; border-radius: inherit; transition: width .5s ease; }
+.quota-window-reset { display: block; margin-top: 3px; color: var(--sub); font-size: 10px; text-align: right; }
+.quota-account.is-stale .quota-account-reading, .quota-account.is-stale .quota-account-windows { opacity: .65; }
+.quota-account-notice { display: grid; gap: 4px; margin-top: 12px; border-left: 2px solid var(--quota-warning); padding-left: 10px; font-size: 11px; color: var(--quota-warning); }
+.quota-account-notice small { color: var(--sub); font-size: 10px; }
+.quota-account-notice button { text-align: left; }
+.quota-manage-accounts { display: flex; justify-content: space-between; width: 100%; padding: 8px 20px; border: 0; color: var(--sub); background: transparent; font: inherit; font-size: 11px; cursor: pointer; }
+.quota-manage-accounts:hover { color: var(--text); background: var(--hover); }
+html:not(.analysis-document) .app.quota-popover .footer-divider { margin: 0; }
+html:not(.analysis-document) .app.quota-popover .compact-actions { display: flex; flex-wrap: nowrap; align-items: center; gap: 7px; padding: 9px 14px; min-height: 46px; }
+.quota-popover .compact-actions .refresh-btn { min-width: 0; flex: 1; justify-content: flex-start; }
+.quota-popover .compact-actions .refresh-btn .btn-text { font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.quota-popover .compact-actions .dashboard-btn { flex: none; font-size: 11px; }
+.quota-popover .compact-actions .quit-btn { flex: none; width: 25px; min-width: 25px; opacity: .7; }
+
+/* Both the desktop and tray use the same three settings pages. */
+.app .compact-settings { padding: 0 5px 8px; }
+.app .compact-settings [hidden] { display: none !important; }
+.app .compact-settings .settings-view-header { justify-content: flex-start; padding: 6px 0 16px; gap: 10px; }
+.app .compact-settings .settings-view-header .overview-kicker { display: none; }
+.app .compact-settings .settings-view-header h1 { font-size: 18px; line-height: 1.4; font-weight: 600; }
+.app .compact-settings .settings-tabs {
+  display: flex; gap: 2px; padding: 3px; border: 1px solid var(--line); border-radius: 9px;
+  background: var(--track); margin: 0 0 20px;
+}
+.app .compact-settings .settings-tabs button { flex: 1; min-width: 0; min-height: 31px; padding: 5px; border: 0; border-radius: 6px; background: transparent; color: var(--sub); font: inherit; font-size: 12px; cursor: pointer; }
+.app .compact-settings .settings-tabs button[aria-current="page"] { background: var(--card); color: var(--text); box-shadow: 0 1px 3px #0002; }
+.app .compact-settings .settings-group { display: block; margin: 0; padding: 0 0 20px; border: 0; border-radius: 0; background: transparent; box-shadow: none; backdrop-filter: none; }
+.app .compact-settings .settings-group:not([hidden]) ~ .settings-group:not([hidden]) { padding-top: 18px; border-top: 1px solid var(--line); }
+.app .compact-settings .settings-group-header { display: block; margin: 0 0 14px; padding: 0; border: 0; }
+.app .compact-settings .settings-group-index { display: none; }
+.app .compact-settings .settings-group-header h2 { font-size: 14px; font-weight: 600; line-height: 1.5; }
+.app .compact-settings .settings-group-header p { font-size: 11px; line-height: 1.6; margin-top: 4px; }
+.app .compact-settings .settings-subsection-title { font-size: 11px; letter-spacing: 0; font-weight: 500; margin-top: 16px; }
+.app .compact-settings .settings-line { min-height: 43px; padding: 8px 0; line-height: 1.5; gap: 16px; }
+.app .compact-settings .settings-hint { font-size: 10px; line-height: 1.6; margin-top: 7px; }
+.app .compact-settings .settings-hint[role="alert"] { color: var(--color-critical); }
+.app .compact-settings .quota-value-options { width: 132px; flex: none; margin: 0; }
+.app .compact-settings .target-switch.on { background: #0a84ff; }
+.app .compact-settings .theme-selector { grid-template-columns: repeat(3,minmax(0,1fr)); gap: 5px; padding-top: 10px; }
+.app .compact-settings .theme-btn[data-theme] { min-height: 31px; height: auto; }
+.app .compact-settings .settings-presets { flex-wrap: wrap; }
+.app .compact-settings .provider-visibility-grid { border: 0; border-radius: 0; }
+.app .compact-settings .provider-visibility-row { min-height: 54px; padding: 8px 0; }
+.app .compact-settings .provider-visibility-head { padding-inline: 0; }
+.app .compact-settings .provider-mini-icon { background: transparent; }
+.app .compact-settings .provider-mini-icon svg { width: 19px; height: 19px; }
+.app .compact-settings .provider-visibility-service strong { font-size: 12px; }
+.app .compact-settings .provider-visibility-service small { font-size: 10px; }
+.analysis-app .workspace-settings.compact-settings { display: block; max-width: 580px; padding: 8px 20px; }
+.analysis-app .workspace-settings.compact-settings .settings-group { display: block; padding: 20px 0; border-radius: 0; }
+.analysis-app .workspace-settings.compact-settings .settings-group-header { margin-bottom: 18px; }
+.analysis-app .workspace-settings.compact-settings .theme-selector { grid-template-columns: repeat(4,minmax(0,1fr)); }
+.analysis-app .workspace-settings.compact-settings .settings-line { min-height: 52px; font-size: 13px; }
+.analysis-app .workspace-settings.compact-settings .settings-tabs button { min-height: 34px; font-size: 13px; }
+@media (max-width: 300px) {
+  .quota-account { padding-inline: 16px; }
+  .quota-account-reading { gap: 14px; }
+  .quota-account-value strong { font-size: 31px; }
+  .app .compact-settings .theme-selector { grid-template-columns: repeat(3,minmax(0,1fr)); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .quota-popover *, .compact-settings * { animation: none !important; transition: none !important; }
+}
+
+.app .compact-settings .settings-disclosure { margin-top: 14px; color: var(--sub); }
+.app .compact-settings .settings-disclosure > summary { padding: 8px 0; cursor: pointer; font-size: 12px; }
+.app .compact-settings .settings-disclosure[open] > summary { margin-bottom: 10px; }
+.app .compact-settings .settings-disclosure .settings-group { padding-top: 12px; }
+
+.quota-account-meta { margin: 4px 0 0; color: var(--sub); font-size: 10px; line-height: 1.5; overflow-wrap: anywhere; }
+
+/* Detailed provider pages share the graphite/teal language of the overview. */
+html:not(.analysis-document) .app.quota-popover .command-bar { padding: 0 18px; border-bottom: 1px solid var(--line); }
+html:not(.analysis-document) .app.quota-popover .provider-grid { display: flex; gap: 10px; padding: 0; overflow-x: auto; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+html:not(.analysis-document) .app.quota-popover .provider-card { display: flex; flex-direction: row; align-items: center; justify-content: center; gap: 5px; flex: 1 0 auto; min-width: 0; min-height: 35px; padding: 7px 0; border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: transparent; color: var(--sub); box-shadow: none; }
+html:not(.analysis-document) .app.quota-popover .provider-card.active { background: transparent; border-bottom-color: var(--quota-good); color: var(--text); }
+html:not(.analysis-document) .app.quota-popover .provider-card-topline { display: flex; justify-content: center; flex: none; margin: 0; }
+html:not(.analysis-document) .app.quota-popover .provider-card-label { font-size: 11px; font-weight: 500; line-height: 1.5; margin: 0; overflow: visible; text-overflow: clip; white-space: nowrap; }
+html:not(.analysis-document) .app.quota-popover .provider-card-svg { width: 13px; height: 13px; }
+html:not(.analysis-document) .app.quota-popover .provider-card-status { display: none; }
+html:not(.analysis-document) .app.quota-detail .panel-scroll { padding: 12px 18px; }
+html:not(.analysis-document) .app.quota-detail .detail-stack, html:not(.analysis-document) .app.quota-detail .codex-content { display: flex; flex-direction: column; gap: 12px; }
+html:not(.analysis-document) .app.quota-detail .section { margin: 0; padding: 0; }
+html:not(.analysis-document) .app.quota-detail .section-title { display: flex; align-items: center; margin-bottom: 9px; color: var(--sub); font-size: 10px; font-weight: 600; letter-spacing: .3px; }
+html:not(.analysis-document) .app.quota-detail .quota-group { display: flex; flex-direction: column; gap: 1px; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--line); }
+html:not(.analysis-document) .app.quota-detail .quota-card { padding: 12px; border: 0; border-radius: 0; background: var(--card); box-shadow: none; }
+html:not(.analysis-document) .app.quota-detail .quota-card.featured { background: var(--track); }
+html:not(.analysis-document) .app.quota-detail .quota-header { gap: 10px; margin-bottom: 8px; align-items: baseline; }
+html:not(.analysis-document) .app.quota-detail .quota-label { font-size: 12px; color: var(--text); }
+html:not(.analysis-document) .app.quota-detail .quota-value { font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; }
+html:not(.analysis-document) .app.quota-detail .quota-value.email { font-size: 11px; overflow-wrap: anywhere; }
+html:not(.analysis-document) .app.quota-detail .progress-bar { height: 4px; background: var(--track); border-radius: 4px; }
+html:not(.analysis-document) .app.quota-detail .progress-fill { border-radius: inherit; background: var(--quota-good); }
+html:not(.analysis-document) .app.quota-detail .reset-time, html:not(.analysis-document) .app.quota-detail .quota-pace { margin-top: 7px; font-size: 10px; color: var(--sub); line-height: 1.6; }
+html:not(.analysis-document) .app.quota-detail .smart-tip { margin: 0; padding: 10px 12px; border: 1px solid var(--line); border-left: 2px solid var(--quota-warning); border-radius: 7px; background: var(--track); font-size: 11px; line-height: 1.6; }
+html:not(.analysis-document) .app.quota-detail .bonus-panel { margin: 0; padding: 13px; border: 1px solid var(--line); border-radius: 10px; background: var(--track); box-shadow: none; }
+html:not(.analysis-document) .app.quota-detail .bonus-title { font-size: 13px; }
+html:not(.analysis-document) .app.quota-detail .bonus-count { color: var(--quota-good); font-size: 11px; }
+html:not(.analysis-document) .app.quota-detail .bonus-note, html:not(.analysis-document) .app.quota-detail .bonus-grant-row { font-size: 10px; line-height: 1.6; }
+html:not(.analysis-document) .app.quota-detail .weekly-value-card { background: var(--track); }
+html:not(.analysis-document) .app.quota-detail .weekly-value-title { font-size: 12px; }
+html:not(.analysis-document) .app.quota-detail .weekly-value-amount { font-size: 27px; letter-spacing: -.7px; }
+html:not(.analysis-document) .app.quota-detail .cost-panel, html:not(.analysis-document) .app.quota-detail .timeline-card { border: 1px solid var(--line); border-radius: 10px; background: var(--card); padding: 12px; box-shadow: none; }
+html:not(.analysis-document) .app.quota-detail .cost-range-grid { gap: 6px; }
+html:not(.analysis-document) .app.quota-detail .cost-range { padding: 8px 5px; background: var(--track); border: 0; border-radius: 6px; }
+html:not(.analysis-document) .app.quota-detail .cost-range-value { font-size: 16px; }
+html:not(.analysis-document) .app.quota-detail .cost-estimate-explanation { font-size: 10px; line-height: 1.6; margin: 0 0 10px; color: var(--sub); }
+html:not(.analysis-document) .app.quota-detail .cost-title-row { flex-wrap: wrap; gap: 4px; }
+html:not(.analysis-document) .app.quota-detail .cost-title-meta { font-size: 10px; }
+html:not(.analysis-document) .app.quota-detail .codex-updated { font-size: 10px; color: var(--sub); padding: 0; margin: 0; }
+html:not(.analysis-document) .app.quota-detail .error-banner { margin: 0 0 12px; border-radius: 8px; font-size: 11px; }
+html:not(.analysis-document) .app.quota-detail .footer-divider { margin-top: 0; }
+
+/* Final shared primitives load after the legacy styles, for every provider. */
+html:not(.analysis-document) .app.quota-popover { --qb-font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif; font-family: var(--qb-font); }
+html:not(.analysis-document) .app.quota-detail .quota-card .quota-header { flex-wrap: wrap; }
+html:not(.analysis-document) .app.quota-detail .quota-card .reset-time { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 8px; }
+html:not(.analysis-document) .app.quota-detail .reset-text,
+html:not(.analysis-document) .app.quota-detail .reset-at-text { font-size: 10px; color: var(--sub); }
+html:not(.analysis-document) .app.quota-detail .quota-pace.warning { color: var(--quota-warning); }
+html:not(.analysis-document) .app.quota-detail .quota-group { box-shadow: none; }
+html:not(.analysis-document) .app.quota-detail .weekly-value-card { background: var(--card); }
+html:not(.analysis-document) .app.quota-detail .weekly-value-amount { font-size: 27px; font-family: inherit; }
+html:not(.analysis-document) .app.quota-detail .weekly-value-badge,
+html:not(.analysis-document) .app.quota-detail .bonus-badge,
+html:not(.analysis-document) .app.quota-detail .cost-estimate-badge { background: var(--track); color: var(--sub); border: 0; font-size: 10px; border-radius: 4px; }
+
+/* Preserve the original overview header spacing above the shared service tabs. */
+html:not(.analysis-document) .app.quota-home .quota-popover-header { min-height: 50px; padding: 10px 19px; }
+html:not(.analysis-document) .app.quota-home { font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif; }
+
+html:not(.analysis-document) .app.quota-popover .provider-card:hover { background: transparent; color: var(--text); }
+html:not(.analysis-document) .app.quota-popover .provider-card-icon { display: flex; width: 13px; height: 13px; }
+html:not(.analysis-document) .app.quota-popover .provider-card:focus-visible { outline: 2px solid var(--quota-good); outline-offset: -3px; }
+@media (max-width: 300px) {
+  html:not(.analysis-document) .app.quota-popover .provider-card-topline { display: none; }
+}

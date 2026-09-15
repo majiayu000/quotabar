@@ -2,7 +2,7 @@ import { createElement, StrictMode } from 'react';
 import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test, vi } from 'vitest';
 import SettingsView from '../src/components/SettingsView';
-import TabSwitcher from '../src/components/TabSwitcher';
+import QuotaOverview from '../src/components/QuotaOverview';
 import { backend } from '../src/services/backend';
 import { SERVICES } from '../src/services/service_meta';
 import {
@@ -316,7 +316,8 @@ test('keeps the existing Overview fallback when the active provider is hidden', 
     await Promise.resolve();
   });
 
-  expect(renderer.root.findByType(TabSwitcher).props.activeTab).toBe('all');
+  expect(renderer.root.findByType(QuotaOverview).props.summaries.map((summary: { id: string }) => summary.id)).toEqual(['claude']);
+  expect(renderer.root.findByProps({ 'aria-label': '查看 Claude 详情' })).toBeDefined();
   expect(harness.save_visibility).toHaveBeenCalledTimes(1);
   await unmount(renderer);
 });

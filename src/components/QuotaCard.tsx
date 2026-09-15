@@ -9,8 +9,8 @@ interface QuotaCardProps {
 }
 
 function getStatusColor(percentage: number): string {
-  if (percentage >= 80) return 'critical';
-  if (percentage >= 50) return 'warning';
+  if (percentage >= 95) return 'critical';
+  if (percentage >= 80) return 'warning';
   return 'good';
 }
 
@@ -21,7 +21,7 @@ export default function QuotaCard({ label, percentage, resetsIn, pace, featured 
     <div className={`quota-card${featured ? ' featured' : ''}`}>
       <div className="quota-header">
         <span className="quota-label">{label}</span>
-        <span className="quota-percentage">{percentage}% 已用</span>
+        <span className="quota-value">{percentage}% 已用</span>
       </div>
 
       <div
@@ -39,7 +39,7 @@ export default function QuotaCard({ label, percentage, resetsIn, pace, featured 
         />
       </div>
 
-      <div className="quota-footer">
+      <div className="reset-time">
         <span className="reset-text">重置倒计时 {resetsIn}</span>
         <span className="reset-at-text" />
       </div>

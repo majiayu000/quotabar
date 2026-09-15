@@ -256,6 +256,7 @@ export default function CostSummarySection({
   const [hoveredDay, setHoveredDay] = useState<CostDailyPoint | null>(null);
   const [focusedDay, setFocusedDay] = useState<CostDailyPoint | null>(null);
   const [loading, setLoading] = useState(false);
+  const [dailyError, setDailyError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const sourceKey = Array.isArray(source) ? source.join(',') : source;
   const overview_generation = useLatestRequestGeneration();
@@ -294,10 +295,11 @@ export default function CostSummarySection({
         );
         if (!daily_generation.isCurrent(generation)) return;
         setDaily(mergeDailySeries(seriesList));
+        setDailyError(null);
       } catch (err) {
         if (!daily_generation.isCurrent(generation)) return;
-        // The trend falls back to per-model bars; surface why in the console.
         console.error('Failed to load daily cost series:', err);
+        setDailyError(getCostSummaryErrorMessage(err));
         setDaily(null);
       }
     };
@@ -340,27 +342,28 @@ export default function CostSummarySection({
   return (
     <div className="section cost-section">
       <div className="cost-title-row">
-        <span className="section-title">API-equivalent usage</span>
+        <span className="section-title">API 等价用量</span>
         <span className="cost-title-meta">
-          <span className="cost-estimate-badge">Local estimate</span>
+          <span className="cost-estimate-badge">本地估算</span>
           {overview && <span className="cost-note">{formatCostNote(primaryRange)}</span>}
         </span>
       </div>
 
       <p className="cost-estimate-explanation">
         {Array.isArray(source)
-          ? 'Estimated at API prices from local Claude, Codex, and Cursor logs. Not your actual bill. Grok and Antigravity are not included.'
-          : 'Estimated at API prices from local logs. Not your actual bill.'}
+          ? '按 Claude、Codex、Cursor 本地记录和 API 价格估算，非实际账单；不含 Grok 和 Antigravity。'
+          : '按本地记录和 API 价格估算，非实际账单。'}
       </p>
 
       {loading && !overview && (
-        <div className="cost-loading">Loading cost...</div>
+        <div className="cost-loading">正在读取费用…</div>
       )}
 
       {error && !overview && (
         <div className="cost-inline-error">{error}</div>
       )}
 
+      {showTrend && dailyError && <p className="cost-inline-error" role="alert">趋势读取失败：{dailyError}</p>}
       {overview && (
         <div className="cost-panel">
           <div className="cost-range-grid">
@@ -382,7 +385,7 @@ export default function CostSummarySection({
               {budgetPercent != null && monthlyBudget != null && (
                 <div className="budget-panel">
                   <div className="budget-row">
-                    <span>Monthly budget</span>
+                    <span>每月参考预算</span>
                     <strong>
                       {formatMoney(monthCost, monthRange?.currency ?? 'USD')}
                       {' / '}
@@ -429,7 +432,7 @@ export default function CostSummarySection({
                         className="spark-bars"
                         role="slider"
                         tabIndex={0}
-                        aria-label="Daily API-equivalent usage trend"
+                        aria-label="Daily API 等价用量 trend"
                         aria-valuemin={1}
                         aria-valuemax={sparkDays.length}
                         aria-valuenow={activeIndex + 1}

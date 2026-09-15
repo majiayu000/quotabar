@@ -61,7 +61,7 @@ export default function ClaudePanel({
   return (
     <>
       {loading && !quota && (
-        <div className="loading-state">Loading Claude quota...</div>
+        <div className="loading-state">正在读取 Claude 额度…</div>
       )}
 
       {error && (workspace ? <QuotaRecovery provider="claude" read={{ error, readAt: null, retryAt }} hasData={Boolean(quota?.connected)} /> :
@@ -81,13 +81,13 @@ export default function ClaudePanel({
             <div className="quota-group">
               {quota.session ? (
                 <QuotaCard
-                  label="5-hour window"
+                  label="5 小时额度"
                   percentage={Math.round(quota.session.percentage)}
                   resetsIn={formatClaudeResetTime(quota.session.resetTime)}
                   pace={formatPaceText(quota.session.percentage, quota.session.resetTime, SESSION_WINDOW_MINUTES)}
                 />
               ) : (
-                <div className="no-data">No session data</div>
+                <div className="no-data">暂无当前窗口数据</div>
               )}
             </div>
           </div>
@@ -97,7 +97,7 @@ export default function ClaudePanel({
             <div className="quota-group">
               {quota.weeklyTotal && (
                 <QuotaCard
-                  label="All models"
+                  label="所有模型"
                   percentage={Math.round(quota.weeklyTotal.percentage)}
                   resetsIn={formatClaudeResetTime(quota.weeklyTotal.resetTime)}
                   featured

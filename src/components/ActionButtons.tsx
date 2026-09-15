@@ -1,4 +1,5 @@
 interface ActionButtonsProps {
+  compact?: boolean;
   onRefresh: () => void;
   onAnalysis?: () => void;
   onDashboard: () => void;
@@ -12,6 +13,7 @@ interface ActionButtonsProps {
 }
 
 export default function ActionButtons({
+  compact = false,
   onRefresh,
   onAnalysis,
   onDashboard,
@@ -26,7 +28,7 @@ export default function ActionButtons({
   return (
     <>
       <div className="footer-divider" />
-      <div className="action-buttons" aria-busy={loading}>
+      <div className={`action-buttons${compact ? ' compact-actions' : ''}`} aria-busy={loading}>
         {loading && (
           <span className="action-announcement" role="status" aria-live="polite">
             Updating quota data
@@ -41,7 +43,7 @@ export default function ActionButtons({
           aria-label="Refresh current provider"
         >
           <span className="btn-icon">{loading ? '...' : '↻'}</span>
-          <span className="btn-text">{loading ? '刷新中' : '刷新'}</span>
+          <span className="btn-text">{loading ? '刷新中' : compact && statusText ? statusText.replace('最近成功读取 ', '').replace('now', '刚刚更新') : '刷新'}</span>
         </button>
 
         {(onAnalysis || showDashboard) && (
@@ -57,7 +59,7 @@ export default function ActionButtons({
           </button>
         )}
 
-        {statusText && (
+        {statusText && !compact && (
           <span
             className="action-status"
             aria-live="off"
@@ -67,7 +69,7 @@ export default function ActionButtons({
           </span>
         )}
 
-        <button
+        {!compact && <button
           type="button"
           className={`action-btn icon-action settings-btn ${settingsActive ? 'active' : ''}`}
           onClick={onSettings}
@@ -79,7 +81,7 @@ export default function ActionButtons({
             <circle cx="12" cy="12" r="3" />
             <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.01a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.01a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.01a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
           </svg>
-        </button>
+        </button>}
 
         <button
           type="button"

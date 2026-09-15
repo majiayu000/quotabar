@@ -57,7 +57,7 @@ describe('panel shell UI', () => {
     expect(html).not.toContain('tabindex="-1"');
     expect(html).toContain('provider-card-label">Claude');
     expect(html).toContain('provider-card-label">Codex');
-    expect(html).toContain('provider-card-label">额度用量');
+    expect(html).toContain('provider-card-label">总览');
     expect(html).toContain('title="Claude · 48% 已用');
     expect(html).not.toContain('provider-card-percent');
     expect(html).not.toContain('Add service');
@@ -258,10 +258,10 @@ describe('panel shell UI', () => {
     });
 
     const text = JSON.stringify(renderer.toJSON());
-    expect(text).toContain('API-equivalent usage');
-    expect(text).toContain('Local estimate');
-    expect(text).toContain('Estimated at API prices from local logs. Not your actual bill.');
-    expect(text).not.toContain('Grok and Antigravity are not included');
+    expect(text).toContain('API 等价用量');
+    expect(text).toContain('本地估算');
+    expect(text).toContain('按本地记录和 API 价格估算，非实际账单。');
+    expect(text).not.toContain('不含 Grok 和 Antigravity');
     const trendButtons = renderer.root.findAll((node) => (
       node.type === 'button'
       && typeof node.props.className === 'string'
@@ -339,8 +339,8 @@ describe('panel shell UI', () => {
     });
 
     const text = JSON.stringify(renderer.toJSON());
-    expect(text).toContain('local Claude, Codex, and Cursor logs');
-    expect(text).toContain('Grok and Antigravity are not included');
+    expect(text).toContain('Claude、Codex、Cursor 本地记录');
+    expect(text).toContain('不含 Grok 和 Antigravity');
     await act(async () => renderer.unmount());
   });
 });

@@ -4,13 +4,12 @@ import { listen } from '@tauri-apps/api/event';
 import ActionButtons from './components/ActionButtons';
 import OverviewPanel, { AnalysisApp } from './components/OverviewPanel';
 import SettingsView from './components/SettingsView';
+import QuotaOverview from './components/QuotaOverview';
+import { getSavedQuotaDisplay, saveQuotaDisplay, type QuotaDisplay } from './services/quota_display';
 import type { ThemeName } from './components/ThemeSelector';
 import TabSwitcher, { TabName } from './components/TabSwitcher';
 import ClaudePanel from './components/ClaudePanel';
-import CodexPanel from './components/CodexPanel';
-import CursorPanel from './components/CursorPanel';
-import GrokPanel from './components/GrokPanel';
-import AntigravityPanel from './components/AntigravityPanel';
+import ProviderPanels from './components/ProviderPanels';
 import { buildTrayEntries } from './components/TrayToggles';
 import { backend, hasTauriBackend } from './services/backend';
 import { SERVICES } from './services/service_meta';
@@ -62,7 +61,6 @@ import './redesign-settings.css';
 import './styles/workspace.css';
 
 import {
-  AUTO_REFRESH_INTERVAL_MS,
   TRAY_CYCLE_INTERVAL_MS,
   TRAY_FORCE_SYNC_INTERVAL_MS,
   TRAY_GUARD_MESSAGE,
@@ -78,7 +76,6 @@ import {
   getSavedTab,
   getSavedTheme,
   isMacOSPlatform,
-  providerRefreshIntervalMs,
   saveActiveTab,
   saveDockHidden,
   saveSettingsExpanded,
@@ -168,6 +165,8 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
     return isProviderTab(saved) ? saved : 'claude';
   });
   const [panelSections, setPanelSections] = useState<PanelSectionVisibility>(getSavedPanelSections);
+  const [quotaDisplay, setQuotaDisplay] = useState<QuotaDisplay>(getSavedQuotaDisplay);
+  const [settingsPage, setSettingsPage] = useState<'display' | 'accounts'>('display');
   const [trayStyle, setTrayStyle] = useState<TrayStyle>(getSavedTrayStyle);
   const [trayCycle, setTrayCycle] = useState<boolean>(getSavedTrayCycle);
   const [trayCycleIndex, setTrayCycleIndex] = useState(0);
@@ -188,6 +187,7 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
       setTheme(getSavedTheme());
       setTrayEnabled(getInitialTrayEnabledState()); setTrayStyle(getSavedTrayStyle()); setTrayCycle(getSavedTrayCycle());
       setPanelSections(getSavedPanelSections()); setNotifSettings(getSavedNotificationSettings());
+      setQuotaDisplay(getSavedQuotaDisplay());
       setSwitcherVisibility(getSavedSwitcherVisibility()); setEvents(getSavedEvents());
     };
     window.addEventListener('storage', syncPreferences);
@@ -572,6 +572,11 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
     setPanelSections(next);
   }, [panelSections]);
 
+  const handleQuotaDisplayChange = useCallback((display: QuotaDisplay) => {
+    saveQuotaDisplay(display);
+    setQuotaDisplay(display);
+  }, []);
+
   const handleTabChange = useCallback((tab: TabName) => {
     if (isProviderTab(tab) && !switcherVisibility[tab]) {
       if (savedSwitcherVisibility === null) {
@@ -636,7 +641,14 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
     ...panelLoading,
     claude: claudeLoading,
   };
-  const { footerStatus, footerStatusTitle } = useFooterStatus(windowVisible, activeLoading, activeView === 'all' ? null : providerReads[activeProvider].readAt, activeView !== 'all' && Boolean(providerReads[activeProvider].error));
+  const overviewReads = SERVICES.filter((service) => switcherVisibility[service]).map((service) => providerReads[service]);
+  const overviewReadAt = overviewReads.length > 0 && overviewReads.every((read) => read.readAt != null)
+    ? Math.min(...overviewReads.map((read) => read.readAt!)) : null;
+  const overviewStatus = overviewReads.some((read) => read.error) ? '部分额度待更新'
+    : overviewReadAt == null ? '尚未读取额度'
+    : Date.now() - overviewReadAt < 60_000 ? '刚刚更新'
+    : `更新于 ${new Date(overviewReadAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}`;
+  const { footerStatus, footerStatusTitle } = useFooterStatus(windowVisible, activeLoading, activeView === 'all' ? overviewReadAt : providerReads[activeProvider].readAt, activeView === 'all' ? overviewReads.some((read) => Boolean(read.error)) : Boolean(providerReads[activeProvider].error));
   const allQuotaWindows = [
     ...buildClaudeQuotaWindows(quota),
     ...providerQuotaWindows.codex,
@@ -648,23 +660,27 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
     usageLabel: summaryUsageLabel(summary.id, allQuotaWindows, summary.usedPercent),
   }));
   const switcherSummaries = providerSummaries.filter((summary) => switcherVisibility[summary.id]);
+  const overviewSummaries = providerSummaries.filter((summary) => switcherVisibility[summary.id] || (savedSwitcherVisibility === null && summary.loading));
   const mostConstrained = sortMostConstrained(allQuotaWindows).slice(0, 4);
   const upcomingResets = sortUpcomingResets(allQuotaWindows).slice(0, 5);
   const providerViewActive = isProviderTab(activeView);
   const overviewCostRefreshKey = claudeCostRefreshNonce + refreshNonces.codex + refreshNonces.cursor;
 
   const content = (
-    <div className={`app theme-${theme}`}>
+    <div className={`app theme-${theme}${workspace ? '' : ' quota-popover'}${activeView === 'all' && !workspace ? ' quota-home' : !workspace && providerViewActive ? ' quota-detail' : ''}`}>
       {toast && <div className="toast">{toast}</div>}
       <div className="container" ref={containerRef}>
         {activeView === 'settings' ? (
           <div className="panel-scroll settings-scroll">
             <SettingsView
+              initialPage={settingsPage}
               isMacOS={isMacOS} showDockToggle={!workspace} workspace={workspace}
               theme={theme}
               dockHidden={dockHidden}
               trayEntries={trayEntries}
               panelSections={panelSections}
+              quotaDisplay={quotaDisplay}
+              onQuotaDisplayChange={handleQuotaDisplayChange}
               trayStyle={trayStyle}
               trayCycle={trayCycle}
               events={events}
@@ -686,6 +702,12 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
           </div>
         ) : (
           <>
+            {!workspace && <header className="quota-popover-header">
+              <h1>QuotaBar</h1>
+              <button type="button" onClick={() => { setSettingsPage('display'); handleSettingsViewToggle(); }} aria-label="Open settings" title="设置">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" aria-hidden="true"><path d="M4 7h16M4 17h16M9 4v6M15 14v6" /></svg>
+              </button>
+            </header>}
             <div className="command-bar">
               <TabSwitcher
                 activeTab={activeTab}
@@ -709,61 +731,22 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
                 />
               )}
 
-              <div style={{ display: activeView === 'codex' ? 'block' : 'none' }}>
-                <CodexPanel
-                  onConnectionChange={connectionSetters.codex}
-                  onUsageChange={usageSetters.codex}
-                  onLoadingChange={loadingSetters.codex}
-                  onQuotaWindowsChange={quotaWindowSetters.codex}
-                  onReadResult={readResultSetters.codex}
-                  manualRefreshNonce={refreshNonces.codex}
-                  autoRefreshIntervalMs={workspace ? windowVisible ? AUTO_REFRESH_INTERVAL_MS : 0 : providerRefreshIntervalMs(windowVisible, trayEnabled.codex)}
-                  showCostSummary={windowVisible && activeView === 'codex'}
-                  sections={panelSections}
-                  onBonusExpiring={workspace ? undefined : handleBonusExpiring}
-                  onBonusReadyChange={workspace ? undefined : handleBonusReadyChange}
-                  onOpenDashboard={handleOpenDashboard}
-                />
-              </div>
+              <ProviderPanels activeView={activeView} workspace={workspace} windowVisible={windowVisible}
+                trayEnabled={trayEnabled} refreshNonces={refreshNonces} sections={panelSections}
+                connectionSetters={connectionSetters} usageSetters={usageSetters} loadingSetters={loadingSetters}
+                quotaWindowSetters={quotaWindowSetters} readResultSetters={readResultSetters}
+                onBonusExpiring={handleBonusExpiring} onBonusReadyChange={handleBonusReadyChange}
+                onOpenDashboard={handleOpenDashboard} />
 
-              <div style={{ display: activeView === 'cursor' ? 'block' : 'none' }}>
-                <CursorPanel
-                  onConnectionChange={connectionSetters.cursor}
-                  onUsageChange={usageSetters.cursor}
-                  onLoadingChange={loadingSetters.cursor}
-                  onQuotaWindowsChange={quotaWindowSetters.cursor}
-                  onReadResult={readResultSetters.cursor}
-                  manualRefreshNonce={refreshNonces.cursor}
-                  autoRefreshIntervalMs={workspace ? windowVisible ? AUTO_REFRESH_INTERVAL_MS : 0 : providerRefreshIntervalMs(windowVisible, trayEnabled.cursor)}
-                  showCostSummary={windowVisible && activeView === 'cursor'}
-                  sections={panelSections}
-                />
-              </div>
-
-              <div style={{ display: activeView === 'grok' ? 'block' : 'none' }}>
-                <GrokPanel
-                  workspace={workspace}
-                  onConnectionChange={connectionSetters.grok}
-                  onUsageChange={usageSetters.grok}
-                  onLoadingChange={loadingSetters.grok}
-                  onQuotaWindowsChange={quotaWindowSetters.grok}
-                  onReadResult={readResultSetters.grok}
-                  manualRefreshNonce={refreshNonces.grok}
-                  autoRefreshIntervalMs={workspace ? windowVisible ? AUTO_REFRESH_INTERVAL_MS : 0 : providerRefreshIntervalMs(windowVisible, trayEnabled.grok)}
-                  sections={panelSections}
-                />
-              </div>
-
-              <div style={{ display: activeView === 'antigravity' ? 'block' : 'none' }}>
-                <AntigravityPanel
-                  autoRefreshIntervalMs={workspace ? windowVisible ? AUTO_REFRESH_INTERVAL_MS : 0 : AUTO_REFRESH_INTERVAL_MS}
-                  onConnectionChange={connectionSetters.antigravity}
-                  onLoadingChange={loadingSetters.antigravity}
-                  manualRefreshNonce={refreshNonces.antigravity}
-                />
-              </div>
-
-              {activeView === 'all' && (
+              {activeView === 'all' && !workspace && <QuotaOverview
+                summaries={overviewSummaries.length > 0 ? overviewSummaries : providerSummaries}
+                windows={allQuotaWindows}
+                display={quotaDisplay}
+                onProviderSelect={handleTabChange}
+                onRefresh={handleProviderRefresh}
+                onSettings={() => { setSettingsPage('accounts'); handleSettingsViewToggle(); }}
+              />}
+              {activeView === 'all' && workspace && (
                 <OverviewPanel
                   summaries={providerSummaries}
                   onRetry={handleRefresh}
@@ -777,13 +760,14 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
             </div>
 
             <ActionButtons
+              compact={!workspace}
               onAnalysis={workspace ? undefined : () => { void backend.openAnalysis(activeTab).catch((error) => showTimedToast(`无法打开分析窗口：${String(error)}`)); }}
               onRefresh={handleRefresh}
               onDashboard={handleOpenDashboard}
               onSettings={handleSettingsViewToggle}
               onQuit={handleQuit}
               loading={activeLoading}
-              statusText={activeView === 'all' && !activeLoading ? '各服务的读取时间见上方' : footerStatus}
+              statusText={!workspace && activeView === 'all' ? overviewStatus : footerStatus}
               statusTitle={footerStatusTitle}
               showDashboard={providerViewActive}
             />

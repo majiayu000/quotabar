@@ -118,9 +118,9 @@ export function formatLocalExtrasPaused(observedAtMs: number, now = Date.now()):
 
 export function formatOfficialUpdatedAt(updatedAtMs: number, now = Date.now()): string {
   const elapsed = now - updatedAtMs;
-  if (elapsed < 15_000) return 'Updated just now';
+  if (elapsed < 15_000) return '刚刚更新';
   const minutes = Math.max(1, Math.round(elapsed / 60_000));
-  return `Updated ${minutes}m ago`;
+  return `${minutes} 分钟前更新`;
 }
 
 export function isWeeklyExhausted(usedPercent?: number): boolean {

@@ -163,3 +163,13 @@ describe('CostSummarySection completeness footer', () => {
     await act(async () => renderer.unmount());
   });
 });
+
+it('reports a failed trend read in provider details instead of silently hiding it', async () => {
+  vi.spyOn(backend, 'getCostOverview').mockResolvedValue(overview([range()]));
+  vi.spyOn(backend, 'getCostDaily').mockRejectedValue(new Error('log unavailable'));
+  vi.spyOn(console, 'error').mockImplementation(() => {});
+  let renderer!: ReactTestRenderer;
+  await act(async () => { renderer = create(createElement(CostSummarySection, { source: 'claude' })); });
+  expect(renderer.root.findByProps({ role: 'alert' }).children.join('')).toContain('趋势读取失败：log unavailable');
+  await act(async () => { renderer.unmount(); });
+});

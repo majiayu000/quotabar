@@ -24,9 +24,9 @@ interface CursorPanelProps {
 }
 
 function windowHint(label: string, onDemandEnabled?: boolean): string | undefined {
-  if (label === 'Cursor Models') return 'Includes Cursor Grok and Composer';
+  if (label === 'Cursor Models') return '包含 Cursor Grok 和 Composer';
   if (label === 'Other Models' && onDemandEnabled) {
-    return 'Additional usage beyond limits consumes on-demand spend.';
+    return '超出额度后计入按量费用。';
   }
   return undefined;
 }
@@ -47,11 +47,11 @@ function formatResetDate(resetAt?: string): string {
     if (Number.isNaN(date.getTime())) return '';
     const now = new Date();
     const diff = date.getTime() - now.getTime();
-    if (diff <= 0) return 'Resets soon';
+    if (diff <= 0) return '即将重置';
     const days = Math.round(diff / (1000 * 60 * 60 * 24));
-    if (days >= 2) return `Resets in ${days}d`;
+    if (days >= 2) return `${days} 天后重置`;
     const hours = Math.round(diff / (1000 * 60 * 60));
-    return `Resets in ${hours}h`;
+    return `${hours} 小时后重置`;
   } catch {
     return '';
   }
@@ -72,6 +72,7 @@ export default function CursorPanel({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const request_generation = useLatestRequestGeneration();
+
 
   const fetchData = useCallback(async (manual = false) => {
     const generation = request_generation.begin();

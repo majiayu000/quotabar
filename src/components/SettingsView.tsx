@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import type { QuotaDisplay } from '../services/quota_display';
 import ThemeSelector, { type ThemeName } from './ThemeSelector';
 import type { TrayToggleEntry } from './TrayToggles';
 import ProviderIcon from './ProviderIcon';
@@ -28,7 +29,10 @@ import {
 } from '../services/panel_sections';
 
 interface SettingsViewProps {
+  initialPage?: 'display' | 'alerts' | 'accounts';
   workspace?: boolean;
+  quotaDisplay?: QuotaDisplay;
+  onQuotaDisplayChange?: (display: QuotaDisplay) => void;
   isMacOS: boolean;
   showDockToggle?: boolean;
   theme: ThemeName;
@@ -55,7 +59,10 @@ interface SettingsViewProps {
 }
 
 export default function SettingsView({
+  initialPage = 'display',
   workspace = false,
+  quotaDisplay,
+  onQuotaDisplayChange,
   isMacOS,
   showDockToggle = true,
   theme,
@@ -80,6 +87,7 @@ export default function SettingsView({
   onSelectEventProvider,
   onAutostartNotice,
 }: SettingsViewProps) {
+  const [tab, setTab] = useState(initialPage);
   const text = (_en: string, zh: string) => zh;
   const [budgets, setBudgets] = useState<MonthlyBudgets>(getSavedMonthlyBudgets);
   const [launchAtLogin, setLaunchAtLogin] = useState(false);
@@ -135,7 +143,7 @@ export default function SettingsView({
   };
 
   return (
-    <div className={`settings-view ${workspace ? 'workspace-settings' : ''}`} aria-label={text('Settings', '工作区设置')}>
+    <div className={`settings-view compact-settings ${workspace ? 'workspace-settings' : ''}`} aria-label={text('Settings', '工作区设置')}>
       <div className="settings-view-header" hidden={workspace}>
         <button
           type="button"
@@ -151,16 +159,44 @@ export default function SettingsView({
         </div>
       </div>
 
-      <section className="settings-group" aria-labelledby="settings-appearance-title">
+      <nav className="settings-tabs" aria-label="设置分类">
+        {([['display', '显示'], ['alerts', '提醒'], ['accounts', '账户']] as const).map(([id, label]) => (
+          <button key={id} type="button" aria-current={tab === id ? 'page' : undefined}
+            aria-controls="settings-content" onClick={() => setTab(id)}>{label}</button>
+        ))}
+      </nav>
+      <div id="settings-content">
+      <section className="settings-group" hidden={tab !== 'display'} aria-labelledby="settings-appearance-title">
         <div className="settings-group-header">
           <span className="settings-group-index">01</span>
           <div>
-            <h2 id="settings-appearance-title">{text('Appearance', '外观与菜单栏')}</h2>
-            <p>{text('Theme and menu bar presentation', '下方配色用于额度面板；桌面分析区随所选配色使用浅色或深色外观。')}</p>
+            <h2 id="settings-appearance-title">{text('Appearance', '额度与外观')}</h2>
+            <p>{text('Theme and menu bar presentation', '选择你习惯的读数和配色。')}</p>
           </div>
         </div>
-        <ThemeSelector currentTheme={theme} onThemeChange={onThemeChange} />
-        <div className="settings-subsection-title">{text('Menu bar style', '菜单栏图标样式')}</div>
+        {quotaDisplay && onQuotaDisplayChange && <>
+          <div className="settings-subsection-title">额度总览</div>
+          <div className="settings-line">
+            <span>显示数值</span>
+            <div className="settings-seg quota-value-options" aria-label="总览额度显示方式">
+              {([['remaining', '剩余'], ['used', '已用']] as const).map(([value, label]) => (
+                <button type="button" key={value} className={`settings-seg-btn ${quotaDisplay.value === value ? 'active' : ''}`}
+                  aria-pressed={quotaDisplay.value === value} onClick={() => onQuotaDisplayChange({ ...quotaDisplay, value })}>{label}</button>
+              ))}
+            </div>
+          </div>
+          <div className="settings-line"><span>显示每周额度明细</span>
+            <button type="button" role="switch" aria-label="显示每周额度明细" aria-checked={quotaDisplay.weekly}
+              className={`target-switch ${quotaDisplay.weekly ? 'on' : ''}`}
+              onClick={() => onQuotaDisplayChange({ ...quotaDisplay, weekly: !quotaDisplay.weekly })}><span /></button>
+          </div>
+          <p className="settings-hint">总览始终突出最接近用尽的额度。</p>
+        </>}
+        <details className="settings-disclosure">
+          <summary>更改配色</summary>
+          <ThemeSelector currentTheme={theme} onThemeChange={onThemeChange} />
+        </details>
+        <div className="settings-subsection-title">{text('Menu bar style', '菜单栏')}</div>
         <div className="settings-seg">
           {TRAY_STYLE_OPTIONS.map((option) => (
             <button
@@ -174,6 +210,7 @@ export default function SettingsView({
             </button>
           ))}
         </div>
+        <p className="settings-hint">菜单栏百分比与圆环表示已用额度。</p>
         <div className="settings-line">
           <span>{text('Cycle one icon through providers', '用一个图标轮换显示来源')}</span>
           <button
@@ -189,7 +226,7 @@ export default function SettingsView({
         </div>
       </section>
 
-      <section className="settings-group" aria-labelledby="settings-providers-title">
+      <section className="settings-group" hidden={tab !== 'accounts'} aria-labelledby="settings-providers-title">
         <div className="settings-group-header">
           <span className="settings-group-index">02</span>
           <div>
@@ -271,96 +308,6 @@ export default function SettingsView({
             );
           })}
         </div>
-        <div className="settings-hint">{text('Hidden panel providers still refresh in the background.', '隐藏面板入口后，账户数据仍会在后台刷新。')}</div>
-      </section>
-
-      <section className="settings-group" aria-labelledby="settings-sections-title">
-        <div className="settings-group-header">
-          <span className="settings-group-index">03</span>
-          <div>
-            <h2 id="settings-sections-title">{text('Panel content', '快捷面板内容')}</h2>
-            <p>{text('Show only the sections you use', '调整原有菜单栏面板中的信息区块。')}</p>
-          </div>
-        </div>
-        {PANEL_SECTION_ORDER.map((key) => (
-          <div className="settings-line" key={key}>
-            <span>{({ timeline: '重置时间线', cost: 'API 等价用量', trend: '用量趋势', tips: '使用提示' })[key]}</span>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={panelSections[key]}
-              aria-label={`Show ${({ timeline: '重置时间线', cost: 'API 等价用量', trend: '用量趋势', tips: '使用提示' })[key]}`}
-              className={`target-switch ${panelSections[key] ? 'on' : ''}`}
-              onClick={() => onPanelSectionToggle(key)}
-            >
-              <span />
-            </button>
-          </div>
-        ))}
-      </section>
-
-      <section className="settings-group" aria-labelledby="settings-limits-title">
-        <div className="settings-group-header">
-          <span className="settings-group-index">04</span>
-          <div>
-            <h2 id="settings-limits-title">{text('Limits', '用量参考预算')}</h2>
-            <p>{text('Monthly API-equivalent budgets', '每月 API 等价估算上限，单位为 USD；不会限制实际消费。')}</p>
-          </div>
-        </div>
-        {BUDGET_SOURCES.map((source) => (
-          <label className="settings-line" key={source}>
-            <span>{SERVICE_META[source].label}</span>
-            <span className="budget-input-wrap">
-              $
-              <input
-                className="budget-input"
-                type="number"
-                min="0"
-                step="1"
-                placeholder={text("none", "未设置")}
-                value={budgets[source] ?? ''}
-                onChange={(event) => handleBudgetChange(source, event.target.value)}
-                aria-label={`${SERVICE_META[source].label} monthly budget in USD`}
-              />
-            </span>
-          </label>
-        ))}
-        <div className="settings-hint">{text('Shown in the API-equivalent usage section.', '在快捷面板的 API 等价用量区域显示，不代表服务商账单。')}</div>
-      </section>
-
-      <section className="settings-group" aria-labelledby="settings-alerts-title">
-        <div className="settings-group-header">
-          <span className="settings-group-index">05</span>
-          <div>
-            <h2 id="settings-alerts-title">{text('Alerts', '提醒')}</h2>
-            <p>{text('Usage and bonus notifications', '在额度接近用尽或奖励到期时提醒。')}</p>
-          </div>
-        </div>
-        {NOTIFICATION_ROWS.map(({ key, label }) => (
-          <div className="settings-line" key={key}>
-            <span>{({ q80: '使用达到 80% 时提醒', q95: '使用达到 95% 时紧急提醒', q100: '使用达到 100% 时提醒', bonusReady: '额度用尽但有未使用奖励重置时提醒', bonus: '奖励到期提醒' })[key]}</span>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={notificationSettings[key]}
-              aria-label={label}
-              className={`target-switch ${notificationSettings[key] ? 'on' : ''}`}
-              onClick={() => onNotificationToggle(key)}
-            >
-              <span />
-            </button>
-          </div>
-        ))}
-      </section>
-
-      <section className="settings-group" aria-labelledby="settings-system-title">
-        <div className="settings-group-header">
-          <span className="settings-group-index">06</span>
-          <div>
-            <h2 id="settings-system-title">{text('Activity & system', '活动与系统')}</h2>
-            <p>{text('Recent status changes and app behavior', '最近的连接变化和应用启动设置。')}</p>
-          </div>
-        </div>
         <div className="settings-subsection-title">{text('Recent events', '最近事件')}</div>
         {events.length > 0 ? (
           <div className="event-list">
@@ -389,6 +336,100 @@ export default function SettingsView({
           <div className="settings-hint">{text('No events yet.', '还没有状态变化记录。')}</div>
         )}
 
+        <div className="settings-hint">{text('Hidden panel providers still refresh in the background.', '隐藏面板入口后，账户数据仍会在后台刷新。')}</div>
+      </section>
+
+      <section className="settings-group" hidden={tab !== 'display'} aria-labelledby="settings-sections-title">
+        <div className="settings-group-header">
+          <span className="settings-group-index">03</span>
+          <div>
+            <h2 id="settings-sections-title">{text('Panel content', '服务详情内容')}</h2>
+            <p>{text('Show only the sections you use', '进入单个服务详情后显示的信息。')}</p>
+          </div>
+        </div>
+        {PANEL_SECTION_ORDER.map((key) => (
+          <div className="settings-line" key={key}>
+            <span>{({ timeline: '重置时间线', cost: 'API 等价用量', trend: '用量趋势', tips: '使用提示' })[key]}</span>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={panelSections[key]}
+              aria-label={`Show ${({ timeline: '重置时间线', cost: 'API 等价用量', trend: '用量趋势', tips: '使用提示' })[key]}`}
+              className={`target-switch ${panelSections[key] ? 'on' : ''}`}
+              onClick={() => onPanelSectionToggle(key)}
+            >
+              <span />
+            </button>
+          </div>
+        ))}
+      </section>
+
+      <section className="settings-group" hidden={tab !== 'alerts'} aria-labelledby="settings-alerts-title">
+        <div className="settings-group-header">
+          <span className="settings-group-index">05</span>
+          <div>
+            <h2 id="settings-alerts-title">{text('Alerts', '提醒')}</h2>
+            <p>{text('Usage and bonus notifications', '在额度接近用尽或奖励到期时提醒。')}</p>
+          </div>
+        </div>
+        {NOTIFICATION_ROWS.map(({ key, label }) => (
+          <div className="settings-line" key={key}>
+            <span>{({ q80: '剩余额度降至 20% 时提醒', q95: '剩余额度降至 5% 时提醒', q100: '额度用尽时提醒', bonusReady: '额度用尽但有未使用奖励重置时提醒', bonus: '奖励到期提醒' })[key]}</span>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={notificationSettings[key]}
+              aria-label={label}
+              className={`target-switch ${notificationSettings[key] ? 'on' : ''}`}
+              onClick={() => onNotificationToggle(key)}
+            >
+              <span />
+            </button>
+          </div>
+        ))}
+      </section>
+
+      <details className="settings-disclosure" hidden={tab !== 'alerts'}>
+        <summary>用量参考预算</summary>
+      <section className="settings-group" hidden={tab !== 'alerts'} aria-labelledby="settings-limits-title">
+        <div className="settings-group-header">
+          <span className="settings-group-index">04</span>
+          <div>
+            <h2 id="settings-limits-title">{text('Limits', '用量参考预算')}</h2>
+            <p>{text('Monthly API-equivalent budgets', '每月 API 等价估算上限，单位为 USD；不会限制实际消费。')}</p>
+          </div>
+        </div>
+        {BUDGET_SOURCES.map((source) => (
+          <label className="settings-line" key={source}>
+            <span>{SERVICE_META[source].label}</span>
+            <span className="budget-input-wrap">
+              $
+              <input
+                className="budget-input"
+                type="number"
+                min="0"
+                step="1"
+                placeholder={text("none", "未设置")}
+                value={budgets[source] ?? ''}
+                onChange={(event) => handleBudgetChange(source, event.target.value)}
+                aria-label={`${SERVICE_META[source].label} monthly budget in USD`}
+              />
+            </span>
+          </label>
+        ))}
+        <div className="settings-hint">{text('Shown in the API-equivalent usage section.', '在快捷面板的 API 等价用量区域显示，不代表服务商账单。')}</div>
+      </section>
+
+      </details>
+
+      <section className="settings-group" hidden={tab !== 'display'} aria-labelledby="settings-system-title">
+        <div className="settings-group-header">
+          <span className="settings-group-index">06</span>
+          <div>
+            <h2 id="settings-system-title">{text('Activity & system', '系统')}</h2>
+            <p>{text('Recent status changes and app behavior', '应用启动和 Dock 显示。')}</p>
+          </div>
+        </div>
         <div className="settings-subsection-title settings-subsection-divider">{text('Startup', '启动')}</div>
         <div className="settings-line">
           <span>{text('Launch at Login', '登录时启动')}</span>
@@ -429,6 +470,7 @@ export default function SettingsView({
           </>
         )}
       </section>
+      </div>
     </div>
   );
 }

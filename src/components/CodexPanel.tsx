@@ -48,7 +48,7 @@ function formatSubscriptionDate(dateStr?: string): string {
   if (!dateStr) return 'Unknown';
   try {
     const date = new Date(dateStr);
-    return date.toLocaleDateString('en-US', {
+    return date.toLocaleDateString('zh-CN', {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
@@ -62,12 +62,12 @@ function formatWindowLabel(minutes?: number, kind: 'primary' | 'secondary' = 'pr
   if (!minutes) return 'Limit';
   if (minutes >= 1440) {
     const days = Math.round(minutes / 1440);
-    if (days === 7) return kind === 'secondary' ? 'Weekly limit' : '7-day window';
+    if (days === 7) return kind === 'secondary' ? '每周额度' : '7 天额度';
     return `${days}d ${kind === 'secondary' ? 'limit' : 'window'}`;
   }
   if (minutes >= 60) {
     const hours = Math.round(minutes / 60);
-    return `${hours}-hour window`;
+    return `${hours} 小时额度`;
   }
   return `${minutes}m`;
 }
@@ -78,12 +78,12 @@ function formatResetAt(value?: number): string {
   if (Number.isNaN(date.getTime())) return '';
   const now = new Date();
   const sameDay = date.toDateString() === now.toDateString();
-  const time = date.toLocaleTimeString('en-US', {
+  const time = date.toLocaleTimeString('zh-CN', {
     hour: 'numeric',
     minute: '2-digit',
   });
-  if (sameDay) return `Today, ${time}`;
-  const day = date.toLocaleDateString('en-US', {
+  if (sameDay) return `今天 ${time}`;
+  const day = date.toLocaleDateString('zh-CN', {
     weekday: 'short',
     month: 'short',
     day: 'numeric',
@@ -95,7 +95,7 @@ function formatGrantDate(value?: string): string {
   if (!value) return 'Unknown';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleDateString('en-US', {
+  return date.toLocaleDateString('zh-CN', {
     month: 'short',
     day: 'numeric',
   });
@@ -407,10 +407,10 @@ export default function CodexPanel({
       <>
         <div className="bonus-header">
           <div className="bonus-title-row">
-            <span className="bonus-title">Bonus resets</span>
-            <span className="bonus-badge">Gifted</span>
+            <span className="bonus-title">奖励重置</span>
+            <span className="bonus-badge">赠送</span>
           </div>
-          <span className="bonus-count">{availableResetCredits.length} available</span>
+          <span className="bonus-count">{availableResetCredits.length} 次可用</span>
         </div>
         <div className="bonus-grants">
           {bonusGrantGroups.map((group) => {
@@ -420,19 +420,19 @@ export default function CodexPanel({
                 <span className="bonus-grant-left">
                   <span className="bonus-dot" />
                   <span className="bonus-grant-label">
-                    +{group.count} · granted {formatGrantDate(group.grantedAt)}
+                    +{group.count} · 发放于 {formatGrantDate(group.grantedAt)}
                   </span>
                 </span>
                 <span className={`bonus-grant-right ${daysLeft != null && daysLeft <= 10 ? 'warning' : ''}`}>
-                  {daysLeft == null ? 'Expires unknown' : `${daysLeft}d left · ${formatGrantDate(group.expiresAt)}`}
+                  {daysLeft == null ? '到期时间未知' : `剩余 ${daysLeft} 天 · ${formatGrantDate(group.expiresAt)}`}
                 </span>
               </div>
             );
           })}
         </div>
-        <div className="bonus-note">Gifted occasionally · no cap · each grant valid 30 days</div>
+        <div className="bonus-note">不定期赠送 · 无上限 · 每次赠送有效期 30 天</div>
         {onOpenDashboard && (
-          <div className="bonus-note">Opens ChatGPT. QuotaBar cannot apply this reset.</div>
+          <div className="bonus-note">打开 ChatGPT 使用；QuotaBar 无法代为重置。</div>
         )}
       </>
     );

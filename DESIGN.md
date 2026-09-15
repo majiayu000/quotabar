@@ -45,13 +45,37 @@ palette. Existing theme choices remain accent variants for the quota panel.
 
 ## Native tray
 
-Use the macOS system font, soft gray surfaces (#f5f5f7 / #242428), and a single
-horizontally scrollable service selector. Avoid a brand header or duplicate
-percentages in navigation; keep quota details in accessible labels/tooltips.
+The 2026-09-14 approved concept adopts Codenotch's progressive disclosure in a
+menu bar popover. Use the macOS system font, graphite (#25282b) or soft gray
+surfaces, teal quota capacity, and amber/red warnings. The overview has a small
+QuotaBar header with Settings, followed by one section per visible account.
 
-Show a continuous quota list with prominent numbers and one compact line for
-last successful read and reset time. Keep refresh, usage analysis, settings and
-quit together in the footer. There is only one usage-analysis entry.
+Each account keeps its name and detail action on a separate header row, followed
+by a 64px provider ring and a 33px headline percentage. Quota-window bars and reset
+times use separate rows, preserving the original approved spacious composition.
+All overview readings follow the saved
+remaining/used preference (remaining by default). The headline follows the most
+constrained window and names it explicitly when weekly detail is hidden. Missing data has no fill;
+stale data is dimmed, explicitly marked, and links to recovery. Pending provider
+detection remains visible until it completes.
+
+The overview is intentionally limited to quota readings, reset times and read/recovery
+states. Provider details start directly with quota and usage content, without a
+repeated account-identity header. Plans, estimates and bonus information remain
+in their respective detail sections.
+
+Provider details retain all quota windows, pace, account data, bonus grants, local
+estimates, costs and trends. The overview and provider details share the provider selector beneath the QuotaBar
+header, and the compact action bar. Account rows also open provider details.
+The selector uses a transparent single row of small icons and labels, with a thin
+teal underline for the active page. It does not change the spacious overview
+composition. Narrow windows show text-only tabs to retain readable labels. Detail cards use the same type scale,
+spacing and palette; only the amount of information changes.
+Detail quota readings retain used-quota semantics. The overview footer contains
+refresh/read time, one analysis entry, and Quit.
+Settings use Display, Alerts and Accounts pages in both windows. Theme choices
+and reference budgets are collapsed; existing notification thresholds and native
+menu bar used-quota semantics remain explicit.
 
 Content is capped at 580px; the native window adds its 2px border, for a maximum
 height of 582px. Short content shrinks naturally, subject to a 300px minimum.
@@ -64,6 +88,12 @@ The viewport supports 280–340px widths and keeps content scrollable.
 - `src/redesign/shell.css`: menu navigation and frame.
 - `src/styles/workspace.css`: analysis components, charts and dialogs.
 - `src/hooks/use_popover_window.ts`: native height synchronization.
+- `src/styles/compact.css`: shared tray navigation, actions, account cards and settings;
+  imported last in `main.tsx`, after legacy styles.
+- `src/components/QuotaOverview.tsx`: account readings and state presentation.
 
 Use existing components and backend contracts. No new UI framework, backend
 schema or invented demo data belongs in the application bundle.
+
+Quota progress uses one solid-color helper across overview and details, with
+warning at 80% used and critical at 95% used, independent of remaining/used display.

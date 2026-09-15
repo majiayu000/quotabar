@@ -90,7 +90,7 @@ describe('Codex exhausted panel', () => {
     const text = rendered_text(renderer);
 
     expect(text).toContain('100%');
-    expect(renderer.root.findByProps({ 'aria-label': '7-day window usage' }).props['aria-valuenow']).toBe(100);
+    expect(renderer.root.findByProps({ 'aria-label': '7 天额度 usage' }).props['aria-valuenow']).toBe(100);
     expect(text).toContain('每周 API 等价估算');
     expect(text).toContain('上次估算');
     expect(text).toContain('$186.00');
@@ -100,8 +100,8 @@ describe('Codex exhausted panel', () => {
     expect(text).toContain('Weekly is used up.');
     expect(text).toContain('or use 1 bonus reset');
     expect(text).not.toContain('Codex Weekly is at 100%.');
-    expect(text).toContain('Opens ChatGPT. QuotaBar cannot apply this reset.');
-    expect(text).toContain('Updated just now');
+    expect(text).toContain('打开 ChatGPT 使用；QuotaBar 无法代为重置。');
+    expect(text).toContain('刚刚更新');
     expect(text).toContain('Quota current');
 
     const button = renderer.root.findByProps({ className: 'bonus-panel bonus-panel-action' });
@@ -118,7 +118,7 @@ describe('Codex exhausted panel', () => {
 
     expect(text).toContain('Weekly is used up. Resets');
     expect(text).not.toContain('bonus reset');
-    expect(text).not.toContain('Bonus resets');
+    expect(text).not.toContain('奖励重置');
     await unmount(renderer);
   });
 

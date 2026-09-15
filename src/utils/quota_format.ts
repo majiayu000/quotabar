@@ -83,15 +83,15 @@ export function formatPaceText(
 
   const msToFull = (elapsedMs / usedPercent) * (100 - usedPercent);
   if (msToFull < msToReset) {
-    return `At current pace, full in ~${formatShortDuration(msToFull)}`;
+    return `按当前速度，约 ${formatShortDuration(msToFull)} 后用尽`;
   }
   const projectedPercent = Math.min(99, Math.round(usedPercent + (usedPercent / elapsedMs) * msToReset));
-  return `At current pace, ~${projectedPercent}% at reset`;
+  return `按当前速度，重置时约已用 ${projectedPercent}%`;
 }
 
 export function getProgressColor(usedPercent: number): string {
-  if (usedPercent >= 80) return '#FF3B30';
-  if (usedPercent >= 50) return '#FF9500';
+  if (usedPercent >= 95) return '#FF3B30';
+  if (usedPercent >= 80) return '#FF9500';
   return '#34C759';
 }
 
@@ -100,7 +100,7 @@ export function getProgressStyle(usedPercent: number): CSSProperties {
   const color = getProgressColor(usedPercent);
   return {
     width: `${clamped}%`,
-    background: `linear-gradient(90deg, ${color}bb, ${color})`,
+    background: `var(--quota-${usedPercent >= 95 ? 'critical' : usedPercent >= 80 ? 'warning' : 'good'}, ${color})`,
   } as CSSProperties;
 }
 

@@ -374,6 +374,6 @@ describe('App storage wiring', () => {
 
     const html = renderToString(createElement(App));
 
-    expect(html).toContain('class="app theme-light"');
+    expect(html).toContain('class="app theme-light quota-popover quota-home"');
   });
 });

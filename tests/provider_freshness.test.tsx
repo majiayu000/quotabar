@@ -3,7 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import App from '../src/App';
 import TabSwitcher from '../src/components/TabSwitcher';
 import ActionButtons from '../src/components/ActionButtons';
-import OverviewPanel from '../src/components/OverviewPanel';
+import QuotaOverview from '../src/components/QuotaOverview';
+import ClaudePanel from '../src/components/ClaudePanel';
 import { backend } from '../src/services/backend';
 
 vi.mock('../src/hooks/use_popover_window', () => ({ usePopoverWindow: () => false }));
@@ -36,13 +37,14 @@ async function mount() {
   await act(async () => { renderer = create(<App />); });
 }
 function status(service: string) {
-  return renderer!.root.findByType(OverviewPanel).props.summaries.find((item: { id: string }) => item.id === service);
+  return renderer!.root.findByType(QuotaOverview).props.summaries.find((item: { id: string }) => item.id === service);
 }
 
 describe('successful quota freshness', () => {
-  it('keeps cost and timeline in the tray popover without add-service chrome', async () => {
+  it('keeps cost and timeline accessible through provider details', async () => {
     await mount();
-    expect(renderer!.root.findByType(OverviewPanel).props.sections).toEqual({
+    await act(async () => renderer!.root.findByProps({ 'aria-label': '查看 Claude 详情' }).props.onClick());
+    expect(renderer!.root.findByType(ClaudePanel).props.sections).toEqual({
       timeline: true,
       cost: true,
       trend: true,
@@ -54,10 +56,10 @@ describe('successful quota freshness', () => {
   it('discovers connected services and keeps a failed service reachable', async () => {
     vi.mocked(backend.getCursorInfo).mockResolvedValue({ connected: false });
     await mount();
-    expect(renderer!.root.findByType(TabSwitcher).props.summaries.map((item: { id: string }) => item.id)).toEqual(['claude', 'codex', 'grok']);
+    expect(renderer!.root.findByType(QuotaOverview).props.summaries.map((item: { id: string }) => item.id)).toEqual(['claude', 'codex', 'grok']);
     vi.mocked(backend.getGrokInfo).mockRejectedValueOnce(new Error('Network unavailable'));
     await act(async () => renderer!.root.findByType(ActionButtons).props.onRefresh());
-    expect(renderer!.root.findByType(TabSwitcher).props.summaries.map((item: { id: string }) => item.id)).toContain('grok');
+    expect(renderer!.root.findByType(QuotaOverview).props.summaries.map((item: { id: string }) => item.id)).toContain('grok');
   });
 
   it.each(['claude', 'codex', 'cursor', 'grok'])('keeps %s success time after a rejected refresh and recovers independently', async (service) => {
@@ -67,13 +69,13 @@ describe('successful quota freshness', () => {
     vi.setSystemTime(Date.now() + 120_000);
     const request = { claude: backend.getQuota, codex: backend.getCodexRateLimits, cursor: backend.getCursorInfo, grok: backend.getGrokInfo }[service]!;
     vi.mocked(request).mockRejectedValueOnce(new Error('Network unavailable'));
-    await act(async () => renderer!.root.findByType(TabSwitcher).props.onTabChange(service));
+    await act(async () => renderer!.root.findByProps({ 'aria-label': `查看 ${service === 'claude' ? 'Claude' : service === 'codex' ? 'Codex' : service === 'cursor' ? 'Cursor' : 'Grok'} 详情` }).props.onClick());
     await act(async () => renderer!.root.findByType(ActionButtons).props.onRefresh());
     expect(renderer!.root.findByType(ActionButtons).props.statusText).toBe('旧数据 · 最近成功读取 2m ago');
     await act(async () => renderer!.root.findByType(TabSwitcher).props.onTabChange('all'));
     expect(status(service).lastSuccessAt).toBe(successAt);
     expect(status(service).failed).toBe(true);
-    await act(async () => renderer!.root.findByType(TabSwitcher).props.onTabChange(service));
+    await act(async () => renderer!.root.findByProps({ 'aria-label': `查看 ${service === 'claude' ? 'Claude' : service === 'codex' ? 'Codex' : service === 'cursor' ? 'Cursor' : 'Grok'} 详情` }).props.onClick());
     await act(async () => renderer!.root.findByType(ActionButtons).props.onRefresh());
     expect(renderer!.root.findByType(ActionButtons).props.statusText).toBe('最近成功读取 now');
     await act(async () => renderer!.root.findByType(TabSwitcher).props.onTabChange('all'));
@@ -85,7 +87,7 @@ describe('successful quota freshness', () => {
   it('keeps a deliberately opened service visible before detection completes', async () => {
     vi.mocked(backend.getCursorInfo).mockResolvedValue({ connected: false });
     await mount();
-    await act(async () => renderer!.root.findByType(OverviewPanel).props.onProviderSelect('cursor'));
+    await act(async () => renderer!.root.findByType(QuotaOverview).props.onProviderSelect('cursor'));
     expect(renderer!.root.findByType(TabSwitcher).props.activeTab).toBe('cursor');
     expect(renderer!.root.findByType(TabSwitcher).props.summaries.map((item: { id: string }) => item.id)).toContain('cursor');
   });
@@ -95,6 +97,7 @@ describe('successful quota freshness', () => {
     vi.mocked(backend.getCursorInfo).mockResolvedValue({ connected: false });
     await mount();
     expect(status('claude')).toMatchObject({ failed: true, lastSuccessAt: null });
-    expect(status('cursor')).toMatchObject({ failed: true, lastSuccessAt: null });
+    await act(async () => renderer!.root.findByType(QuotaOverview).props.onProviderSelect('cursor'));
+    expect(renderer!.root.findByType(ActionButtons).props.statusText).toBe('额度不可用 · 请重试');
   });
 });

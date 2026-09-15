@@ -2,6 +2,7 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import App from './App';
 import './styles/design-system.css';
+import './styles/compact.css';
 const workspace = new URLSearchParams(window.location.search).get('window') !== 'tray';
 if (workspace) document.documentElement.classList.add('analysis-document');
 

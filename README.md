@@ -13,9 +13,9 @@ Website: https://majiayu000.github.io/quotabar/
 
 ## Features
 
-- Overview: remaining quota and per-service freshness, with optional usage details.
+- Overview: large account rings and quota windows, with remaining/used display selection and optional weekly detail. The headline always identifies the most constrained window; stale readings stay marked and provider details remain one click away.
 - High-usage tips explain remaining quota and reset timing; stale data does not produce usage advice.
-- Provider switcher: overview plus full-name cards for Claude, Codex, Cursor, Grok, and Antigravity.
+- Provider switcher: overview plus lightweight labeled tabs for Claude, Codex, Cursor, Grok, and Antigravity.
 - Claude quota: 5-hour, 7-day, Opus, Sonnet, and Claude Design windows.
 - Codex quota: short and weekly ChatGPT usage windows, local weekly pace and API-equivalent value estimates, and an exhausted-week layout that keeps the last estimate and a clickable bonus reset.
   Observed usage is valued at standard API token prices; the full-week value is a rough extrapolation from an official quota snapshot, not a bill or an official dollar allowance. Fast-mode premiums and purchased credits are not represented by this estimate.
@@ -25,7 +25,7 @@ Website: https://majiayu000.github.io/quotabar/
 - Local cost tracking: today, week, and month estimates for Claude Code, Codex, and Cursor.
 - Per-provider tray icons: independent menu bar indicators for supported providers.
 - Tray controls: enable or hide each tray while keeping at least one entry point.
-- Settings view: theme, macOS Hide Dock, Launch at Login, All / single-service presets, Limits vs Alerts, and per-provider tray controls. Launch at Login uses the OS login item rather than a local storage key.
+- Settings view: Display / Alerts / Accounts pages, with quota display preferences, theme, macOS Hide Dock, Launch at Login, All / single-service presets, and per-provider tray controls. Launch at Login uses the OS login item rather than a local storage key.
 - Notifications: 80%, 95%, 100%, unused bonus reset, and bonus-expiry alerts.
 - Background polling: refreshes every 60 seconds, backs off to 5 minutes on 429, and backs off to 1 hour on Claude auth failures.
 - Read-only Claude OAuth: reads Claude Code credentials from the correct source, but never refreshes or writes OAuth tokens.
@@ -55,6 +55,7 @@ This `v0.4.0` screenshot was refreshed on 2026-08-31 from the production React U
 - Antigravity tray value:
   - shows provider availability while usage tracking is pending
 - Tray percentages represent used quota, not remaining quota.
+- The popover overview defaults to remaining quota. Settings → Display switches its numbers, rings, and bars together to used quota. Hiding weekly detail does not remove a weekly limit from headline selection. Provider detail and native menu bar readings continue to label used quota.
 
 ## Project Layout
 

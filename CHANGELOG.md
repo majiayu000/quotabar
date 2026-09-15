@@ -4,6 +4,11 @@ All notable QuotaBar changes should be summarized here before a release is cut.
 
 ## Unreleased
 
+- Redesign the tray overview with large provider rings, quota windows and reset times. Preserve missing-data, stale-data and recovery states; display remaining quota by default with an optional used-quota view.
+- Share lightweight provider tabs, compact actions and solid-color quota indicators across tray pages. Provider details start directly with quota and usage content and retain estimates, bonus resets, costs and trends.
+- Organize settings into Display, Alerts and Accounts. Persist overview percentage and weekly-detail preferences while keeping the most constrained limit in the headline.
+- Standardize common usage/reset copy and display failures when cost trends cannot be read.
+
 ## 0.5.1 - 2026-09-11
 
 - Keep the Grok pool-value card when local inference pricing is incomplete, and scale the observed dollars to full local-turn coverage.

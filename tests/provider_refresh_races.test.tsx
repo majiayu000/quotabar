@@ -2,7 +2,6 @@ import { createElement, type ReactElement } from 'react';
 import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 import App from '../src/App';
-import TabSwitcher from '../src/components/TabSwitcher';
 import AntigravityPanel from '../src/components/AntigravityPanel';
 import CodexPanel from '../src/components/CodexPanel';
 import CostSummarySection from '../src/components/CostSummarySection';
@@ -620,7 +619,7 @@ describe('Codex weekly pace', () => {
       resetsAt,
     });
 
-    expect(rendered_text(renderer)).toContain('At current pace');
+    expect(rendered_text(renderer)).toContain('按当前速度');
     expect(rendered_text(renderer)).not.toContain('Local pace:');
     expect(rendered_text(renderer)).not.toContain('% at reset');
     await unmount(renderer);
@@ -915,7 +914,7 @@ async function start_claude_race() {
     renderer = create(createElement(App));
     await Promise.resolve();
   });
-  await act(async () => renderer.root.findByType(TabSwitcher).props.onTabChange('claude'));
+  await act(async () => renderer.root.findByProps({ 'aria-label': '查看 Claude 详情' }).props.onClick());
   const refresh = renderer.root.findByProps({ 'aria-label': 'Refresh current provider' });
   await act(async () => refresh.props.onClick());
   return { new_request, old_request, renderer };
@@ -952,7 +951,7 @@ describe('Claude latest request wins', () => {
   it('does not let stale finally finish current loading', async () => {
     const race = await start_claude_race();
     await settle(() => race.old_request.resolve(quota(90)));
-    expect(rendered_text(race.renderer)).toContain('Loading Claude quota');
+    expect(rendered_text(race.renderer)).toContain('正在读取 Claude 额度');
     await settle(() => race.new_request.resolve(quota(20)));
     expect(rendered_text(race.renderer)).toContain('20%');
     await unmount(race.renderer);
@@ -1062,7 +1061,7 @@ describe('Cost lane latest request wins', () => {
   it('does not let overview stale finally finish current loading', async () => {
     const race = await start_cost_race();
     await settle(() => race.requests.overviews[0].resolve(cost_overview(90)));
-    expect(rendered_text(race.renderer)).toContain('Loading cost');
+    expect(rendered_text(race.renderer)).toContain('正在读取费用');
     await settle(() => race.requests.overviews[1].resolve(cost_overview(20)));
     expect(rendered_text(race.renderer)).toContain('$20.00');
     await unmount(race.renderer);

@@ -146,7 +146,7 @@ describe('provider status UI', () => {
     expect(text).toContain('Rate limit refresh failed');
     expect(renderer.root.findAllByProps({ className: 'error-banner' })).toHaveLength(1);
     expect(text).toContain('当前显示上次成功读取的数据');
-    expect(renderer.root.findByProps({ 'aria-label': '5-hour window usage' }).props['aria-valuenow']).toBe(64);
+    expect(renderer.root.findByProps({ 'aria-label': '5 小时额度 usage' }).props['aria-valuenow']).toBe(64);
     await act(async () => renderer.unmount());
   });
 
@@ -208,7 +208,7 @@ describe('provider status UI', () => {
     const text = renderedText(renderer);
     expect(text).toContain('Codex ID token is unavailable');
     expect(renderer.root.findAllByProps({ className: 'codex-content' })).toHaveLength(1);
-    expect(renderer.root.findByProps({ 'aria-label': '5-hour window usage' }).props['aria-valuenow']).toBe(64);
+    expect(renderer.root.findByProps({ 'aria-label': '5 小时额度 usage' }).props['aria-valuenow']).toBe(64);
     expect(text).not.toContain('Stale data');
     expect(text).not.toContain('当前显示上次成功读取的数据');
     await act(async () => renderer.unmount());
@@ -311,7 +311,7 @@ describe('provider status UI', () => {
     const text = renderedText(renderer);
     expect(text).toContain('Codex refresh failed');
     expect(text).toContain('当前显示上次成功读取的数据');
-    expect(renderer.root.findByProps({ 'aria-label': '5-hour window usage' }).props['aria-valuenow']).toBe(64);
+    expect(renderer.root.findByProps({ 'aria-label': '5 小时额度 usage' }).props['aria-valuenow']).toBe(64);
     expect(onConnectionChange).toHaveBeenCalledWith(false);
     expect(onUsageChange).toHaveBeenCalledWith(null);
     expect(onQuotaWindowsChange).toHaveBeenCalledWith([]);
@@ -420,8 +420,8 @@ describe('provider status UI', () => {
     expect(text).toContain('3% 已用');
     expect(text).toContain('Other Models');
     expect(text).toContain('91% 已用');
-    expect(text).toContain('Includes Cursor Grok and Composer');
-    expect(text).not.toContain('on-demand spend');
+    expect(text).toContain('包含 Cursor Grok 和 Composer');
+    expect(text).not.toContain('计入按量费用');
     expect(text).toContain('On-demand');
     expect(text).toContain('$12.51');
     expect(text).not.toContain('Included requests');
@@ -472,7 +472,7 @@ describe('provider status UI', () => {
     });
 
     const text = renderedText(renderer);
-    expect(text).toContain('Additional usage beyond limits consumes on-demand spend.');
+    expect(text).toContain('超出额度后计入按量费用。');
     expect(text).toContain('On-demand');
     expect(text).toContain('$12.51');
     await act(async () => renderer.unmount());
