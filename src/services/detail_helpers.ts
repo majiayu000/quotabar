@@ -24,7 +24,7 @@ export function getHighUsageTip(
   if (!window) return null;
   const remaining = Math.max(0, Math.round(100 - window.usedPercent));
   const usage = window.usedPercent >= 100
-    ? `Limit reached (${Math.round(window.usedPercent)}% used).`
+    ? 'Limit reached (0% remaining).'
     : `${remaining}% remaining.`;
   const resetAt = window.resetAtMs;
   const prefix = `${window.providerLabel} ${window.label}: ${usage}`;

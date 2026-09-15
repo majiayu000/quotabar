@@ -116,13 +116,6 @@ export function formatLocalExtrasPaused(observedAtMs: number, now = Date.now()):
   return `Local extras paused · Codex CLI has not refreshed in ${minutes}m`;
 }
 
-export function formatOfficialUpdatedAt(updatedAtMs: number, now = Date.now()): string {
-  const elapsed = now - updatedAtMs;
-  if (elapsed < 15_000) return '刚刚更新';
-  const minutes = Math.max(1, Math.round(elapsed / 60_000));
-  return `${minutes} 分钟前更新`;
-}
-
 export function isWeeklyExhausted(usedPercent?: number): boolean {
   return typeof usedPercent === 'number' && Number.isFinite(usedPercent) && usedPercent >= 100;
 }

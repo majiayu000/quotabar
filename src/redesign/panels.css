@@ -549,7 +549,6 @@
   cursor: pointer;
 }
 
-.codex-updated,
 .codex-local-extras {
   margin: 4px 2px 0;
   color: var(--text-muted);
@@ -557,11 +556,7 @@
   line-height: 1.35;
 }
 
-.codex-updated {
-  display: flex;
-  justify-content: space-between;
-  gap: 8px;
-}
+
 
 .bonus-header,
 .bonus-title-row,

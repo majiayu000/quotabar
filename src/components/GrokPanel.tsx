@@ -6,7 +6,7 @@ import SmartTip from './SmartTip';
 import type { GrokData } from '../types/models';
 import { buildGrokQuotaWindows, grokPoolWindowLabel, type QuotaWindowSummary } from '../services/provider_summary';
 import { getHighUsageTip } from '../services/detail_helpers';
-import { formatResetTime, getProgressStyle, workspaceCopy } from '../utils/quota_format';
+import { formatResetTime, getProgressStyle, getRemainingProgressStyle, remainingPercent, workspaceCopy } from '../utils/quota_format';
 import { defaultPanelSections, type PanelSectionVisibility } from '../services/panel_sections';
 import { useLatestRequestGeneration } from '../hooks/use_latest_request_generation';
 import { validateGrokValueEstimate, grokCoverageLabel } from '../services/grok_value_estimate';
@@ -186,10 +186,10 @@ export default function GrokPanel({
                 <div className="quota-card">
                   <div className="quota-header">
                     <span className="quota-label">{poolLabel(grokData)}</span>
-                    <span className="quota-value">{`${Math.round(percentage)}% 已用`}</span>
+                    <span className="quota-value">{`${remainingPercent(percentage)}% 剩余`}</span>
                   </div>
                   <div className="progress-bar">
-                    <div className="progress-fill" style={getProgressStyle(percentage)} />
+                    <div className="progress-fill" style={getRemainingProgressStyle(percentage)} />
                   </div>
                   {resetLabel && (
                     <div className="reset-time">
@@ -251,22 +251,22 @@ export default function GrokPanel({
                             </span>
                           ) : null}
                         </div>
-                        <div
+                        {percentage != null && <div
                           className="weekly-value-gauge"
                           role="img"
                           aria-label={workspaceCopy(
-                            `Estimate based on ${Math.round(displayedGrokValueEstimate.usedPct)}% used`,
-                            `按 ${Math.round(displayedGrokValueEstimate.usedPct)}% 已用估算`,
+                            `Pool quota: ${remainingPercent(percentage)}% remaining`,
+                            `额度池剩余 ${remainingPercent(percentage)}%`,
                           )}
                           style={{
-                            '--weekly-value-used': `${Math.min(Math.max(displayedGrokValueEstimate.usedPct, 0), 100)}%`,
+                            '--weekly-value-used': `${remainingPercent(percentage)}%`,
                           } as CSSProperties}
                         >
                           <span className="weekly-value-gauge-center">
-                            <strong>{Math.round(displayedGrokValueEstimate.usedPct)}%</strong>
-                            <small>已用</small>
+                            <strong>{remainingPercent(percentage)}%</strong>
+                            <small>剩余</small>
                           </span>
-                        </div>
+                        </div>}
                       </div>
                       <div className="weekly-value-footer">
                         <span>{workspaceCopy('Projected from local Grok usage', '按本机 Grok 用量推算')}</span>
@@ -294,7 +294,7 @@ export default function GrokPanel({
                     <div className="quota-card" key={product.product}>
                       <div className="quota-header">
                         <span className="quota-label">{product.label}</span>
-                        <span className="quota-value">{`${Math.round(usagePercent)}% 已用`}</span>
+                        <span className="quota-value">{`占用 ${Math.round(usagePercent)}%`}</span>
                       </div>
                       <div className="progress-bar">
                         <div className="progress-fill" style={getProgressStyle(usagePercent)} />
@@ -321,13 +321,13 @@ export default function GrokPanel({
                     <div className="quota-header">
                       <span className="quota-label">{workspaceCopy('On-demand', '按需')}</span>
                       <span className="quota-value">
-                        {`${formatCents(extraUsedCents)} / ${formatCents(extraCapCents)}`}
+                        {`剩余 ${formatCents(Math.max(0, extraCapCents - extraUsedCents))} / ${formatCents(extraCapCents)}`}
                       </span>
                     </div>
                     <div className="progress-bar">
                       <div
                         className="progress-fill"
-                        style={getProgressStyle(
+                        style={getRemainingProgressStyle(
                           Math.min(100, (extraUsedCents / extraCapCents) * 100),
                         )}
                       />

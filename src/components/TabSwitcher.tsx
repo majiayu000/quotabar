@@ -1,3 +1,4 @@
+import { remainingPercent } from '../utils/quota_format';
 import { useEffect, useRef, useState } from 'react';
 import { getSavedProviderFavorites, saveProviderFavorites, MAX_PROVIDER_FAVORITES } from '../services/provider_favorites';
 import type { TrayServiceName } from '../services/tray_visibility';
@@ -69,8 +70,8 @@ export default function TabSwitcher({
         ...favoriteSummaries,
       ].map((summary) => {
         const isActive = activeTab === summary.id;
-        const usageLabel = summary.id === 'all' ? '全部服务' : summary.usedPercent == null ? '—' : `${Math.round(summary.usedPercent)}%`;
-        const quotaLabel = summary.usedPercent == null ? usageLabel : `${usageLabel} 已用${'usageLabel' in summary && summary.usageLabel ? ` · ${summary.usageLabel}` : ''}`;
+        const usageLabel = summary.id === 'all' ? '全部服务' : summary.usedPercent == null ? '—' : `${remainingPercent(summary.usedPercent)}%`;
+        const quotaLabel = summary.usedPercent == null ? usageLabel : `${usageLabel} 剩余${'usageLabel' in summary && summary.usageLabel ? ` · ${summary.usageLabel}` : ''}`;
         const statusText = 'statusText' in summary
           ? summary.statusText
           : summary.connected ? 'Providers connected' : 'No providers connected';
@@ -124,7 +125,7 @@ export default function TabSwitcher({
               onClick={() => { closePicker(); onTabChange(summary.id); }}>
               <strong>{summary.label}{activeTab === summary.id && <small>当前</small>}</strong>
               <span>{summary.loading ? '正在读取…' : summary.failed ? '更新失败 · 查看详情恢复' : summary.connected
-                ? summary.usedPercent != null && Number.isFinite(summary.usedPercent) ? `已用 ${Math.round(summary.usedPercent)}%${summary.usageLabel ? ` · ${summary.usageLabel}` : ''}` : '已连接 · 暂无额度数据'
+                ? summary.usedPercent != null && Number.isFinite(summary.usedPercent) ? `剩余 ${remainingPercent(summary.usedPercent)}%${summary.usageLabel ? ` · ${summary.usageLabel}` : ''}` : '已连接 · 暂无额度数据'
                 : summary.id === 'antigravity' ? '额度接入待支持' : '未连接 · 查看连接方式'}</span>
             </button>
             <button type="button" className="provider-picker-star" aria-label={`${favorites.includes(summary.id) ? '取消收藏' : '收藏'} ${summary.label}`}

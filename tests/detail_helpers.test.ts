@@ -66,7 +66,7 @@ describe('time-aware quota advice', () => {
   });
   test('does not promise that elapsed resets have restored quota or invent negative remainder', () => {
     expect(getHighUsageTip([{ provider: 'cursor', providerLabel: 'Cursor', label: 'Usage', usedPercent: 120, resetAtMs: Date.now() - 1000 }])).toBe(
-      'Cursor Usage: Limit reached (120% used). The reset time has passed; refresh to check your quota.',
+      'Cursor Usage: Limit reached (0% remaining). The reset time has passed; refresh to check your quota.',
     );
   });
 });

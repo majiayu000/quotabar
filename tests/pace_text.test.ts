@@ -19,7 +19,7 @@ describe('formatPaceText', () => {
   test('projects usage at reset when burning slow', () => {
     // 2h elapsed, 20% used → rate 10%/h → +30% over the remaining 3h.
     const text = formatPaceText(20, resetIn(180), FIVE_HOURS_MIN, NOW);
-    expect(text).toBe('按当前速度，重置时约已用 50%');
+    expect(text).toBe('按当前速度，重置时约剩余 50%');
   });
 
   test('returns null without enough signal', () => {

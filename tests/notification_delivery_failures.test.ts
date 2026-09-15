@@ -119,17 +119,17 @@ describe('notification delivery commit', () => {
   it('commits the dedupe timestamp only after a successful send', async () => {
     const values = installMemoryStorage();
 
-    const result = await notify('QuotaBar', 'Claude usage crossed 80%');
+    const result = await notify('QuotaBar', 'Claude remaining quota fell to 20% or less');
 
     expect(result).toEqual({ status: 'sent' });
     expect(notificationPlugin.sendNotification).toHaveBeenCalledExactlyOnceWith({
       title: 'QuotaBar',
-      body: 'Claude usage crossed 80%',
+      body: 'Claude remaining quota fell to 20% or less',
     });
     expect(JSON.parse(values.get('claude-quota-notified') ?? '')).toEqual({
-      'Claude usage crossed 80%': NOW,
+      'Claude remaining quota fell to 20% or less': NOW,
     });
-    expect(shouldNotify('Claude usage crossed 80%', NOW + 1)).toBe(false);
+    expect(shouldNotify('Claude remaining quota fell to 20% or less', NOW + 1)).toBe(false);
   });
 
   it('returns typed skipped outcomes for browser preview and recent duplicates', async () => {

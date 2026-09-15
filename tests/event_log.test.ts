@@ -25,9 +25,9 @@ describe('event log', () => {
   test('records newest first and persists', () => {
     installMemoryStorage();
     let events = recordEvent([], 'info', 'Claude connected', NOW);
-    events = recordEvent(events, 'warning', 'Codex usage crossed 80%', NOW + 60000);
+    events = recordEvent(events, 'warning', 'Codex remaining quota fell to 20% or less', NOW + 60000);
 
-    expect(events[0].text).toBe('Codex usage crossed 80%');
+    expect(events[0].text).toBe('Codex remaining quota fell to 20% or less');
     expect(events[1].text).toBe('Claude connected');
     expect(getSavedEvents()).toHaveLength(2);
   });

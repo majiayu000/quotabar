@@ -1,4 +1,4 @@
-import { clampProgressValue, getProgressStyle } from '../utils/quota_format';
+import { remainingPercent, getRemainingProgressStyle } from '../utils/quota_format';
 
 interface QuotaCardProps {
   label: string;
@@ -21,21 +21,21 @@ export default function QuotaCard({ label, percentage, resetsIn, pace, featured 
     <div className={`quota-card${featured ? ' featured' : ''}`}>
       <div className="quota-header">
         <span className="quota-label">{label}</span>
-        <span className="quota-value">{percentage}% 已用</span>
+        <span className="quota-value">{remainingPercent(percentage)}% 剩余</span>
       </div>
 
       <div
         className="progress-bar"
         role="progressbar"
-        aria-label={`${label} usage`}
+        aria-label={`${label} remaining quota`}
         aria-valuemin={0}
         aria-valuemax={100}
-        aria-valuenow={clampProgressValue(percentage)}
-        aria-valuetext={`${Math.round(percentage)}% 已用`}
+        aria-valuenow={remainingPercent(percentage)}
+        aria-valuetext={`${remainingPercent(percentage)}% 剩余`}
       >
         <div
           className={`progress-fill ${status}`}
-          style={getProgressStyle(percentage)}
+          style={getRemainingProgressStyle(percentage)}
         />
       </div>
 

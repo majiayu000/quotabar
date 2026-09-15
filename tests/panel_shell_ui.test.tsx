@@ -58,7 +58,7 @@ describe('panel shell UI', () => {
     expect(html).toContain('provider-card-label">Claude');
     expect(html).toContain('provider-card-label">Codex');
     expect(html).toContain('provider-card-label">总览');
-    expect(html).toContain('title="Claude · 48% 已用');
+    expect(html).toContain('title="Claude · 52% 剩余');
     expect(html).not.toContain('provider-card-percent');
     expect(html).not.toContain('Add service');
     expect(html).not.toContain('provider-card-window');
@@ -167,8 +167,8 @@ describe('panel shell UI', () => {
     expect((html.match(/class="settings-group"/g) ?? [])).toHaveLength(6);
     expect(html).toContain('>用量参考预算<');
     expect(html).toContain('>提醒<');
-    expect(html).toContain('Alert at 100% used');
-    expect(html).toContain('Alert when a bonus reset is unused at 100%');
+    expect(html).toContain('Alert at 0% remaining');
+    expect(html).toContain('Alert when a bonus reset is unused at 0% remaining');
     expect(html).toContain('>来源显示<');
     expect(html).toContain('>面板<');
     expect(html).toContain('>菜单栏<');

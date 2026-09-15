@@ -2,7 +2,7 @@ import type { CSSProperties } from 'react';
 import type { CodexRateLimits, CursorData, GrokData, QuotaData, UsageInfo } from '../types/models';
 import { SERVICE_META, SERVICES } from './service_meta';
 import type { TrayServiceName } from './tray_visibility';
-import { formatResetTime, getProgressStyle, workspaceCopy } from '../utils/quota_format';
+import { formatResetTime, getProgressStyle, remainingPercent, workspaceCopy } from '../utils/quota_format';
 
 export type AppTabName = TrayServiceName | 'all';
 export type AppViewName = AppTabName | 'settings';
@@ -59,7 +59,7 @@ export function getProviderStatusText(
     return 'Offline';
   }
   if (usedPercent == null) return 'Ready';
-  return `${Math.round(usedPercent)}% used`;
+  return `${remainingPercent(usedPercent)}% remaining`;
 }
 
 export function buildProviderSummaries(

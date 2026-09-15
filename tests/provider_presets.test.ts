@@ -92,7 +92,7 @@ describe('planRevealProviderPanel', () => {
 
 describe('matchProviderInEventText', () => {
   test('matches the provider label', () => {
-    expect(matchProviderInEventText('Codex usage crossed 95%')).toBe('codex');
+    expect(matchProviderInEventText('Codex remaining quota fell to 5% or less')).toBe('codex');
     expect(matchProviderInEventText('Claude connected')).toBe('claude');
   });
 

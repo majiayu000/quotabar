@@ -68,13 +68,13 @@ describe('notification settings', () => {
   test('reads dedupe eligibility without writing storage', () => {
     const values = installMemoryStorage();
     values.set('claude-quota-notified', JSON.stringify({
-      'Claude usage crossed 80%': NOW,
+      'Claude remaining quota fell to 20% or less': NOW,
     }));
     const setItem = vi.spyOn(localStorage, 'setItem');
 
-    expect(shouldNotify('Claude usage crossed 80%', NOW + 60 * 60000)).toBe(false);
-    expect(shouldNotify('Claude usage crossed 80%', NOW + 13 * 3600000)).toBe(true);
-    expect(shouldNotify('Codex usage crossed 80%', NOW)).toBe(true);
+    expect(shouldNotify('Claude remaining quota fell to 20% or less', NOW + 60 * 60000)).toBe(false);
+    expect(shouldNotify('Claude remaining quota fell to 20% or less', NOW + 13 * 3600000)).toBe(true);
+    expect(shouldNotify('Codex remaining quota fell to 20% or less', NOW)).toBe(true);
     expect(setItem).not.toHaveBeenCalled();
   });
 });

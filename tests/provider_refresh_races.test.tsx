@@ -386,7 +386,7 @@ describe('Codex weekly pace', () => {
     expect(rendered_text(renderer)).toContain('4M');
     expect(rendered_text(renderer)).toContain('tokens at current mix');
     expect(rendered_text(renderer)).toContain('本地估算');
-    expect(rendered_text(renderer)).toContain('Based on 40% 已用');
+    expect(rendered_text(renderer)).toContain('Based on 60% 剩余');
     expect(renderer.root.findByProps({ className: 'weekly-value-amount' }).children.join('')).toBe('≈$200.00');
     expect(rendered_text(renderer)).toContain('按标准 API 价格估算 · 不代表账单');
     expect(renderer.root.findByProps({ className: 'weekly-value-token-row' }).findByType('strong').children.join('')).toBe('≈4M');
@@ -394,7 +394,7 @@ describe('Codex weekly pace', () => {
     expect(rendered_text(renderer)).toContain('$80.00 local');
     expect(rendered_text(renderer)).toContain('Not an official allowance');
     expect(renderer.root.findByProps({
-      'aria-label': 'Estimate based on 40% 已用',
+      'aria-label': 'Estimate based on 60% 剩余',
     })).toBeDefined();
     expect(rendered_text(renderer)).not.toContain('Estimated depletion');
     const weekly_value_card = renderer.root.findByProps({
@@ -549,7 +549,7 @@ describe('Codex weekly pace', () => {
   it('shows a local pace error without hiding official quota data', async () => {
     const renderer = await render_codex({ error: 'Start a Codex CLI session to refresh rate-limit data.' });
 
-    expect(rendered_text(renderer)).toContain('40%');
+    expect(rendered_text(renderer)).toContain('60%');
     expect(rendered_text(renderer)).toContain('Local pace unavailable');
     expect(rendered_text(renderer)).toContain('Start a Codex CLI session');
     await unmount(renderer);
@@ -558,7 +558,7 @@ describe('Codex weekly pace', () => {
   it('isolates a weekly IPC rejection from official quota data', async () => {
     const renderer = await render_codex(new Error('weekly IPC failed'));
 
-    expect(rendered_text(renderer)).toContain('40%');
+    expect(rendered_text(renderer)).toContain('60%');
     expect(rendered_text(renderer)).toContain('Local pace unavailable');
     expect(rendered_text(renderer)).toContain('weekly IPC failed');
     await unmount(renderer);
@@ -577,7 +577,7 @@ describe('Codex weekly pace', () => {
       },
     }, { usedPercent: 40 });
 
-    expect(rendered_text(renderer)).toContain('40%');
+    expect(rendered_text(renderer)).toContain('60%');
     expect(rendered_text(renderer)).toContain('official weekly window length is unavailable');
     expect(rendered_text(renderer)).not.toContain('projected');
     await unmount(renderer);
@@ -638,7 +638,7 @@ describe('Codex weekly pace', () => {
       },
     });
 
-    expect(rendered_text(renderer)).toContain('40%');
+    expect(rendered_text(renderer)).toContain('60%');
     expect(rendered_text(renderer)).toContain('does not match the current official reset');
     expect(rendered_text(renderer)).not.toContain('projected');
     await unmount(renderer);
@@ -797,7 +797,7 @@ describe('Grok period value', () => {
       valueEstimateError: 'no Grok token usage matched the active billing period',
     });
 
-    expect(rendered_text(renderer)).toContain('4%');
+    expect(rendered_text(renderer)).toContain('96% 剩余');
     expect(rendered_text(renderer)).toContain('整池估值不可用');
     expect(rendered_text(renderer)).toContain('no Grok token usage matched');
     await unmount(renderer);
@@ -925,7 +925,7 @@ describe('Claude latest request wins', () => {
     const race = await start_claude_race();
     await settle(() => race.new_request.resolve(quota(20)));
     await settle(() => race.old_request.resolve(quota(90)));
-    expect(rendered_text(race.renderer)).toContain('20%');
+    expect(rendered_text(race.renderer)).toContain('80%');
     expect(rendered_text(race.renderer)).not.toContain('90%');
     await unmount(race.renderer);
   });
@@ -934,7 +934,7 @@ describe('Claude latest request wins', () => {
     const race = await start_claude_race();
     await settle(() => race.new_request.resolve(quota(20)));
     await settle(() => race.old_request.reject(new Error('old Claude failure')));
-    expect(rendered_text(race.renderer)).toContain('20%');
+    expect(rendered_text(race.renderer)).toContain('80%');
     expect(rendered_text(race.renderer)).not.toContain('old Claude failure');
     await unmount(race.renderer);
   });
@@ -953,7 +953,7 @@ describe('Claude latest request wins', () => {
     await settle(() => race.old_request.resolve(quota(90)));
     expect(rendered_text(race.renderer)).toContain('正在读取 Claude 额度');
     await settle(() => race.new_request.resolve(quota(20)));
-    expect(rendered_text(race.renderer)).toContain('20%');
+    expect(rendered_text(race.renderer)).toContain('80%');
     await unmount(race.renderer);
   });
 

@@ -1178,7 +1178,6 @@
 .analysis-provider-content .codex-content > .section { margin: 0; min-width: 0; }
 .analysis-provider-content .codex-content .quota-group { grid-template-columns: 1fr; }
 .analysis-provider-content .quota-group > .quota-card:only-child { grid-column: 1 / -1; }
-.analysis-provider-content .codex-updated { margin: -8px 0 -10px; }
 .analysis-provider-content .provider-detail-header { margin-bottom: 0; }
 .analysis-provider-content .weekly-value-card { height: 100%; }
 .analysis-provider-content .codex-content .progress-fill { background: var(--a-blue) !important; }

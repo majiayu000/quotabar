@@ -302,7 +302,7 @@ describe('workspace quota freshness', () => {
     let renderer!: ReactTestRenderer;
     await act(async () => { renderer = create(createElement(AnalysisApp, { summaries: [provider], quotaWindows: [{ provider: 'cursor', providerLabel: 'Cursor', label: 'Cursor Models', usedPercent: 22 }, { provider: 'cursor', providerLabel: 'Cursor', label: 'Other Models', usedPercent: 100 }] })); });
     const card = renderer.root.findByProps({ className: 'workspace-quota-mini' });
-    expect(JSON.stringify(card.findByType('strong').children)).toContain('100%');
+    expect(JSON.stringify(card.findByType('strong').children)).toContain('0%');
     expect(JSON.stringify(card.findByProps({ role: 'alert' }).children)).toContain('当前显示旧数据');
     expect(JSON.stringify(card.findByProps({ role: 'alert' }).children)).toContain('额度读取失败');
     expect(JSON.stringify(card.findByProps({ role: 'alert' }).children)).not.toContain('Service unavailable');

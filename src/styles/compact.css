@@ -167,7 +167,6 @@ html:not(.analysis-document) .app.quota-detail .cost-range-value { font-size: 16
 html:not(.analysis-document) .app.quota-detail .cost-estimate-explanation { font-size: 10px; line-height: 1.6; margin: 0 0 10px; color: var(--sub); }
 html:not(.analysis-document) .app.quota-detail .cost-title-row { flex-wrap: wrap; gap: 4px; }
 html:not(.analysis-document) .app.quota-detail .cost-title-meta { font-size: 10px; }
-html:not(.analysis-document) .app.quota-detail .codex-updated { font-size: 10px; color: var(--sub); padding: 0; margin: 0; }
 html:not(.analysis-document) .app.quota-detail .error-banner { margin: 0 0 12px; border-radius: 8px; font-size: 11px; }
 html:not(.analysis-document) .app.quota-detail .footer-divider { margin-top: 0; }
 

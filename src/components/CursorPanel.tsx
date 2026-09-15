@@ -7,7 +7,7 @@ import SmartTip from './SmartTip';
 import type { CursorData } from '../types/models';
 import { buildCursorQuotaWindows, getCursorTrayUsedPercent, type QuotaWindowSummary } from '../services/provider_summary';
 import { getHighUsageTip } from '../services/detail_helpers';
-import { clampProgressValue, getProgressStyle } from '../utils/quota_format';
+import { remainingPercent, getRemainingProgressStyle } from '../utils/quota_format';
 import { defaultPanelSections, type PanelSectionVisibility } from '../services/panel_sections';
 import { useLatestRequestGeneration } from '../hooks/use_latest_request_generation';
 
@@ -137,7 +137,7 @@ export default function CursorPanel({
   const windows = buildCursorQuotaWindows(cursorData);
   const hasDashboardWindows = cursorData?.autoPercent != null || cursorData?.apiPercent != null;
   const includedRequestValue = cursorData?.fastUsed != null && cursorData.fastLimit != null
-    ? `${cursorData.fastUsed} / ${cursorData.fastLimit}${percentage != null ? ` · ${Math.round(percentage)}%` : ''}`
+    ? `剩余 ${Math.max(0, cursorData.fastLimit - cursorData.fastUsed)} / ${cursorData.fastLimit}${percentage != null ? ` · ${remainingPercent(percentage)}%` : ''}`
     : null;
 
   return (
@@ -164,18 +164,18 @@ export default function CursorPanel({
                   <div className="quota-card" key={window.label}>
                     <div className="quota-header">
                       <span className="quota-label">{window.label}</span>
-                      <span className="quota-value">{`${Math.round(window.usedPercent)}% 已用`}</span>
+                      <span className="quota-value">{`${remainingPercent(window.usedPercent)}% 剩余`}</span>
                     </div>
                     <div
                       className="progress-bar"
                       role="progressbar"
-                      aria-label={`${window.label} usage`}
+                      aria-label={`${window.label} remaining quota`}
                       aria-valuemin={0}
                       aria-valuemax={100}
-                      aria-valuenow={clampProgressValue(window.usedPercent)}
-                      aria-valuetext={`${Math.round(window.usedPercent)}% 已用`}
+                      aria-valuenow={remainingPercent(window.usedPercent)}
+                      aria-valuetext={`${remainingPercent(window.usedPercent)}% 剩余`}
                     >
-                      <div className="progress-fill" style={getProgressStyle(window.usedPercent)} />
+                      <div className="progress-fill" style={getRemainingProgressStyle(window.usedPercent)} />
                     </div>
                     {hint && <div className="reset-time">{hint}</div>}
                     {resetLabel && window.label === windows[0]?.label && (
@@ -190,20 +190,20 @@ export default function CursorPanel({
                   <div className="quota-header">
                     <span className="quota-label">{workspaceCopy("Usage", "额度用量")}</span>
                     <span className="quota-value">
-                      {includedRequestValue ?? `${Math.round(percentage ?? 0)}% 已用`}
+                      {includedRequestValue ?? `${remainingPercent(percentage ?? 0)}% 剩余`}
                     </span>
                   </div>
                   {percentage != null && (
                     <div
                       className="progress-bar"
                       role="progressbar"
-                      aria-label="Cursor usage"
+                      aria-label="Cursor remaining quota"
                       aria-valuemin={0}
                       aria-valuemax={100}
-                      aria-valuenow={clampProgressValue(percentage)}
-                      aria-valuetext={`${Math.round(percentage)}% 已用`}
+                      aria-valuenow={remainingPercent(percentage)}
+                      aria-valuetext={`${remainingPercent(percentage)}% 剩余`}
                     >
-                      <div className="progress-fill" style={getProgressStyle(percentage)} />
+                      <div className="progress-fill" style={getRemainingProgressStyle(percentage)} />
                     </div>
                   )}
                   {resetLabel && <div className="reset-time">{resetLabel}</div>}

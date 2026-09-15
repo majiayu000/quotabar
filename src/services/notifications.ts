@@ -24,10 +24,10 @@ const NOTIFICATION_FAILURE_REPORTING_MESSAGE =
   'Failed to report notification delivery failure.';
 
 export const NOTIFICATION_ROWS: Array<{ key: NotificationKey; label: string }> = [
-  { key: 'q80', label: 'Alert at 80% used' },
-  { key: 'q95', label: 'Critical alert at 95%' },
-  { key: 'q100', label: 'Alert at 100% used' },
-  { key: 'bonusReady', label: 'Alert when a bonus reset is unused at 100%' },
+  { key: 'q80', label: 'Alert at 20% remaining' },
+  { key: 'q95', label: 'Critical alert at 5% remaining' },
+  { key: 'q100', label: 'Alert at 0% remaining' },
+  { key: 'bonusReady', label: 'Alert when a bonus reset is unused at 0% remaining' },
   { key: 'bonus', label: 'Bonus expiry reminders' },
 ];
 

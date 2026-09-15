@@ -17,8 +17,7 @@ filters, session details and exports.
 - Give numeric values clear hierarchy; use tabular figures.
 - Keep quota warnings semantic. Red and orange indicate constrained quota,
   not a decorative brand palette. Chart colors distinguish data sources.
-- Always label remaining versus used quota. The overview bar measures remaining
-  capacity; provider detail bars measure used capacity.
+- All quota percentages, rings and bars measure remaining capacity.
 - Missing cost is unknown, never zero. Keep estimates distinct from bills and
   keep refresh errors and last successful reads visible.
 - Keep focus indicators, keyboard navigation and reduced-motion support.
@@ -53,8 +52,7 @@ QuotaBar header with Settings, followed by one section per visible account.
 Each account keeps its name and detail action on a separate header row, followed
 by a 64px provider ring and a 33px headline percentage. Quota-window bars and reset
 times use separate rows, preserving the original approved spacious composition.
-All overview readings follow the saved
-remaining/used preference (remaining by default). The headline follows the most
+All quota readings show remaining capacity. The headline follows the most
 constrained window and names it explicitly when weekly detail is hidden. Missing data has no fill;
 stale data is dimmed, explicitly marked, and links to recovery. Pending provider
 detection remains visible until it completes.
@@ -74,11 +72,11 @@ contents remain independent of favorites. The tabs use small icons and labels, w
 teal underline for the active page. It does not change the spacious overview
 composition. Narrow windows show text-only tabs to retain readable labels. Detail cards use the same type scale,
 spacing and palette; only the amount of information changes.
-Detail quota readings retain used-quota semantics. The overview footer contains
+Detail quota readings show remaining capacity. The overview footer contains
 refresh/read time, one analysis entry, and Quit.
 Settings use Display, Alerts and Accounts pages in both windows. Theme choices
 and reference budgets are collapsed; existing notification thresholds and native
-menu bar used-quota semantics remain explicit.
+menu bar remaining-quota semantics remain explicit.
 
 Content is capped at 580px; the native window adds its 2px border, for a maximum
 height of 582px. Short content shrinks naturally, subject to a 300px minimum.
@@ -99,4 +97,4 @@ Use existing components and backend contracts. No new UI framework, backend
 schema or invented demo data belongs in the application bundle.
 
 Quota progress uses one solid-color helper across overview and details, with
-warning at 80% used and critical at 95% used, independent of remaining/used display.
+warning at 80% used and critical at 95% used, while displaying remaining capacity.

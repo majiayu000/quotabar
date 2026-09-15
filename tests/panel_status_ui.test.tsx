@@ -29,7 +29,7 @@ afterAll(() => {
 });
 
 describe('provider status UI', () => {
-  it('shows used quota consistently in overview values and progress bars', async () => {
+  it('shows remaining quota consistently in overview values and progress bars', async () => {
     let renderer!: ReactTestRenderer;
     await act(async () => {
       renderer = create(createElement(OverviewPanel, {
@@ -47,12 +47,12 @@ describe('provider status UI', () => {
 
     const text = renderedText(renderer);
     expect(text).toContain('额度用量');
-    expect(text).not.toContain('剩余');
-    expect(renderer.root.findByProps({ className: 'quota-value' }).children).toEqual(['82', '% 已用']);
+    expect(text).not.toContain('已用');
+    expect(renderer.root.findByProps({ className: 'quota-value' }).children).toEqual(['18', '% 剩余']);
     const progress = renderer.root.findByProps({ role: 'progressbar' });
-    expect(progress.props['aria-valuenow']).toBe(82);
-    expect(progress.props['aria-valuetext']).toBe('82% 已用');
-    expect(progress.findByProps({ className: 'progress-fill' }).props.style.width).toBe('82%');
+    expect(progress.props['aria-valuenow']).toBe(18);
+    expect(progress.props['aria-valuetext']).toBe('18% 剩余');
+    expect(progress.findByProps({ className: 'progress-fill' }).props.style.width).toBe('18%');
     expect(text).toContain('Claude · 7-day usage');
     expect(text).not.toContain('Overview');
     expect(text).not.toContain('connected');
@@ -79,7 +79,7 @@ describe('provider status UI', () => {
     const text = renderedText(renderer);
     expect(text).toContain('Refresh failed');
     expect(text).toContain('当前显示上次成功读取的数据');
-    expect(text).toContain('41%');
+    expect(text).toContain('59%');
   });
 
   it('shows a connected Antigravity state without an offline contradiction', async () => {
@@ -146,7 +146,7 @@ describe('provider status UI', () => {
     expect(text).toContain('Rate limit refresh failed');
     expect(renderer.root.findAllByProps({ className: 'error-banner' })).toHaveLength(1);
     expect(text).toContain('当前显示上次成功读取的数据');
-    expect(renderer.root.findByProps({ 'aria-label': '5 小时额度 usage' }).props['aria-valuenow']).toBe(64);
+    expect(renderer.root.findByProps({ 'aria-label': '5 小时额度 remaining quota' }).props['aria-valuenow']).toBe(36);
     await act(async () => renderer.unmount());
   });
 
@@ -207,8 +207,9 @@ describe('provider status UI', () => {
 
     const text = renderedText(renderer);
     expect(text).toContain('Codex ID token is unavailable');
+    expect(renderer.root.findAllByProps({ className: 'codex-updated' })).toHaveLength(0);
     expect(renderer.root.findAllByProps({ className: 'codex-content' })).toHaveLength(1);
-    expect(renderer.root.findByProps({ 'aria-label': '5 小时额度 usage' }).props['aria-valuenow']).toBe(64);
+    expect(renderer.root.findByProps({ 'aria-label': '5 小时额度 remaining quota' }).props['aria-valuenow']).toBe(36);
     expect(text).not.toContain('Stale data');
     expect(text).not.toContain('当前显示上次成功读取的数据');
     await act(async () => renderer.unmount());
@@ -254,7 +255,7 @@ describe('provider status UI', () => {
     expect(text).toContain('Cursor refresh failed');
     expect(renderer.root.findAllByProps({ className: 'error-banner' })).toHaveLength(1);
     expect(text).toContain('当前显示上次成功读取的数据');
-    expect(text).toContain('231 / 500 · 46%');
+    expect(text).toContain('剩余 269 / 500 · 54%');
     expect(onConnectionChange).toHaveBeenCalledWith(false);
     expect(onUsageChange).toHaveBeenCalledWith(null);
     expect(onQuotaWindowsChange).toHaveBeenCalledWith([]);
@@ -311,7 +312,7 @@ describe('provider status UI', () => {
     const text = renderedText(renderer);
     expect(text).toContain('Codex refresh failed');
     expect(text).toContain('当前显示上次成功读取的数据');
-    expect(renderer.root.findByProps({ 'aria-label': '5 小时额度 usage' }).props['aria-valuenow']).toBe(64);
+    expect(renderer.root.findByProps({ 'aria-label': '5 小时额度 remaining quota' }).props['aria-valuenow']).toBe(36);
     expect(onConnectionChange).toHaveBeenCalledWith(false);
     expect(onUsageChange).toHaveBeenCalledWith(null);
     expect(onQuotaWindowsChange).toHaveBeenCalledWith([]);
@@ -363,7 +364,7 @@ describe('provider status UI', () => {
     expect(text).toContain('Too many open files');
     expect(renderer.root.findAllByProps({ className: 'error-banner' })).toHaveLength(1);
     expect(text).toContain('当前显示上次成功读取的数据');
-    expect(text).toContain('4%');
+    expect(text).toContain('96%');
     await act(async () => renderer.unmount());
   });
 
@@ -385,12 +386,12 @@ describe('provider status UI', () => {
       await Promise.resolve();
     });
 
-    expect(renderedText(renderer)).toContain('615 / 500 · 123%');
+    expect(renderedText(renderer)).toContain('剩余 0 / 500 · 0%');
     expect(renderer.root.findAllByProps({ className: 'provider-detail-header' })).toHaveLength(0);
     expect(renderer.root.findAllByProps({ className: 'account-strip' })).toHaveLength(1);
     const progress = renderer.root.findByProps({ role: 'progressbar' });
-    expect(progress.props['aria-valuenow']).toBe(100);
-    expect(progress.props['aria-valuetext']).toBe('123% 已用');
+    expect(progress.props['aria-valuenow']).toBe(0);
+    expect(progress.props['aria-valuetext']).toBe('0% 剩余');
     await act(async () => renderer.unmount());
   });
 
@@ -417,9 +418,9 @@ describe('provider status UI', () => {
 
     const text = renderedText(renderer);
     expect(text).toContain('Cursor Models');
-    expect(text).toContain('3% 已用');
+    expect(text).toContain('97% 剩余');
     expect(text).toContain('Other Models');
-    expect(text).toContain('91% 已用');
+    expect(text).toContain('9% 剩余');
     expect(text).toContain('包含 Cursor Grok 和 Composer');
     expect(text).not.toContain('计入按量费用');
     expect(text).toContain('On-demand');
@@ -478,7 +479,7 @@ describe('provider status UI', () => {
     await act(async () => renderer.unmount());
   });
 
-  it('renders percentage-only Cursor usage fallback', async () => {
+  it('renders percentage-only Cursor remaining quota fallback', async () => {
     vi.spyOn(backend, 'getCursorInfo').mockResolvedValue({
       connected: true,
       planType: 'pro',
@@ -496,9 +497,9 @@ describe('provider status UI', () => {
 
     const text = renderedText(renderer);
     expect(text).toContain('额度用量');
-    expect(text).toContain('25% 已用');
+    expect(text).toContain('75% 剩余');
     const progress = renderer.root.findByProps({ role: 'progressbar' });
-    expect(progress.props['aria-label']).toBe('Cursor usage');
+    expect(progress.props['aria-label']).toBe('Cursor remaining quota');
     await act(async () => renderer.unmount());
   });
 
@@ -556,7 +557,7 @@ it('withholds current usage advice when a high-usage snapshot is stale', async (
       costRefreshKey: 0, onRetry: vi.fn(), sections: { ...hiddenSections, tips: true },
     }));
   });
-  expect(renderedText(renderer)).toContain('95% 已用');
+  expect(renderedText(renderer)).toContain('5% 剩余');
   expect(renderedText(renderer)).toContain('当前显示上次成功读取的数据。');
   expect(renderer.root.findAllByProps({ className: 'smart-tip' })).toHaveLength(0);
   await act(async () => renderer.unmount());

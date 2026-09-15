@@ -57,7 +57,7 @@ it('offers the exact Grok login command and a post-login recheck, with copy fail
 
 it('keeps the last quota visible with an explicit stale marker after throttling', async () => {
   await act(async () => { renderer = create(createElement(WorkspaceQuotaCard, { provider: { ...provider('claude', 'API error: 429 Too Many Requests', Date.now() + 1000), connected: true }, windows: [{ provider: 'claude', providerLabel: 'Claude', label: 'Weekly', usedPercent: 42 }], onSelect: vi.fn(), onRefresh: vi.fn() })); });
-  expect(renderer!.root.findByType('progress').props.value).toBe(42);
+  expect(renderer!.root.findByType('progress').props.value).toBe(58);
   expect(renderer!.root.findByProps({ role: 'status' }).findAllByType('p').some(node => node.children.join('').includes('上次成功读取'))).toBe(true);
 });
 

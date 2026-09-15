@@ -22,7 +22,7 @@ function settingsProps() {
     trayStyle: 'percent' as const,
     trayCycle: false,
     events: [
-      { id: '1', time: '2026-09-03T10:00:00Z', level: 'critical' as const, text: 'Codex usage crossed 95%' },
+      { id: '1', time: '2026-09-03T10:00:00Z', level: 'critical' as const, text: 'Codex remaining quota fell to 5% or less' },
       { id: '2', time: '2026-09-03T10:00:00Z', level: 'critical' as const, text: 'Failed to persist local setting.' },
     ],
     notificationSettings: {
@@ -58,7 +58,7 @@ describe('settings event navigation', () => {
     const html = renderToStaticMarkup(createElement(SettingsView, settingsProps()));
 
     expect(html).toContain('event-text event-text-link');
-    expect(html).toContain('Codex usage crossed 95%');
+    expect(html).toContain('Codex remaining quota fell to 5% or less');
     expect(html).toContain('Failed to persist local setting.');
     expect((html.match(/event-text-link/g) ?? [])).toHaveLength(1);
     expect(html).toContain('>用量参考预算<');

@@ -75,30 +75,30 @@ export function useServiceEvents(
 
       if (before.used != null && after.used != null) {
         if (before.used < 95 && after.used >= 95) {
-          logEvent('critical', `${label} usage crossed 95%`);
+          logEvent('critical', `${label} remaining quota fell to 5% or less`);
           if (notifSettings.q95) {
             void notify(
               'QuotaBar',
-              `${label} usage crossed 95%`,
+              `${label} remaining quota fell to 5% or less`,
               createNotificationFailureOptions(logEvent),
             );
           }
         } else if (before.used < 80 && after.used >= 80) {
-          logEvent('warning', `${label} usage crossed 80%`);
+          logEvent('warning', `${label} remaining quota fell to 20% or less`);
           if (notifSettings.q80) {
             void notify(
               'QuotaBar',
-              `${label} usage crossed 80%`,
+              `${label} remaining quota fell to 20% or less`,
               createNotificationFailureOptions(logEvent),
             );
           }
         }
         if (before.used < 100 && after.used >= 100) {
-          logEvent('critical', `${label} usage reached 100%`);
+          logEvent('critical', `${label} remaining quota reached 0%`);
           if (notifSettings.q100) {
             void notify(
               'QuotaBar',
-              `${label} usage reached 100%`,
+              `${label} remaining quota reached 0%`,
               createNotificationFailureOptions(logEvent),
             );
           }

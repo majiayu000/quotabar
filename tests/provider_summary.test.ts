@@ -22,10 +22,10 @@ describe('provider summary helpers', () => {
     );
 
     expect(summaries.find((summary) => summary.id === 'claude')?.statusText).toBe('Ready');
-    expect(summaries.find((summary) => summary.id === 'codex')?.statusText).toBe('0% used');
+    expect(summaries.find((summary) => summary.id === 'codex')?.statusText).toBe('100% remaining');
     expect(summaries.find((summary) => summary.id === 'cursor')?.statusText).toBe('Offline');
     expect(summaries.find((summary) => summary.id === 'antigravity')?.statusText).toBe('Syncing');
-    expect(summaries.find((summary) => summary.id === 'grok')?.statusText).toBe('12% used');
+    expect(summaries.find((summary) => summary.id === 'grok')?.statusText).toBe('88% remaining');
   });
 
   test('shows Antigravity Preview instead of Offline for the placeholder', () => {
@@ -152,7 +152,7 @@ describe('provider summary helpers', () => {
     );
 
     expect(windows[0].usedPercent).toBe(130);
-    expect(summaries.find((summary) => summary.id === 'cursor')?.statusText).toBe('130% used');
+    expect(summaries.find((summary) => summary.id === 'cursor')?.statusText).toBe('0% remaining');
   });
 
   test('builds grok weekly pool and extra-credit windows', () => {

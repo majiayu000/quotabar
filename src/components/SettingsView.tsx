@@ -176,15 +176,7 @@ export default function SettingsView({
         </div>
         {quotaDisplay && onQuotaDisplayChange && <>
           <div className="settings-subsection-title">额度总览</div>
-          <div className="settings-line">
-            <span>显示数值</span>
-            <div className="settings-seg quota-value-options" aria-label="总览额度显示方式">
-              {([['remaining', '剩余'], ['used', '已用']] as const).map(([value, label]) => (
-                <button type="button" key={value} className={`settings-seg-btn ${quotaDisplay.value === value ? 'active' : ''}`}
-                  aria-pressed={quotaDisplay.value === value} onClick={() => onQuotaDisplayChange({ ...quotaDisplay, value })}>{label}</button>
-              ))}
-            </div>
-          </div>
+          <p className="settings-hint">所有额度百分比与圆环统一显示剩余额度。</p>
           <div className="settings-line"><span>显示每周额度明细</span>
             <button type="button" role="switch" aria-label="显示每周额度明细" aria-checked={quotaDisplay.weekly}
               className={`target-switch ${quotaDisplay.weekly ? 'on' : ''}`}
@@ -210,7 +202,7 @@ export default function SettingsView({
             </button>
           ))}
         </div>
-        <p className="settings-hint">菜单栏百分比与圆环表示已用额度。</p>
+        <p className="settings-hint">菜单栏百分比与圆环表示剩余额度。</p>
         <div className="settings-line">
           <span>{text('Cycle one icon through providers', '用一个图标轮换显示来源')}</span>
           <button

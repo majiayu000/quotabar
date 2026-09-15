@@ -2,7 +2,7 @@ import { useEffect, useState, type CSSProperties } from 'react';
 import type { ProviderSummary, QuotaWindowSummary } from '../services/provider_summary';
 import type { TrayServiceName } from '../services/tray_visibility';
 import type { QuotaDisplay } from '../services/quota_display';
-import { formatResetTime, getProgressStyle } from '../utils/quota_format';
+import { formatResetTime, getProgressStyle, remainingPercent } from '../utils/quota_format';
 import ProviderIcon from './ProviderIcon';
 import ProviderSetup from './ProviderSetup';
 import { quotaRecovery } from './QuotaRecovery';
@@ -18,11 +18,6 @@ function isWeekly(window: QuotaWindowSummary): boolean {
 }
 
 
-function displayPercent(used: number, display: QuotaDisplay): number {
-  const clamped = Math.min(100, Math.max(0, used));
-  return Math.round(display.value === 'remaining' ? 100 - clamped : clamped);
-}
-
 export default function QuotaOverview({ summaries, windows, display, onProviderSelect, onRefresh, onSettings }: {
   summaries: ProviderSummary[];
   windows: QuotaWindowSummary[];
@@ -37,7 +32,7 @@ export default function QuotaOverview({ summaries, windows, display, onProviderS
     const timer = setInterval(() => setNow(Date.now()), 30_000);
     return () => clearInterval(timer);
   }, []);
-  const caption = display.value === 'remaining' ? '剩余' : '已用';
+  const caption = '剩余';
   return <div className="quota-overview" aria-label="账户额度总览">
     {summaries.map((summary) => {
       const providerWindows = windows.filter((window) => window.provider === summary.id && Number.isFinite(window.usedPercent));
@@ -45,7 +40,7 @@ export default function QuotaOverview({ summaries, windows, display, onProviderS
       const headline = providerWindows.reduce<QuotaWindowSummary | undefined>((current, window) =>
         !current || window.usedPercent > current.usedPercent ? window : current, undefined);
       const used = headline?.usedPercent ?? (Number.isFinite(summary.usedPercent) ? summary.usedPercent : null);
-      const percentage = used == null ? null : displayPercent(used, display);
+      const percentage = used == null ? null : remainingPercent(used);
       const visibleWindows = providerWindows.filter((window) => display.weekly || !isWeekly(window));
       const recovery = quotaRecovery(summary.id, summary.readState?.error);
       const stale = Boolean(summary.failed || recovery);
@@ -71,7 +66,7 @@ export default function QuotaOverview({ summaries, windows, display, onProviderS
         </div>
         {visibleWindows.length > 0 && <div className="quota-account-windows">
           {visibleWindows.map((window) => {
-            const value = displayPercent(window.usedPercent, display);
+            const value = remainingPercent(window.usedPercent);
             const reset = window.resetAtMs ? formatResetTime(window.resetAtMs / 1000, { expiredLabel: '即将重置' }) : null;
             return <div className="quota-window" key={window.label}>
               <div className="quota-window-label"><span>{windowName(window.label)}</span><span>{caption} {value}%</span></div>

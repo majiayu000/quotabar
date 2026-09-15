@@ -8,7 +8,7 @@ import type { ThemeName } from './ThemeSelector';
 import '../styles/views.css';
 import type { ProviderSummary, QuotaWindowSummary } from '../services/provider_summary';
 import type { TrayServiceName } from '../services/tray_visibility';
-import { clampProgressValue, getProgressStyle } from '../utils/quota_format';
+import { remainingPercent, getRemainingProgressStyle } from '../utils/quota_format';
 import { formatEventTime } from '../services/event_log';
 import SmartTip from './SmartTip';
 import { getHighUsageTip } from '../services/detail_helpers';
@@ -198,9 +198,9 @@ function CurrentQuotaRail({ summaries, windows, onSelect, onAll }: { summaries: 
   return <section className="analysis-section workspace-quota-rail"><header><h2>当前额度</h2><button onClick={onAll}>查看全部 ↗</button></header>{visible.map((provider) => {
     const window = ranked.find((item) => item.provider === provider.id);
     return <button className="workspace-quota-mini" key={provider.id} onClick={() => onSelect(provider.id)}>
-      <span className="workspace-quota-identity"><span className="analysis-provider-icon" style={{ color: sourceColor(provider.id) }}><SourceIcon source={provider.id} /></span><b>{provider.label}</b><strong>{window ? `${Math.round(window.usedPercent)}%` : '—'}</strong></span>
-      <span className="workspace-quota-meta"><span>{window ? `${window.label} · 已使用` : '暂无可用额度窗口'}</span><small>{provider.loading ? '更新中' : window?.resetLabel ? `${window.resetLabel} 后重置` : provider.connected ? '已连接' : '未连接'}</small></span>
-      <progress max={100} value={window ? clampProgressValue(window.usedPercent) : 0} aria-label={`${provider.label} ${window?.label ?? '额度未知'}`} />
+      <span className="workspace-quota-identity"><span className="analysis-provider-icon" style={{ color: sourceColor(provider.id) }}><SourceIcon source={provider.id} /></span><b>{provider.label}</b><strong>{window ? `${remainingPercent(window.usedPercent)}%` : '—'}</strong></span>
+      <span className="workspace-quota-meta"><span>{window ? `${window.label} · 剩余` : '暂无可用额度窗口'}</span><small>{provider.loading ? '更新中' : window?.resetLabel ? `${window.resetLabel} 后重置` : provider.connected ? '已连接' : '未连接'}</small></span>
+      <progress max={100} value={window ? remainingPercent(window.usedPercent) : 0} aria-label={`${provider.label} ${window?.label ?? '额度未知'}`} />
       <QuotaReadStatus provider={provider} />
     </button>;
   })}{!visible.length && <p className="analysis-empty">正在连接额度服务…</p>}<footer>账户窗口 · 独立于历史筛选</footer></section>;
@@ -216,7 +216,7 @@ export function WorkspaceQuotaCard({ provider, windows, onSelect, onRefresh }: {
   const loginNeeded = recovery && /登录/.test(recovery.title);
   return <section className="analysis-quota-card" data-provider={provider.id}>
     <header><div className="analysis-provider-icon"><SourceIcon source={provider.id} /></div><div><h2>{provider.label}</h2><small>{recovery ? recovery.title : provider.loading ? '正在读取…' : !supported ? '仅提供本机检测' : provider.connected ? '额度已同步' : '尚未检测到账户'}</small></div></header>
-    {ownWindows.map((item) => <div className="analysis-quota-window" key={item.label}><div><span>{item.label}</span><strong>{Math.round(item.usedPercent)}% <small>已使用</small></strong></div><progress max={100} value={clampProgressValue(item.usedPercent)} /><small>{item.resetLabel ?? '重置时间未提供'}</small></div>)}
+    {ownWindows.map((item) => <div className="analysis-quota-window" key={item.label}><div><span>{item.label}</span><strong>{remainingPercent(item.usedPercent)}% <small>剩余</small></strong></div><progress max={100} value={remainingPercent(item.usedPercent)} /><small>{item.resetLabel ?? '重置时间未提供'}</small></div>)}
     {recovery ? <QuotaRecovery provider={provider.id} read={provider.readState} hasData={ownWindows.length > 0} /> : !ownWindows.length && <p className="analysis-quota-unavailable">{!supported ? '当前版本可检测安装情况，暂不提供订阅额度。' : provider.loading ? '正在读取账户额度…' : provider.connected ? '账户已连接，服务商未提供可展示的额度窗口。' : '完成服务商登录后，重新检测账户额度。'}</p>}
     {provider.readState?.readAt && <small className="workspace-quota-read-time">最近成功读取 {new Date(provider.readState.readAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}{recovery ? ' · 数据可能已过时' : ''}</small>}
     <div className="workspace-quota-card-actions"><button className="analysis-text-button" onClick={() => onSelect(provider.id)}>账户详情 →</button><button disabled={!onRefresh || provider.loading || cooling} onClick={() => onRefresh?.(provider.id)}>{cooling ? '等待重试' : provider.loading ? '正在读取…' : !supported ? '重新检测' : loginNeeded ? '我已登录，重新检测' : '刷新额度'}</button></div>
@@ -403,7 +403,7 @@ export function AnalysisApp({ visible = true, providerContent, providerView, the
       {view !== 'sources' && <div className="analysis-ranges" aria-label="统计周期">{ANALYSIS_RANGES.map(([value, label]) => <button key={value} aria-pressed={range === value && !selectedDate} onClick={() => { setRange(value); setSelectedDate(null); }}>{label}</button>)}<details className="workspace-custom-dates"><summary>自定义</summary><div><label>开始日期<input type="date" aria-label="开始日期" value={customDates.since} onChange={(event) => setCustomDates((value) => ({ ...value, since: event.target.value }))} /></label><label>结束日期<input type="date" aria-label="结束日期" value={customDates.until} min={customDates.since} onChange={(event) => setCustomDates((value) => ({ ...value, until: event.target.value }))} /></label><button disabled={!customDates.since || !customDates.until || customDates.since > customDates.until} onClick={() => { setAppliedDates(customDates); setRange('custom'); setSelectedDate(null); }}>应用日期</button></div></details></div>}
     </div>
       {(catalogError || actionError || error) && <div role="alert" className="analysis-error">{catalogError || actionError || error}</div>}
-      {view === 'quota' && <><div className="analysis-list-toolbar"><div><h2>当前订阅窗口</h2><p>各来源独立计算，百分比表示已使用；不受历史日期筛选影响。</p></div>{providerView !== 'all' && <button onClick={() => onProviderView?.('all')}>全部账户</button>}</div>{providerView === 'all' && <WorkspaceQuotas onRefresh={onRefreshProvider} summaries={summaries} windows={quotaWindows} onSelect={(provider) => onProviderView?.(provider)} />}</>}
+      {view === 'quota' && <><div className="analysis-list-toolbar"><div><h2>当前订阅窗口</h2><p>各来源独立计算，百分比表示剩余；不受历史日期筛选影响。</p></div>{providerView !== 'all' && <button onClick={() => onProviderView?.('all')}>全部账户</button>}</div>{providerView === 'all' && <WorkspaceQuotas onRefresh={onRefreshProvider} summaries={summaries} windows={quotaWindows} onSelect={(provider) => onProviderView?.(provider)} />}</>}
       <div className="analysis-provider-content" hidden={!providerPage || (view === 'quota' && providerView === 'all')}>{providerContent}</div>
       {report?.errors.map((message) => <p className="analysis-error" role="alert" key={message}>{message}</p>)}
       {providerPage ? null : view === 'sources' ? <section className="analysis-section"><header><h2>本地记录与连接状态</h2><button onClick={() => setRefresh((value) => value + 1)}>重新检测来源</button></header>{!catalog && !catalogError && <p role="status">正在发现来源…</p>}{catalog?.diagnostics.map((item) => <article className="analysis-source-row" key={item.name}><div><h3>{item.display_name}</h3><p>{item.detail}</p><small>{item.setup}</small></div><span className={`analysis-status ${item.status}`}>{item.status === 'missing' ? '未发现' : item.status === 'configured' ? '已配置' : '已发现'}</span></article>)}</section> : <>
@@ -486,22 +486,22 @@ export default function OverviewPanel({
               className={`quota-card overview-quota-row${index === 0 ? ' primary' : ''}`}
               key={`${window.provider}-${window.label}`}
               onClick={() => onProviderSelect(window.provider)}
-              aria-label={`Open ${window.providerLabel}: ${window.label}, ${Math.round(window.usedPercent)}% 已用`}
+              aria-label={`Open ${window.providerLabel}: ${window.label}, ${remainingPercent(window.usedPercent)}% 剩余`}
             >
               <div className="quota-header">
                 <span className="quota-label">{`${window.providerLabel} · ${window.label}`}</span>
-                <span className="quota-value">{Math.round(window.usedPercent)}% 已用</span>
+                <span className="quota-value">{remainingPercent(window.usedPercent)}% 剩余</span>
               </div>
               <div
                 className="progress-bar"
                 role="progressbar"
-                aria-label={`${window.providerLabel} ${window.label} usage`}
+                aria-label={`${window.providerLabel} ${window.label} remaining quota`}
                 aria-valuemin={0}
                 aria-valuemax={100}
-                aria-valuenow={clampProgressValue(window.usedPercent)}
-                aria-valuetext={`${Math.round(window.usedPercent)}% 已用`}
+                aria-valuenow={remainingPercent(window.usedPercent)}
+                aria-valuetext={`${remainingPercent(window.usedPercent)}% 剩余`}
               >
-                <div className="progress-fill" style={getProgressStyle(window.usedPercent)} />
+                <div className="progress-fill" style={getRemainingProgressStyle(window.usedPercent)} />
               </div>
               {summary?.failed && <div className="error-context">Stale data · Refresh or check your connection</div>}
               <div className="overview-timing">

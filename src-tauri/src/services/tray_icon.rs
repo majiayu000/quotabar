@@ -62,7 +62,7 @@ pub enum TrayIconIdentity {
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum TrayIconStyle {
-    /// Progress ring with the usage percentage digits (default).
+    /// Progress ring with the remaining quota percentage digits (default).
     #[default]
     Percent,
     /// Progress ring only.
@@ -368,8 +368,9 @@ fn render_tray_icon(
     let mut img: RgbaImage = ImageBuffer::new(size, size);
     let center = size as f32 / 2.0;
     let is_large = size >= 44;
-    let pct = used_percent.map(|value| value.min(100));
-    let (pr, pg, pb) = pct.map(usage_color).unwrap_or_else(neutral_color);
+    let used = used_percent.map(|value| value.min(100));
+    let pct = used.map(|value| 100 - value);
+    let (pr, pg, pb) = used.map(usage_color).unwrap_or_else(neutral_color);
     let ring_width = if is_large {
         LARGE_RING_WIDTH
     } else {
@@ -471,6 +472,24 @@ mod tests {
             TrayIconStyle::Percent,
         );
         assert!(!bytes.is_empty());
+    }
+
+    #[test]
+    fn remaining_ring_is_full_when_unused_and_empty_when_exhausted() {
+        let colored_pixels = |used| {
+            let png =
+                generate_tray_icon(TrayIconIdentity::Codex, Some(used), 44, TrayIconStyle::Ring);
+            let img = image::load_from_memory(&png).unwrap().to_rgba8();
+            img.enumerate_pixels()
+                .filter(|(x, y, pixel)| {
+                    let radius = ((*x as f32 - 22.0).powi(2) + (*y as f32 - 22.0).powi(2)).sqrt();
+                    // Inspect the left ring, outside the provider badge at bottom right.
+                    *x < 20 && radius > 16.0 && pixel[3] > 150 && pixel[1] != pixel[0]
+                })
+                .count()
+        };
+        assert!(colored_pixels(0) > 100);
+        assert_eq!(colored_pixels(100), 0);
     }
 
     #[test]

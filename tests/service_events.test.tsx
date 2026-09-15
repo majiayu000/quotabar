@@ -84,11 +84,11 @@ describe('useServiceEvents 100% crossings', () => {
       }));
     });
 
-    expect(logEvent).toHaveBeenCalledWith('critical', 'Codex usage crossed 95%');
-    expect(logEvent).toHaveBeenCalledWith('critical', 'Codex usage reached 100%');
+    expect(logEvent).toHaveBeenCalledWith('critical', 'Codex remaining quota fell to 5% or less');
+    expect(logEvent).toHaveBeenCalledWith('critical', 'Codex remaining quota reached 0%');
     expect(vi.mocked(notifications.notify).mock.calls.map((call) => call[1])).toEqual([
-      'Codex usage crossed 95%',
-      'Codex usage reached 100%',
+      'Codex remaining quota fell to 5% or less',
+      'Codex remaining quota reached 0%',
     ]);
     const hundredOptions = vi.mocked(notifications.notify).mock.calls[1]?.[2];
     expect(typeof hundredOptions?.on_failure).toBe('function');
@@ -113,7 +113,7 @@ describe('useServiceEvents 100% crossings', () => {
       }));
     });
 
-    expect(logEvent).toHaveBeenCalledWith('critical', 'Cursor usage reached 100%');
+    expect(logEvent).toHaveBeenCalledWith('critical', 'Cursor remaining quota reached 0%');
     expect(vi.mocked(notifications.notify)).not.toHaveBeenCalled();
     await act(async () => renderer.unmount());
   });
@@ -163,10 +163,10 @@ describe('useServiceEvents Cursor hottest-window alerts', () => {
       }));
     });
 
-    expect(logEvent).toHaveBeenCalledWith('critical', 'Cursor usage crossed 95%');
-    expect(logEvent).not.toHaveBeenCalledWith('warning', 'Cursor usage crossed 80%');
+    expect(logEvent).toHaveBeenCalledWith('critical', 'Cursor remaining quota fell to 5% or less');
+    expect(logEvent).not.toHaveBeenCalledWith('warning', 'Cursor remaining quota fell to 20% or less');
     expect(vi.mocked(notifications.notify).mock.calls.map((call) => call[1])).toEqual([
-      'Cursor usage crossed 95%',
+      'Cursor remaining quota fell to 5% or less',
     ]);
     await act(async () => renderer.unmount());
   });
@@ -190,10 +190,10 @@ describe('useServiceEvents Cursor hottest-window alerts', () => {
       }));
     });
 
-    expect(logEvent).toHaveBeenCalledWith('warning', 'Cursor usage crossed 80%');
-    expect(logEvent).not.toHaveBeenCalledWith('critical', 'Cursor usage crossed 95%');
+    expect(logEvent).toHaveBeenCalledWith('warning', 'Cursor remaining quota fell to 20% or less');
+    expect(logEvent).not.toHaveBeenCalledWith('critical', 'Cursor remaining quota fell to 5% or less');
     expect(vi.mocked(notifications.notify).mock.calls.map((call) => call[1])).toEqual([
-      'Cursor usage crossed 80%',
+      'Cursor remaining quota fell to 20% or less',
     ]);
     await act(async () => renderer.unmount());
   });
@@ -216,8 +216,8 @@ describe('useServiceEvents Cursor hottest-window alerts', () => {
       }));
     });
 
-    expect(logEvent).not.toHaveBeenCalledWith('warning', 'Cursor usage crossed 80%');
-    expect(logEvent).not.toHaveBeenCalledWith('critical', 'Cursor usage crossed 95%');
+    expect(logEvent).not.toHaveBeenCalledWith('warning', 'Cursor remaining quota fell to 20% or less');
+    expect(logEvent).not.toHaveBeenCalledWith('critical', 'Cursor remaining quota fell to 5% or less');
     expect(notifications.notify).not.toHaveBeenCalled();
     await act(async () => renderer.unmount());
   });

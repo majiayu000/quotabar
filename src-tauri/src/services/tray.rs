@@ -383,8 +383,16 @@ fn set_status_item_collapsed(app: &AppHandle, tray_id: &str, collapsed: bool) {
 
 fn format_tooltip(service: TrayService, percentage: Option<u8>, stale: bool) -> String {
     match percentage {
-        Some(value) if stale => format!("{}: {}% used (last known)", service.label(), value),
-        Some(value) => format!("{}: {}% used", service.label(), value),
+        Some(value) if stale => format!(
+            "{}: {}% remaining (last known)",
+            service.label(),
+            100u8.saturating_sub(value)
+        ),
+        Some(value) => format!(
+            "{}: {}% remaining",
+            service.label(),
+            100u8.saturating_sub(value)
+        ),
         None => format!("{}: unavailable", service.label()),
     }
 }
@@ -641,15 +649,15 @@ mod tests {
     fn tooltip_marks_stale_last_known_percent() {
         assert_eq!(
             format_tooltip(TrayService::Claude, Some(42), true),
-            "Claude Code: 42% used (last known)"
+            "Claude Code: 58% remaining (last known)"
         );
     }
 
     #[test]
-    fn tooltip_preserves_over_limit_usage() {
+    fn tooltip_clamps_exhausted_remaining_quota() {
         assert_eq!(
             format_tooltip(TrayService::Codex, Some(130), false),
-            "Codex: 130% used"
+            "Codex: 0% remaining"
         );
     }
 

@@ -19,13 +19,12 @@ import {
   checkWeeklyQuotaWindow,
   checkWeeklyValueEstimate,
   formatLocalExtrasPaused,
-  formatOfficialUpdatedAt,
   isHardDisplayCheck,
   isSoftDisplayCheck,
   isWeeklyExhausted,
 } from '../services/codex_weekly_display';
 import { getAvailableResetCredits, getExhaustedWeekTip, getHighUsageTip } from '../services/detail_helpers';
-import { clampProgressValue, formatPaceText, formatPlanType, formatResetTime, getProgressStyle } from '../utils/quota_format';
+import { remainingPercent, formatPaceText, formatPlanType, formatResetTime, getRemainingProgressStyle } from '../utils/quota_format';
 import { defaultPanelSections, type PanelSectionVisibility } from '../services/panel_sections';
 import { useLatestRequestGeneration } from '../hooks/use_latest_request_generation';
 
@@ -204,7 +203,6 @@ export default function CodexPanel({
   const [weeklyQuotaError, setWeeklyQuotaError] = useState<string | null>(null);
   const [weeklyValueEstimate, setWeeklyValueEstimate] = useState<CodexWeeklyValueEstimate | null>(null);
   const [weeklyValueEstimateError, setWeeklyValueEstimateError] = useState<string | null>(null);
-  const [officialUpdatedAt, setOfficialUpdatedAt] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [rateLimitsError, setRateLimitsError] = useState<string | null>(null);
@@ -256,7 +254,6 @@ export default function CodexPanel({
         setError(limits.error);
         setRateLimitsError(limits.error);
       } else {
-        setOfficialUpdatedAt(Date.now());
         if (info.error) {
           setError(info.error);
         }
@@ -464,13 +461,6 @@ export default function CodexPanel({
 
       {connected && (
         <div className="codex-content">
-          {officialUpdatedAt != null && (
-            <div className="codex-updated">
-              <span>{formatOfficialUpdatedAt(officialUpdatedAt)}</span>
-              {extrasPausedCopy && <span>Quota current</span>}
-            </div>
-          )}
-
           {/* Rate Limits Section */}
           {hasRateLimits && (
             <div className="section">
@@ -484,21 +474,21 @@ export default function CodexPanel({
                         {formatWindowLabel(rateLimits.primary.windowMinutes, 'primary')}
                       </span>
                       <span className="quota-value">
-                        {Math.round(rateLimits.primary.usedPercent)}% 已用
+                        {remainingPercent(rateLimits.primary.usedPercent)}% 剩余
                       </span>
                     </div>
                     <div
                       className="progress-bar"
                       role="progressbar"
-                      aria-label={`${formatWindowLabel(rateLimits.primary.windowMinutes, 'primary')} usage`}
+                      aria-label={`${formatWindowLabel(rateLimits.primary.windowMinutes, 'primary')} remaining quota`}
                       aria-valuemin={0}
                       aria-valuemax={100}
-                      aria-valuenow={clampProgressValue(rateLimits.primary.usedPercent)}
-                      aria-valuetext={`${Math.round(rateLimits.primary.usedPercent)}% 已用`}
+                      aria-valuenow={remainingPercent(rateLimits.primary.usedPercent)}
+                      aria-valuetext={`${remainingPercent(rateLimits.primary.usedPercent)}% 剩余`}
                     >
                       <div
                         className="progress-fill"
-                        style={getProgressStyle(rateLimits.primary.usedPercent)}
+                        style={getRemainingProgressStyle(rateLimits.primary.usedPercent)}
                       />
                     </div>
                     {rateLimits.primary.resetsAt && (
@@ -530,21 +520,21 @@ export default function CodexPanel({
                         {formatWindowLabel(rateLimits.secondary.windowMinutes, 'secondary')}
                       </span>
                       <span className="quota-value">
-                        {Math.round(rateLimits.secondary.usedPercent)}% 已用
+                        {remainingPercent(rateLimits.secondary.usedPercent)}% 剩余
                       </span>
                     </div>
                     <div
                       className="progress-bar"
                       role="progressbar"
-                      aria-label={`${formatWindowLabel(rateLimits.secondary.windowMinutes, 'secondary')} usage`}
+                      aria-label={`${formatWindowLabel(rateLimits.secondary.windowMinutes, 'secondary')} remaining quota`}
                       aria-valuemin={0}
                       aria-valuemax={100}
-                      aria-valuenow={clampProgressValue(rateLimits.secondary.usedPercent)}
-                      aria-valuetext={`${Math.round(rateLimits.secondary.usedPercent)}% 已用`}
+                      aria-valuenow={remainingPercent(rateLimits.secondary.usedPercent)}
+                      aria-valuetext={`${remainingPercent(rateLimits.secondary.usedPercent)}% 剩余`}
                     >
                       <div
                         className="progress-fill"
-                        style={getProgressStyle(rateLimits.secondary.usedPercent)}
+                        style={getRemainingProgressStyle(rateLimits.secondary.usedPercent)}
                       />
                     </div>
                     {rateLimits.secondary.resetsAt && (
@@ -606,20 +596,20 @@ export default function CodexPanel({
                         <div
                           className="weekly-value-gauge"
                           role="img"
-                          aria-label={`Estimate based on ${Math.round(displayedWeeklyValueEstimate.usedPct)}% 已用`}
+                          aria-label={`Estimate based on ${remainingPercent(displayedWeeklyValueEstimate.usedPct)}% 剩余`}
                           style={{
-                            '--weekly-value-used': `${Math.min(Math.max(displayedWeeklyValueEstimate.usedPct, 0), 100)}%`,
+                            '--weekly-value-used': `${remainingPercent(displayedWeeklyValueEstimate.usedPct)}%`,
                           } as CSSProperties}
                         >
                           <span className="weekly-value-gauge-center">
-                            <strong>{Math.round(displayedWeeklyValueEstimate.usedPct)}%</strong>
-                            <small>已用</small>
+                            <strong>{remainingPercent(displayedWeeklyValueEstimate.usedPct)}%</strong>
+                            <small>剩余</small>
                           </span>
                         </div>
                       </div>
                       <div className="weekly-value-footer weekly-value-footer-basis">
                         <span>
-                          {`Based on ${Math.round(displayedWeeklyValueEstimate.usedPct)}% 已用 · ${USD_FORMAT.format(displayedWeeklyValueEstimate.observedCostUsd)} local`}
+                          {`Based on ${remainingPercent(displayedWeeklyValueEstimate.usedPct)}% 剩余 · ${USD_FORMAT.format(displayedWeeklyValueEstimate.observedCostUsd)} local`}
                         </span>
                         <span>
                           {valueIsLastEstimate

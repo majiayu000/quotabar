@@ -13,7 +13,7 @@ Website: https://majiayu000.github.io/quotabar/
 
 ## Features
 
-- Overview: large account rings and quota windows, with remaining/used display selection and optional weekly detail. The headline always identifies the most constrained window; stale readings stay marked and provider details remain one click away.
+- Overview: large account rings and quota windows, with remaining quota and optional weekly detail. The headline always identifies the most constrained window; stale readings stay marked and provider details remain one click away.
 - High-usage tips explain remaining quota and reset timing; stale data does not produce usage advice.
 - Provider switcher: overview, up to three saved favorites, and an All picker with search and connection/usage status. The picker follows account visibility settings; Antigravity quota integration remains pending.
 - Claude quota: 5-hour, 7-day, Opus, Sonnet, and Claude Design windows.
@@ -54,8 +54,8 @@ This `v0.4.0` screenshot was refreshed on 2026-08-31 from the production React U
   - uses the shared SuperGrok credits pool percent (`creditUsagePercent`)
 - Antigravity tray value:
   - shows provider availability while usage tracking is pending
-- Tray percentages represent used quota, not remaining quota.
-- The popover overview defaults to remaining quota. Settings → Display switches its numbers, rings, and bars together to used quota. Hiding weekly detail does not remove a weekly limit from headline selection. Provider detail and native menu bar readings continue to label used quota.
+- Tray percentages and rings represent remaining quota.
+- All quota numbers, rings, and bars consistently display remaining quota. Hiding weekly detail does not remove a weekly limit from headline selection. Low remaining quota retains warning and critical colors.
 
 ## Project Layout
 
