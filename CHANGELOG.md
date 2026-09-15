@@ -4,6 +4,8 @@ All notable QuotaBar changes should be summarized here before a release is cut.
 
 ## Unreleased
 
+- Keep provider navigation bounded with three persisted favorites and an All picker supporting search, connection/usage status, keyboard dismissal and a scrollable service list.
+
 - Redesign the tray overview with large provider rings, quota windows and reset times. Preserve missing-data, stale-data and recovery states; display remaining quota by default with an optional used-quota view.
 - Share lightweight provider tabs, compact actions and solid-color quota indicators across tray pages. Provider details start directly with quota and usage content and retain estimates, bonus resets, costs and trends.
 - Organize settings into Display, Alerts and Accounts. Persist overview percentage and weekly-detail preferences while keeping the most constrained limit in the headline.

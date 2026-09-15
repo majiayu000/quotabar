@@ -15,7 +15,7 @@ Website: https://majiayu000.github.io/quotabar/
 
 - Overview: large account rings and quota windows, with remaining/used display selection and optional weekly detail. The headline always identifies the most constrained window; stale readings stay marked and provider details remain one click away.
 - High-usage tips explain remaining quota and reset timing; stale data does not produce usage advice.
-- Provider switcher: overview plus lightweight labeled tabs for Claude, Codex, Cursor, Grok, and Antigravity.
+- Provider switcher: overview, up to three saved favorites, and an All picker with search and connection/usage status. The picker follows account visibility settings; Antigravity quota integration remains pending.
 - Claude quota: 5-hour, 7-day, Opus, Sonnet, and Claude Design windows.
 - Codex quota: short and weekly ChatGPT usage windows, local weekly pace and API-equivalent value estimates, and an exhausted-week layout that keeps the last estimate and a clickable bonus reset.
   Observed usage is valued at standard API token prices; the full-week value is a rough extrapolation from an official quota snapshot, not a bill or an official dollar allowance. Fast-mode premiums and purchased credits are not represented by this estimate.

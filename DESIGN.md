@@ -67,7 +67,10 @@ in their respective detail sections.
 Provider details retain all quota windows, pace, account data, bonus grants, local
 estimates, costs and trends. The overview and provider details share the provider selector beneath the QuotaBar
 header, and the compact action bar. Account rows also open provider details.
-The selector uses a transparent single row of small icons and labels, with a thin
+The selector shows Overview, up to three locally saved favorites, and All. All
+opens a searchable, scrollable dialog with service status and favorite controls;
+Escape closes it and returns focus to the trigger. Account visibility and overview
+contents remain independent of favorites. The tabs use small icons and labels, with a thin
 teal underline for the active page. It does not change the spacious overview
 composition. Narrow windows show text-only tabs to retain readable labels. Detail cards use the same type scale,
 spacing and palette; only the amount of information changes.

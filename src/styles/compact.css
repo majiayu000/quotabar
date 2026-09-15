@@ -195,3 +195,26 @@ html:not(.analysis-document) .app.quota-popover .provider-card:focus-visible { o
 @media (max-width: 300px) {
   html:not(.analysis-document) .app.quota-popover .provider-card-topline { display: none; }
 }
+
+/* Searchable overflow keeps the top navigation bounded as providers grow. */
+html:not(.analysis-document) .app.quota-popover .provider-picker-trigger { margin-left: auto; }
+.provider-picker { position: fixed; inset: 58px 10px auto; margin: 0 auto; width: calc(100% - 20px); max-width: 380px; max-height: calc(100dvh - 70px); padding: 0; border: 1px solid var(--line); border-radius: 12px; color: var(--text); background: var(--card); box-shadow: 0 12px 36px #0003; font-family: inherit; }
+.provider-picker::backdrop { background: #10191530; }
+.provider-picker-content { display: flex; flex-direction: column; max-height: calc(100dvh - 72px); padding: 14px; }
+.provider-picker header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.provider-picker h2 { margin: 0; font-size: 14px; font-weight: 600; }
+.provider-picker header button { border: 0; background: transparent; color: var(--sub); font-size: 23px; line-height: 24px; padding: 0 4px; cursor: pointer; }
+.provider-picker input { width: 100%; min-height: 35px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--pop); color: var(--text); font: inherit; font-size: 12px; flex: none; }
+.provider-picker-help { margin: 12px 0 5px; font-size: 10px; color: var(--sub); }
+.provider-picker-list { overflow-y: auto; min-height: 0; scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
+.provider-picker-row { display: flex; align-items: center; gap: 9px; border-bottom: 1px solid var(--line); padding: 9px 0; }
+.provider-picker-icon { width: 24px; height: 24px; flex: none; fill: currentColor; color: var(--sub); }
+.provider-picker-select { flex: 1; min-width: 0; padding: 0; border: 0; background: transparent; text-align: left; color: var(--text); font: inherit; cursor: pointer; }
+.provider-picker-select strong { display: flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 500; }
+.provider-picker-select strong small { color: var(--quota-good, var(--acc)); font-size: 9px; }
+.provider-picker-select > span { display: block; margin-top: 4px; font-size: 10px; color: var(--sub); line-height: 1.5; overflow-wrap: anywhere; }
+.provider-picker-star { border: 0; background: transparent; color: var(--sub); font-size: 21px; padding: 5px; cursor: pointer; }
+.provider-picker-star[aria-pressed=true] { color: var(--quota-good, var(--acc)); }
+.provider-picker-empty { color: var(--sub); font-size: 12px; padding: 20px 0; }
+.provider-picker-notice { flex: none; margin: 12px 0 0; color: var(--sub); font-size: 10px; line-height: 1.6; }
+.provider-picker button:focus-visible, .provider-picker input:focus-visible { outline: 2px solid var(--quota-good, var(--acc)); outline-offset: 2px; }
