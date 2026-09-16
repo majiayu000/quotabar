@@ -49,3 +49,6 @@ jobs:
 
       - name: Run Rust tests
         run: cargo test --manifest-path src-tauri/Cargo.toml
+
+      - name: Verify patched Codex weekly accounting
+        run: cargo test --manifest-path vendor/ccstats/Cargo.toml --target-dir src-tauri/target --lib source::codex::quota_value::tests

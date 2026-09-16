@@ -83,6 +83,7 @@ export const zhCN = {
   "{p0} observed tokens · Not an official allowance · snapshot not refreshed": "已记录 {p0} Token · 非官方额度 · 快照尚未刷新",
   "{p0} observed tokens · Not an official allowance": "已记录 {p0} Token · 非官方额度",
   "Standard API prices · Not a bill": "按标准 API 价格估算 · 不代表账单",
+  "Excludes GPT-Reserve complimentary usage": "不含 GPT-Reserve 赠送额度的用量",
   "Weekly value unavailable because prices are missing for {models}.": "缺少 {models} 的价格，暂时无法计算每周估值。",
   "Weekly value could not be calculated. See diagnostics for details.": "暂时无法计算每周估值，请展开诊断详情查看原因。",
   "Subscription": "订阅信息",

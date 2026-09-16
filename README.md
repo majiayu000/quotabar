@@ -128,9 +128,15 @@ failed reads wait for a manual recheck, with rate-limit deadlines still applied.
 
 The repositories remain separate. This checkout contains an immutable SDK source
 archive with its upstream commit and SHA-256 in `vendor/ccstats-sdk.json`.
-`npm run sdk:prepare` verifies and extracts it; no sibling checkout is needed.
+`npm run sdk:prepare` verifies and extracts it, then applies the tracked
+`vendor/ccstats-weekly-reserve.patch`; no sibling checkout is needed. The patch
+excludes `gpt-reserve` complimentary usage from weekly value/token estimates
+before pricing, while retaining it in general usage analytics. Official quota
+percentages remain provider-reported; ordinary Luna usage is not excluded.
 SDK development can refresh the archive with `npm run sdk:update` when a ccstats
 checkout is beside this repository.
+When updating the SDK, review or remove the patch if upstream already includes
+the exclusion. A patch that no longer applies stops preparation with an error.
 
 ```bash
 npm ci

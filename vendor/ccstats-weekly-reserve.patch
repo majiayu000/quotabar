@@ -1,0 +1,127 @@
+--- a/src/source/codex/quota_value.rs
++++ b/src/source/codex/quota_value.rs
+@@ -63,12 +63,16 @@
+             let parsed = parse_codex_file_for_quota(path, utc);
+             let mut partial = DedupAccumulator::new();
+             partial.extend(parsed.entries.into_iter().filter(|entry| {
+-                entry
+-                    .timestamp
+-                    .parse::<DateTime<Utc>>()
+-                    .is_ok_and(|timestamp| {
+-                        timestamp >= window_started_at && timestamp <= observed_at
+-                    })
++                // GPT-Reserve uses a complimentary pool, not the subscription week.
++                // Filter after parsing so cumulative deltas across model switches
++                // remain correct; general usage analytics keep these entries.
++                entry.model != "gpt-reserve"
++                    && entry
++                        .timestamp
++                        .parse::<DateTime<Utc>>()
++                        .is_ok_and(|timestamp| {
++                            timestamp >= window_started_at && timestamp <= observed_at
++                        })
+             }));
+             (partial, parsed.errors)
+         })
+@@ -117,6 +121,8 @@
+     use tempfile::{NamedTempFile, tempdir};
+ 
+     use super::*;
++    use crate::pricing::PricingDb;
++    use crate::sdk::{CodexWeeklyValueError, estimate_codex_weekly_value_with_pricing};
+     use crate::source::{CodexQuotaStatus, CodexWeeklyQuota};
+ 
+     fn quota() -> CodexWeeklyQuota {
+@@ -209,6 +215,92 @@
+     }
+ 
+     #[test]
++    fn reserve_is_excluded_from_weekly_value_but_kept_in_general_usage() {
++        let home = tempdir().unwrap();
++        let sessions = home.path().join("sessions");
++        fs::create_dir_all(&sessions).unwrap();
++        let log = sessions.join("mixed.jsonl");
++        let before = usage_event("2026-08-21T08:00:00Z", 100, 100);
++        let reserve =
++            usage_event("2026-08-21T09:00:00Z", 1100, 1000).replace("gpt-5", "gpt-reserve");
++        let after = usage_event("2026-08-21T10:00:00Z", 1300, 200);
++        fs::write(&log, format!("{before}\n{reserve}\n{after}\n")).unwrap();
++
++        let parsed = super::super::parser::parse_codex_file_with_scope(
++            &log,
++            Timezone::Named(chrono_tz::UTC),
++            false,
++            super::super::config::CodexScope::All,
++        );
++        assert_eq!(parsed.errors, 0);
++        assert_eq!(
++            parsed
++                .entries
++                .iter()
++                .map(|e| e.to_stats().total_tokens())
++                .sum::<i64>(),
++            1300
++        );
++        assert!(parsed.entries.iter().any(|e| e.model == "gpt-reserve"));
++
++        let pricing = PricingDb::default();
++        let estimate =
++            estimate_codex_weekly_value_with_pricing(&quota(), Some(home.path()), &pricing)
++                .unwrap();
++        assert_eq!(estimate.observed_tokens, 300);
++        assert_eq!(estimate.estimated_weekly_tokens, 1200.0);
++        assert_eq!(estimate.used_pct, 25.0);
++        assert_eq!(estimate.valid_entries, 2);
++        let cost = crate::pricing::calculate_cost(
++            &Stats {
++                input_tokens: 300,
++                ..Stats::default()
++            },
++            "gpt-5",
++            &pricing,
++        );
++        assert!(cost.is_finite() && cost > 0.0);
++        assert!((estimate.observed_cost_usd - cost).abs() < 1e-12);
++        assert!((estimate.estimated_weekly_value_usd - cost * 4.0).abs() < 1e-12);
++    }
++
++    #[test]
++    fn reserve_only_week_has_no_subscription_usage_to_estimate() {
++        let home = tempdir().unwrap();
++        fs::create_dir_all(home.path().join("sessions")).unwrap();
++        fs::write(
++            home.path().join("sessions/reserve.jsonl"),
++            usage_event("2026-08-21T09:00:00Z", 1000, 1000).replace("gpt-5", "gpt-reserve"),
++        )
++        .unwrap();
++        let error = estimate_codex_weekly_value_with_pricing(
++            &quota(),
++            Some(home.path()),
++            &PricingDb::default(),
++        )
++        .unwrap_err();
++        assert!(matches!(error, CodexWeeklyValueError::NoUsageInWindow));
++    }
++
++    #[test]
++    fn regular_luna_and_unknown_models_are_not_excluded() {
++        let luna = usage_event("2026-08-21T08:00:00Z", 100, 100).replace("gpt-5", "gpt-5.6-luna");
++        let unknown =
++            usage_event("2026-08-21T09:00:00Z", 300, 200).replace("gpt-5", "unpriced-test-model");
++        let file = write_log(&[&luna, &unknown]);
++        let quota = quota();
++        let usage = load_weekly_window_usage_from_files(
++            quota.observed_at,
++            quota.resets_at - Duration::minutes(quota.window_minutes),
++            &[file.path().to_path_buf()],
++        )
++        .unwrap();
++        assert_eq!(usage.stats.total_tokens(), 300);
++        assert_eq!(usage.models["gpt-5.6-luna"].total_tokens(), 100);
++        assert_eq!(usage.models["unpriced-test-model"].total_tokens(), 200);
++    }
++
++    #[test]
+     fn malformed_usage_fails_value_estimate_closed() {
+         let valid = usage_event("2026-08-21T00:00:00Z", 100, 100);
+         let file = write_log(&[&valid, "{malformed"]);

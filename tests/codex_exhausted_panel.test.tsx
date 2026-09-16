@@ -92,6 +92,7 @@ describe('Codex exhausted panel', () => {
     expect(text).toContain('0%');
     expect(renderer.root.findByProps({ 'aria-label': '7-day quota remaining quota' }).props['aria-valuenow']).toBe(0);
     expect(text).toContain('API-equivalent week');
+    expect(text).toContain('Excludes GPT-Reserve complimentary usage');
     expect(text).toContain('Last estimate');
     expect(text).toContain('$186.00');
     expect(text).not.toContain('Weekly value unavailable');

@@ -81,6 +81,7 @@ export const en = {
   "{p0} observed tokens · Not an official allowance · snapshot not refreshed": "{p0} observed tokens · Not an official allowance · snapshot not refreshed",
   "{p0} observed tokens · Not an official allowance": "{p0} observed tokens · Not an official allowance",
   "Standard API prices · Not a bill": "Standard API prices · Not a bill",
+  "Excludes GPT-Reserve complimentary usage": "Excludes GPT-Reserve complimentary usage",
   "Weekly value unavailable because prices are missing for {models}.": "Weekly value unavailable because prices are missing for {models}.",
   "Weekly value could not be calculated. See diagnostics for details.": "Weekly value could not be calculated. See diagnostics for details.",
   "Subscription": "Subscription",

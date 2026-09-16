@@ -4,6 +4,8 @@ All notable QuotaBar changes should be summarized here before a release is cut.
 
 ## Unreleased
 
+- Exclude GPT-Reserve complimentary usage from Codex weekly value and token estimates, while preserving general usage analytics and provider-reported quota percentages. Show the exclusion in Chinese and English.
+
 - Localize Codex weekly valuation failures using structured missing-model data; retain raw SDK errors in collapsed diagnostics instead of mixing English errors into Chinese copy.
 
 - Add a shared Simplified Chinese / English language preference for tray panels and the desktop workspace, with system-language detection, live switching and cross-window synchronization. Centralize UI copy, accessibility labels, date/number formatting and notification messages; keep quota identifiers independent of translated labels.

@@ -9,6 +9,7 @@ const vendor = resolve(root, 'vendor');
 const archive = resolve(vendor, 'ccstats-sdk.tar.gz');
 const manifest = resolve(vendor, 'ccstats-sdk.json');
 const destination = resolve(vendor, 'ccstats');
+const weeklyReservePatch = resolve(vendor, 'ccstats-weekly-reserve.patch');
 const digest = () => createHash('sha256').update(readFileSync(archive)).digest('hex');
 const args = process.argv.slice(2);
 if (args.length > 1 || args.length === 1 && args[0] !== '--update') throw new Error('Usage: node scripts/prepare_sdk.mjs [--update]');
@@ -27,8 +28,9 @@ if (args[0] === '--update') {
 }
 const expected = JSON.parse(readFileSync(manifest, 'utf8'));
 if (digest() !== expected.sha256) throw new Error('ccstats SDK archive checksum mismatch');
-// This ignored directory is generated; edit the ccstats repository and run sdk:update.
+// This ignored directory is generated from the pinned archive plus the tracked patch.
 rmSync(destination, { recursive: true, force: true });
 mkdirSync(destination, { recursive: true });
 execFileSync('tar', ['-xzf', archive, '-C', destination], { stdio: 'inherit' });
-console.log(`Prepared ccstats SDK ${expected.sha256.slice(0, 12)} from the checked-in source archive.`);
+execFileSync('git', ['apply', '--whitespace=error', weeklyReservePatch], { cwd: destination, stdio: 'inherit' });
+console.log(`Prepared ccstats SDK ${expected.sha256.slice(0, 12)} with the weekly reserve exclusion patch.`);

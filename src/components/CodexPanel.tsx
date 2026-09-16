@@ -620,6 +620,7 @@ export default function CodexPanel({
                         <span>
                           {t("Standard API prices · Not a bill")}
                         </span>
+                        <span>{t("Excludes GPT-Reserve complimentary usage")}</span>
                       </div>
                     </>
                   ) : (
