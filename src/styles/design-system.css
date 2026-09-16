@@ -5,6 +5,7 @@
   --a-bg:#f6f7f8; --a-surface:#fff; --a-side:#f0f1f3; --a-control:#eceef1;
   --a-text:#23252a; --a-muted:#626671; --a-line:#e2e4e8; --a-border:#d5d8df;
   --a-blue:#5e6ad2; --a-selected:#e9eaf6; --a-teal:#387d68; --a-red:#bf3d45;
+  --weekly-community-color:#5b5fc7;
   --a-clay:#b68a70; --a-slate:#8c99b0; --a-font:var(--qb-font); --a-num:var(--qb-font);
   --pop:var(--a-bg); --card:var(--a-surface); --text:var(--a-text); --sub:var(--a-muted);
   --line:var(--a-line); --edge:var(--a-border); --track:var(--a-control); --hover:var(--a-control);
@@ -19,6 +20,7 @@
   --a-bg:#010102; --a-surface:#0f1011; --a-side:#0b0c0e; --a-control:#191a1e;
   --a-text:#f7f8f8; --a-muted:#a0a4ae; --a-line:#23252a; --a-border:#34343a;
   --a-blue:#929bf3; --a-selected:#202234; --a-teal:#7ec2a9; --a-red:#f18c93;
+  --weekly-community-color:#a7a7ee;
   --target-red:#ef7a83; --target-orange:#daa452; --target-green:#68b999; color-scheme:dark;
 }
 /* Existing appearance choices are accent variants within the same system. */

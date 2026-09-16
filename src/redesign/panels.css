@@ -465,7 +465,7 @@
 }
 
 .weekly-value-source-community {
-  --weekly-source-color: var(--a-blue);
+  --weekly-source-color: var(--weekly-community-color);
 }
 
 @media (prefers-reduced-motion: reduce) {
