@@ -666,10 +666,13 @@ diff --git a/src/source/codex/quota_value.rs b/src/source/codex/quota_value.rs
 diff --git a/src/sdk/codex_weekly.rs b/src/sdk/codex_weekly.rs
 --- a/src/sdk/codex_weekly.rs
 +++ b/src/sdk/codex_weekly.rs
-@@ -24,8 +24,18 @@
+@@ -24,8 +24,21 @@
      pub estimated_weekly_value_usd: f64,
      pub observed_tokens: i64,
      pub estimated_weekly_tokens: f64,
++    /// API-price conversion using this device's input/cache/output mix.
++    /// Does not require a single-model quota span; None means Astra pricing is unavailable.
++    pub astra_equivalent_weekly_tokens: Option<f64>,
 +    /// Single-model capacities calibrated from this window's local samples.
 +    pub model_estimates: Vec<CodexModelTokenEstimate>,
      pub valid_entries: i64,
@@ -685,7 +688,7 @@ diff --git a/src/sdk/codex_weekly.rs b/src/sdk/codex_weekly.rs
  }
 
  /// Provider-authoritative window used to align a Codex weekly value estimate.
-@@ -217,8 +227,12 @@
+@@ -217,8 +230,12 @@
          .checked_sub_signed(duration)
          .ok_or(CodexWeeklyValueError::NonFiniteEstimate)?;
 
@@ -700,10 +703,26 @@ diff --git a/src/sdk/codex_weekly.rs b/src/sdk/codex_weekly.rs
      let observed_tokens = usage.stats.total_tokens();
      if usage.valid_entries == 0 || observed_tokens <= 0 {
          return Err(CodexWeeklyValueError::NoUsageInWindow);
-@@ -249,6 +263,22 @@
+@@ -249,6 +266,38 @@
          return Err(CodexWeeklyValueError::NonFiniteEstimate);
      }
 
++    // Reprice the same observed token mix as Astra, including request-level
++    // long-context buckets. Recorded costs belong to the original models and
++    // must not bypass the target model's prices in this conversion.
++    let mut astra_usage = usage.stats.clone();
++    astra_usage.recorded_cost_entries = 0;
++    let astra_cost = calculate_cost(&astra_usage, "gpt-6-astra", pricing_db);
++    let astra_equivalent_weekly_tokens = if astra_cost.is_finite() && astra_cost > 0.0 {
++        let tokens = observed_tokens as f64 * (estimated_weekly_value_usd / astra_cost);
++        if !tokens.is_finite() {
++            return Err(CodexWeeklyValueError::NonFiniteEstimate);
++        }
++        Some(tokens)
++    } else {
++        None
++    };
++
 +    let mut model_estimates: Vec<_> = usage
 +        .models
 +        .keys()
@@ -723,10 +742,11 @@ diff --git a/src/sdk/codex_weekly.rs b/src/sdk/codex_weekly.rs
      Ok(CodexWeeklyValueEstimate {
          observed_at: window.observed_at,
          window_started_at,
-@@ -258,6 +288,7 @@
+@@ -258,6 +307,8 @@
          estimated_weekly_value_usd,
          observed_tokens,
          estimated_weekly_tokens,
++        astra_equivalent_weekly_tokens,
 +        model_estimates,
          valid_entries: usage.valid_entries,
          dedup_skipped_entries: usage.dedup_skipped_entries,
@@ -734,10 +754,11 @@ diff --git a/src/sdk/codex_weekly.rs b/src/sdk/codex_weekly.rs
 diff --git a/src/output/quota.rs b/src/output/quota.rs
 --- a/src/output/quota.rs
 +++ b/src/output/quota.rs
-@@ -247,6 +247,7 @@
+@@ -247,6 +247,8 @@
              estimated_weekly_value_usd: 200.0,
              observed_tokens: 1_000_000,
              estimated_weekly_tokens: 4_000_000.0,
++            astra_equivalent_weekly_tokens: Some(4_000_000.0),
 +            model_estimates: vec![],
              valid_entries: 12,
              dedup_skipped_entries: 2,
@@ -745,11 +766,92 @@ diff --git a/src/output/quota.rs b/src/output/quota.rs
 diff --git a/src/output/limits.rs b/src/output/limits.rs
 --- a/src/output/limits.rs
 +++ b/src/output/limits.rs
-@@ -389,6 +389,7 @@
+@@ -389,6 +389,8 @@
              estimated_weekly_value_usd: 200.0,
              observed_tokens: 1_000_000,
              estimated_weekly_tokens: 4_000_000.0,
++            astra_equivalent_weekly_tokens: Some(4_000_000.0),
 +            model_estimates: vec![],
              valid_entries: 12,
              dedup_skipped_entries: 2,
          }
+diff --git a/src/pricing/cost.rs b/src/pricing/cost.rs
+--- a/src/pricing/cost.rs
++++ b/src/pricing/cost.rs
+@@ -336,6 +336,76 @@
+         )]);
+         let mut models = super::super::resolver::parse_litellm_data(data);
+         pricing_db_with("gpt-6-astra", models.remove("gpt-6-astra").unwrap())
++    }
++
++    #[test]
++    fn weekly_astra_conversion_uses_mixed_local_tokens_without_single_model_spans() {
++        use crate::sdk::estimate_codex_weekly_value_with_pricing;
++        use crate::source::{CodexQuotaStatus, CodexWeeklyQuota};
++
++        let home = tempfile::tempdir().unwrap();
++        std::fs::create_dir(home.path().join("sessions")).unwrap();
++        let mut db = astra_pricing_db();
++        let mut sol = db.get_pricing("gpt-6-astra").unwrap();
++        sol.input /= 2.5;
++        sol.output /= 2.5;
++        sol.reasoning_output /= 2.5;
++        sol.cache_read /= 2.5;
++        db.insert_model_for_tests("gpt-5.6-sol".into(), sol);
++        let mut lines = Vec::new();
++        for (index, model) in ["gpt-6-astra", "gpt-5.6-sol", "gpt-reserve"]
++            .into_iter()
++            .enumerate()
++        {
++            let n = index + 1;
++            lines.push(serde_json::json!({
++                "timestamp": format!("2026-08-21T0{n}:00:00Z"),
++                "type": "event_msg",
++                "payload": {
++                    "type": "token_count", "model": model,
++                    "info": {
++                        "total_token_usage": {"input_tokens": 100_000 * n, "cached_input_tokens": 90_000 * n, "output_tokens": 1_000 * n, "reasoning_output_tokens": 0, "total_tokens": 101_000 * n},
++                        "last_token_usage": {"input_tokens": 100_000, "cached_input_tokens": 90_000, "output_tokens": 1_000, "reasoning_output_tokens": 0, "total_tokens": 101_000}
++                    }
++                }
++            }).to_string());
++        }
++        std::fs::write(home.path().join("sessions/mixed.jsonl"), lines.join("\n")).unwrap();
++        for used_pct in [25.0, 1.0] {
++            let quota = CodexWeeklyQuota {
++                observed_at: "2026-08-22T00:00:00Z".parse().unwrap(),
++                resets_at: "2026-08-27T00:00:00Z".parse().unwrap(),
++                estimated_depletion_at: None,
++                window_minutes: 10_080,
++                used_pct,
++                remaining_pct: 100.0 - used_pct,
++                projected_pct_at_reset: used_pct,
++                status: CodexQuotaStatus::OnTrack,
++            };
++            let estimate =
++                estimate_codex_weekly_value_with_pricing(&quota, Some(home.path()), &db).unwrap();
++            assert_eq!(estimate.observed_tokens, 202_000);
++            assert!((estimate.observed_cost_usd - 0.336).abs() < 1e-12);
++            assert!(
++                estimate
++                    .model_estimates
++                    .iter()
++                    .all(|model| model.estimated_weekly_tokens.is_none())
++            );
++            // $0.336 of mixed usage vs $0.48 repriced entirely as Astra.
++            let expected = 202_000.0 * (0.336 * 100.0 / used_pct) / 0.48;
++            assert!((estimate.astra_equivalent_weekly_tokens.unwrap() - expected).abs() < 1e-6);
++            assert_ne!(
++                estimate.astra_equivalent_weekly_tokens,
++                Some(estimate.estimated_weekly_tokens)
++            );
++            let without_prices = estimate_codex_weekly_value_with_pricing(
++                &quota,
++                Some(home.path()),
++                &PricingDb::default(),
++            );
++            assert!(without_prices.is_err());
++        }
+     }
+
+     fn context_entry(input: i64) -> crate::core::RawEntry {

@@ -422,6 +422,47 @@
   margin-top: 8px;
 }
 
+.weekly-value-source-toggle {
+  flex: 0 0 auto;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+  perspective: 400px;
+}
+
+.weekly-value-source-toggle:focus-visible {
+  outline: 2px solid var(--mint);
+  outline-offset: 3px;
+}
+
+.weekly-value-source-toggle:disabled {
+  cursor: default;
+}
+
+.weekly-value-source-flipper {
+  display: grid;
+  transform-style: preserve-3d;
+  transition: transform 420ms ease-in-out;
+}
+
+.weekly-value-source-flipper.is-local,
+.weekly-value-source-local {
+  transform: rotateY(180deg);
+}
+
+.weekly-value-source-flipper > .weekly-value-badge {
+  grid-area: 1 / 1;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .weekly-value-source-flipper { transition: none; }
+}
+
 .weekly-value-metrics {
   display: grid;
   min-width: 0;

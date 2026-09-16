@@ -63,6 +63,7 @@ async function render_exhausted(options?: {
       estimatedWeeklyValueUsd: 186,
       observedTokens: 4_200_000,
       estimatedWeeklyTokens: 4_200_000,
+      astraEquivalentWeeklyTokens: 4_200_000,
       modelEstimates: [{ model: 'gpt-6-astra', estimatedWeeklyTokens: 4_200_000, sampleTokens: 420_000, sampleUsedPct: 10 }],
     },
   });

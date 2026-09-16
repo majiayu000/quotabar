@@ -208,6 +208,7 @@ export default function CodexPanel({
   const [weeklyQuotaError, setWeeklyQuotaError] = useState<string | null>(null);
   const [weeklyValueEstimate, setWeeklyValueEstimate] = useState<CodexWeeklyValueEstimate | null>(null);
   const [weeklyValueEstimateError, setWeeklyValueEstimateError] = useState<CodexWeeklyValueError | null>(null);
+  const [preferCommunityCapacity, setPreferCommunityCapacity] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [rateLimitsError, setRateLimitsError] = useState<string | null>(null);
@@ -373,8 +374,13 @@ export default function CodexPanel({
     ? weeklyValueEstimate
     : null;
   const valueIsLastEstimate = isSoftDisplayCheck(weeklyValueCheck);
-  const weeklyTokenCapacity = getWeeklyTokenCapacity(displayedWeeklyValueEstimate);
+  const localTokenCapacity = getWeeklyTokenCapacity(displayedWeeklyValueEstimate);
+  const hasLocalTokenCapacity = localTokenCapacity.source === 'local';
+  const weeklyTokenCapacity = preferCommunityCapacity ? getWeeklyTokenCapacity(null) : localTokenCapacity;
   const usesCommunityCapacity = weeklyTokenCapacity.source === 'community';
+  const capacityToggleLabel = !hasLocalTokenCapacity
+    ? t("Local estimate unavailable")
+    : usesCommunityCapacity ? t("Switch to local estimate") : t("Switch to community reference");
   const displayedWeeklyValueEstimateError = officialWeeklyLimit && !displayedWeeklyValueEstimate
     ? (isHardDisplayCheck(weeklyValueCheck) ? null : weeklyValueEstimateError)
     : null;
@@ -579,9 +585,19 @@ export default function CodexPanel({
                       <span className="weekly-value-dot" />
                       {t("Weekly token capacity")}
                     </span>
-                    <span className="weekly-value-badge">
-                      {usesCommunityCapacity ? t("Community reference") : valueIsLastEstimate ? t("Last estimate") : t("Local estimate")}
-                    </span>
+                    <button
+                      type="button"
+                      className="weekly-value-source-toggle"
+                      disabled={!hasLocalTokenCapacity}
+                      onClick={() => setPreferCommunityCapacity(usesCommunityCapacity ? false : true)}
+                      aria-label={capacityToggleLabel}
+                      title={capacityToggleLabel}
+                    >
+                      <span className={`weekly-value-source-flipper${usesCommunityCapacity ? '' : ' is-local'}`} aria-hidden="true">
+                        <span className="weekly-value-badge weekly-value-source-community">{t("Community reference")}</span>
+                        <span className="weekly-value-badge weekly-value-source-local">{valueIsLastEstimate ? t("Last estimate") : t("Local estimate")}</span>
+                      </span>
+                    </button>
                   </div>
                   <div className="weekly-value-body">
                     <div className="weekly-value-metrics">
@@ -619,6 +635,7 @@ export default function CodexPanel({
                         <span>{weeklyReference.community.source} · {weeklyReference.community.snapshotAt.slice(0, 10)}</span>
                       </>
                     )}
+                    {!usesCommunityCapacity && <span>{t("Calculated from this device's weekly usage and token mix · Cached input included")}</span>}
                     <span>{t("Excludes GPT-Reserve complimentary usage")}</span>
                     {displayedWeeklyValueEstimate && (
                       <details className="weekly-value-diagnostic">
@@ -626,6 +643,7 @@ export default function CodexPanel({
                         <p>≈{USD_FORMAT().format(displayedWeeklyValueEstimate.estimatedWeeklyValueUsd)}</p>
                         <p>{t("Based on {p0}% remaining · {p1} local", { p0: remainingPercent(displayedWeeklyValueEstimate.usedPct), p1: USD_FORMAT().format(displayedWeeklyValueEstimate.observedCostUsd) })}</p>
                         <p>{t("Standard API prices · Not a bill")}</p>
+                        <p>{t("Local weekly API value ÷ Astra price per token at this device's input/cache/output mix.")}</p>
                         <p>{valueIsLastEstimate
                           ? t("{p0} observed tokens · Not an official allowance · snapshot not refreshed", { p0: COMPACT_TOKEN_FORMAT().format(displayedWeeklyValueEstimate.observedTokens) })
                           : t("{p0} observed tokens · Not an official allowance", { p0: COMPACT_TOKEN_FORMAT().format(displayedWeeklyValueEstimate.observedTokens) })}</p>

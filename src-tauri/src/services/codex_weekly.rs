@@ -159,6 +159,7 @@ mod tests {
             estimated_weekly_value_usd: 200.0,
             observed_tokens: 1_000,
             estimated_weekly_tokens: 4_000.0,
+            astra_equivalent_weekly_tokens: Some(4_000.0),
             model_estimates: vec![ccstats::CodexModelTokenEstimate {
                 model: "gpt-6-astra".to_string(),
                 estimated_weekly_tokens: Some(4_000.0),

@@ -375,6 +375,7 @@ describe('Codex weekly pace', () => {
         estimatedWeeklyValueUsd: 200,
         observedTokens: 1_600_000,
         estimatedWeeklyTokens: 4_000_000,
+        astraEquivalentWeeklyTokens: 4_000_000,
         modelEstimates: [{ model: 'gpt-6-astra', estimatedWeeklyTokens: 4_000_000, sampleTokens: 400_000, sampleUsedPct: 10 }],
       },
     });
@@ -427,6 +428,7 @@ describe('Codex weekly pace', () => {
         estimatedWeeklyValueUsd: 200,
         observedTokens: 1_000_000,
         estimatedWeeklyTokens: 4_000_000,
+        astraEquivalentWeeklyTokens: 4_000_000,
         modelEstimates: [{ model: 'gpt-6-astra', estimatedWeeklyTokens: 4_000_000, sampleTokens: 400_000, sampleUsedPct: 10 }],
       },
     }, null, {
@@ -452,6 +454,7 @@ describe('Codex weekly pace', () => {
         estimatedWeeklyValueUsd: 2469.12,
         observedTokens: 1_000_000,
         estimatedWeeklyTokens: 20_000_000,
+        astraEquivalentWeeklyTokens: 16_000_000,
         modelEstimates: [{ model: 'gpt-6-astra', estimatedWeeklyTokens: 16_000_000, sampleTokens: 800_000, sampleUsedPct: 5 }],
       },
     }, null, { usedPercent: 5, windowMinutes: 10_080, resetsAt: 1_787_961_600 });
@@ -491,6 +494,7 @@ describe('Codex weekly pace', () => {
         estimatedWeeklyValueUsd: 200,
         observedTokens: 1_600_000,
         estimatedWeeklyTokens: 4_000_000,
+        astraEquivalentWeeklyTokens: 4_000_000,
         modelEstimates: [{ model: 'gpt-6-astra', estimatedWeeklyTokens: 4_000_000, sampleTokens: 400_000, sampleUsedPct: 10 }],
         ...override,
       },
@@ -526,6 +530,7 @@ describe('Codex weekly pace', () => {
         estimatedWeeklyValueUsd: 200,
         observedTokens: 1_600_000,
         estimatedWeeklyTokens: 4_000_000,
+        astraEquivalentWeeklyTokens: 4_000_000,
         modelEstimates: [{ model: 'gpt-6-astra', estimatedWeeklyTokens: 4_000_000, sampleTokens: 400_000, sampleUsedPct: 10 }],
       },
     });

@@ -107,13 +107,14 @@ describe('language ownership', () => {
 
 describe('live bilingual rendering', () => {
   it.each([
-    ['local Astra', 900_000_000],
-    ['no Astra', undefined],
-    ['no Astra sample', null],
-    ['zero Astra estimate', 0],
-    ['invalid Astra estimate', Number.NaN],
-  ])('shows only Astra and Sol with the right source in both languages: %s', async (_case, astraTokens) => {
-    const isLocal = astraTokens === 900_000_000;
+    ['local Astra', 900_000_000, 900_000_000],
+    ['mixed usage without an Astra quota sample', 900_000_000, null],
+    ['no Astra model in local usage', 900_000_000, undefined],
+    ['missing local conversion', null, null],
+    ['zero local conversion', 0, null],
+    ['invalid local conversion', Number.NaN, null],
+  ])('switches local and community capacities in both languages: %s', async (_case, astraEquivalent, astraTokens) => {
+    const isLocal = astraEquivalent === 900_000_000;
     const observedAt = new Date().toISOString();
     const resetsAt = Math.floor(Date.now() / 1000) + 86400;
     vi.spyOn(backend, 'getCodexInfo').mockResolvedValue({ connected: true });
@@ -127,6 +128,7 @@ describe('live bilingual rendering', () => {
         windowStartedAt: new Date((resetsAt - 604800) * 1000).toISOString(),
         usedPct: 40, observedCostUsd: 80, estimatedWeeklyValueUsd: 200,
         observedTokens: 360_000_000, estimatedWeeklyTokens: 900_000_000,
+        astraEquivalentWeeklyTokens: astraEquivalent,
         modelEstimates: [
           ...(astraTokens === undefined ? [] : [{ model: 'gpt-6-astra', estimatedWeeklyTokens: astraTokens, sampleTokens: 90_000_000, sampleUsedPct: 10 }]),
           { model: 'gpt-5.6-sol', estimatedWeeklyTokens: 2_000_000_000, sampleTokens: 200_000_000, sampleUsedPct: 10 },
@@ -137,6 +139,9 @@ describe('live bilingual rendering', () => {
     });
     await act(async () => { renderer = create(createElement(CodexPanel, { autoRefreshIntervalMs: 0, showCostSummary: false })); });
     const rows = () => renderer!.root.findAllByProps({ className: 'weekly-model-estimate' });
+    const toggle = () => renderer!.root.findByProps({ className: 'weekly-value-source-toggle' });
+    expect(toggle().props.disabled).toBe(!isLocal);
+    expect(toggle().props['aria-label']).toBe(isLocal ? 'Switch to community reference' : 'Local estimate unavailable');
     expect(rows()).toHaveLength(2);
     expect(rows().map((row) => row.findByType('span').children.join(''))).toEqual(['Astra', 'GPT-5.6 Sol']);
     expect(rows()[0].findByType('strong').children.join('')).toBe(isLocal ? '≈900M tokens / week' : '≈853.5M tokens / week');
@@ -161,6 +166,20 @@ describe('live bilingual rendering', () => {
       expect(chinese).toContain('2026-09-16');
     }
     expect(JSON.stringify(renderer!.toJSON())).toContain('同一份周额度的不同用法，不能相加');
+    if (isLocal) {
+      expect(toggle().props['aria-label']).toBe('切换到社区参考');
+      await act(async () => { toggle().props.onClick(); });
+      expect(rows()[0].findByType('strong').children.join('')).toBe('≈8.5亿 Token / 周');
+      expect(rows()[1].findByType('strong').children.join('')).toBe('≈36亿 Token / 周');
+      expect(toggle().props['aria-label']).toBe('切换到本机估算');
+      await act(async () => { setLanguagePreference('en'); });
+      expect(toggle().props['aria-label']).toBe('Switch to local estimate');
+      expect(rows()[0].findByType('strong').children.join('')).toBe('≈853.5M tokens / week');
+      await act(async () => { toggle().props.onClick(); });
+      expect(rows()[0].findByType('strong').children.join('')).toBe('≈900M tokens / week');
+      expect(rows()[1].findByType('strong').children.join('')).toBe('≈2.3B tokens / week');
+      expect(renderer!.root.findByProps({ className: 'weekly-value-gauge-center' }).findByType('strong').children.join('')).toBe('60%');
+    }
     expect(fetch).toHaveBeenCalledTimes(1);
   });
 
@@ -189,7 +208,7 @@ describe('live bilingual rendering', () => {
     expect(details.findAllByType('p')[1].children.join('')).toBe(diagnostic);
     expect(details.findByProps({ className: 'quota-pace warning' })).toBeDefined();
     expect(card().findAllByProps({ className: 'weekly-model-estimate' })).toHaveLength(2);
-    expect(card().findByProps({ className: 'weekly-value-badge' }).children.join('')).toBe('社区参考');
+    expect(card().findByProps({ className: 'weekly-value-source-toggle' }).props.disabled).toBe(true);
     expect(details.findByType('summary').children.join('')).toBe('诊断详情');
     await act(async () => { setLanguagePreference('en'); });
     expect(copy()).toBe(missingPrices

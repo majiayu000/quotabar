@@ -3,7 +3,7 @@ import weeklyReference from './codex_weekly_reference.json';
 import type { CodexRateLimitWindow, CodexWeeklyQuota, CodexWeeklyValueEstimate } from '../types/models';
 
 export function getWeeklyTokenCapacity(estimate: CodexWeeklyValueEstimate | null) {
-  const astraTokens = estimate?.modelEstimates.find((model) => model.model === 'gpt-6-astra')?.estimatedWeeklyTokens;
+  const astraTokens = estimate?.astraEquivalentWeeklyTokens;
   if (astraTokens != null && Number.isFinite(astraTokens) && astraTokens > 0) {
     return {
       source: 'local' as const,

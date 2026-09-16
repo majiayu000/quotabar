@@ -52,3 +52,6 @@ jobs:
 
       - name: Verify patched Codex weekly accounting
         run: cargo test --manifest-path vendor/ccstats/Cargo.toml --target-dir src-tauri/target --lib source::codex::quota
+
+      - name: Verify local model capacity conversion
+        run: cargo test --manifest-path vendor/ccstats/Cargo.toml --target-dir src-tauri/target --lib weekly_astra_conversion_uses_mixed_local_tokens_without_single_model_spans

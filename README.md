@@ -133,24 +133,33 @@ archive with its upstream commit and SHA-256 in `vendor/ccstats-sdk.json`.
 excludes `gpt-reserve` complimentary usage from weekly value/token estimates
 before pricing, while retaining it in general usage analytics. Official quota
 percentages remain provider-reported; ordinary Luna usage is not excluded.
-Weekly token capacity shows only **Astra** and **GPT-5.6 Sol**. When an Astra
-estimate is available for the current weekly window, Astra uses that local
-estimate and Sol shows its API-price equivalent: Astra tokens × 2.5. The
+Weekly token capacity shows only **Astra** and **GPT-5.6 Sol**. It defaults to
+the local estimate when available. Click the source badge to switch between
+local and community values; the badge flips horizontally and respects reduced
+motion. Switching does not refetch usage or change the official quota percentage.
+
+Local conversion uses all matched token records in the current weekly window,
+including cached input. Divide their API-equivalent cost by the official used
+fraction to estimate the full-week value. Reprice those same input/cache/output
+tokens as Astra, then calculate `weekly value / Astra replay cost × observed
+tokens`. This works with mixed-model usage and does not require a continuous
+single-model span or five percentage points of usage. Sol shows its API-price
+equivalent: Astra tokens × 2.5. The
 [Astra](https://openai.com/index/gpt-6-astra/) and
 [Sol](https://developers.openai.com/api/docs/models/gpt-5.6-sol) standard API
 input/cached-input/output prices checked on September 16, 2026 have the same
 2.5 ratio. This is price conversion, not a measured Sol subscription allowance.
-Local calibration still requires a continuous single-model span covering at
-least five quota percentage points; mixed or contradictory spans are excluded.
 
-Without a usable local Astra estimate, both rows explicitly show a **community
-reference**: Astra ≈853.5M and Sol ≈3.6B tokens per full week, including cached
+The **community reference** view shows Astra ≈853.5M and Sol ≈3.6B tokens per
+full week, including cached
 input. These factual results come from [Codex Weekly Quota
 Observatory](https://codex-quota.manetli.com/data/), snapshot
 `2026-09-16T08:50:43.414Z`, one Pro 20× account at Standard speed. They are not
 scaled to or presented as the current account's allowance. The source and date
 are shown in the panel; the reference values and dated price ratio live in
 `src/services/codex_weekly_reference.json`.
+If local data or Astra pricing is unavailable, the panel uses the community view
+and disables the switch with an explicit unavailable label.
 
 The two rows represent alternative uses of one quota and cannot be added.
 Other devices, cloud usage and workload changes can skew local estimates.

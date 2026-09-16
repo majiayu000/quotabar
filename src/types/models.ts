@@ -83,6 +83,7 @@ export interface CodexWeeklyValueEstimate {
   estimatedWeeklyValueUsd: number;
   observedTokens: number;
   estimatedWeeklyTokens: number;
+  astraEquivalentWeeklyTokens: number | null;
   modelEstimates: CodexModelTokenEstimate[];
 }
 

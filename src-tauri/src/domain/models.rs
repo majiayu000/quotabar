@@ -189,6 +189,8 @@ pub struct CodexWeeklyValueEstimate {
     pub observed_tokens: i64,
     #[serde(rename = "estimatedWeeklyTokens")]
     pub estimated_weekly_tokens: f64,
+    #[serde(rename = "astraEquivalentWeeklyTokens")]
+    pub astra_equivalent_weekly_tokens: Option<f64>,
     #[serde(rename = "modelEstimates")]
     pub model_estimates: Vec<CodexModelTokenEstimate>,
 }
@@ -286,6 +288,7 @@ impl From<ccstats::CodexWeeklyValueEstimate> for CodexWeeklyValueEstimate {
             estimated_weekly_value_usd: estimate.estimated_weekly_value_usd,
             observed_tokens: estimate.observed_tokens,
             estimated_weekly_tokens: estimate.estimated_weekly_tokens,
+            astra_equivalent_weekly_tokens: estimate.astra_equivalent_weekly_tokens,
             model_estimates: estimate
                 .model_estimates
                 .into_iter()

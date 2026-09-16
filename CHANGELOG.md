@@ -6,7 +6,7 @@ All notable QuotaBar changes should be summarized here before a release is cut.
 
 - Apply the bundled SDK patch from the repository root so clean builds include Reserve exclusion and model estimates instead of silently skipping the patch.
 
-- Simplify Codex weekly token capacity to Astra and GPT-5.6 Sol in Chinese and English. Prefer the current week's local Astra sample and convert Sol tokens at the dated standard API price ratio (2.5×). Without local Astra data, show attributed Pro 20× community references. Remove other models and insufficient-sample rows; keep mixed API value and diagnostics collapsed.
+- Simplify Codex weekly token capacity to Astra and GPT-5.6 Sol in Chinese and English. Calculate Astra from this device's weekly API value and input/cache/output mix, including mixed-model usage without a single-model sample requirement; convert Sol at the dated API price ratio (2.5×). Prefer local values and let users flip the source badge horizontally to switch to attributed Pro 20× community references. Keep mixed API value and diagnostics collapsed.
 
 ## 0.5.2 - 2026-09-16
 
