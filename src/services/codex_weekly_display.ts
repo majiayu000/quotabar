@@ -1,3 +1,4 @@
+import { t } from '../i18n';
 import type { CodexRateLimitWindow, CodexWeeklyQuota, CodexWeeklyValueEstimate } from '../types/models';
 
 export type DisplayCheck =
@@ -30,10 +31,10 @@ export function checkWeeklyValueEstimate(
     || !Number.isFinite(estimate.estimatedWeeklyTokens)
     || estimate.estimatedWeeklyTokens <= 0
   ) {
-    return { ok: false, kind: 'hard', message: 'The local weekly value estimate contains invalid totals.' };
+    return { ok: false, kind: 'hard', message: t("The local weekly value estimate contains invalid totals.") };
   }
   if (estimate.usedPct !== official.usedPercent) {
-    return { ok: false, kind: 'hard', message: 'The local weekly value estimate does not match the quota usage.' };
+    return { ok: false, kind: 'hard', message: t("The local weekly value estimate does not match the quota usage.") };
   }
   const estimateObservedAt = Date.parse(estimate.observedAt);
   const now = Date.now();
@@ -41,14 +42,14 @@ export function checkWeeklyValueEstimate(
     return {
       ok: false,
       kind: 'hard',
-      message: 'The local weekly value estimate is stale or has an invalid observation time.',
+      message: t("The local weekly value estimate is stale or has an invalid observation time."),
     };
   }
   if (estimateObservedAt > now + 5 * 60 * 1000) {
     return {
       ok: false,
       kind: 'hard',
-      message: 'The local weekly value estimate is stale or has an invalid observation time.',
+      message: t("The local weekly value estimate is stale or has an invalid observation time."),
     };
   }
   const estimateReset = Date.parse(estimate.resetsAt);
@@ -58,13 +59,13 @@ export function checkWeeklyValueEstimate(
     || officialReset <= 0
     || estimateReset !== officialReset
   ) {
-    return { ok: false, kind: 'hard', message: 'The local weekly value estimate does not match the quota reset.' };
+    return { ok: false, kind: 'hard', message: t("The local weekly value estimate does not match the quota reset.") };
   }
   if (now - estimateObservedAt > 10 * 60 * 1000) {
     return {
       ok: false,
       kind: 'soft',
-      message: 'The local weekly value estimate is stale or has an invalid observation time.',
+      message: t("The local weekly value estimate is stale or has an invalid observation time."),
     };
   }
   return { ok: true };
@@ -75,45 +76,45 @@ export function checkWeeklyQuotaWindow(
   official?: CodexRateLimitWindow,
 ): DisplayCheck {
   if (!official) {
-    return { ok: false, kind: 'hard', message: 'The official weekly quota window is unavailable.' };
+    return { ok: false, kind: 'hard', message: t("The official weekly quota window is unavailable.") };
   }
   if (!Number.isFinite(official.windowMinutes) || (official.windowMinutes ?? 0) <= 0) {
-    return { ok: false, kind: 'hard', message: 'The official weekly window length is unavailable.' };
+    return { ok: false, kind: 'hard', message: t("The official weekly window length is unavailable.") };
   }
   if (official.windowMinutes !== quota.windowMinutes) {
-    return { ok: false, kind: 'hard', message: 'The local pace snapshot does not match the official weekly window.' };
+    return { ok: false, kind: 'hard', message: t("The local pace snapshot does not match the official weekly window.") };
   }
   const officialReset = official.resetsAt;
   if (!Number.isFinite(officialReset) || (officialReset ?? 0) <= 0) {
-    return { ok: false, kind: 'hard', message: 'The official weekly reset time is unavailable.' };
+    return { ok: false, kind: 'hard', message: t("The official weekly reset time is unavailable.") };
   }
   const localReset = Date.parse(quota.resetsAt) / 1000;
   if (!Number.isFinite(localReset) || localReset <= 0) {
-    return { ok: false, kind: 'hard', message: 'The local pace snapshot has an invalid reset time.' };
+    return { ok: false, kind: 'hard', message: t("The local pace snapshot has an invalid reset time.") };
   }
   if (Math.abs(localReset - (officialReset ?? 0)) > 5 * 60) {
-    return { ok: false, kind: 'hard', message: 'The local pace snapshot does not match the current official reset.' };
+    return { ok: false, kind: 'hard', message: t("The local pace snapshot does not match the current official reset.") };
   }
   const observedAt = Date.parse(quota.observedAt);
   const now = Date.now();
   if (!Number.isFinite(observedAt)) {
-    return { ok: false, kind: 'hard', message: 'The local pace snapshot has an invalid observation time.' };
+    return { ok: false, kind: 'hard', message: t("The local pace snapshot has an invalid observation time.") };
   }
   if (observedAt > now + 5 * 60 * 1000) {
-    return { ok: false, kind: 'hard', message: 'The local pace snapshot is dated in the future.' };
+    return { ok: false, kind: 'hard', message: t("The local pace snapshot is dated in the future.") };
   }
   if (now - observedAt > 30 * 60 * 1000) {
-    return { ok: false, kind: 'soft', message: 'The local pace snapshot is older than 30 minutes.' };
+    return { ok: false, kind: 'soft', message: t("The local pace snapshot is older than 30 minutes.") };
   }
   if (Math.abs(quota.usedPct - official.usedPercent) > 1) {
-    return { ok: false, kind: 'hard', message: 'The local pace usage does not match the current official usage.' };
+    return { ok: false, kind: 'hard', message: t("The local pace usage does not match the current official usage.") };
   }
   return { ok: true };
 }
 
 export function formatLocalExtrasPaused(observedAtMs: number, now = Date.now()): string {
   const minutes = Math.max(1, Math.round((now - observedAtMs) / 60_000));
-  return `Local extras paused · Codex CLI has not refreshed in ${minutes}m`;
+  return t("Local extras paused · Codex CLI has not refreshed in {p0}m", { p0: minutes });
 }
 
 export function isWeeklyExhausted(usedPercent?: number): boolean {

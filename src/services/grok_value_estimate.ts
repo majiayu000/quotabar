@@ -1,5 +1,5 @@
+import { t } from '../i18n';
 import type { GrokValueEstimate } from '../types/models';
-import { workspaceCopy } from '../utils/quota_format';
 
 const STALE_AFTER_MS = 10 * 60 * 1000;
 const FUTURE_SKEW_MS = 5 * 60 * 1000;
@@ -18,10 +18,7 @@ export function validateGrokValueEstimate(
     || !Number.isFinite(estimate.estimatedPeriodTokens)
     || estimate.estimatedPeriodTokens <= 0
   ) {
-    return workspaceCopy(
-      'The local Grok pool estimate contains invalid totals.',
-      '本地 Grok 整池估算的合计无效。',
-    );
+    return t("The local Grok pool estimate contains invalid totals.");
   }
 
   const estimateObservedAt = Date.parse(estimate.observedAt);
@@ -30,10 +27,7 @@ export function validateGrokValueEstimate(
     || estimateObservedAt > now + FUTURE_SKEW_MS
     || now - estimateObservedAt > STALE_AFTER_MS
   ) {
-    return workspaceCopy(
-      'The local Grok pool estimate is stale or has an invalid observation time.',
-      '本地 Grok 整池估算已过期，或观察时间无效。',
-    );
+    return t("The local Grok pool estimate is stale or has an invalid observation time.");
   }
 
   return null;
@@ -48,13 +42,7 @@ export function grokCoverageLabel(estimate: GrokValueEstimate): string | null {
     return null;
   }
   if (estimate.costIsLowerBound) {
-    return workspaceCopy(
-      `Pricing coverage ${percent.toFixed(1)}% · unpriced inference omitted, amount is a lower bound`,
-      `价格覆盖率 ${percent.toFixed(1)}% · 未标价推理未计入，金额为下限`,
-    );
+    return t("Pricing coverage {p0}% · unpriced inference omitted, amount is a lower bound", { p0: percent.toFixed(1) });
   }
-  return workspaceCopy(
-    `Pricing coverage ${percent.toFixed(1)}% · unpriced share extrapolated from priced inference`,
-    `价格覆盖率 ${percent.toFixed(1)}% · 未标价部分按已标价推理外推`,
-  );
+  return t("Pricing coverage {p0}% · unpriced share extrapolated from priced inference", { p0: percent.toFixed(1) });
 }

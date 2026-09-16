@@ -1,6 +1,7 @@
+import { t } from '../i18n';
 import type { CSSProperties } from 'react';
 
-export function formatPlanType(planType?: string, fallback = 'Unknown'): string {
+export function formatPlanType(planType?: string, fallback = t("Unknown")): string {
   if (!planType) return fallback;
   return planType.charAt(0).toUpperCase() + planType.slice(1);
 }
@@ -15,7 +16,7 @@ export function formatResetTime(
   resetAt?: string | number,
   options: ResetTimeFormatOptions = {},
 ): string {
-  const { emptyLabel = '', expiredLabel = 'now', showZeroHours = false } = options;
+  const { emptyLabel = '', expiredLabel = t("now"), showZeroHours = false } = options;
   if (!resetAt) return emptyLabel;
 
   try {
@@ -29,18 +30,18 @@ export function formatResetTime(
 
     const diffMinutes = Math.max(1, Math.floor(diffMs / 60000));
     if (diffMinutes < 60) {
-      return showZeroHours ? `0h ${diffMinutes}m` : `${diffMinutes}m`;
+      return showZeroHours ? t("{hours}h {minutes}m", { hours: 0, minutes: diffMinutes }) : t("{count}m", { count: diffMinutes });
     }
 
     const diffHours = Math.floor(diffMinutes / 60);
     const remainingMinutes = diffMinutes % 60;
     if (diffHours < 24) {
-      return remainingMinutes > 0 ? `${diffHours}h ${remainingMinutes}m` : `${diffHours}h`;
+      return remainingMinutes > 0 ? t("{hours}h {minutes}m", { hours: diffHours, minutes: remainingMinutes }) : t("{count}h", { count: diffHours });
     }
 
     const diffDays = Math.floor(diffHours / 24);
     const remainingHours = diffHours % 24;
-    return remainingHours > 0 ? `${diffDays}d ${remainingHours}h` : `${diffDays}d`;
+    return remainingHours > 0 ? t("{days}d {hours}h", { days: diffDays, hours: remainingHours }) : t("{count}d", { count: diffDays });
   } catch {
     return emptyLabel;
   }
@@ -48,10 +49,10 @@ export function formatResetTime(
 
 function formatShortDuration(ms: number): string {
   const minutes = Math.max(1, Math.round(ms / 60000));
-  if (minutes < 60) return `${minutes}m`;
+  if (minutes < 60) return t("{count}m", { count: minutes });
   const hours = Math.floor(minutes / 60);
   const remaining = minutes % 60;
-  return remaining > 0 ? `${hours}h ${remaining}m` : `${hours}h`;
+  return remaining > 0 ? t("{hours}h {minutes}m", { hours, minutes: remaining }) : t("{count}h", { count: hours });
 }
 
 /**
@@ -83,10 +84,10 @@ export function formatPaceText(
 
   const msToFull = (elapsedMs / usedPercent) * (100 - usedPercent);
   if (msToFull < msToReset) {
-    return `按当前速度，约 ${formatShortDuration(msToFull)} 后用尽`;
+    return t("At this pace, quota runs out in about {p0}", { p0: formatShortDuration(msToFull) });
   }
   const projectedPercent = Math.min(99, Math.round(usedPercent + (usedPercent / elapsedMs) * msToReset));
-  return `按当前速度，重置时约剩余 ${100 - projectedPercent}%`;
+  return t("At this pace, about {p0}% will remain at reset", { p0: 100 - projectedPercent });
 }
 
 export function getProgressColor(usedPercent: number): string {
@@ -115,9 +116,4 @@ export function getRemainingProgressStyle(usedPercent: number): CSSProperties {
 export function clampProgressValue(usedPercent: number): number {
   if (!Number.isFinite(usedPercent)) return 0;
   return Math.min(100, Math.max(0, Math.round(usedPercent)));
-}
-
-/** Shared copy keeps both windows in the same language. */
-export function workspaceCopy(_english: string, chinese: string): string {
-  return chinese;
 }

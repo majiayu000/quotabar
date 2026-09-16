@@ -381,20 +381,20 @@ describe('Codex weekly pace', () => {
     expect(rendered_text(renderer)).not.toContain('Local pace:');
     expect(rendered_text(renderer)).not.toContain('Likely to exhaust');
     expect(rendered_text(renderer)).not.toContain('% at reset');
-    expect(rendered_text(renderer)).toContain('每周 API 等价估算');
+    expect(rendered_text(renderer)).toContain('API-equivalent week');
     expect(rendered_text(renderer)).toContain('$200.00');
     expect(rendered_text(renderer)).toContain('4M');
     expect(rendered_text(renderer)).toContain('tokens at current mix');
-    expect(rendered_text(renderer)).toContain('本地估算');
-    expect(rendered_text(renderer)).toContain('Based on 60% 剩余');
+    expect(rendered_text(renderer)).toContain('Local estimate');
+    expect(rendered_text(renderer)).toContain('Based on 60% remaining');
     expect(renderer.root.findByProps({ className: 'weekly-value-amount' }).children.join('')).toBe('≈$200.00');
-    expect(rendered_text(renderer)).toContain('按标准 API 价格估算 · 不代表账单');
+    expect(rendered_text(renderer)).toContain('Standard API prices · Not a bill');
     expect(renderer.root.findByProps({ className: 'weekly-value-token-row' }).findByType('strong').children.join('')).toBe('≈4M');
     expect(rendered_text(renderer)).toContain('1.6M observed tokens');
     expect(rendered_text(renderer)).toContain('$80.00 local');
     expect(rendered_text(renderer)).toContain('Not an official allowance');
     expect(renderer.root.findByProps({
-      'aria-label': 'Estimate based on 60% 剩余',
+      'aria-label': 'Estimate based on 60% remaining',
     })).toBeDefined();
     expect(rendered_text(renderer)).not.toContain('Estimated depletion');
     const weekly_value_card = renderer.root.findByProps({
@@ -432,7 +432,7 @@ describe('Codex weekly pace', () => {
       resetsAt: 1_787_961_600,
     });
 
-    expect(rendered_text(renderer)).toContain('每周 API 等价估算');
+    expect(rendered_text(renderer)).toContain('API-equivalent week');
     expect(rendered_text(renderer)).toContain('$200.00');
     expect(rendered_text(renderer)).not.toContain('Local pace:');
     await unmount(renderer);
@@ -489,8 +489,8 @@ describe('Codex weekly pace', () => {
       },
     });
 
-    expect(rendered_text(renderer)).not.toContain('每周 API 等价估算');
-    expect(rendered_text(renderer)).not.toContain('上次估算');
+    expect(rendered_text(renderer)).not.toContain('API-equivalent week');
+    expect(rendered_text(renderer)).not.toContain('Last estimate');
     expect(rendered_text(renderer)).not.toContain('Weekly value unavailable');
     await unmount(renderer);
   });
@@ -518,8 +518,8 @@ describe('Codex weekly pace', () => {
       },
     });
 
-    expect(rendered_text(renderer)).toContain('每周 API 等价估算');
-    expect(rendered_text(renderer)).toContain('上次估算');
+    expect(rendered_text(renderer)).toContain('API-equivalent week');
+    expect(rendered_text(renderer)).toContain('Last estimate');
     expect(rendered_text(renderer)).toContain('$200.00');
     expect(rendered_text(renderer)).not.toContain('Weekly value unavailable');
     expect(rendered_text(renderer)).toContain('Local extras paused');
@@ -619,7 +619,7 @@ describe('Codex weekly pace', () => {
       resetsAt,
     });
 
-    expect(rendered_text(renderer)).toContain('按当前速度');
+    expect(rendered_text(renderer)).toContain('At this pace');
     expect(rendered_text(renderer)).not.toContain('Local pace:');
     expect(rendered_text(renderer)).not.toContain('% at reset');
     await unmount(renderer);
@@ -717,13 +717,13 @@ describe('Grok period value', () => {
       },
     });
 
-    expect(rendered_text(renderer)).toContain('每周 API 等价估算');
+    expect(rendered_text(renderer)).toContain('Weekly API-equivalent estimate');
     expect(rendered_text(renderer)).toContain('$8.00');
-    expect(rendered_text(renderer)).toContain('本周期已计入');
-    expect(rendered_text(renderer)).toContain('整池估值');
+    expect(rendered_text(renderer)).toContain('billed so far this period');
+    expect(rendered_text(renderer)).toContain('Full pool');
     expect(rendered_text(renderer)).toContain('$200.00');
-    expect(rendered_text(renderer)).toContain('本地估算');
-    expect(rendered_text(renderer)).toContain('按本机 Grok 用量推算');
+    expect(rendered_text(renderer)).toContain('Local estimate');
+    expect(rendered_text(renderer)).toContain('Projected from local Grok usage');
     await unmount(renderer);
   });
 
@@ -748,9 +748,9 @@ describe('Grok period value', () => {
     });
 
     const text = rendered_text(renderer);
-    expect(text).toContain('整池估值');
+    expect(text).toContain('Full pool');
     expect(text).toContain('$200.00');
-    expect(text).toContain('整池金额按 Build 4% 外推，不是按总池百分比');
+    expect(text).toContain('Full pool dollars are extrapolated from Build 4%, not from the pool gauge percent.');
     await unmount(renderer);
   });
 
@@ -782,7 +782,7 @@ describe('Grok period value', () => {
     });
 
     const text = rendered_text(renderer);
-    expect(text).not.toContain('额外额度');
+    expect(text).not.toContain('Extra credits');
     expect(text).not.toContain('Extra credits');
     expect(text).not.toContain('$0.00 / $50.00');
     await unmount(renderer);
@@ -797,8 +797,8 @@ describe('Grok period value', () => {
       valueEstimateError: 'no Grok token usage matched the active billing period',
     });
 
-    expect(rendered_text(renderer)).toContain('96% 剩余');
-    expect(rendered_text(renderer)).toContain('整池估值不可用');
+    expect(rendered_text(renderer)).toContain('96% remaining');
+    expect(rendered_text(renderer)).toContain('Pool value unavailable');
     expect(rendered_text(renderer)).toContain('no Grok token usage matched');
     await unmount(renderer);
   });
@@ -825,9 +825,9 @@ describe('Grok period value', () => {
 
     const text = rendered_text(renderer);
     expect(text).toContain('$13.14');
-    expect(text).toContain('价格覆盖率 95.1% · 未标价部分按已标价推理外推');
+    expect(text).toContain('Pricing coverage 95.1% · unpriced share extrapolated from priced inference');
     expect(text).not.toContain('≥');
-    expect(text).not.toContain('整池估值不可用');
+    expect(text).not.toContain('Pool value unavailable');
     expect(text).not.toContain('Pool value unavailable');
     await unmount(renderer);
   });
@@ -851,7 +851,7 @@ describe('Grok period value', () => {
       },
     });
 
-    expect(rendered_text(renderer)).toContain('周期 API 等价估算');
+    expect(rendered_text(renderer)).toContain('Period API-equivalent estimate');
     expect(rendered_text(renderer)).toContain('$8.00');
     expect(rendered_text(renderer)).not.toContain('does not match the official usage');
     await unmount(renderer);
@@ -876,7 +876,7 @@ describe('Grok period value', () => {
       },
     });
 
-    expect(rendered_text(renderer)).toContain('周期 API 等价估算');
+    expect(rendered_text(renderer)).toContain('Period API-equivalent estimate');
     expect(rendered_text(renderer)).toContain('$200.00');
     expect(rendered_text(renderer)).not.toContain('does not match the official period start');
     await unmount(renderer);
@@ -914,7 +914,7 @@ async function start_claude_race() {
     renderer = create(createElement(App));
     await Promise.resolve();
   });
-  await act(async () => renderer.root.findByProps({ 'aria-label': '查看 Claude 详情' }).props.onClick());
+  await act(async () => renderer.root.findByProps({ 'aria-label': 'View Claude details' }).props.onClick());
   const refresh = renderer.root.findByProps({ 'aria-label': 'Refresh current provider' });
   await act(async () => refresh.props.onClick());
   return { new_request, old_request, renderer };
@@ -951,7 +951,7 @@ describe('Claude latest request wins', () => {
   it('does not let stale finally finish current loading', async () => {
     const race = await start_claude_race();
     await settle(() => race.old_request.resolve(quota(90)));
-    expect(rendered_text(race.renderer)).toContain('正在读取 Claude 额度');
+    expect(rendered_text(race.renderer)).toContain('Loading Claude quota');
     await settle(() => race.new_request.resolve(quota(20)));
     expect(rendered_text(race.renderer)).toContain('80%');
     await unmount(race.renderer);
@@ -1061,7 +1061,7 @@ describe('Cost lane latest request wins', () => {
   it('does not let overview stale finally finish current loading', async () => {
     const race = await start_cost_race();
     await settle(() => race.requests.overviews[0].resolve(cost_overview(90)));
-    expect(rendered_text(race.renderer)).toContain('正在读取费用');
+    expect(rendered_text(race.renderer)).toContain('Loading costs');
     await settle(() => race.requests.overviews[1].resolve(cost_overview(20)));
     expect(rendered_text(race.renderer)).toContain('$20.00');
     await unmount(race.renderer);

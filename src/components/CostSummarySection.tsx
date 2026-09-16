@@ -1,3 +1,5 @@
+import { localizeLabel, getLocale, t } from '../i18n';
+import { useLocale } from '../i18n/react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { backend } from '../services/backend';
 import { getBudgetForSources, getSavedMonthlyBudgets } from '../services/budget';
@@ -66,15 +68,15 @@ export function getCostSummaryErrorMessage(err: unknown): string {
     const message = err.message;
     if (typeof message === 'string' && message.trim()) return message;
   }
-  return 'Failed to load cost summary';
+  return t("Failed to load cost summary");
 }
 
 function formatMoney(value: number | null | undefined, currency: string): string {
-  if (value == null || !Number.isFinite(value)) return 'n/a';
+  if (value == null || !Number.isFinite(value)) return t("n/a");
 
   const maximumFractionDigits = Math.abs(value) < 1 ? 4 : 2;
   try {
-    return new Intl.NumberFormat('en-US', {
+    return new Intl.NumberFormat(getLocale(), {
       style: 'currency',
       currency,
       minimumFractionDigits: 2,
@@ -87,7 +89,7 @@ function formatMoney(value: number | null | undefined, currency: string): string
 
 function formatCompactNumber(value: number): string {
   if (!Number.isFinite(value)) return '0';
-  return new Intl.NumberFormat('en-US', {
+  return new Intl.NumberFormat(getLocale(), {
     notation: 'compact',
     maximumFractionDigits: 1,
   }).format(value);
@@ -95,7 +97,7 @@ function formatCompactNumber(value: number): string {
 
 function formatUpdatedAt(value: string): string {
   try {
-    return new Date(value).toLocaleTimeString('en-US', {
+    return new Date(value).toLocaleTimeString(getLocale(), {
       hour: '2-digit',
       minute: '2-digit',
     });
@@ -106,29 +108,29 @@ function formatUpdatedAt(value: string): string {
 
 function formatCostNote(range: CostRangeSummary | null): string {
   if (!range) return '';
-  return `${formatCompactNumber(range.tokens.totalTokens)} tokens`;
+  return t("{p0} tokens", { p0: formatCompactNumber(range.tokens.totalTokens) });
 }
 
 export function formatCostCompleteness(overview: CostOverview): string {
   const skipped = overview.ranges.reduce((total, range) => total + (range.skippedEntries ?? 0), 0);
   const parseErrors = overview.ranges.reduce((total, range) => total + (range.parseErrorEntries ?? 0), 0);
   const parts: string[] = [];
-  if (skipped > 0) parts.push(`${skipped} skipped`);
-  if (parseErrors > 0) parts.push(`${parseErrors} parse errors`);
+  if (skipped > 0) parts.push(t("{p0} skipped", { p0: skipped }));
+  if (parseErrors > 0) parts.push(t("{p0} parse errors", { p0: parseErrors }));
   const kinds = new Set(
     overview.ranges
       .map((range) => range.costKind)
       .filter((kind): kind is string => Boolean(kind) && kind !== 'real' && kind !== 'none'),
   );
-  if (kinds.has('mixed') || kinds.size > 1) parts.push('mixed');
-  else if (kinds.has('estimated_proxy')) parts.push('estimated');
-  else if (kinds.size === 1) parts.push([...kinds][0].split('_').join(' '));
+  if (kinds.has('mixed') || kinds.size > 1) parts.push(localizeLabel('mixed'));
+  else if (kinds.has('estimated_proxy')) parts.push(localizeLabel('estimated'));
+  else if (kinds.size === 1) parts.push(localizeLabel([...kinds][0]));
   return parts.join(' · ');
 }
 
 export function formatCostFreshness(overview: CostOverview): string {
-  if (overview.stale) return 'Stale';
-  if (overview.cached) return 'Cached';
+  if (overview.stale) return t("Stale");
+  if (overview.cached) return t("Cached");
   return '';
 }
 
@@ -250,6 +252,7 @@ export default function CostSummarySection({
   autoRefreshIntervalMs = DEFAULT_AUTO_REFRESH_INTERVAL_MS,
   showTrend = true,
 }: CostSummarySectionProps) {
+  useLocale();
   const [overview, setOverview] = useState<CostOverview | null>(null);
   const [daily, setDaily] = useState<CostDailyPoint[] | null>(null);
   const [sparkRange, setSparkRange] = useState<SparkRange>('7d');
@@ -342,28 +345,28 @@ export default function CostSummarySection({
   return (
     <div className="section cost-section">
       <div className="cost-title-row">
-        <span className="section-title">API 等价用量</span>
+        <span className="section-title">{t("API-equivalent usage")}</span>
         <span className="cost-title-meta">
-          <span className="cost-estimate-badge">本地估算</span>
+          <span className="cost-estimate-badge">{t("Local estimate")}</span>
           {overview && <span className="cost-note">{formatCostNote(primaryRange)}</span>}
         </span>
       </div>
 
       <p className="cost-estimate-explanation">
         {Array.isArray(source)
-          ? '按 Claude、Codex、Cursor 本地记录和 API 价格估算，非实际账单；不含 Grok 和 Antigravity。'
-          : '按本地记录和 API 价格估算，非实际账单。'}
+          ? t("Estimated from local Claude, Codex and Cursor logs at API prices; not a bill. Excludes Grok and Antigravity.")
+          : t("Estimated from local logs at API prices; not a bill.")}
       </p>
 
       {loading && !overview && (
-        <div className="cost-loading">正在读取费用…</div>
+        <div className="cost-loading">{t("Loading costs…")}</div>
       )}
 
       {error && !overview && (
-        <div className="cost-inline-error">{error}</div>
+        <div className="cost-inline-error">{localizeLabel(error)}</div>
       )}
 
-      {showTrend && dailyError && <p className="cost-inline-error" role="alert">趋势读取失败：{dailyError}</p>}
+      {showTrend && dailyError && <p className="cost-inline-error" role="alert">{t("Could not load trend:")}{" "}{localizeLabel(dailyError)}</p>}
       {overview && (
         <div className="cost-panel">
           <div className="cost-range-grid">
@@ -372,7 +375,7 @@ export default function CostSummarySection({
                 className={`cost-range ${range.range === primaryRange?.range ? 'active' : ''}`}
                 key={range.range}
               >
-                <span className="cost-range-label">{range.label}</span>
+                <span className="cost-range-label">{localizeLabel(range.label)}</span>
                 <strong className="cost-range-value">
                   {formatMoney(range.cost, range.currency)}
                 </strong>
@@ -385,7 +388,7 @@ export default function CostSummarySection({
               {budgetPercent != null && monthlyBudget != null && (
                 <div className="budget-panel">
                   <div className="budget-row">
-                    <span>每月参考预算</span>
+                    <span>{t("Monthly reference budget")}</span>
                     <strong>
                       {formatMoney(monthCost, monthRange?.currency ?? 'USD')}
                       {' / '}
@@ -395,11 +398,11 @@ export default function CostSummarySection({
                   <div
                     className="budget-track"
                     role="progressbar"
-                    aria-label="Monthly API-equivalent budget used"
+                    aria-label={t("Monthly API-equivalent budget used")}
                     aria-valuemin={0}
                     aria-valuemax={100}
                     aria-valuenow={Math.min(100, Math.round(budgetPercent))}
-                    aria-valuetext={`${Math.round(budgetPercent)}% of monthly budget used`}
+                    aria-valuetext={t("{p0}% of monthly budget used", { p0: Math.round(budgetPercent) })}
                   >
                     <div className="budget-fill" style={getProgressStyle(budgetPercent)} />
                   </div>
@@ -432,11 +435,11 @@ export default function CostSummarySection({
                         className="spark-bars"
                         role="slider"
                         tabIndex={0}
-                        aria-label="Daily API 等价用量 trend"
+                        aria-label={t("Daily API-equivalent usage trend")}
                         aria-valuemin={1}
                         aria-valuemax={sparkDays.length}
                         aria-valuenow={activeIndex + 1}
-                        aria-valuetext={activeDay ? `${activeDay.date}: ${formatMoney(activeValue, primaryRange.currency)}` : 'n/a'}
+                        aria-valuetext={activeDay ? `${activeDay.date}: ${formatMoney(activeValue, primaryRange.currency)}` : t("n/a")}
                         onFocus={() => focusDay(activeIndex)}
                         onBlur={() => setFocusedDay(null)}
                         onMouseLeave={() => setHoveredDay(null)}
@@ -483,7 +486,7 @@ export default function CostSummarySection({
                         <span className={inspectedDay ? 'spark-hover-label' : undefined}>
                           {inspectedDay
                             ? `${inspectedDay.date} · ${formatMoney(dayCost(inspectedDay), primaryRange.currency)}`
-                            : `${sparkRange === '7d' ? 'Past 7 days' : 'Past 30 days'} · ${formatMoney(sumDailyCost(sparkDays), primaryRange.currency)}`}
+                            : `${sparkRange === '7d' ? t("Past 7 days") : t("Past 30 days")} · ${formatMoney(sumDailyCost(sparkDays), primaryRange.currency)}`}
                         </span>
                         <span className="spark-range-chips">
                           <button
@@ -491,22 +494,20 @@ export default function CostSummarySection({
                             className={`spark-chip ${sparkRange === '7d' ? 'active' : ''}`}
                             onClick={() => setSparkRange('7d')}
                           >
-                            7D
-                          </button>
+                            {t("7D")}</button>
                           <button
                             type="button"
                             className={`spark-chip ${sparkRange === '30d' ? 'active' : ''}`}
                             onClick={() => setSparkRange('30d')}
                           >
-                            30D
-                          </button>
+                            {t("30D")}</button>
                         </span>
                       </div>
                     </>
                   );
                 })()
               ) : showTrend && topModels.length > 0 ? (
-                <div className="cost-model-list" aria-label="模型费用">
+                <div className="cost-model-list" aria-label={t("Model costs")}>
                   {topModels.map((model) => (
                     <div className="cost-footer" key={model.model}>
                       <span>{model.model}</span><span>{formatMoney(model.cost, primaryRange.currency)}</span>
@@ -526,7 +527,7 @@ export default function CostSummarySection({
             </span>
           </div>
 
-          {error && <div className="cost-inline-error compact">{error}</div>}
+          {error && <div className="cost-inline-error compact">{localizeLabel(error)}</div>}
         </div>
       )}
     </div>

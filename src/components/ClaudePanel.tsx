@@ -1,4 +1,5 @@
-import { workspaceCopy } from '../utils/quota_format';
+import { localizeLabel, t } from '../i18n';
+import { useLocale } from '../i18n/react';
 import QuotaRecovery, { quotaRecovery, useQuotaCooldown } from './QuotaRecovery';
 import ProviderSetup from './ProviderSetup';
 import CostSummarySection from './CostSummarySection';
@@ -27,8 +28,8 @@ const SESSION_WINDOW_MINUTES = 5 * 60;
 
 function formatClaudeResetTime(resetTime?: string): string {
   return formatResetTime(resetTime, {
-    emptyLabel: 'N/A',
-    expiredLabel: 'Soon',
+    emptyLabel: t("N/A"),
+    expiredLabel: t("soon"),
     showZeroHours: true,
   });
 }
@@ -54,22 +55,23 @@ export default function ClaudePanel({
   onRetry,
   sections = defaultPanelSections(),
 }: ClaudePanelProps) {
+  useLocale();
   const cooling = useQuotaCooldown(retryAt);
-  const loginNeeded = /登录/.test(quotaRecovery('claude', error)?.title ?? '');
+  const loginNeeded = quotaRecovery('claude', error)?.requiresLogin === true;
   const windows = buildClaudeQuotaWindows(quota);
 
   return (
     <>
       {loading && !quota && (
-        <div className="loading-state">正在读取 Claude 额度…</div>
+        <div className="loading-state">{t("Loading Claude quota…")}</div>
       )}
 
       {error && (workspace ? <QuotaRecovery provider="claude" read={{ error, readAt: null, retryAt }} hasData={Boolean(quota?.connected)} /> :
         <div className="error-banner" role="alert">
           <span className="error-icon">!</span>
           <span className="error-text">
-            {error}
-            {quota && <span className="error-context">{workspaceCopy("Showing last known data.", "当前显示上次成功读取的数据。")}</span>}
+            {localizeLabel(error)}
+            {quota && <span className="error-context">{t("Showing last known data.")}</span>}
           </span>
         </div>
       )}
@@ -77,27 +79,27 @@ export default function ClaudePanel({
       {quota && (
         <div className="detail-stack">
           <div className="section">
-            <div className="section-title">{workspaceCopy("Current session", "当前窗口")}</div>
+            <div className="section-title">{t("Current session")}</div>
             <div className="quota-group">
               {quota.session ? (
                 <QuotaCard
-                  label="5 小时额度"
+                  label={t("5-hour quota")}
                   percentage={Math.round(quota.session.percentage)}
                   resetsIn={formatClaudeResetTime(quota.session.resetTime)}
                   pace={formatPaceText(quota.session.percentage, quota.session.resetTime, SESSION_WINDOW_MINUTES)}
                 />
               ) : (
-                <div className="no-data">暂无当前窗口数据</div>
+                <div className="no-data">{t("No current window data")}</div>
               )}
             </div>
           </div>
 
           <div className="section">
-            <div className="section-title">{workspaceCopy("Weekly limits", "每周额度")}</div>
+            <div className="section-title">{t("Weekly limits")}</div>
             <div className="quota-group">
               {quota.weeklyTotal && (
                 <QuotaCard
-                  label="所有模型"
+                  label={t("All models")}
                   percentage={Math.round(quota.weeklyTotal.percentage)}
                   resetsIn={formatClaudeResetTime(quota.weeklyTotal.resetTime)}
                   featured
@@ -137,7 +139,7 @@ export default function ClaudePanel({
               )}
 
               {!hasWeeklyData(quota) && (
-                <div className="no-data">{workspaceCopy("No weekly data", "尚无每周额度数据")}</div>
+                <div className="no-data">{t("No weekly data")}</div>
               )}
             </div>
           </div>
@@ -154,10 +156,10 @@ export default function ClaudePanel({
 
       {!quota && !loading && (
         <div className="empty-state">
-          <p>{workspaceCopy("Unable to load quota data", "无法读取额度数据")}</p>
+          <p>{t("Unable to load quota data")}</p>
           {workspace ? (
             <button type="button" onClick={onRetry} disabled={cooling} className="retry-btn">
-              {cooling ? "等待重试" : loginNeeded ? "我已登录，重新检测" : "重新读取"}
+              {cooling ? t("Waiting to retry") : loginNeeded ? t("Signed in, check again") : t("Read again")}
             </button>
           ) : <ProviderSetup service="claude" onRetry={onRetry} loading={loading || cooling} />}
         </div>

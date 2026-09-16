@@ -90,9 +90,9 @@ describe('Codex exhausted panel', () => {
     const text = rendered_text(renderer);
 
     expect(text).toContain('0%');
-    expect(renderer.root.findByProps({ 'aria-label': '7 天额度 remaining quota' }).props['aria-valuenow']).toBe(0);
-    expect(text).toContain('每周 API 等价估算');
-    expect(text).toContain('上次估算');
+    expect(renderer.root.findByProps({ 'aria-label': '7-day quota remaining quota' }).props['aria-valuenow']).toBe(0);
+    expect(text).toContain('API-equivalent week');
+    expect(text).toContain('Last estimate');
     expect(text).toContain('$186.00');
     expect(text).not.toContain('Weekly value unavailable');
     expect(text).not.toContain('Local pace unavailable');
@@ -100,8 +100,8 @@ describe('Codex exhausted panel', () => {
     expect(text).toContain('Weekly is used up.');
     expect(text).toContain('or use 1 bonus reset');
     expect(text).not.toContain('Codex Weekly is at 100%.');
-    expect(text).toContain('打开 ChatGPT 使用；QuotaBar 无法代为重置。');
-    expect(text).not.toContain('刚刚更新');
+    expect(text).toContain('Use in ChatGPT; QuotaBar cannot reset it for you.');
+    expect(text).not.toContain('Just updated');
     expect(text).not.toContain('Quota current');
 
     const button = renderer.root.findByProps({ className: 'bonus-panel bonus-panel-action' });
@@ -118,7 +118,7 @@ describe('Codex exhausted panel', () => {
 
     expect(text).toContain('Weekly is used up. Resets');
     expect(text).not.toContain('bonus reset');
-    expect(text).not.toContain('奖励重置');
+    expect(text).not.toContain('Bonus resets');
     await unmount(renderer);
   });
 
@@ -129,7 +129,7 @@ describe('Codex exhausted panel', () => {
     const text = rendered_text(renderer);
 
     expect(text).toContain('0%');
-    expect(text).not.toContain('每周 API 等价估算');
+    expect(text).not.toContain('API-equivalent week');
     expect(text).not.toContain('$186.00');
     await unmount(renderer);
   });
@@ -144,8 +144,8 @@ describe('Codex exhausted panel', () => {
 
     expect(renderer.root.findAllByProps({ className: 'codex-content' })).toHaveLength(1);
     expect(text).not.toContain('Weekly exhausted');
-    expect(text).toContain('本地估算');
-    expect(text).not.toContain('上次估算');
+    expect(text).toContain('Local estimate');
+    expect(text).not.toContain('Last estimate');
     expect(text).not.toContain('Weekly is used up.');
     await unmount(renderer);
   });

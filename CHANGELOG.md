@@ -4,6 +4,8 @@ All notable QuotaBar changes should be summarized here before a release is cut.
 
 ## Unreleased
 
+- Add a shared Simplified Chinese / English language preference for tray panels and the desktop workspace, with system-language detection, live switching and cross-window synchronization. Centralize UI copy, accessibility labels, date/number formatting and notification messages; keep quota identifiers independent of translated labels.
+
 - Unify quota percentages, rings, progress bars and alerts around remaining capacity, retaining low-quota warning colors. Remove the Codex update-time row above quota details.
 
 - Keep provider navigation bounded with three persisted favorites and an All picker supporting search, connection/usage status, keyboard dismissal and a scrollable service list.

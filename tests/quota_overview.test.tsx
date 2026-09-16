@@ -51,7 +51,7 @@ describe('compact quota overview', () => {
     expect(html).toContain('aria-valuenow="27"');
     expect(html).toContain('aria-valuenow="93"');
     expect(html).toContain('width:27%');
-    expect(html).toContain('剩余额度');
+    expect(html).toContain('Remaining quota');
     expect(html).not.toContain('73%');
   });
 
@@ -62,13 +62,13 @@ describe('compact quota overview', () => {
     expect(html).toContain('aria-valuenow="4"');
     expect(html).toContain('width:4%');
     expect(html).toContain('var(--quota-critical, #FF3B30)');
-    expect(html).toContain('剩余额度');
+    expect(html).toContain('Remaining quota');
   });
 
   it('hides weekly detail without hiding a more constrained weekly headline', () => {
     const html = renderToStaticMarkup(<QuotaOverview {...overviewProps()} windows={[windows[0], { ...windows[1], usedPercent: 98 }]} display={{ weekly: false }} />);
     expect(html).toContain('<strong>2%</strong>');
-    expect(html).toContain('每周额度 · 最接近用尽');
+    expect(html).toContain('7-day usage · Closest to limit');
     expect((html.match(/role="progressbar"/g) ?? [])).toHaveLength(1);
     expect(html).toContain('aria-valuenow="27"');
   });
@@ -76,7 +76,7 @@ describe('compact quota overview', () => {
   it.each([null, NaN, Infinity])('does not turn missing or invalid usage (%s) into zero', (usedPercent) => {
     const html = renderToStaticMarkup(<QuotaOverview {...overviewProps()} summaries={[{ ...claude, usedPercent }]} windows={[]} />);
     expect(html).toContain('<strong>—</strong>');
-    expect(html).toContain('暂无额度数据');
+    expect(html).toContain('No quota data');
     expect(html).not.toContain('role="progressbar"');
     expect(html).not.toContain('quota-dial-fill');
   });
@@ -88,10 +88,10 @@ describe('compact quota overview', () => {
       readState: { error: 'HTTP 429', readAt: Date.parse('2026-09-14T12:00:00Z') },
     }]} />); });
     const text = JSON.stringify(renderer!.toJSON());
-    expect(text).toContain('显示旧数据');
-    expect(text).toContain('最近成功读取');
-    expect(text).toContain('上次读取的数据');
-    const action = renderer!.root.findAllByType('button').find((button) => button.children.includes('查看原因与恢复方式 ›'))!;
+    expect(text).toContain('Showing stale data');
+    expect(text).toContain('Last successful read');
+    expect(text).toContain('last known data');
+    const action = renderer!.root.findAllByType('button').find((button) => button.children.includes('View cause and recovery steps ›'))!;
     await act(async () => action.props.onClick());
     expect(props.onProviderSelect).toHaveBeenCalledExactlyOnceWith('claude');
   });
@@ -132,10 +132,10 @@ describe('quota display preferences', () => {
     await act(async () => { renderer = create(createElement(App)); });
     await act(async () => renderer!.root.findByProps({ 'aria-label': 'Open settings' }).props.onClick());
     expect(renderer!.root.findByProps({ 'aria-labelledby': 'settings-alerts-title' }).props.hidden).toBe(true);
-    expect(renderer!.root.findAllByProps({ 'aria-label': '总览额度显示方式' })).toHaveLength(0);
-    await act(async () => renderer!.root.findByProps({ 'aria-label': '显示每周额度明细' }).props.onClick());
+    expect(renderer!.root.findAllByProps({ 'aria-label': 'Quota display mode' })).toHaveLength(0);
+    await act(async () => renderer!.root.findByProps({ 'aria-label': 'Show weekly quota details' }).props.onClick());
     expect(getSavedQuotaDisplay()).toEqual({ weekly: false });
-    const categories = renderer!.root.findByProps({ 'aria-label': '设置分类' });
+    const categories = renderer!.root.findByProps({ 'aria-label': 'Settings categories' });
     await act(async () => categories.findAllByType('button')[1].props.onClick());
     expect(renderer!.root.findByProps({ 'aria-labelledby': 'settings-alerts-title' }).props.hidden).toBe(false);
     expect(renderer!.root.findByProps({ 'aria-labelledby': 'settings-appearance-title' }).props.hidden).toBe(true);
@@ -144,7 +144,7 @@ describe('quota display preferences', () => {
     expect(JSON.parse(values.get('claude-quota-notifications')!).q80).toBe(false);
     await act(async () => renderer!.root.findByProps({ 'aria-label': 'Back to provider view' }).props.onClick());
     expect(renderer!.root.findByType(QuotaOverview).props.display).toEqual({ weekly: false });
-    expect(JSON.stringify(renderer!.toJSON())).toContain('剩余额度');
+    expect(JSON.stringify(renderer!.toJSON())).toContain('Remaining quota');
     await act(async () => renderer!.root.findByType(QuotaOverview).props.onSettings());
     expect(renderer!.root.findByType(SettingsView).props.initialPage).toBe('accounts');
     expect(renderer!.root.findByProps({ 'aria-labelledby': 'settings-providers-title' }).props.hidden).toBe(false);
@@ -155,15 +155,15 @@ it('keeps the overview focused on quota readings without cost or bonus sections'
   const html = renderToStaticMarkup(createElement(QuotaOverview, { ...overviewProps(), windows: [{ ...windows[0], usedPercent: 100 }] }));
   expect(html.slice(html.indexOf('<header'), html.indexOf('</header>'))).not.toContain('<strong>');
   expect(html).toContain('<strong>0%</strong>');
-  expect(html).not.toContain('API 等价');
-  expect(html).not.toContain('奖励重置');
-  expect(html).toContain('查看 Claude 详情');
+  expect(html).not.toContain('API-equivalent');
+  expect(html).not.toContain('Bonus resets');
+  expect(html).toContain('View Claude details');
 });
 
 
 it.each([0, 25, 79, 80, 94, 95, 100, 130])('uses the same severity color in overview and details at %s percent', (used) => {
   const overview = renderToStaticMarkup(createElement(QuotaOverview, { ...overviewProps(), windows: [{ ...windows[0], usedPercent: used }] }));
-  const detail = renderToStaticMarkup(createElement(QuotaCard, { label: '5 小时额度', percentage: used, resetsIn: '1h' }));
+  const detail = renderToStaticMarkup(createElement(QuotaCard, { label: '5-hour quota', percentage: used, resetsIn: '1h' }));
   const severity = used >= 95 ? 'critical' : used >= 80 ? 'warning' : 'good';
   for (const html of [overview, detail]) {
     expect(html).toContain(`background:var(--quota-${severity},`);

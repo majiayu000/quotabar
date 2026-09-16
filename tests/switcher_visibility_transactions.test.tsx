@@ -317,7 +317,7 @@ test('keeps the existing Overview fallback when the active provider is hidden', 
   });
 
   expect(renderer.root.findByType(QuotaOverview).props.summaries.map((summary: { id: string }) => summary.id)).toEqual(['claude']);
-  expect(renderer.root.findByProps({ 'aria-label': '查看 Claude 详情' })).toBeDefined();
+  expect(renderer.root.findByProps({ 'aria-label': 'View Claude details' })).toBeDefined();
   expect(harness.save_visibility).toHaveBeenCalledTimes(1);
   await unmount(renderer);
 });

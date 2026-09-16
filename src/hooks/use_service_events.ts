@@ -1,3 +1,4 @@
+import { message, type DisplayText } from '../i18n';
 import { useEffect, useRef } from 'react';
 import { SERVICE_META, SERVICES } from '../services/service_meta';
 import { getClaudeTrayUsedPercent, type ServiceMap } from '../services/app_state';
@@ -37,7 +38,7 @@ export function useServiceEvents(
   connected: ServiceMap<boolean>,
   usedPercent: ServiceMap<number | null>,
   notifSettings: NotificationSettings,
-  logEvent: (level: EventLevel, text: string) => void,
+  logEvent: (level: EventLevel, text: DisplayText) => void,
   enabled = true,
   cursorWindows: QuotaWindowSummary[] = [],
 ): void {
@@ -69,36 +70,36 @@ export function useServiceEvents(
       if (before.connected !== after.connected) {
         logEvent(
           after.connected ? 'info' : 'warning',
-          `${label} ${after.connected ? 'connected' : 'disconnected'}`,
+          after.connected ? message('{provider} connected', { provider: label }) : message('{provider} disconnected', { provider: label }),
         );
       }
 
       if (before.used != null && after.used != null) {
         if (before.used < 95 && after.used >= 95) {
-          logEvent('critical', `${label} remaining quota fell to 5% or less`);
+          logEvent('critical', message("{p0} remaining quota fell to 5% or less", { p0: label }));
           if (notifSettings.q95) {
             void notify(
               'QuotaBar',
-              `${label} remaining quota fell to 5% or less`,
+              message("{p0} remaining quota fell to 5% or less", { p0: label }),
               createNotificationFailureOptions(logEvent),
             );
           }
         } else if (before.used < 80 && after.used >= 80) {
-          logEvent('warning', `${label} remaining quota fell to 20% or less`);
+          logEvent('warning', message("{p0} remaining quota fell to 20% or less", { p0: label }));
           if (notifSettings.q80) {
             void notify(
               'QuotaBar',
-              `${label} remaining quota fell to 20% or less`,
+              message("{p0} remaining quota fell to 20% or less", { p0: label }),
               createNotificationFailureOptions(logEvent),
             );
           }
         }
         if (before.used < 100 && after.used >= 100) {
-          logEvent('critical', `${label} remaining quota reached 0%`);
+          logEvent('critical', message("{p0} remaining quota reached 0%", { p0: label }));
           if (notifSettings.q100) {
             void notify(
               'QuotaBar',
-              `${label} remaining quota reached 0%`,
+              message("{p0} remaining quota reached 0%", { p0: label }),
               createNotificationFailureOptions(logEvent),
             );
           }

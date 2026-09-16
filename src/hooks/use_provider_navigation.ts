@@ -1,3 +1,4 @@
+import { t } from '../i18n';
 import { useCallback, useEffect, type Dispatch, type SetStateAction } from 'react';
 import { listen } from '@tauri-apps/api/event';
 import { backend, hasTauriBackend } from '../services/backend';
@@ -33,7 +34,7 @@ export function useProviderNavigation(
         stopListening();
       })
       .catch(() => {
-        if (mounted) showTimedToast('无法监听菜单栏切换，请重启 QuotaBar。');
+        if (mounted) showTimedToast(t("Could not listen for menu bar changes. Restart QuotaBar."));
       });
 
     return () => {
@@ -67,7 +68,7 @@ export function useProviderNavigation(
           break;
       }
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to open dashboard';
+      const message = err instanceof Error ? err.message : t("Failed to open dashboard");
       showTimedToast(message);
     }
   }, [activeProvider, showTimedToast]);
@@ -87,7 +88,7 @@ export function useProviderNavigation(
     try {
       await backend.quitApp();
     } catch {
-      showTimedToast('退出 QuotaBar 失败，请重试。');
+      showTimedToast(t("Could not quit QuotaBar. Try again."));
     }
   };
 

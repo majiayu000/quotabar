@@ -13,13 +13,13 @@ describe('formatPaceText', () => {
     // 2h into a 5h window (reset in 3h), already 62% used
     // → full in ~(120/62)*38 ≈ 74m, before the reset.
     const text = formatPaceText(62, resetIn(180), FIVE_HOURS_MIN, NOW);
-    expect(text).toBe('按当前速度，约 1h 14m 后用尽');
+    expect(text).toBe('At this pace, quota runs out in about 1h 14m');
   });
 
   test('projects usage at reset when burning slow', () => {
     // 2h elapsed, 20% used → rate 10%/h → +30% over the remaining 3h.
     const text = formatPaceText(20, resetIn(180), FIVE_HOURS_MIN, NOW);
-    expect(text).toBe('按当前速度，重置时约剩余 50%');
+    expect(text).toBe('At this pace, about 50% will remain at reset');
   });
 
   test('returns null without enough signal', () => {

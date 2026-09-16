@@ -1,3 +1,5 @@
+import { localizeLabel, t } from '../i18n';
+import { useLocale } from '../i18n/react';
 import { SERVICE_META } from '../services/service_meta';
 import type { TrayServiceName } from '../services/tray_visibility';
 
@@ -8,11 +10,12 @@ interface ProviderSetupProps {
 }
 
 export default function ProviderSetup({ service, onRetry, loading = false }: ProviderSetupProps) {
+  useLocale();
   return (
     <div className="provider-setup">
-      <p>{SERVICE_META[service].setupHint}</p>
+      <p>{localizeLabel(SERVICE_META[service].setupHint)}</p>
       <button type="button" className="retry-btn" onClick={onRetry} disabled={loading}>
-        {loading ? 'Checking…' : 'Check connection'}
+        {loading ? t("Checking…") : t("Check connection")}
       </button>
     </div>
   );

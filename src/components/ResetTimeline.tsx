@@ -1,4 +1,6 @@
-import { workspaceCopy } from '../utils/quota_format';
+import { formatResetTime } from '../utils/quota_format';
+import { localizeLabel, t } from '../i18n';
+import { useLocale } from '../i18n/react';
 import type { QuotaWindowSummary } from '../services/provider_summary';
 import { sortUpcomingResets } from '../services/provider_summary';
 import { SERVICE_META } from '../services/service_meta';
@@ -8,13 +10,14 @@ interface ResetTimelineProps {
 }
 
 export default function ResetTimeline({ windows }: ResetTimelineProps) {
+  useLocale();
   const now = Date.now();
   const upcoming = sortUpcomingResets(windows, now).slice(0, 5);
   if (upcoming.length === 0) return null;
 
   return (
     <div className="section">
-      <div className="section-title">{workspaceCopy("Upcoming resets", "接下来重置")}</div>
+      <div className="section-title">{t("Upcoming resets")}</div>
       <div className="timeline-card">
         {upcoming.map((window) => {
           const hours = window.resetAtMs == null ? 0 : Math.max(0, (window.resetAtMs - now) / 3_600_000);
@@ -23,23 +26,23 @@ export default function ResetTimeline({ windows }: ResetTimelineProps) {
           return (
           <div
             className="timeline-row"
-            key={`${window.provider}-${window.label}-${window.resetAtMs}`}
+            key={`${window.provider}-${localizeLabel(window.label)}-${window.resetAtMs}`}
             style={{ opacity: over ? 0.55 : 1 }}
           >
             <span className="timeline-name">
               <span className="timeline-dot" style={{ background: SERVICE_META[window.provider].accent }} />
-              <span>{`${window.providerLabel} · ${window.label}`}</span>
+              <span>{`${window.providerLabel} · ${localizeLabel(window.label)}`}</span>
             </span>
             <span className="timeline-track">
               <span className="timeline-mark" style={{ left: `${left}%`, background: SERVICE_META[window.provider].accent }} />
             </span>
-            <span className="timeline-time">{window.resetLabel}</span>
+            <span className="timeline-time">{window.resetAtMs ? formatResetTime(window.resetAtMs / 1000) : undefined}</span>
           </div>
           );
         })}
         <div className="timeline-scale">
-          <span>{workspaceCopy("Now", "现在")}</span>
-          <span>+7d</span>
+          <span>{t("Now")}</span>
+          <span>{t("+7 days")}</span>
         </div>
       </div>
     </div>

@@ -1,3 +1,4 @@
+import { renderText, type DisplayText } from '../i18n';
 import { hasTauriBackend } from './backend';
 import { readStorageValue, writeStorageItem } from './storage';
 
@@ -165,9 +166,10 @@ async function loadNotificationPlugin(): Promise<NotificationPlugin> {
 
 export async function notify(
   title: string,
-  body: string,
+  content: DisplayText,
   options: NotificationDeliveryOptions = {},
 ): Promise<NotificationDeliveryResult> {
+  const body = renderText(content, 'en');
   if (!hasTauriBackend()) {
     return { status: 'skipped', reason: 'backend_unavailable' };
   }
@@ -193,7 +195,7 @@ export async function notify(
     if (!granted) {
       return notificationFailure(NOTIFICATION_PERMISSION_DENIED_MESSAGE, options);
     }
-    sendNotification({ title, body });
+    sendNotification({ title, body: renderText(content) });
     commitNotificationDelivery(body, Date.now());
     return { status: 'sent' };
   } catch {

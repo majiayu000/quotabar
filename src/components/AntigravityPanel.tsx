@@ -1,3 +1,5 @@
+import { useLocale } from '../i18n/react';
+import { t } from '../i18n';
 import { useEffect, useState, useCallback } from 'react';
 import { backend } from '../services/backend';
 import type { AntigravityData } from '../types/models';
@@ -16,6 +18,7 @@ export default function AntigravityPanel({
   manualRefreshNonce = 0,
   onLoadingChange,
 }: AntigravityPanelProps) {
+  useLocale();
   const [data, setData] = useState<AntigravityData | null>(null);
   const [loading, setLoading] = useState(true);
   const request_generation = useLatestRequestGeneration();
@@ -30,7 +33,7 @@ export default function AntigravityPanel({
       onConnectionChange?.(info.connected);
     } catch (err) {
       if (!request_generation.isCurrent(generation)) return;
-      const message = err instanceof Error ? err.message : 'Failed to load Antigravity status';
+      const message = err instanceof Error ? err.message : "Failed to load Antigravity status";
       setData({ connected: false, status: 'error', error: message });
       onConnectionChange?.(false);
     } finally {
@@ -61,19 +64,19 @@ export default function AntigravityPanel({
   const isPreview = data?.status === 'preview' && !isConnected;
   const hasError = data?.status === 'error' && Boolean(data.error) && !loading;
   const panelTitle = hasError
-    ? 'Unable to check Antigravity'
+    ? t("Unable to check Antigravity")
     : isConnected
-      ? 'Antigravity is connected'
+      ? t("Antigravity is connected")
       : isPreview
-        ? 'Quota tracking is in preview'
-      : 'Antigravity is not connected';
+        ? t("Quota tracking is in preview")
+      : t("Antigravity is not connected");
   const panelHint = hasError
-    ? 'Quota tracking status could not be refreshed. Try again from the footer.'
+    ? t("Quota tracking status could not be refreshed. Try again from the footer.")
     : isConnected
-      ? 'The CLI session is available. Quota tracking is waiting for provider support.'
+      ? t("The CLI session is available. Quota tracking is waiting for provider support.")
       : isPreview
-        ? data?.error ?? 'Quota tracking is waiting for a stable provider usage API.'
-      : 'Sign in to Antigravity, then check the CLI status below.';
+        ? data?.error ?? t("Quota tracking is waiting for a stable provider usage API.")
+      : t("Sign in to Antigravity, then check the CLI status below.");
 
   return (
     <div className="codex-panel">
@@ -81,7 +84,7 @@ export default function AntigravityPanel({
         <div className="offline-tile">Ag</div>
         <div className="offline-title">{panelTitle}</div>
         <div className="offline-hint">{panelHint}</div>
-        {!isConnected && !hasError && !isPreview && <code className="offline-command">antigravity status</code>}
+        {!isConnected && !hasError && !isPreview && <code className="offline-command">{t("antigravity status")}</code>}
       </div>
 
       {hasError && (

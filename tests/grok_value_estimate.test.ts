@@ -25,14 +25,14 @@ describe('validateGrokValueEstimate', () => {
 
   test('rejects invalid totals', () => {
     expect(validateGrokValueEstimate(estimate({ observedCostUsd: 0 }), NOW))
-      .toContain('合计无效');
+      .toContain('invalid totals');
   });
 
   test('rejects stale observation times', () => {
     expect(validateGrokValueEstimate(
       estimate({ observedAt: new Date(NOW - 11 * 60 * 1000).toISOString() }),
       NOW,
-    )).toContain('已过期');
+    )).toContain('stale');
   });
 
   test('does not compare copied official usedPct or reset fields', () => {
@@ -47,9 +47,9 @@ describe('validateGrokValueEstimate', () => {
 describe('grokCoverageLabel', () => {
   test('labels incomplete coverage as a scaled estimate', () => {
     expect(grokCoverageLabel(estimate({ coveragePercent: 95.1, costIsLowerBound: false })))
-      .toBe('价格覆盖率 95.1% · 未标价部分按已标价推理外推');
+      .toBe('Pricing coverage 95.1% · unpriced share extrapolated from priced inference');
     expect(grokCoverageLabel(estimate({ coveragePercent: 95.1, costIsLowerBound: true })))
-      .toBe('价格覆盖率 95.1% · 未标价推理未计入，金额为下限');
+      .toBe('Pricing coverage 95.1% · unpriced inference omitted, amount is a lower bound');
     expect(grokCoverageLabel(estimate({ coveragePercent: 100, costIsLowerBound: false })))
       .toBeNull();
   });

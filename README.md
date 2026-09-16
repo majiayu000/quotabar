@@ -96,6 +96,17 @@ This `v0.4.0` screenshot was refreshed on 2026-08-31 from the production React U
 - Grok Build login (`grok login`) for Grok quota data
 - Antigravity installed for Antigravity provider status
 
+## Language
+
+Settings → Display → Language offers **Follow system**, **简体中文**, and **English**.
+Both the menu bar panel and desktop workspace update immediately and share the
+saved preference. Chinese system locales use Simplified Chinese; other system
+locales use English. Quota data, current navigation and provider polling survive
+language changes.
+
+UI messages live in `src/i18n/en.ts` and `src/i18n/zh-CN.ts`. See [the i18n architecture](docs/i18n.md)
+for rendering, stored messages, formatting and extension rules.
+
 ## Development
 
 QuotaBar starts as a menu bar app. Click a tray icon for the quota popover.

@@ -1,3 +1,5 @@
+import { useLocale } from '../i18n/react';
+import { t } from '../i18n';
 interface ActionButtonsProps {
   compact?: boolean;
   onRefresh: () => void;
@@ -25,25 +27,25 @@ export default function ActionButtons({
   statusTitle,
   showDashboard = true,
 }: ActionButtonsProps) {
+  useLocale();
   return (
     <>
       <div className="footer-divider" />
       <div className={`action-buttons${compact ? ' compact-actions' : ''}`} aria-busy={loading}>
         {loading && (
           <span className="action-announcement" role="status" aria-live="polite">
-            Updating quota data
-          </span>
+            {t("Updating quota data")}</span>
         )}
         <button
           type="button"
           className="action-btn refresh-btn"
           onClick={onRefresh}
           disabled={loading}
-          title={statusTitle ? `Refresh · ${statusTitle}` : 'Refresh'}
-          aria-label="Refresh current provider"
+          title={statusTitle ? t("Refresh · {p0}", { p0: statusTitle }) : t("Refresh")}
+          aria-label={t("Refresh current provider")}
         >
           <span className="btn-icon">{loading ? '...' : '↻'}</span>
-          <span className="btn-text">{loading ? '刷新中' : compact && statusText ? statusText.replace('最近成功读取 ', '').replace('now', '刚刚更新') : '刷新'}</span>
+          <span className="btn-text">{loading ? t("Refreshing") : compact && statusText ? statusText.replace(t("Last successful read "), '').replace('now', t("Just updated")) : t("Refresh")}</span>
         </button>
 
         {(onAnalysis || showDashboard) && (
@@ -51,10 +53,10 @@ export default function ActionButtons({
             type="button"
             className="action-btn dashboard-btn"
             onClick={onAnalysis ?? onDashboard}
-            title={onAnalysis ? '打开用量分析' : 'Open dashboard'}
-            aria-label={onAnalysis ? '打开用量分析' : 'Open provider dashboard'}
+            title={onAnalysis ? t("Open usage analysis") : t("Open dashboard")}
+            aria-label={onAnalysis ? t("Open usage analysis") : t("Open provider dashboard")}
           >
-            <span className="btn-text">{onAnalysis ? '用量分析' : '服务商控制台'}</span>
+            <span className="btn-text">{onAnalysis ? t("Usage analysis") : t("Provider dashboard")}</span>
             <span className="btn-icon dashboard-arrow">↗</span>
           </button>
         )}
@@ -73,8 +75,8 @@ export default function ActionButtons({
           type="button"
           className={`action-btn icon-action settings-btn ${settingsActive ? 'active' : ''}`}
           onClick={onSettings}
-          title="Settings"
-          aria-label="Open settings"
+          title={t("Settings")}
+          aria-label={t("Open settings")}
           aria-pressed={settingsActive}
         >
           <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
@@ -87,8 +89,8 @@ export default function ActionButtons({
           type="button"
           className="action-btn icon-action quit-btn"
           onClick={onQuit}
-          title="Quit"
-          aria-label="Quit QuotaBar"
+          title={t("Quit")}
+          aria-label={t("Quit QuotaBar")}
         >
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
             <path d="M18.36 6.64a9 9 0 1 1-12.72 0" />

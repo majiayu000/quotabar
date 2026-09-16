@@ -1,3 +1,4 @@
+import { getLocale, t, renderText, isDisplayText, type DisplayText } from '../i18n';
 import { readStorageValue, writeStorageItem } from './storage';
 
 export type EventLevel = 'info' | 'warning' | 'critical';
@@ -6,7 +7,7 @@ export interface AppEvent {
   id: string;
   time: string;
   level: EventLevel;
-  text: string;
+  text: DisplayText;
 }
 
 const STORAGE_KEY = 'claude-quota-events';
@@ -31,7 +32,7 @@ function isAppEvent(value: unknown): value is AppEvent {
   return (
     typeof event.id === 'string' &&
     typeof event.time === 'string' &&
-    typeof event.text === 'string' &&
+    isDisplayText(event.text) &&
     (event.level === 'info' || event.level === 'warning' || event.level === 'critical')
   );
 }
@@ -44,12 +45,12 @@ function isAppEvent(value: unknown): value is AppEvent {
 export function appendEvent(
   events: AppEvent[],
   level: EventLevel,
-  text: string,
+  text: DisplayText,
   now: number = Date.now(),
   id: string = `${now}-${Math.random().toString(36).slice(2, 8)}`,
 ): AppEvent[] {
   const duplicate = events.find(
-    (event) => event.text === text && now - Date.parse(event.time) < DEDUPE_WINDOW_MS,
+    (event) => renderText(event.text, 'en') === renderText(text, 'en') && now - Date.parse(event.time) < DEDUPE_WINDOW_MS,
   );
   if (duplicate) return events;
 
@@ -74,7 +75,7 @@ export function persistEvents(events: AppEvent[]): boolean {
 export function recordEvent(
   events: AppEvent[],
   level: EventLevel,
-  text: string,
+  text: DisplayText,
   now: number = Date.now(),
 ): AppEvent[] {
   const next = appendEvent(events, level, text, now);
@@ -86,9 +87,9 @@ export function formatEventTime(time: string, now: number = Date.now()): string 
   const timestamp = Date.parse(time);
   if (!Number.isFinite(timestamp)) return '';
   const diffMinutes = Math.floor((now - timestamp) / 60000);
-  if (diffMinutes < 1) return 'now';
-  if (diffMinutes < 60) return `${diffMinutes}m ago`;
+  if (diffMinutes < 1) return t("now");
+  if (diffMinutes < 60) return t("{p0}m ago", { p0: diffMinutes });
   const diffHours = Math.floor(diffMinutes / 60);
-  if (diffHours < 24) return `${diffHours}h ago`;
-  return new Date(timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  if (diffHours < 24) return t("{p0}h ago", { p0: diffHours });
+  return new Date(timestamp).toLocaleDateString(getLocale(), { month: 'short', day: 'numeric' });
 }

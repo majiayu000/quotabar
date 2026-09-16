@@ -167,6 +167,7 @@ async function start_entry(options: {
     listeners.set(type, registered);
   });
   vi.stubGlobal('document', document_driver.stub);
+  vi.stubGlobal('localStorage', { getItem: () => null });
   vi.stubGlobal('window', { addEventListener: add_event_listener, location: { search: options.search ?? '' } });
   entry.create_root.mockReturnValue({ render: entry.render });
   const error_spy = vi.spyOn(console, 'error').mockImplementation((message) => {
@@ -231,6 +232,8 @@ describe('fatal entry wiring', () => {
   it('registers both global listeners and renders the existing React root once', async () => {
     const driver = await start_entry();
     expect(driver.add_event_listener.mock.calls.map(([type]) => type)).toEqual([
+      'storage',
+      'languagechange',
       'error',
       'unhandledrejection',
     ]);

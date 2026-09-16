@@ -1,3 +1,5 @@
+import { getLocale, t, localizeLabel, message, type DisplayText } from './i18n';
+import { useLocale } from './i18n/react';
 import type { ProviderReadState } from './services/provider_summary';
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { listen } from '@tauri-apps/api/event';
@@ -88,7 +90,7 @@ import {
   STORAGE_WRITE_FAILURE_MESSAGE,
   subscribeStorageWriteFailures,
 } from './services/storage';
-import { bonusReadyEntered, formatBonusReadyMessage } from './services/bonus_ready';
+import { bonusReadyEntered, bonusReadyMessage } from './services/bonus_ready';
 import { planProviderPreset, planRevealProviderPanel, type ProviderPreset } from './services/provider_presets';
 import { useServiceEvents, subscribeStorageReadFailureToast } from './hooks/use_service_events';
 export { subscribeStorageReadFailureToast } from './hooks/use_service_events';
@@ -113,9 +115,10 @@ export {
 type ToastValue = string | null;
 type ToastSetter = (value: ToastValue | ((current: ToastValue) => ToastValue)) => void;
 
-const SWITCHER_GUARD_MESSAGE = 'At least one provider must stay in the switcher';
+const SWITCHER_GUARD_MESSAGE = "At least one provider must stay in the switcher";
 
 export default function App({ workspace = false }: { workspace?: boolean }) {
+  useLocale();
   const isMacOS = isMacOSPlatform();
 
   // Claude state (still owned by App because of adaptive backoff)
@@ -314,7 +317,7 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
       const data = await backend.getQuota(manual);
       if (!claude_request_generation.isCurrent(generation)) return;
 
-      readResultSetters.claude(data.error ?? (data.connected && buildClaudeQuotaWindows(data).length > 0 ? null : 'Quota unavailable'), data.retryAt);
+      readResultSetters.claude(data.error ?? (data.connected && buildClaudeQuotaWindows(data).length > 0 ? null : t("Quota unavailable")), data.retryAt);
       if (data.error) {
         setClaudeError(data.error);
         if (keepClaudeQuotaOnError(data)) {
@@ -331,7 +334,7 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
       setServiceConnected('claude', data.connected);
     } catch (err) {
       if (!claude_request_generation.isCurrent(generation)) return;
-      const message = err instanceof Error ? err.message : 'Unknown error';
+      const message = err instanceof Error ? err.message : t("Unknown error");
       setClaudeError(message);
       readResultSetters.claude(message);
       setServiceConnected('claude', false);
@@ -348,7 +351,7 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
     let unlisten: (() => void) | undefined;
     listen('claude-login-rechecked', () => { void fetchClaudeQuota(); })
       .then((stop) => { if (disposed) stop(); else unlisten = stop; })
-      .catch((error) => { console.error('Failed to synchronize Claude login state:', error); setClaudeError('登录状态同步失败，请重新打开窗口。'); });
+      .catch(() => { setClaudeError(t("Could not sync sign-in status. Reopen the window.")); });
     return () => { disposed = true; unlisten?.(); };
   }, [fetchClaudeQuota]);
 
@@ -403,7 +406,7 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
     return () => clearInterval(interval);
   }, [trayCycle, workspace]);
 
-  const logEvent = useCallback((level: EventLevel, text: string) => {
+  const logEvent = useCallback((level: EventLevel, text: DisplayText) => {
     const now = Date.now();
     const id = `${now}-${Math.random().toString(36).slice(2, 8)}`;
     setEvents((prev) => appendEvent(prev, level, text, now, id));
@@ -463,8 +466,8 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
 
   const handleBonusExpiring = useCallback((daysLeft: number) => {
     const text = daysLeft <= 0
-      ? 'Codex bonus reset expires today'
-      : `Codex bonus reset expires in ${daysLeft}d`;
+      ? message("Codex bonus reset expires today")
+      : message("Codex bonus reset expires in {p0}d", { p0: daysLeft });
     logEvent('warning', text);
     if (notifSettings.bonus) {
       void notify('QuotaBar', text, createNotificationFailureOptions(logEvent));
@@ -475,7 +478,7 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
     const prev = bonusReadyPrevRef.current;
     bonusReadyPrevRef.current = ready;
     if (!bonusReadyEntered(prev, ready)) return;
-    const text = formatBonusReadyMessage(ready.availableCount);
+    const text = bonusReadyMessage(ready.availableCount);
     logEvent('warning', text);
     if (notifSettings.bonusReady) {
       void notify('QuotaBar', text, createNotificationFailureOptions(logEvent));
@@ -644,10 +647,10 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
   const overviewReads = SERVICES.filter((service) => switcherVisibility[service]).map((service) => providerReads[service]);
   const overviewReadAt = overviewReads.length > 0 && overviewReads.every((read) => read.readAt != null)
     ? Math.min(...overviewReads.map((read) => read.readAt!)) : null;
-  const overviewStatus = overviewReads.some((read) => read.error) ? '部分额度待更新'
-    : overviewReadAt == null ? '尚未读取额度'
-    : Date.now() - overviewReadAt < 60_000 ? '刚刚更新'
-    : `更新于 ${new Date(overviewReadAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}`;
+  const overviewStatus = overviewReads.some((read) => read.error) ? t("Some quotas need updating")
+    : overviewReadAt == null ? t("Quota not read yet")
+    : Date.now() - overviewReadAt < 60_000 ? t("Just updated")
+    : t("Updated at {p0}", { p0: new Date(overviewReadAt).toLocaleTimeString(getLocale(), { hour: '2-digit', minute: '2-digit' }) });
   const { footerStatus, footerStatusTitle } = useFooterStatus(windowVisible, activeLoading, activeView === 'all' ? overviewReadAt : providerReads[activeProvider].readAt, activeView === 'all' ? overviewReads.some((read) => Boolean(read.error)) : Boolean(providerReads[activeProvider].error));
   const allQuotaWindows = [
     ...buildClaudeQuotaWindows(quota),
@@ -668,7 +671,7 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
 
   const content = (
     <div className={`app theme-${theme}${workspace ? '' : ' quota-popover'}${activeView === 'all' && !workspace ? ' quota-home' : !workspace && providerViewActive ? ' quota-detail' : ''}`}>
-      {toast && <div className="toast">{toast}</div>}
+      {toast && <div className="toast">{localizeLabel(toast)}</div>}
       <div className="container" ref={containerRef}>
         {activeView === 'settings' ? (
           <div className="panel-scroll settings-scroll">
@@ -704,7 +707,7 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
           <>
             {!workspace && <header className="quota-popover-header">
               <h1>QuotaBar</h1>
-              <button type="button" onClick={() => { setSettingsPage('display'); handleSettingsViewToggle(); }} aria-label="Open settings" title="设置">
+              <button type="button" onClick={() => { setSettingsPage('display'); handleSettingsViewToggle(); }} aria-label={t("Open settings")} title={t("Settings")}>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" aria-hidden="true"><path d="M4 7h16M4 17h16M9 4v6M15 14v6" /></svg>
               </button>
             </header>}
@@ -761,7 +764,7 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
 
             <ActionButtons
               compact={!workspace}
-              onAnalysis={workspace ? undefined : () => { void backend.openAnalysis(activeTab).catch((error) => showTimedToast(`无法打开分析窗口：${String(error)}`)); }}
+              onAnalysis={workspace ? undefined : () => { void backend.openAnalysis(activeTab).catch((error) => showTimedToast(t("Could not open usage analysis: {p0}", { p0: String(error) }))); }}
               onRefresh={handleRefresh}
               onDashboard={handleOpenDashboard}
               onSettings={handleSettingsViewToggle}

@@ -1,3 +1,5 @@
+import { useLocale } from '../i18n/react';
+import { t } from '../i18n';
 export type ThemeName = 'light' | 'dark' | 'claude' | 'claude-dark' | 'minimal' | 'minimal-dark' | 'ocean';
 
 interface Theme {
@@ -6,15 +8,15 @@ interface Theme {
   shortName: string;
 }
 
-const themes: Theme[] = [
-  { id: 'light', name: '浅色', shortName: '浅色' },
-  { id: 'dark', name: '深色', shortName: '深色' },
+const themes: () => Theme[] = () => ([
+  { id: 'light', name: t("Light"), shortName: t("Light") },
+  { id: 'dark', name: t("Dark"), shortName: t("Dark") },
   { id: 'claude', name: 'Claude', shortName: 'Claude' },
-  { id: 'claude-dark', name: 'Claude Dark', shortName: 'Claude 深色' },
-  { id: 'minimal', name: '极简', shortName: '极简' },
-  { id: 'minimal-dark', name: 'Minimal Dark', shortName: '极简深色' },
-  { id: 'ocean', name: '海洋', shortName: '海洋' },
-];
+  { id: 'claude-dark', name: t("Claude Dark"), shortName: t("Claude Dark") },
+  { id: 'minimal', name: t("Minimal"), shortName: t("Minimal") },
+  { id: 'minimal-dark', name: t("Minimal Dark"), shortName: t("Minimal Dark") },
+  { id: 'ocean', name: t("Ocean"), shortName: t("Ocean") },
+]);
 
 interface ThemeSelectorProps {
   currentTheme: ThemeName;
@@ -22,9 +24,10 @@ interface ThemeSelectorProps {
 }
 
 export default function ThemeSelector({ currentTheme, onThemeChange }: ThemeSelectorProps) {
+  useLocale();
   return (
     <div className="theme-selector">
-      {themes.map((theme) => (
+      {themes().map((theme) => (
         <button
           type="button"
           key={theme.id}
@@ -32,7 +35,7 @@ export default function ThemeSelector({ currentTheme, onThemeChange }: ThemeSele
           data-theme={theme.id}
           onClick={() => onThemeChange(theme.id)}
           title={theme.name}
-          aria-label={`Switch to ${theme.name} theme`}
+          aria-label={t("Switch to {p0} theme", { p0: theme.name })}
           aria-pressed={currentTheme === theme.id}
         >
           <span className="theme-swatch" aria-hidden="true" />

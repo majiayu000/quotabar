@@ -1,3 +1,4 @@
+import { t, message } from '../i18n';
 export interface BonusReadySnapshot {
   exhausted: boolean;
   availableCount: number;
@@ -33,6 +34,12 @@ export function bonusReadyEntered(
 }
 
 export function formatBonusReadyMessage(availableCount: number): string {
-  const noun = availableCount === 1 ? 'bonus reset' : 'bonus resets';
-  return `Codex weekly is at 100%. ${availableCount} ${noun} available.`;
+  const noun = availableCount === 1 ? t("bonus reset") : t("bonus resets");
+  return t("Codex weekly is at 100%. {p0} {p1} available.", { p0: availableCount, p1: noun });
+}
+
+export function bonusReadyMessage(availableCount: number) {
+  return availableCount === 1
+    ? message("Codex weekly is at 100%. {count} bonus reset available.", { count: availableCount })
+    : message("Codex weekly is at 100%. {count} bonus resets available.", { count: availableCount });
 }

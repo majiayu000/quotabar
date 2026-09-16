@@ -1,3 +1,5 @@
+import { useLocale } from '../i18n/react';
+import { t } from '../i18n';
 import { remainingPercent, getRemainingProgressStyle } from '../utils/quota_format';
 
 interface QuotaCardProps {
@@ -15,23 +17,24 @@ function getStatusColor(percentage: number): string {
 }
 
 export default function QuotaCard({ label, percentage, resetsIn, pace, featured = false }: QuotaCardProps) {
+  useLocale();
   const status = getStatusColor(percentage);
 
   return (
     <div className={`quota-card${featured ? ' featured' : ''}`}>
       <div className="quota-header">
         <span className="quota-label">{label}</span>
-        <span className="quota-value">{remainingPercent(percentage)}% 剩余</span>
+        <span className="quota-value">{t("{p0}% remaining", { p0: remainingPercent(percentage) })}</span>
       </div>
 
       <div
         className="progress-bar"
         role="progressbar"
-        aria-label={`${label} remaining quota`}
+        aria-label={t("{p0} remaining quota", { p0: label })}
         aria-valuemin={0}
         aria-valuemax={100}
         aria-valuenow={remainingPercent(percentage)}
-        aria-valuetext={`${remainingPercent(percentage)}% 剩余`}
+        aria-valuetext={t("{p0}% remaining", { p0: remainingPercent(percentage) })}
       >
         <div
           className={`progress-fill ${status}`}
@@ -40,7 +43,7 @@ export default function QuotaCard({ label, percentage, resetsIn, pace, featured 
       </div>
 
       <div className="reset-time">
-        <span className="reset-text">重置倒计时 {resetsIn}</span>
+        <span className="reset-text">{t("Resets in")}{" "}{resetsIn}</span>
         <span className="reset-at-text" />
       </div>
 

@@ -1,3 +1,5 @@
+import { setLanguagePreference, type LanguagePreference, localizeLabel, renderText, t } from '../i18n';
+import { useLanguagePreference, useLocale } from '../i18n/react';
 import { useEffect, useState } from 'react';
 import type { QuotaDisplay } from '../services/quota_display';
 import ThemeSelector, { type ThemeName } from './ThemeSelector';
@@ -87,9 +89,10 @@ export default function SettingsView({
   onSelectEventProvider,
   onAutostartNotice,
 }: SettingsViewProps) {
+  useLocale();
+  const language = useLanguagePreference();
   const [tab, setTab] = useState(initialPage);
-  const text = (_en: string, zh: string) => zh;
-  const [budgets, setBudgets] = useState<MonthlyBudgets>(getSavedMonthlyBudgets);
+    const [budgets, setBudgets] = useState<MonthlyBudgets>(getSavedMonthlyBudgets);
   const [launchAtLogin, setLaunchAtLogin] = useState(false);
   const [autostartError, setAutostartError] = useState<string | null>(null);
   const [autostartBusy, setAutostartBusy] = useState(false);
@@ -143,24 +146,24 @@ export default function SettingsView({
   };
 
   return (
-    <div className={`settings-view compact-settings ${workspace ? 'workspace-settings' : ''}`} aria-label={text('Settings', '工作区设置')}>
+    <div className={`settings-view compact-settings ${workspace ? 'workspace-settings' : ''}`} aria-label={t("Settings")}>
       <div className="settings-view-header" hidden={workspace}>
         <button
           type="button"
           className="settings-back-btn"
           onClick={onClose}
-          aria-label="Back to provider view"
+          aria-label={t("Back to provider view")}
         >
           ‹
         </button>
         <div>
           <div className="overview-kicker">QuotaBar</div>
-          <h1>设置</h1>
+          <h1>{t("Settings")}</h1>
         </div>
       </div>
 
-      <nav className="settings-tabs" aria-label="设置分类">
-        {([['display', '显示'], ['alerts', '提醒'], ['accounts', '账户']] as const).map(([id, label]) => (
+      <nav className="settings-tabs" aria-label={t("Settings categories")}>
+        {([['display', t("Display")], ['alerts', t("Alerts")], ['accounts', t("Accounts")]] as const).map(([id, label]) => (
           <button key={id} type="button" aria-current={tab === id ? 'page' : undefined}
             aria-controls="settings-content" onClick={() => setTab(id)}>{label}</button>
         ))}
@@ -170,25 +173,34 @@ export default function SettingsView({
         <div className="settings-group-header">
           <span className="settings-group-index">01</span>
           <div>
-            <h2 id="settings-appearance-title">{text('Appearance', '额度与外观')}</h2>
-            <p>{text('Theme and menu bar presentation', '选择你习惯的读数和配色。')}</p>
+            <h2 id="settings-appearance-title">{t("Appearance")}</h2>
+            <p>{t("Theme and menu bar presentation")}</p>
           </div>
         </div>
+        <label className="settings-line">
+          <span>{t("Language")}</span>
+          <select aria-label={t("Language")} value={language}
+            onChange={(event) => setLanguagePreference(event.target.value as LanguagePreference)}>
+            <option value="system">{t("Follow system")}</option>
+            <option value="zh-CN">简体中文</option>
+            <option value="en">English</option>
+          </select>
+        </label>
         {quotaDisplay && onQuotaDisplayChange && <>
-          <div className="settings-subsection-title">额度总览</div>
-          <p className="settings-hint">所有额度百分比与圆环统一显示剩余额度。</p>
-          <div className="settings-line"><span>显示每周额度明细</span>
-            <button type="button" role="switch" aria-label="显示每周额度明细" aria-checked={quotaDisplay.weekly}
+          <div className="settings-subsection-title">{t("Quota overview")}</div>
+          <p className="settings-hint">{t("All quota percentages and rings show remaining capacity.")}</p>
+          <div className="settings-line"><span>{t("Show weekly quota details")}</span>
+            <button type="button" role="switch" aria-label={t("Show weekly quota details")} aria-checked={quotaDisplay.weekly}
               className={`target-switch ${quotaDisplay.weekly ? 'on' : ''}`}
               onClick={() => onQuotaDisplayChange({ ...quotaDisplay, weekly: !quotaDisplay.weekly })}><span /></button>
           </div>
-          <p className="settings-hint">总览始终突出最接近用尽的额度。</p>
+          <p className="settings-hint">{t("The overview always highlights the quota closest to its limit.")}</p>
         </>}
         <details className="settings-disclosure">
-          <summary>更改配色</summary>
+          <summary>{t("Change colors")}</summary>
           <ThemeSelector currentTheme={theme} onThemeChange={onThemeChange} />
         </details>
-        <div className="settings-subsection-title">{text('Menu bar style', '菜单栏')}</div>
+        <div className="settings-subsection-title">{t("Menu bar style")}</div>
         <div className="settings-seg">
           {TRAY_STYLE_OPTIONS.map((option) => (
             <button
@@ -198,18 +210,18 @@ export default function SettingsView({
               onClick={() => onTrayStyleChange(option.id)}
               aria-pressed={trayStyle === option.id}
             >
-              {({ percent: '百分比', ring: '圆环', icon: '仅图标' })[option.id]}
+              {({ percent: t("Percent"), ring: t("Ring"), icon: t("Icon only") })[option.id]}
             </button>
           ))}
         </div>
-        <p className="settings-hint">菜单栏百分比与圆环表示剩余额度。</p>
+        <p className="settings-hint">{t("Menu bar percentages and rings show remaining quota.")}</p>
         <div className="settings-line">
-          <span>{text('Cycle one icon through providers', '用一个图标轮换显示来源')}</span>
+          <span>{t("Cycle one icon through providers")}</span>
           <button
             type="button"
             role="switch"
             aria-checked={trayCycle}
-            aria-label="Cycle one icon through providers"
+            aria-label={t("Cycle one icon through providers")}
             className={`target-switch ${trayCycle ? 'on' : ''}`}
             onClick={onTrayCycleToggle}
           >
@@ -222,18 +234,18 @@ export default function SettingsView({
         <div className="settings-group-header">
           <span className="settings-group-index">02</span>
           <div>
-            <h2 id="settings-providers-title">{text('Providers', '来源显示')}</h2>
-            <p>{text('Choose where each service appears', '选择各来源在快捷面板和系统菜单栏中的显示位置。')}</p>
+            <h2 id="settings-providers-title">{t("Providers")}</h2>
+            <p>{t("Choose where each service appears")}</p>
           </div>
         </div>
-        <div className="settings-subsection-title">{text('Presets', '快速选择')}</div>
+        <div className="settings-subsection-title">{t("Presets")}</div>
         <div className="settings-seg settings-presets">
           <button
             type="button"
             className="settings-seg-btn"
             onClick={() => onApplyPreset('all')}
           >
-            {text('All', '全部')}
+            {t("All")}
           </button>
           {SERVICES.map((service) => (
             <button
@@ -248,9 +260,9 @@ export default function SettingsView({
         </div>
         <div className="provider-visibility-grid">
           <div className="provider-visibility-head" aria-hidden="true">
-            <span>{text('Service', '来源')}</span>
-            <span>{text('Panel', '面板')}</span>
-            <span>{text('Menu', '菜单栏')}</span>
+            <span>{t("Service")}</span>
+            <span>{t("Panel")}</span>
+            <span>{t("Menu")}</span>
           </div>
           {SERVICES.map((service) => {
             const meta = SERVICE_META[service];
@@ -258,7 +270,7 @@ export default function SettingsView({
             const panelEnabled = switcherVisibility[service];
             const panelLocked = panelEnabled && enabledSwitcherCount === 1;
             const trayLocked = !trayEntry || (trayEntry.enabled && !trayEntry.canDisable);
-            const connectionHint = trayEntry?.connected ? '已连接' : service === 'antigravity' ? '预览' : '需登录';
+            const connectionHint = trayEntry?.connected ? t("Connected") : service === 'antigravity' ? t("Preview") : t("Sign-in required");
             return (
               <div className="provider-visibility-row" key={service}>
                 <span className="provider-visibility-service">
@@ -277,7 +289,7 @@ export default function SettingsView({
                   role="switch"
                   aria-checked={panelEnabled}
                   aria-disabled={panelLocked}
-                  aria-label={`Show ${meta.label} in panel`}
+                  aria-label={t("Show {p0} in panel", { p0: meta.label })}
                   className={`target-switch compact ${panelEnabled ? 'on' : ''}`}
                   disabled={panelLocked}
                   onClick={() => onSwitcherToggle(service)}
@@ -289,7 +301,7 @@ export default function SettingsView({
                   role="switch"
                   aria-checked={trayEntry?.enabled ?? false}
                   aria-disabled={trayLocked}
-                  aria-label={`Show ${meta.label} in menu bar`}
+                  aria-label={t("Show {p0} in menu bar", { p0: meta.label })}
                   className={`target-switch compact ${trayEntry?.enabled ? 'on' : ''}`}
                   disabled={trayLocked}
                   onClick={() => onTrayToggle(service)}
@@ -300,11 +312,11 @@ export default function SettingsView({
             );
           })}
         </div>
-        <div className="settings-subsection-title">{text('Recent events', '最近事件')}</div>
+        <div className="settings-subsection-title">{t("Recent events")}</div>
         {events.length > 0 ? (
           <div className="event-list">
             {events.slice(0, 6).map((event) => {
-              const provider = matchProviderInEventText(event.text);
+              const provider = matchProviderInEventText(renderText(event.text, 'en'));
               return (
               <div className="event-row" key={event.id}>
                 <span className={`event-dot ${event.level}`} />
@@ -314,10 +326,10 @@ export default function SettingsView({
                     className="event-text event-text-link"
                     onClick={() => onSelectEventProvider(provider)}
                   >
-                    {event.text}
+                    {renderText(event.text)}
                   </button>
                 ) : (
-                  <span className="event-text">{event.text}</span>
+                  <span className="event-text">{renderText(event.text)}</span>
                 )}
                 <span className="event-time">{formatEventTime(event.time)}</span>
               </div>
@@ -325,28 +337,28 @@ export default function SettingsView({
             })}
           </div>
         ) : (
-          <div className="settings-hint">{text('No events yet.', '还没有状态变化记录。')}</div>
+          <div className="settings-hint">{t("No events yet.")}</div>
         )}
 
-        <div className="settings-hint">{text('Hidden panel providers still refresh in the background.', '隐藏面板入口后，账户数据仍会在后台刷新。')}</div>
+        <div className="settings-hint">{t("Hidden panel providers still refresh in the background.")}</div>
       </section>
 
       <section className="settings-group" hidden={tab !== 'display'} aria-labelledby="settings-sections-title">
         <div className="settings-group-header">
           <span className="settings-group-index">03</span>
           <div>
-            <h2 id="settings-sections-title">{text('Panel content', '服务详情内容')}</h2>
-            <p>{text('Show only the sections you use', '进入单个服务详情后显示的信息。')}</p>
+            <h2 id="settings-sections-title">{t("Panel content")}</h2>
+            <p>{t("Show only the sections you use")}</p>
           </div>
         </div>
         {PANEL_SECTION_ORDER.map((key) => (
           <div className="settings-line" key={key}>
-            <span>{({ timeline: '重置时间线', cost: 'API 等价用量', trend: '用量趋势', tips: '使用提示' })[key]}</span>
+            <span>{({ timeline: t("Reset timeline"), cost: t("API-equivalent usage"), trend: t("Usage trend"), tips: t("Usage tips") })[key]}</span>
             <button
               type="button"
               role="switch"
               aria-checked={panelSections[key]}
-              aria-label={`Show ${({ timeline: '重置时间线', cost: 'API 等价用量', trend: '用量趋势', tips: '使用提示' })[key]}`}
+              aria-label={t("Show {p0}", { p0: ({ timeline: t("Reset timeline"), cost: t("API-equivalent usage"), trend: t("Usage trend"), tips: t("Usage tips") })[key] })}
               className={`target-switch ${panelSections[key] ? 'on' : ''}`}
               onClick={() => onPanelSectionToggle(key)}
             >
@@ -360,18 +372,18 @@ export default function SettingsView({
         <div className="settings-group-header">
           <span className="settings-group-index">05</span>
           <div>
-            <h2 id="settings-alerts-title">{text('Alerts', '提醒')}</h2>
-            <p>{text('Usage and bonus notifications', '在额度接近用尽或奖励到期时提醒。')}</p>
+            <h2 id="settings-alerts-title">{t("Alerts")}</h2>
+            <p>{t("Usage and bonus notifications")}</p>
           </div>
         </div>
         {NOTIFICATION_ROWS.map(({ key, label }) => (
           <div className="settings-line" key={key}>
-            <span>{({ q80: '剩余额度降至 20% 时提醒', q95: '剩余额度降至 5% 时提醒', q100: '额度用尽时提醒', bonusReady: '额度用尽但有未使用奖励重置时提醒', bonus: '奖励到期提醒' })[key]}</span>
+            <span>{({ q80: t("Alert at 20% remaining"), q95: t("Critical alert at 5% remaining"), q100: t("Alert at 0% remaining"), bonusReady: t("Alert when a bonus reset is unused at 0% remaining"), bonus: t("Bonus expiry reminders") })[key]}</span>
             <button
               type="button"
               role="switch"
               aria-checked={notificationSettings[key]}
-              aria-label={label}
+              aria-label={localizeLabel(label)}
               className={`target-switch ${notificationSettings[key] ? 'on' : ''}`}
               onClick={() => onNotificationToggle(key)}
             >
@@ -382,13 +394,13 @@ export default function SettingsView({
       </section>
 
       <details className="settings-disclosure" hidden={tab !== 'alerts'}>
-        <summary>用量参考预算</summary>
+        <summary>{t("Usage reference budgets")}</summary>
       <section className="settings-group" hidden={tab !== 'alerts'} aria-labelledby="settings-limits-title">
         <div className="settings-group-header">
           <span className="settings-group-index">04</span>
           <div>
-            <h2 id="settings-limits-title">{text('Limits', '用量参考预算')}</h2>
-            <p>{text('Monthly API-equivalent budgets', '每月 API 等价估算上限，单位为 USD；不会限制实际消费。')}</p>
+            <h2 id="settings-limits-title">{t("Limits")}</h2>
+            <p>{t("Monthly API-equivalent budgets")}</p>
           </div>
         </div>
         {BUDGET_SOURCES.map((source) => (
@@ -401,15 +413,15 @@ export default function SettingsView({
                 type="number"
                 min="0"
                 step="1"
-                placeholder={text("none", "未设置")}
+                placeholder={t("none")}
                 value={budgets[source] ?? ''}
                 onChange={(event) => handleBudgetChange(source, event.target.value)}
-                aria-label={`${SERVICE_META[source].label} monthly budget in USD`}
+                aria-label={t("{p0} monthly budget in USD", { p0: SERVICE_META[source].label })}
               />
             </span>
           </label>
         ))}
-        <div className="settings-hint">{text('Shown in the API-equivalent usage section.', '在快捷面板的 API 等价用量区域显示，不代表服务商账单。')}</div>
+        <div className="settings-hint">{t("Shown in the API-equivalent usage section.")}</div>
       </section>
 
       </details>
@@ -418,18 +430,18 @@ export default function SettingsView({
         <div className="settings-group-header">
           <span className="settings-group-index">06</span>
           <div>
-            <h2 id="settings-system-title">{text('Activity & system', '系统')}</h2>
-            <p>{text('Recent status changes and app behavior', '应用启动和 Dock 显示。')}</p>
+            <h2 id="settings-system-title">{t("Activity & system")}</h2>
+            <p>{t("Recent status changes and app behavior")}</p>
           </div>
         </div>
-        <div className="settings-subsection-title settings-subsection-divider">{text('Startup', '启动')}</div>
+        <div className="settings-subsection-title settings-subsection-divider">{t("Startup")}</div>
         <div className="settings-line">
-          <span>{text('Launch at Login', '登录时启动')}</span>
+          <span>{t("Launch at Login")}</span>
           <button
             type="button"
             role="switch"
             aria-checked={launchAtLogin}
-            aria-label="Launch at Login"
+            aria-label={t("Launch at Login")}
             disabled={autostartBusy}
             className={`target-switch ${launchAtLogin ? 'on' : ''}`}
             onClick={() => {
@@ -440,19 +452,19 @@ export default function SettingsView({
           </button>
         </div>
         {autostartError ? (
-          <div className="settings-hint" role="alert">{autostartError}</div>
+          <div className="settings-hint" role="alert">{localizeLabel(autostartError)}</div>
         ) : null}
 
         {isMacOS && showDockToggle && (
           <>
             <div className="settings-subsection-title settings-subsection-divider">Dock</div>
             <div className="settings-line">
-              <span>{text('Hide Dock icon', '隐藏 Dock 图标')}</span>
+              <span>{t("Hide Dock icon")}</span>
               <button
                 type="button"
                 role="switch"
                 aria-checked={dockHidden}
-                aria-label="Hide Dock icon"
+                aria-label={t("Hide Dock icon")}
                 className={`target-switch ${dockHidden ? 'on' : ''}`}
                 onClick={onDockToggle}
               >

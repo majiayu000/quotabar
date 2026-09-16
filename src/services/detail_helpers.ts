@@ -1,3 +1,4 @@
+import { t, localizeLabel } from '../i18n';
 import { formatResetTime } from '../utils/quota_format';
 import type { CodexResetCredit, CodexResetCredits } from '../types/models';
 import type { QuotaWindowSummary } from './provider_summary';
@@ -7,10 +8,10 @@ export function getExhaustedWeekTip(
   bonusCount: number,
 ): string {
   if (bonusCount > 0) {
-    const noun = bonusCount === 1 ? 'bonus reset' : 'bonus resets';
-    return `Weekly is used up. Wait until ${resetLabel}, or use ${bonusCount} ${noun}.`;
+    const noun = bonusCount === 1 ? t("bonus reset") : t("bonus resets");
+    return t("Weekly is used up. Wait until {p0}, or use {p1} {p2}.", { p0: resetLabel, p1: bonusCount, p2: noun });
   }
-  return `Weekly is used up. Resets ${resetLabel}.`;
+  return t("Weekly is used up. Resets {p0}.", { p0: resetLabel });
 }
 
 export function getHighUsageTip(
@@ -24,21 +25,21 @@ export function getHighUsageTip(
   if (!window) return null;
   const remaining = Math.max(0, Math.round(100 - window.usedPercent));
   const usage = window.usedPercent >= 100
-    ? 'Limit reached (0% remaining).'
-    : `${remaining}% remaining.`;
+    ? t("Limit reached (0% remaining).")
+    : t("{p0}% remaining.", { p0: remaining });
   const resetAt = window.resetAtMs;
-  const prefix = `${window.providerLabel} ${window.label}: ${usage}`;
+  const prefix = `${window.providerLabel} ${localizeLabel(window.label)}: ${usage}`;
   if (resetAt == null || !Number.isFinite(resetAt)) {
-    return `${prefix} Reset time unavailable; check the provider dashboard.`;
+    return t("{p0} Reset time unavailable; check the provider dashboard.", { p0: prefix });
   }
   const untilReset = resetAt - Date.now();
   if (untilReset <= 0) {
-    return `${prefix} The reset time has passed; refresh to check your quota.`;
+    return t("{p0} The reset time has passed; refresh to check your quota.", { p0: prefix });
   }
   const advice = untilReset <= 60 * 60 * 1000
-    ? 'If you run out, check again after this reset.'
-    : 'Pace usage until reset or check another service.';
-  return `${prefix} Resets in ${formatResetTime(resetAt / 1000)}. ${advice}`;
+    ? t("If you run out, check again after this reset.")
+    : t("Pace usage until reset or check another service.");
+  return t("{p0} Resets in {p1}. {p2}", { p0: prefix, p1: formatResetTime(resetAt / 1000), p2: advice });
 }
 
 export function getAvailableResetCredits(

@@ -1,4 +1,5 @@
-import { workspaceCopy } from '../utils/quota_format';
+import { localizeLabel, getLocale, t } from '../i18n';
+import { useLocale } from '../i18n/react';
 import { useEffect, useState, useCallback, type CSSProperties } from 'react';
 import { backend } from '../services/backend';
 import CostSummarySection from './CostSummarySection';
@@ -44,10 +45,10 @@ interface CodexPanelProps {
 }
 
 function formatSubscriptionDate(dateStr?: string): string {
-  if (!dateStr) return 'Unknown';
+  if (!dateStr) return t("Unknown");
   try {
     const date = new Date(dateStr);
-    return date.toLocaleDateString('zh-CN', {
+    return date.toLocaleDateString(getLocale(), {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
@@ -58,17 +59,17 @@ function formatSubscriptionDate(dateStr?: string): string {
 }
 
 function formatWindowLabel(minutes?: number, kind: 'primary' | 'secondary' = 'primary'): string {
-  if (!minutes) return 'Limit';
+  if (!minutes) return t("Limit");
   if (minutes >= 1440) {
     const days = Math.round(minutes / 1440);
-    if (days === 7) return kind === 'secondary' ? '每周额度' : '7 天额度';
-    return `${days}d ${kind === 'secondary' ? 'limit' : 'window'}`;
+    if (days === 7) return kind === 'secondary' ? t("Weekly quota") : t("7-day quota");
+    return t("{count}-day quota", { count: days });
   }
   if (minutes >= 60) {
     const hours = Math.round(minutes / 60);
-    return `${hours} 小时额度`;
+    return t("{p0}-hour quota", { p0: hours });
   }
-  return `${minutes}m`;
+  return t("{count}m", { count: minutes });
 }
 
 function formatResetAt(value?: number): string {
@@ -77,12 +78,12 @@ function formatResetAt(value?: number): string {
   if (Number.isNaN(date.getTime())) return '';
   const now = new Date();
   const sameDay = date.toDateString() === now.toDateString();
-  const time = date.toLocaleTimeString('zh-CN', {
+  const time = date.toLocaleTimeString(getLocale(), {
     hour: 'numeric',
     minute: '2-digit',
   });
-  if (sameDay) return `今天 ${time}`;
-  const day = date.toLocaleDateString('zh-CN', {
+  if (sameDay) return t("Today {p0}", { p0: time });
+  const day = date.toLocaleDateString(getLocale(), {
     weekday: 'short',
     month: 'short',
     day: 'numeric',
@@ -91,26 +92,26 @@ function formatResetAt(value?: number): string {
 }
 
 function formatGrantDate(value?: string): string {
-  if (!value) return 'Unknown';
+  if (!value) return t("Unknown");
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleDateString('zh-CN', {
+  return date.toLocaleDateString(getLocale(), {
     month: 'short',
     day: 'numeric',
   });
 }
 
-const USD_FORMAT = new Intl.NumberFormat('en-US', {
+const USD_FORMAT = () => (new Intl.NumberFormat(getLocale(), {
   style: 'currency',
   currency: 'USD',
   minimumFractionDigits: 2,
   maximumFractionDigits: 2,
-});
+}));
 
-const COMPACT_TOKEN_FORMAT = new Intl.NumberFormat('en-US', {
+const COMPACT_TOKEN_FORMAT = () => (new Intl.NumberFormat(getLocale(), {
   notation: 'compact',
   maximumFractionDigits: 1,
-});
+}));
 
 
 function selectOfficialWeeklyWindow(
@@ -196,6 +197,7 @@ export default function CodexPanel({
   onBonusReadyChange,
   onOpenDashboard,
 }: CodexPanelProps) {
+  useLocale();
   const [codexData, setCodexData] = useState<CodexData | null>(null);
   const [rateLimits, setRateLimits] = useState<CodexRateLimits | null>(null);
   const [resetCredits, setResetCredits] = useState<CodexResetCredits | null>(null);
@@ -222,7 +224,7 @@ export default function CodexPanel({
       if (!weekly_request_generation.isCurrent(generation)) return;
       setWeeklyQuota(null);
       setWeeklyQuotaError(
-        err instanceof Error ? err.message : 'Failed to load local weekly pace',
+        err instanceof Error ? err.message : "Failed to load local weekly pace",
       );
       setWeeklyValueEstimate(null);
       setWeeklyValueEstimateError(null);
@@ -247,7 +249,7 @@ export default function CodexPanel({
       setCodexData(info);
       setRateLimits(limits);
       onQuotaWindowsChange?.(buildCodexQuotaWindows(limits));
-      onReadResult?.(limits.error ?? info.error ?? (limits.connected && (limits.primary || limits.secondary) ? null : 'Quota unavailable'));
+      onReadResult?.(limits.error ?? info.error ?? (limits.connected && (limits.primary || limits.secondary) ? null : t("Quota unavailable")));
       setResetCredits(credits);
 
       if (limits.error) {
@@ -267,7 +269,7 @@ export default function CodexPanel({
       onUsageChange?.(getTrayUsedPercent(limits));
     } catch (err) {
       if (!request_generation.isCurrent(generation)) return;
-      const message = err instanceof Error ? err.message : 'Failed to fetch Codex data';
+      const message = err instanceof Error ? err.message : "Failed to fetch Codex data";
       setError(message);
       onReadResult?.(message);
       setRateLimitsError(message);
@@ -338,7 +340,7 @@ export default function CodexPanel({
   if (loading && !codexData && !rateLimits) {
     return (
       <div className="codex-panel">
-        <div className="loading-state">Loading Codex info...</div>
+        <div className="loading-state">{t("Loading Codex info...")}</div>
       </div>
     );
   }
@@ -389,7 +391,7 @@ export default function CodexPanel({
     if (!displayedWeeklyQuota && displayedWeeklyQuotaError) {
       return (
         <span className="quota-pace warning">
-          Local pace unavailable: {displayedWeeklyQuotaError}
+          {t("Local pace unavailable:")}{" "}{displayedWeeklyQuotaError}
         </span>
       );
     }
@@ -404,10 +406,10 @@ export default function CodexPanel({
       <>
         <div className="bonus-header">
           <div className="bonus-title-row">
-            <span className="bonus-title">奖励重置</span>
-            <span className="bonus-badge">赠送</span>
+            <span className="bonus-title">{t("Bonus resets")}</span>
+            <span className="bonus-badge">{t("Bonus")}</span>
           </div>
-          <span className="bonus-count">{availableResetCredits.length} 次可用</span>
+          <span className="bonus-count">{availableResetCredits.length} {t("available")}</span>
         </div>
         <div className="bonus-grants">
           {bonusGrantGroups.map((group) => {
@@ -417,19 +419,19 @@ export default function CodexPanel({
                 <span className="bonus-grant-left">
                   <span className="bonus-dot" />
                   <span className="bonus-grant-label">
-                    +{group.count} · 发放于 {formatGrantDate(group.grantedAt)}
+                    +{group.count} {t("· Issued")}{" "}{formatGrantDate(group.grantedAt)}
                   </span>
                 </span>
                 <span className={`bonus-grant-right ${daysLeft != null && daysLeft <= 10 ? 'warning' : ''}`}>
-                  {daysLeft == null ? '到期时间未知' : `剩余 ${daysLeft} 天 · ${formatGrantDate(group.expiresAt)}`}
+                  {daysLeft == null ? t("Expiry unknown") : t("{p0} days left · {p1}", { p0: daysLeft, p1: formatGrantDate(group.expiresAt) })}
                 </span>
               </div>
             );
           })}
         </div>
-        <div className="bonus-note">不定期赠送 · 无上限 · 每次赠送有效期 30 天</div>
+        <div className="bonus-note">{t("Occasional bonuses · No cap · Each valid for 30 days")}</div>
         {onOpenDashboard && (
-          <div className="bonus-note">打开 ChatGPT 使用；QuotaBar 无法代为重置。</div>
+          <div className="bonus-note">{t("Use in ChatGPT; QuotaBar cannot reset it for you.")}</div>
         )}
       </>
     );
@@ -453,8 +455,8 @@ export default function CodexPanel({
         <div className="error-banner">
           <span className="error-icon">!</span>
           <span className="error-text">
-            {error}
-            {showingStaleLimits && <span className="error-context">{workspaceCopy("Showing last known data.", "当前显示上次成功读取的数据。")}</span>}
+            {localizeLabel(error)}
+            {showingStaleLimits && <span className="error-context">{t("Showing last known data.")}</span>}
           </span>
         </div>
       )}
@@ -464,7 +466,7 @@ export default function CodexPanel({
           {/* Rate Limits Section */}
           {hasRateLimits && (
             <div className="section">
-              <div className="section-title">{workspaceCopy("Usage", "额度用量")}</div>
+              <div className="section-title">{t("Usage")}</div>
 
               <div className="quota-group">
                 {rateLimits?.primary && (
@@ -474,17 +476,16 @@ export default function CodexPanel({
                         {formatWindowLabel(rateLimits.primary.windowMinutes, 'primary')}
                       </span>
                       <span className="quota-value">
-                        {remainingPercent(rateLimits.primary.usedPercent)}% 剩余
-                      </span>
+                        {t("{p0}% remaining", { p0: remainingPercent(rateLimits.primary.usedPercent) })}</span>
                     </div>
                     <div
                       className="progress-bar"
                       role="progressbar"
-                      aria-label={`${formatWindowLabel(rateLimits.primary.windowMinutes, 'primary')} remaining quota`}
+                      aria-label={t("{p0} remaining quota", { p0: formatWindowLabel(rateLimits.primary.windowMinutes, 'primary') })}
                       aria-valuemin={0}
                       aria-valuemax={100}
                       aria-valuenow={remainingPercent(rateLimits.primary.usedPercent)}
-                      aria-valuetext={`${remainingPercent(rateLimits.primary.usedPercent)}% 剩余`}
+                      aria-valuetext={t("{p0}% remaining", { p0: remainingPercent(rateLimits.primary.usedPercent) })}
                     >
                       <div
                         className="progress-fill"
@@ -493,7 +494,7 @@ export default function CodexPanel({
                     </div>
                     {rateLimits.primary.resetsAt && (
                       <div className="reset-time">
-                        <span>{workspaceCopy('Resets in', '重置倒计时')} {formatResetTime(rateLimits.primary.resetsAt)}</span>
+                        <span>{t("Resets in")} {formatResetTime(rateLimits.primary.resetsAt)}</span>
                         <span>{formatResetAt(rateLimits.primary.resetsAt)}</span>
                       </div>
                     )}
@@ -520,17 +521,16 @@ export default function CodexPanel({
                         {formatWindowLabel(rateLimits.secondary.windowMinutes, 'secondary')}
                       </span>
                       <span className="quota-value">
-                        {remainingPercent(rateLimits.secondary.usedPercent)}% 剩余
-                      </span>
+                        {t("{p0}% remaining", { p0: remainingPercent(rateLimits.secondary.usedPercent) })}</span>
                     </div>
                     <div
                       className="progress-bar"
                       role="progressbar"
-                      aria-label={`${formatWindowLabel(rateLimits.secondary.windowMinutes, 'secondary')} remaining quota`}
+                      aria-label={t("{p0} remaining quota", { p0: formatWindowLabel(rateLimits.secondary.windowMinutes, 'secondary') })}
                       aria-valuemin={0}
                       aria-valuemax={100}
                       aria-valuenow={remainingPercent(rateLimits.secondary.usedPercent)}
-                      aria-valuetext={`${remainingPercent(rateLimits.secondary.usedPercent)}% 剩余`}
+                      aria-valuetext={t("{p0}% remaining", { p0: remainingPercent(rateLimits.secondary.usedPercent) })}
                     >
                       <div
                         className="progress-fill"
@@ -539,7 +539,7 @@ export default function CodexPanel({
                     </div>
                     {rateLimits.secondary.resetsAt && (
                       <div className="reset-time">
-                        <span>{workspaceCopy('Resets in', '重置倒计时')} {formatResetTime(rateLimits.secondary.resetsAt)}</span>
+                        <span>{t("Resets in")} {formatResetTime(rateLimits.secondary.resetsAt)}</span>
                         <span>{formatResetAt(rateLimits.secondary.resetsAt)}</span>
                       </div>
                     )}
@@ -550,10 +550,10 @@ export default function CodexPanel({
                 {rateLimits?.credits?.hasCredits && (
                   <div className="quota-card">
                     <div className="quota-header">
-                      <span className="quota-label">Credits</span>
+                      <span className="quota-label">{t("Credits")}</span>
                       <span className="quota-value">
                         {rateLimits.credits.unlimited
-                          ? 'Unlimited'
+                          ? t("Unlimited")
                           : rateLimits.credits.balance ?? 'n/a'}
                       </span>
                     </div>
@@ -575,55 +575,55 @@ export default function CodexPanel({
                       <div className="weekly-value-topline">
                         <span className="weekly-value-title">
                           <span className="weekly-value-dot" />
-                          {workspaceCopy("API-equivalent week", "每周 API 等价估算")}
+                          {t("API-equivalent week")}
                         </span>
                         <span className="weekly-value-badge">
-                          {valueIsLastEstimate ? workspaceCopy('Last estimate', '上次估算') : workspaceCopy('Local estimate', '本地估算')}
+                          {valueIsLastEstimate ? t("Last estimate") : t("Local estimate")}
                         </span>
                       </div>
                       <div className="weekly-value-body">
                         <div className="weekly-value-metrics">
                           <span className="weekly-value-amount">
-                            ≈{USD_FORMAT.format(displayedWeeklyValueEstimate.estimatedWeeklyValueUsd)}
+                            ≈{USD_FORMAT().format(displayedWeeklyValueEstimate.estimatedWeeklyValueUsd)}
                           </span>
                           <span className="weekly-value-token-row">
                             <strong>
-                              ≈{COMPACT_TOKEN_FORMAT.format(displayedWeeklyValueEstimate.estimatedWeeklyTokens)}
+                              ≈{COMPACT_TOKEN_FORMAT().format(displayedWeeklyValueEstimate.estimatedWeeklyTokens)}
                             </strong>
-                            <span>tokens at current mix</span>
+                            <span>{t("tokens at current mix")}</span>
                           </span>
                         </div>
                         <div
                           className="weekly-value-gauge"
                           role="img"
-                          aria-label={`Estimate based on ${remainingPercent(displayedWeeklyValueEstimate.usedPct)}% 剩余`}
+                          aria-label={t("Estimate based on {p0}% remaining", { p0: remainingPercent(displayedWeeklyValueEstimate.usedPct) })}
                           style={{
                             '--weekly-value-used': `${remainingPercent(displayedWeeklyValueEstimate.usedPct)}%`,
                           } as CSSProperties}
                         >
                           <span className="weekly-value-gauge-center">
                             <strong>{remainingPercent(displayedWeeklyValueEstimate.usedPct)}%</strong>
-                            <small>剩余</small>
+                            <small>{t("Remaining")}</small>
                           </span>
                         </div>
                       </div>
                       <div className="weekly-value-footer weekly-value-footer-basis">
                         <span>
-                          {`Based on ${remainingPercent(displayedWeeklyValueEstimate.usedPct)}% 剩余 · ${USD_FORMAT.format(displayedWeeklyValueEstimate.observedCostUsd)} local`}
+                          {t("Based on {p0}% remaining · {p1} local", { p0: remainingPercent(displayedWeeklyValueEstimate.usedPct), p1: USD_FORMAT().format(displayedWeeklyValueEstimate.observedCostUsd) })}
                         </span>
                         <span>
                           {valueIsLastEstimate
-                            ? `${COMPACT_TOKEN_FORMAT.format(displayedWeeklyValueEstimate.observedTokens)} observed tokens · Not an official allowance · snapshot not refreshed`
-                            : `${COMPACT_TOKEN_FORMAT.format(displayedWeeklyValueEstimate.observedTokens)} observed tokens · Not an official allowance`}
+                            ? t("{p0} observed tokens · Not an official allowance · snapshot not refreshed", { p0: COMPACT_TOKEN_FORMAT().format(displayedWeeklyValueEstimate.observedTokens) })
+                            : t("{p0} observed tokens · Not an official allowance", { p0: COMPACT_TOKEN_FORMAT().format(displayedWeeklyValueEstimate.observedTokens) })}
                         </span>
                         <span>
-                          {workspaceCopy("Standard API prices \u00b7 Not a bill", "按标准 API 价格估算 · 不代表账单")}
+                          {t("Standard API prices · Not a bill")}
                         </span>
                       </div>
                     </>
                   ) : (
                     <span className="quota-pace warning">
-                      Weekly value unavailable: {displayedWeeklyValueEstimateError}
+                      {t("Weekly value unavailable:")}{" "}{displayedWeeklyValueEstimateError}
                     </span>
                   )}
                 </div>
@@ -646,11 +646,11 @@ export default function CodexPanel({
           {/* Subscription Section (only if no rate limits) */}
           {!hasRateLimits && codexData && (
             <div className="section">
-              <div className="section-title">{workspaceCopy("Subscription", "订阅信息")}</div>
+              <div className="section-title">{t("Subscription")}</div>
               <div className="quota-group">
                 <div className="quota-card">
                   <div className="quota-header">
-                    <span className="quota-label">{workspaceCopy("Plan", "套餐")}</span>
+                    <span className="quota-label">{t("Plan")}</span>
                     <span className="quota-value plan-badge">
                       {formatPlanType(planType)}
                     </span>
@@ -658,7 +658,7 @@ export default function CodexPanel({
                 </div>
                 <div className="quota-card">
                   <div className="quota-header">
-                    <span className="quota-label">{workspaceCopy("Valid Until", "有效期至")}</span>
+                    <span className="quota-label">{t("Valid Until")}</span>
                     <span className="quota-value">
                       {formatSubscriptionDate(codexData.subscriptionUntil)}
                     </span>
@@ -667,7 +667,7 @@ export default function CodexPanel({
                 {codexData.email && (
                   <div className="quota-card">
                     <div className="quota-header">
-                      <span className="quota-label">{workspaceCopy("Account", "账户")}</span>
+                      <span className="quota-label">{t("Account")}</span>
                       <span className="quota-value email">{codexData.email}</span>
                     </div>
                   </div>
@@ -685,8 +685,8 @@ export default function CodexPanel({
 
       {!connected && !error && (
         <div className="empty-state">
-          <p>Codex not connected</p>
-          <p className="hint">{workspaceCopy("Run 'codex' in terminal to login", "请先在终端运行 codex 完成登录")}</p>
+          <p>{t("Codex not connected")}</p>
+          <p className="hint">{t("Run 'codex' in terminal to login")}</p>
         </div>
       )}
     </div>

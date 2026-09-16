@@ -1,3 +1,4 @@
+import { message, renderText, type DisplayText } from '../src/i18n';
 import { createElement } from 'react';
 import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -36,7 +37,7 @@ function Host({
   settings?: NotificationSettings;
   enabled?: boolean;
   cursorWindows?: Array<{ provider: 'cursor'; providerLabel: string; label: string; usedPercent: number }>;
-  logEvent: (level: 'info' | 'warning' | 'critical', text: string) => void;
+  logEvent: (level: 'info' | 'warning' | 'critical', text: DisplayText) => void;
 }) {
   useServiceEvents(null, defaultServiceMap(true), used, settings, logEvent, enabled, cursorWindows);
   return null;
@@ -84,9 +85,9 @@ describe('useServiceEvents 100% crossings', () => {
       }));
     });
 
-    expect(logEvent).toHaveBeenCalledWith('critical', 'Codex remaining quota fell to 5% or less');
-    expect(logEvent).toHaveBeenCalledWith('critical', 'Codex remaining quota reached 0%');
-    expect(vi.mocked(notifications.notify).mock.calls.map((call) => call[1])).toEqual([
+    expect(logEvent).toHaveBeenCalledWith('critical', message("{p0} remaining quota fell to 5% or less", { p0: "Codex" }));
+    expect(logEvent).toHaveBeenCalledWith('critical', message("{p0} remaining quota reached 0%", { p0: "Codex" }));
+    expect(vi.mocked(notifications.notify).mock.calls.map((call) => renderText(call[1]))).toEqual([
       'Codex remaining quota fell to 5% or less',
       'Codex remaining quota reached 0%',
     ]);
@@ -113,7 +114,7 @@ describe('useServiceEvents 100% crossings', () => {
       }));
     });
 
-    expect(logEvent).toHaveBeenCalledWith('critical', 'Cursor remaining quota reached 0%');
+    expect(logEvent).toHaveBeenCalledWith('critical', message("{p0} remaining quota reached 0%", { p0: "Cursor" }));
     expect(vi.mocked(notifications.notify)).not.toHaveBeenCalled();
     await act(async () => renderer.unmount());
   });
@@ -134,7 +135,7 @@ describe('useServiceEvents 100% crossings', () => {
       }));
     });
 
-    expect(logEvent.mock.calls.some((call) => String(call[1]).includes('bonus reset'))).toBe(false);
+    expect(logEvent.mock.calls.some((call) => renderText(call[1]).includes('bonus reset'))).toBe(false);
     await act(async () => renderer.unmount());
   });
 });
@@ -163,9 +164,9 @@ describe('useServiceEvents Cursor hottest-window alerts', () => {
       }));
     });
 
-    expect(logEvent).toHaveBeenCalledWith('critical', 'Cursor remaining quota fell to 5% or less');
-    expect(logEvent).not.toHaveBeenCalledWith('warning', 'Cursor remaining quota fell to 20% or less');
-    expect(vi.mocked(notifications.notify).mock.calls.map((call) => call[1])).toEqual([
+    expect(logEvent).toHaveBeenCalledWith('critical', message("{p0} remaining quota fell to 5% or less", { p0: "Cursor" }));
+    expect(logEvent).not.toHaveBeenCalledWith('warning', message("{p0} remaining quota fell to 20% or less", { p0: "Cursor" }));
+    expect(vi.mocked(notifications.notify).mock.calls.map((call) => renderText(call[1]))).toEqual([
       'Cursor remaining quota fell to 5% or less',
     ]);
     await act(async () => renderer.unmount());
@@ -190,9 +191,9 @@ describe('useServiceEvents Cursor hottest-window alerts', () => {
       }));
     });
 
-    expect(logEvent).toHaveBeenCalledWith('warning', 'Cursor remaining quota fell to 20% or less');
-    expect(logEvent).not.toHaveBeenCalledWith('critical', 'Cursor remaining quota fell to 5% or less');
-    expect(vi.mocked(notifications.notify).mock.calls.map((call) => call[1])).toEqual([
+    expect(logEvent).toHaveBeenCalledWith('warning', message("{p0} remaining quota fell to 20% or less", { p0: "Cursor" }));
+    expect(logEvent).not.toHaveBeenCalledWith('critical', message("{p0} remaining quota fell to 5% or less", { p0: "Cursor" }));
+    expect(vi.mocked(notifications.notify).mock.calls.map((call) => renderText(call[1]))).toEqual([
       'Cursor remaining quota fell to 20% or less',
     ]);
     await act(async () => renderer.unmount());
@@ -216,8 +217,8 @@ describe('useServiceEvents Cursor hottest-window alerts', () => {
       }));
     });
 
-    expect(logEvent).not.toHaveBeenCalledWith('warning', 'Cursor remaining quota fell to 20% or less');
-    expect(logEvent).not.toHaveBeenCalledWith('critical', 'Cursor remaining quota fell to 5% or less');
+    expect(logEvent).not.toHaveBeenCalledWith('warning', message("{p0} remaining quota fell to 20% or less", { p0: "Cursor" }));
+    expect(logEvent).not.toHaveBeenCalledWith('critical', message("{p0} remaining quota fell to 5% or less", { p0: "Cursor" }));
     expect(notifications.notify).not.toHaveBeenCalled();
     await act(async () => renderer.unmount());
   });

@@ -1,3 +1,5 @@
+import { localizeLabel, getLocale, t } from '../i18n';
+import { useLocale } from '../i18n/react';
 import { useEffect, useState, type CSSProperties } from 'react';
 import type { ProviderSummary, QuotaWindowSummary } from '../services/provider_summary';
 import type { TrayServiceName } from '../services/tray_visibility';
@@ -8,13 +10,11 @@ import ProviderSetup from './ProviderSetup';
 import { quotaRecovery } from './QuotaRecovery';
 
 function windowName(label: string): string {
-  if (label === '5-hour usage' || label === '5h') return '5 小时额度';
-  if (label === '7-day usage' || label === 'Weekly') return '每周额度';
-  return label.replace('7-day', '每周').replace('Usage limit', '额度');
+  return label === '5h' ? t("5-hour quota") : localizeLabel(label);
 }
 
 function isWeekly(window: QuotaWindowSummary): boolean {
-  return /7-day|Weekly|每周/.test(window.label);
+  return window.label === 'Weekly' || window.label.endsWith('7-day') || window.label === '7-day usage' || window.label === 'Weekly pool';
 }
 
 
@@ -26,14 +26,15 @@ export default function QuotaOverview({ summaries, windows, display, onProviderS
   onRefresh: (provider: TrayServiceName) => void;
   onSettings: () => void;
 }) {
+  useLocale();
   // Reset copy continues to advance while the popover is open, independently of polling.
   const [, setNow] = useState(Date.now);
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 30_000);
     return () => clearInterval(timer);
   }, []);
-  const caption = '剩余';
-  return <div className="quota-overview" aria-label="账户额度总览">
+  const caption = t("Remaining");
+  return <div className="quota-overview" aria-label={t("Account quota overview")}>
     {summaries.map((summary) => {
       const providerWindows = windows.filter((window) => window.provider === summary.id && Number.isFinite(window.usedPercent));
       // Visibility never changes which limit is most constrained.
@@ -45,10 +46,10 @@ export default function QuotaOverview({ summaries, windows, display, onProviderS
       const recovery = quotaRecovery(summary.id, summary.readState?.error);
       const stale = Boolean(summary.failed || recovery);
       const readingAt = summary.lastSuccessAt ?? summary.readState?.readAt;
-      return <section className={`quota-account${stale ? ' is-stale' : ''}`} key={summary.id} aria-label={`${summary.label}额度`}>
+      return <section className={`quota-account${stale ? ' is-stale' : ''}`} key={summary.id} aria-label={t("{p0} quota", { p0: summary.label })}>
         <header className="quota-account-header">
           <h2>{summary.label}</h2>
-          <button type="button" onClick={() => onProviderSelect(summary.id)} aria-label={`查看 ${summary.label} 详情`}>详情 <span aria-hidden="true">›</span></button>
+          <button type="button" onClick={() => onProviderSelect(summary.id)} aria-label={t("View {p0} details", { p0: summary.label })}>{t("Details")}<span aria-hidden="true">›</span></button>
         </header>
         <div className="quota-account-reading" style={{ '--quota-color': used == null ? 'var(--sub)' : getProgressStyle(used).background } as CSSProperties}>
           <div className="quota-dial" aria-hidden="true">
@@ -60,31 +61,31 @@ export default function QuotaOverview({ summaries, windows, display, onProviderS
           </div>
           <div className="quota-account-value">
             <strong>{percentage === null ? '—' : `${percentage}%`}</strong>
-            <span>{percentage === null ? summary.loading ? '正在读取额度…' : '暂无额度数据' : `${caption}额度`}</span>
-            {headline && <small>{windowName(headline.label)}{providerWindows.length > 1 ? ' · 最接近用尽' : ''}</small>}
+            <span>{percentage === null ? summary.loading ? t("Loading quota…") : t("No quota data") : t("Remaining quota")}</span>
+            {headline && <small>{windowName(headline.label)}{providerWindows.length > 1 ? t(" · Closest to limit") : ''}</small>}
           </div>
         </div>
         {visibleWindows.length > 0 && <div className="quota-account-windows">
           {visibleWindows.map((window) => {
             const value = remainingPercent(window.usedPercent);
-            const reset = window.resetAtMs ? formatResetTime(window.resetAtMs / 1000, { expiredLabel: '即将重置' }) : null;
+            const reset = window.resetAtMs ? formatResetTime(window.resetAtMs / 1000, { expiredLabel: t("Resetting soon") }) : null;
             return <div className="quota-window" key={window.label}>
               <div className="quota-window-label"><span>{windowName(window.label)}</span><span>{caption} {value}%</span></div>
-              <div className="quota-window-track" role="progressbar" aria-label={`${summary.label} ${windowName(window.label)}${caption}额度`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={value} aria-valuetext={`${caption} ${value}%${stale ? '，上次读取的数据' : ''}`}>
+              <div className="quota-window-track" role="progressbar" aria-label={t("{p0} {p1} {p2} quota", { p0: summary.label, p1: windowName(window.label), p2: caption })} aria-valuemin={0} aria-valuemax={100} aria-valuenow={value} aria-valuetext={`${caption} ${value}%${stale ? t(", last known data") : ''}`}>
                 <span style={{ width: `${value}%`, background: getProgressStyle(window.usedPercent).background }} />
               </div>
-              {reset && <small className="quota-window-reset">{reset === '即将重置' ? reset : `${reset.replace(/d/g, ' 天 ').replace(/h/g, ' 小时 ').replace(/m/g, ' 分钟').trim()}后重置`}</small>}
+              {reset && <small className="quota-window-reset">{window.resetAtMs! <= Date.now() ? reset : t("Resets in {p0}", { p0: reset })}</small>}
             </div>;
           })}
         </div>}
         {stale && <div className="quota-account-notice" role="status">
-          <span>{recovery?.title ?? '额度更新失败'}{percentage !== null ? ' · 显示旧数据' : ''}</span>
-          {readingAt != null && <small>最近成功读取 {new Date(readingAt).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</small>}
-          <button type="button" onClick={() => onProviderSelect(summary.id)}>查看原因与恢复方式 ›</button>
+          <span>{recovery?.title ?? t("Quota update failed")}{percentage !== null ? t(" · Showing stale data") : ''}</span>
+          {readingAt != null && <small>{t("Last successful read")}{new Date(readingAt).toLocaleString(getLocale(), { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</small>}
+          <button type="button" onClick={() => onProviderSelect(summary.id)}>{t("View cause and recovery steps ›")}</button>
         </div>}
         {percentage === null && !summary.loading && !summary.connected && !stale && <ProviderSetup service={summary.id} loading={false} onRetry={() => onRefresh(summary.id)} />}
       </section>;
     })}
-    <button type="button" className="quota-manage-accounts" onClick={onSettings}>管理显示的账户 <span aria-hidden="true">›</span></button>
+    <button type="button" className="quota-manage-accounts" onClick={onSettings}>{t("Manage visible accounts")}<span aria-hidden="true">›</span></button>
   </div>;
 }

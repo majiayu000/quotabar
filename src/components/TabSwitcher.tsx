@@ -1,3 +1,5 @@
+import { localizeLabel, t } from '../i18n';
+import { useLocale } from '../i18n/react';
 import { remainingPercent } from '../utils/quota_format';
 import { useEffect, useRef, useState } from 'react';
 import { getSavedProviderFavorites, saveProviderFavorites, MAX_PROVIDER_FAVORITES } from '../services/provider_favorites';
@@ -18,6 +20,7 @@ export default function TabSwitcher({
   onTabChange,
   summaries,
 }: TabSwitcherProps) {
+  useLocale();
   const [savedFavorites, setSavedFavorites] = useState(getSavedProviderFavorites);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [search, setSearch] = useState('');
@@ -47,22 +50,22 @@ export default function TabSwitcher({
 
   function toggleFavorite(id: TrayServiceName) {
     if (!favorites.includes(id) && favorites.length >= MAX_PROVIDER_FAVORITES) {
-      setNotice('常用入口已满，请先取消一个收藏。');
+      setNotice("Favorites are full. Remove a favorite first.");
       return;
     }
     const next = favorites.includes(id) ? favorites.filter((favorite) => favorite !== id) : [...favorites, id];
     const saved = saveProviderFavorites(next);
     setSavedFavorites(next);
-    setNotice(saved ? '常用入口已更新。' : '收藏仅在本次使用中生效，未能保存。');
+    setNotice(saved ? "Favorites updated." : "Favorites apply this session but could not be saved.");
   }
 
   return (<>
-    <nav className="provider-grid" aria-label="Provider views">
+    <nav className="provider-grid" aria-label={t("Provider views")}>
       {[
         {
           id: 'all' as const,
-          label: 'Overview',
-          shortLabel: '总览',
+          label: t("Overview"),
+          shortLabel: t("Overview"),
           accent: '#0A84FF',
           connected: summaries.some((summary) => summary.connected),
           usedPercent: null,
@@ -70,11 +73,11 @@ export default function TabSwitcher({
         ...favoriteSummaries,
       ].map((summary) => {
         const isActive = activeTab === summary.id;
-        const usageLabel = summary.id === 'all' ? '全部服务' : summary.usedPercent == null ? '—' : `${remainingPercent(summary.usedPercent)}%`;
-        const quotaLabel = summary.usedPercent == null ? usageLabel : `${usageLabel} 剩余${'usageLabel' in summary && summary.usageLabel ? ` · ${summary.usageLabel}` : ''}`;
+        const usageLabel = summary.id === 'all' ? t("All services") : summary.usedPercent == null ? '—' : `${remainingPercent(summary.usedPercent)}%`;
+        const quotaLabel = summary.usedPercent == null ? usageLabel : t("{p0} remaining{p1}", { p0: usageLabel, p1: 'usageLabel' in summary && summary.usageLabel ? ` · ${localizeLabel(summary.usageLabel)}` : '' });
         const statusText = 'statusText' in summary
-          ? summary.statusText
-          : summary.connected ? 'Providers connected' : 'No providers connected';
+          ? localizeLabel(summary.statusText)
+          : summary.connected ? t("Providers connected") : t("No providers connected");
 
         return (
           <button
@@ -104,36 +107,36 @@ export default function TabSwitcher({
         );
       })}
       <button ref={trigger} type="button" className={`provider-card provider-picker-trigger${activeOutsideFavorites ? ' active' : ''}`}
-        aria-label={`全部服务（${summaries.length}）`} aria-haspopup="dialog" aria-expanded={pickerOpen}
+        aria-label={t("All services ({p0})", { p0: summaries.length })} aria-haspopup="dialog" aria-expanded={pickerOpen}
         aria-current={activeOutsideFavorites ? 'page' : undefined}
-        title={activeOutsideFavorites ? `当前：${summaries.find((summary) => summary.id === activeTab)?.label ?? activeTab}` : '搜索和收藏服务'}
+        title={activeOutsideFavorites ? t("Current: {p0}", { p0: summaries.find((summary) => summary.id === activeTab)?.label ?? activeTab }) : t("Search and favorite services")}
         onClick={() => { setSearch(''); setNotice(''); setPickerOpen(true); }}>
-        <span className="provider-card-label">全部 {summaries.length}</span><span aria-hidden="true">⌄</span>
+        <span className="provider-card-label">{t("All")}{" "}{summaries.length}</span><span aria-hidden="true">⌄</span>
       </button>
     </nav>
     {pickerOpen && <dialog ref={dialog} className="provider-picker" aria-labelledby="provider-picker-title"
       onCancel={(event) => { event.preventDefault(); closePicker(); }}
       onClick={(event) => { if (event.target === event.currentTarget) closePicker(); }}>
       <div className="provider-picker-content">
-        <header><h2 id="provider-picker-title">全部服务 · {summaries.length}</h2><button type="button" aria-label="关闭服务选择器" onClick={closePicker}>×</button></header>
-        <input ref={searchInput} type="search" aria-label="搜索服务" placeholder="搜索服务…" value={search} onChange={(event) => setSearch(event.target.value)} />
-        <p className="provider-picker-help">收藏常用 · 最多 {MAX_PROVIDER_FAVORITES} 个</p>
+        <header><h2 id="provider-picker-title">{t("All services ·")}{" "}{summaries.length}</h2><button type="button" aria-label={t("Close provider picker")} onClick={closePicker}>×</button></header>
+        <input ref={searchInput} type="search" aria-label={t("Search services")} placeholder={t("Search services…")} value={search} onChange={(event) => setSearch(event.target.value)} />
+        <p className="provider-picker-help">{t("Favorites · Up to {count}", { count: MAX_PROVIDER_FAVORITES })}</p>
         <div className="provider-picker-list">
           {matches.map((summary) => <div className="provider-picker-row" key={summary.id}>
             <ProviderIcon service={summary.id} className="provider-picker-icon" />
             <button type="button" className="provider-picker-select" aria-current={activeTab === summary.id ? 'page' : undefined}
               onClick={() => { closePicker(); onTabChange(summary.id); }}>
-              <strong>{summary.label}{activeTab === summary.id && <small>当前</small>}</strong>
-              <span>{summary.loading ? '正在读取…' : summary.failed ? '更新失败 · 查看详情恢复' : summary.connected
-                ? summary.usedPercent != null && Number.isFinite(summary.usedPercent) ? `剩余 ${remainingPercent(summary.usedPercent)}%${summary.usageLabel ? ` · ${summary.usageLabel}` : ''}` : '已连接 · 暂无额度数据'
-                : summary.id === 'antigravity' ? '额度接入待支持' : '未连接 · 查看连接方式'}</span>
+              <strong>{summary.label}{activeTab === summary.id && <small>{t("Current")}</small>}</strong>
+              <span>{summary.loading ? t("Loading…") : summary.failed ? t("Update failed · View details to recover") : summary.connected
+                ? summary.usedPercent != null && Number.isFinite(summary.usedPercent) ? t("{p0}% remaining{p1}", { p0: remainingPercent(summary.usedPercent), p1: summary.usageLabel ? ` · ${localizeLabel(summary.usageLabel)}` : '' }) : t("Connected · No quota data yet")
+                : summary.id === 'antigravity' ? t("Quota support pending") : t("Not connected · View sign-in steps")}</span>
             </button>
-            <button type="button" className="provider-picker-star" aria-label={`${favorites.includes(summary.id) ? '取消收藏' : '收藏'} ${summary.label}`}
+            <button type="button" className="provider-picker-star" aria-label={`${favorites.includes(summary.id) ? t("Remove favorite") : t("Favorite")} ${summary.label}`}
               aria-pressed={favorites.includes(summary.id)} onClick={() => toggleFavorite(summary.id)}>{favorites.includes(summary.id) ? '★' : '☆'}</button>
           </div>)}
-          {matches.length === 0 && <p className="provider-picker-empty">{summaries.length ? '没有匹配的服务' : '尚未启用服务'}</p>}
+          {matches.length === 0 && <p className="provider-picker-empty">{summaries.length ? t("No matching services") : t("No services enabled")}</p>}
         </div>
-        <p className="provider-picker-notice" role="status">{notice || '列表遵循“设置 → 账户”的显示选择，收藏只改变顶部入口。'}</p>
+        <p className="provider-picker-notice" role="status">{localizeLabel(notice) || t("This list follows Settings → Accounts. Favorites only change the top shortcuts.")}</p>
       </div>
     </dialog>}
   </>);

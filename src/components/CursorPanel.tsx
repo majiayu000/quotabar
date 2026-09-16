@@ -1,4 +1,5 @@
-import { workspaceCopy } from '../utils/quota_format';
+import { localizeLabel, getLocale, t } from '../i18n';
+import { useLocale } from '../i18n/react';
 import { useEffect, useState, useCallback } from 'react';
 import { backend } from '../services/backend';
 import CostSummarySection from './CostSummarySection';
@@ -24,15 +25,15 @@ interface CursorPanelProps {
 }
 
 function windowHint(label: string, onDemandEnabled?: boolean): string | undefined {
-  if (label === 'Cursor Models') return '包含 Cursor Grok 和 Composer';
+  if (label === 'Cursor Models') return t("Includes Cursor Grok and Composer");
   if (label === 'Other Models' && onDemandEnabled) {
-    return '超出额度后计入按量费用。';
+    return t("Usage beyond the quota incurs on-demand charges.");
   }
   return undefined;
 }
 
 function formatCents(cents: number): string {
-  return new Intl.NumberFormat('en-US', {
+  return new Intl.NumberFormat(getLocale(), {
     style: 'currency',
     currency: 'USD',
     minimumFractionDigits: 2,
@@ -47,11 +48,11 @@ function formatResetDate(resetAt?: string): string {
     if (Number.isNaN(date.getTime())) return '';
     const now = new Date();
     const diff = date.getTime() - now.getTime();
-    if (diff <= 0) return '即将重置';
+    if (diff <= 0) return t("Resetting soon");
     const days = Math.round(diff / (1000 * 60 * 60 * 24));
-    if (days >= 2) return `${days} 天后重置`;
+    if (days >= 2) return t("Resets in {p0} days", { p0: days });
     const hours = Math.round(diff / (1000 * 60 * 60));
-    return `${hours} 小时后重置`;
+    return t("Resets in {p0} hours", { p0: hours });
   } catch {
     return '';
   }
@@ -68,6 +69,7 @@ export default function CursorPanel({
   showCostSummary = true,
   sections = defaultPanelSections(),
 }: CursorPanelProps) {
+  useLocale();
   const [cursorData, setCursorData] = useState<CursorData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -88,10 +90,10 @@ export default function CursorPanel({
       onConnectionChange?.(data.connected);
       onUsageChange?.(getCursorTrayUsedPercent(data));
       onQuotaWindowsChange?.(buildCursorQuotaWindows(data));
-      onReadResult?.(data.error ?? (data.connected && buildCursorQuotaWindows(data).length > 0 ? null : 'Quota unavailable'));
+      onReadResult?.(data.error ?? (data.connected && buildCursorQuotaWindows(data).length > 0 ? null : t("Quota unavailable")));
     } catch (err) {
       if (!request_generation.isCurrent(generation)) return;
-      const message = err instanceof Error ? err.message : 'Failed to fetch Cursor data';
+      const message = err instanceof Error ? err.message : "Failed to fetch Cursor data";
       setError(message);
       onReadResult?.(message);
       onConnectionChange?.(false);
@@ -127,7 +129,7 @@ export default function CursorPanel({
   if (loading && !cursorData) {
     return (
       <div className="codex-panel">
-        <div className="loading-state">Loading Cursor info...</div>
+        <div className="loading-state">{t("Loading Cursor info...")}</div>
       </div>
     );
   }
@@ -137,7 +139,7 @@ export default function CursorPanel({
   const windows = buildCursorQuotaWindows(cursorData);
   const hasDashboardWindows = cursorData?.autoPercent != null || cursorData?.apiPercent != null;
   const includedRequestValue = cursorData?.fastUsed != null && cursorData.fastLimit != null
-    ? `剩余 ${Math.max(0, cursorData.fastLimit - cursorData.fastUsed)} / ${cursorData.fastLimit}${percentage != null ? ` · ${remainingPercent(percentage)}%` : ''}`
+    ? t("Remaining {p0} / {p1}{p2}", { p0: Math.max(0, cursorData.fastLimit - cursorData.fastUsed), p1: cursorData.fastLimit, p2: percentage != null ? ` · ${remainingPercent(percentage)}%` : '' })
     : null;
 
   return (
@@ -146,8 +148,8 @@ export default function CursorPanel({
         <div className="error-banner">
           <span className="error-icon">!</span>
           <span className="error-text">
-            {error}
-            {cursorData?.connected && <span className="error-context">{workspaceCopy("Showing last known data.", "当前显示上次成功读取的数据。")}</span>}
+            {localizeLabel(error)}
+            {cursorData?.connected && <span className="error-context">{t("Showing last known data.")}</span>}
           </span>
         </div>
       )}
@@ -155,25 +157,25 @@ export default function CursorPanel({
       {cursorData?.connected && (
         <div className="codex-content">
           <div className="section">
-            <div className="section-title">{workspaceCopy("Usage", "额度用量")}</div>
+            <div className="section-title">{t("Usage")}</div>
 
             <div className="quota-group">
               {hasDashboardWindows && windows.map((window) => {
                 const hint = windowHint(window.label, cursorData?.onDemandEnabled);
                 return (
-                  <div className="quota-card" key={window.label}>
+                  <div className="quota-card" key={localizeLabel(window.label)}>
                     <div className="quota-header">
-                      <span className="quota-label">{window.label}</span>
-                      <span className="quota-value">{`${remainingPercent(window.usedPercent)}% 剩余`}</span>
+                      <span className="quota-label">{localizeLabel(window.label)}</span>
+                      <span className="quota-value">{t("{p0}% remaining", { p0: remainingPercent(window.usedPercent) })}</span>
                     </div>
                     <div
                       className="progress-bar"
                       role="progressbar"
-                      aria-label={`${window.label} remaining quota`}
+                      aria-label={t("{p0} remaining quota", { p0: localizeLabel(window.label) })}
                       aria-valuemin={0}
                       aria-valuemax={100}
                       aria-valuenow={remainingPercent(window.usedPercent)}
-                      aria-valuetext={`${remainingPercent(window.usedPercent)}% 剩余`}
+                      aria-valuetext={t("{p0}% remaining", { p0: remainingPercent(window.usedPercent) })}
                     >
                       <div className="progress-fill" style={getRemainingProgressStyle(window.usedPercent)} />
                     </div>
@@ -188,20 +190,20 @@ export default function CursorPanel({
               {!hasDashboardWindows && (includedRequestValue != null || percentage != null) && (
                 <div className="quota-card">
                   <div className="quota-header">
-                    <span className="quota-label">{workspaceCopy("Usage", "额度用量")}</span>
+                    <span className="quota-label">{t("Usage")}</span>
                     <span className="quota-value">
-                      {includedRequestValue ?? `${remainingPercent(percentage ?? 0)}% 剩余`}
+                      {includedRequestValue ?? t("{p0}% remaining", { p0: remainingPercent(percentage ?? 0) })}
                     </span>
                   </div>
                   {percentage != null && (
                     <div
                       className="progress-bar"
                       role="progressbar"
-                      aria-label="Cursor remaining quota"
+                      aria-label={t("Cursor remaining quota")}
                       aria-valuemin={0}
                       aria-valuemax={100}
                       aria-valuenow={remainingPercent(percentage)}
-                      aria-valuetext={`${remainingPercent(percentage)}% 剩余`}
+                      aria-valuetext={t("{p0}% remaining", { p0: remainingPercent(percentage) })}
                     >
                       <div className="progress-fill" style={getRemainingProgressStyle(percentage)} />
                     </div>
@@ -213,7 +215,7 @@ export default function CursorPanel({
               {cursorData.onDemandUsedCents != null && cursorData.onDemandUsedCents > 0 && (
                 <div className="quota-card">
                   <div className="quota-header">
-                    <span className="quota-label">On-demand</span>
+                    <span className="quota-label">{t("On-demand")}</span>
                     <span className="quota-value">{formatCents(cursorData.onDemandUsedCents)}</span>
                   </div>
                 </div>
@@ -222,7 +224,7 @@ export default function CursorPanel({
               {!hasDashboardWindows && !cursorData.onDemandEnabled && cursorData.slowUsed != null && cursorData.slowUsed > 0 && (
                 <div className="quota-card">
                   <div className="quota-header">
-                    <span className="quota-label">Slow requests</span>
+                    <span className="quota-label">{t("Slow requests")}</span>
                     <span className="quota-value">{cursorData.slowUsed}</span>
                   </div>
                 </div>
@@ -232,7 +234,7 @@ export default function CursorPanel({
 
             {cursorData.email && (
               <div className="account-strip">
-                <span className="account-strip-label">{workspaceCopy("Account", "账户")}</span>
+                <span className="account-strip-label">{t("Account")}</span>
                 <span className="account-strip-value" title={cursorData.email}>{cursorData.email}</span>
               </div>
             )}
@@ -250,8 +252,8 @@ export default function CursorPanel({
 
       {!cursorData?.connected && !error && (
         <div className="empty-state">
-          <p>Cursor not connected</p>
-          <p className="hint">Open Cursor and sign in, or set CURSOR_SESSION_TOKEN</p>
+          <p>{t("Cursor not connected")}</p>
+          <p className="hint">{t("Open Cursor and sign in, or set CURSOR_SESSION_TOKEN")}</p>
         </div>
       )}
     </div>

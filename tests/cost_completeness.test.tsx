@@ -170,6 +170,6 @@ it('reports a failed trend read in provider details instead of silently hiding i
   vi.spyOn(console, 'error').mockImplementation(() => {});
   let renderer!: ReactTestRenderer;
   await act(async () => { renderer = create(createElement(CostSummarySection, { source: 'claude' })); });
-  expect(renderer.root.findByProps({ role: 'alert' }).children.join('')).toContain('趋势读取失败：log unavailable');
+  expect(renderer.root.findByProps({ role: 'alert' }).children.join('')).toContain('Could not load trend: log unavailable');
   await act(async () => { renderer.unmount(); });
 });

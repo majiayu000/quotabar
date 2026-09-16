@@ -1,3 +1,5 @@
+import { useLocale } from '../i18n/react';
+import { getLocale, t } from '../i18n';
 import { useEffect, useState } from 'react';
 import { formatEventTime } from '../services/event_log';
 
@@ -7,6 +9,7 @@ export function useFooterStatus(
   lastUpdatedAt: number | null,
   failed = false,
 ): { footerStatus: string; footerStatusTitle: string } {
+  useLocale();
   const [, setStatusTick] = useState(0);
 
   useEffect(() => {
@@ -17,12 +20,12 @@ export function useFooterStatus(
 
   return {
     footerStatus: activeLoading
-      ? '正在刷新…'
+      ? t("Refreshing…")
       : lastUpdatedAt != null
-        ? `${failed ? '旧数据 · ' : ''}最近成功读取 ${formatEventTime(new Date(lastUpdatedAt).toISOString())}`
-        : failed ? '额度不可用 · 请重试' : '尚未成功读取额度',
+        ? t("{p0}Last successful read {p1}", { p0: failed ? t("Stale data · ") : '', p1: formatEventTime(new Date(lastUpdatedAt).toISOString()) })
+        : failed ? t("Quota unavailable · Retry") : t("No successful quota read yet"),
     footerStatusTitle: lastUpdatedAt != null
-      ? `最近成功读取 ${new Date(lastUpdatedAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`
-      : '尚未成功读取额度',
+      ? t("Last successful read {p0}", { p0: new Date(lastUpdatedAt).toLocaleTimeString(getLocale(), { hour: '2-digit', minute: '2-digit' }) })
+      : t("No successful quota read yet"),
   };
 }

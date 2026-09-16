@@ -1,8 +1,10 @@
+import { initializeI18n, localizeLabel } from './i18n';
 import React from "react";
 import ReactDOM from "react-dom/client";
 import App from './App';
 import './styles/design-system.css';
 import './styles/compact.css';
+initializeI18n();
 const workspace = new URLSearchParams(window.location.search).get('window') !== 'tray';
 if (workspace) document.documentElement.classList.add('analysis-document');
 
@@ -22,7 +24,7 @@ function report_fatal_error(source: FatalErrorSource): void {
   console.error(`[fatal:${source}] ${FATAL_ERROR_MESSAGE}`);
   try {
     const existing_surface = document.getElementById(FATAL_SURFACE_ID);
-    const surface_text = `[${source}] ${FATAL_ERROR_MESSAGE}`;
+    const surface_text = `[${source}] ${localizeLabel(FATAL_ERROR_MESSAGE)}`;
     if (existing_surface) {
       existing_surface.textContent = surface_text;
       return;

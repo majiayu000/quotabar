@@ -1,3 +1,5 @@
+import { localizeLabel, t } from '../i18n';
+import { useLocale } from '../i18n/react';
 import type { TrayServiceName } from '../services/tray_visibility';
 import { SERVICE_META, SERVICES } from '../services/service_meta';
 
@@ -31,14 +33,14 @@ interface TrayTogglesProps {
 function renderToggle(entry: TrayToggleEntry, onToggle: (service: TrayServiceName) => void) {
   const disableToggle = entry.enabled && !entry.canDisable;
   const statusText = entry.connected
-    ? entry.connectedHint ?? 'Connected'
+    ? entry.connectedHint ?? t("Connected")
     : entry.disconnectedHint;
   return (
     <div className="dock-toggle tray-toggle" key={entry.service}>
       <span className="tray-toggle-copy">
-        <span className="toggle-label">{entry.label}</span>
+        <span className="toggle-label">{localizeLabel(entry.label)}</span>
         <span className={`tray-toggle-status ${entry.connected ? 'connected' : 'disconnected'}`}>
-          {statusText}
+          {localizeLabel(statusText)}
         </span>
       </span>
       <button
@@ -47,7 +49,7 @@ function renderToggle(entry: TrayToggleEntry, onToggle: (service: TrayServiceNam
         className={`tray-toggle-button ${entry.enabled ? 'checked' : ''} ${disableToggle ? 'disabled' : ''}`}
         aria-checked={entry.enabled}
         aria-disabled={disableToggle}
-        aria-label={`${entry.label} toggle`}
+        aria-label={t("{p0} toggle", { p0: localizeLabel(entry.label) })}
         disabled={disableToggle}
         onClick={() => onToggle(entry.service)}
       >
@@ -58,9 +60,10 @@ function renderToggle(entry: TrayToggleEntry, onToggle: (service: TrayServiceNam
 }
 
 export default function TrayToggles({ entries, onToggle }: TrayTogglesProps) {
+  useLocale();
   return (
     <div className="tray-settings">
-      <div className="settings-title">Tray</div>
+      <div className="settings-title">{t("Tray")}</div>
       <div className="tray-toggle-list">
         {entries.map((entry) => renderToggle(entry, onToggle))}
       </div>

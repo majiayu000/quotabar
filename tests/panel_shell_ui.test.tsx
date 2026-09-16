@@ -57,8 +57,8 @@ describe('panel shell UI', () => {
     expect(html).not.toContain('tabindex="-1"');
     expect(html).toContain('provider-card-label">Claude');
     expect(html).toContain('provider-card-label">Codex');
-    expect(html).toContain('provider-card-label">总览');
-    expect(html).toContain('title="Claude · 52% 剩余');
+    expect(html).toContain('provider-card-label">Overview');
+    expect(html).toContain('title="Claude · 52% remaining');
     expect(html).not.toContain('provider-card-percent');
     expect(html).not.toContain('Add service');
     expect(html).not.toContain('provider-card-window');
@@ -93,11 +93,11 @@ describe('panel shell UI', () => {
         onQuit: vi.fn(), loading: false, showDashboard: false,
       }));
     });
-    const button = renderer.root.findByProps({ 'aria-label': '打开用量分析' });
+    const button = renderer.root.findByProps({ 'aria-label': 'Open usage analysis' });
     await act(async () => button.props.onClick());
     expect(onAnalysis).toHaveBeenCalledTimes(1);
     expect(onDashboard).not.toHaveBeenCalled();
-    expect(JSON.stringify(renderer.toJSON())).not.toContain('服务商控制台');
+    expect(JSON.stringify(renderer.toJSON())).not.toContain('Provider dashboard');
     expect(renderer.root.findAllByProps({ className: 'analysis-launch' })).toHaveLength(0);
     await act(async () => renderer.unmount());
   });
@@ -165,20 +165,20 @@ describe('panel shell UI', () => {
     );
 
     expect((html.match(/class="settings-group"/g) ?? [])).toHaveLength(6);
-    expect(html).toContain('>用量参考预算<');
-    expect(html).toContain('>提醒<');
+    expect(html).toContain('>Usage reference budgets<');
+    expect(html).toContain('>Alerts<');
     expect(html).toContain('Alert at 0% remaining');
     expect(html).toContain('Alert when a bonus reset is unused at 0% remaining');
-    expect(html).toContain('>来源显示<');
-    expect(html).toContain('>面板<');
-    expect(html).toContain('>菜单栏<');
+    expect(html).toContain('>Providers<');
+    expect(html).toContain('>Panel<');
+    expect(html).toContain('>Menu<');
     expect(html).toContain('aria-label="Show Claude in panel"');
     expect(html).toContain('aria-label="Show Claude in menu bar"');
-    expect(html).toContain('theme-option-label">浅色');
-    expect(html).toContain('>已连接<');
-    expect(html).toContain('>需登录<');
-    expect(html).toContain('>预览<');
-    expect(html).toContain('>登录时启动<');
+    expect(html).toContain('theme-option-label">Light');
+    expect(html).toContain('>Connected<');
+    expect(html).toContain('>Sign-in required<');
+    expect(html).toContain('>Preview<');
+    expect(html).toContain('>Launch at Login<');
     expect(html).toContain('aria-label="Launch at Login"');
   });
 
@@ -258,10 +258,10 @@ describe('panel shell UI', () => {
     });
 
     const text = JSON.stringify(renderer.toJSON());
-    expect(text).toContain('API 等价用量');
-    expect(text).toContain('本地估算');
-    expect(text).toContain('按本地记录和 API 价格估算，非实际账单。');
-    expect(text).not.toContain('不含 Grok 和 Antigravity');
+    expect(text).toContain('API-equivalent usage');
+    expect(text).toContain('Local estimate');
+    expect(text).toContain('Estimated from local logs at API prices; not a bill.');
+    expect(text).not.toContain('Excludes Grok and Antigravity');
     const trendButtons = renderer.root.findAll((node) => (
       node.type === 'button'
       && typeof node.props.className === 'string'
@@ -339,8 +339,8 @@ describe('panel shell UI', () => {
     });
 
     const text = JSON.stringify(renderer.toJSON());
-    expect(text).toContain('Claude、Codex、Cursor 本地记录');
-    expect(text).toContain('不含 Grok 和 Antigravity');
+    expect(text).toContain('local Claude, Codex and Cursor logs');
+    expect(text).toContain('Excludes Grok and Antigravity');
     await act(async () => renderer.unmount());
   });
 });
