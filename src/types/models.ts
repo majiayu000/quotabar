@@ -85,10 +85,15 @@ export interface CodexWeeklyValueEstimate {
   estimatedWeeklyTokens: number;
 }
 
+export interface CodexWeeklyValueError {
+  diagnostic: string;
+  unpricedModels?: string;
+}
+
 export interface CodexWeeklyQuotaData {
   quota?: CodexWeeklyQuota;
   valueEstimate?: CodexWeeklyValueEstimate;
-  valueEstimateError?: string;
+  valueEstimateError?: CodexWeeklyValueError;
   error?: string;
 }
 

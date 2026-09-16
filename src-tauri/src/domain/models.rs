@@ -192,23 +192,55 @@ pub struct CodexWeeklyValueEstimate {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct CodexWeeklyValueError {
+    pub diagnostic: String,
+    #[serde(rename = "unpricedModels")]
+    pub unpriced_models: Option<String>,
+}
+
+impl From<String> for CodexWeeklyValueError {
+    fn from(diagnostic: String) -> Self {
+        Self {
+            diagnostic,
+            unpriced_models: None,
+        }
+    }
+}
+
+impl From<ccstats::CodexWeeklyValueWindowError> for CodexWeeklyValueError {
+    fn from(error: ccstats::CodexWeeklyValueWindowError) -> Self {
+        let diagnostic = error.to_string();
+        let unpriced_models = match error {
+            ccstats::CodexWeeklyValueWindowError::Estimate(
+                ccstats::CodexWeeklyValueError::UnpricedModels { models },
+            ) => Some(models),
+            _ => None,
+        };
+        Self {
+            diagnostic,
+            unpriced_models,
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct CodexWeeklyQuotaData {
     pub quota: Option<CodexWeeklyQuota>,
     #[serde(rename = "valueEstimate")]
     pub value_estimate: Option<CodexWeeklyValueEstimate>,
     #[serde(rename = "valueEstimateError")]
-    pub value_estimate_error: Option<String>,
+    pub value_estimate_error: Option<CodexWeeklyValueError>,
     pub error: Option<String>,
 }
 
 impl CodexWeeklyQuotaData {
     pub fn from_results(
         quota: Result<ccstats::CodexWeeklyQuota, String>,
-        value_estimate: Result<ccstats::CodexWeeklyValueEstimate, String>,
+        value_estimate: Result<ccstats::CodexWeeklyValueEstimate, CodexWeeklyValueError>,
     ) -> Self {
         let (value_estimate, value_estimate_error) = match value_estimate {
             Ok(estimate) => (Some(CodexWeeklyValueEstimate::from(estimate)), None),
-            Err(error) => (None, Some(error.to_string())),
+            Err(error) => (None, Some(error)),
         };
         let (quota, error) = match quota {
             Ok(quota) => (Some(CodexWeeklyQuota::from(quota)), None),

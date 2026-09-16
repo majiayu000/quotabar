@@ -350,6 +350,18 @@
   padding: 11px 0 9px;
 }
 
+.weekly-value-diagnostic {
+  margin-top: 8px;
+  color: var(--sub);
+  font-size: 11px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.weekly-value-diagnostic summary {
+  cursor: pointer;
+}
+
 .weekly-value-card::before {
   position: absolute;
   top: 11px;

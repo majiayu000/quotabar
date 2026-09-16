@@ -13,6 +13,7 @@ import type {
   CodexResetCredits,
   CodexWeeklyQuota,
   CodexWeeklyValueEstimate,
+  CodexWeeklyValueError,
 } from '../types/models';
 import { buildCodexQuotaWindows, type QuotaWindowSummary } from '../services/provider_summary';
 import { canReportBonusReady } from '../services/bonus_ready';
@@ -204,7 +205,7 @@ export default function CodexPanel({
   const [weeklyQuota, setWeeklyQuota] = useState<CodexWeeklyQuota | null>(null);
   const [weeklyQuotaError, setWeeklyQuotaError] = useState<string | null>(null);
   const [weeklyValueEstimate, setWeeklyValueEstimate] = useState<CodexWeeklyValueEstimate | null>(null);
-  const [weeklyValueEstimateError, setWeeklyValueEstimateError] = useState<string | null>(null);
+  const [weeklyValueEstimateError, setWeeklyValueEstimateError] = useState<CodexWeeklyValueError | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [rateLimitsError, setRateLimitsError] = useState<string | null>(null);
@@ -622,9 +623,19 @@ export default function CodexPanel({
                       </div>
                     </>
                   ) : (
-                    <span className="quota-pace warning">
-                      {t("Weekly value unavailable:")}{" "}{displayedWeeklyValueEstimateError}
-                    </span>
+                    <div>
+                      <p className="quota-pace warning">
+                        {displayedWeeklyValueEstimateError?.unpricedModels
+                          ? t("Weekly value unavailable because prices are missing for {models}.", { models: displayedWeeklyValueEstimateError.unpricedModels })
+                          : t("Weekly value could not be calculated. See diagnostics for details.")}
+                      </p>
+                      {displayedWeeklyValueEstimateError && (
+                        <details className="weekly-value-diagnostic">
+                          <summary>{t("Diagnostics")}</summary>
+                          <p>{displayedWeeklyValueEstimateError.diagnostic}</p>
+                        </details>
+                      )}
+                    </div>
                   )}
                 </div>
               </div>

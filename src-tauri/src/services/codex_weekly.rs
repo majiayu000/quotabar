@@ -1,6 +1,6 @@
 //! Cached Codex weekly value estimates powered by the `ccstats` SDK.
 
-use crate::domain::models::{CodexRateLimitWindow, CodexRateLimits};
+use crate::domain::models::{CodexRateLimitWindow, CodexRateLimits, CodexWeeklyValueError};
 use once_cell::sync::Lazy;
 use std::{
     path::{Path, PathBuf},
@@ -13,7 +13,7 @@ const WEEKLY_WINDOW_MINUTES: i64 = 10_080;
 const SUCCESS_CACHE_TTL: Duration = Duration::from_secs(300);
 const ERROR_CACHE_TTL: Duration = Duration::from_secs(60);
 
-type WeeklyValueResult = Result<ccstats::CodexWeeklyValueEstimate, String>;
+type WeeklyValueResult = Result<ccstats::CodexWeeklyValueEstimate, CodexWeeklyValueError>;
 
 #[derive(Clone)]
 struct CachedWeeklyValue {
@@ -118,7 +118,7 @@ fn estimate_from_official_window(
         false,
         false,
     )
-    .map_err(|error| error.to_string())
+    .map_err(CodexWeeklyValueError::from)
 }
 
 fn value_window(
@@ -169,7 +169,10 @@ mod tests {
         let estimate = estimate();
 
         assert_eq!(cache_ttl(&Ok(estimate)), SUCCESS_CACHE_TTL);
-        assert_eq!(cache_ttl(&Err("unavailable".to_string())), ERROR_CACHE_TTL);
+        assert_eq!(
+            cache_ttl(&Err("unavailable".to_string().into())),
+            ERROR_CACHE_TTL
+        );
     }
 
     fn limits_with(
@@ -221,7 +224,9 @@ mod tests {
     #[test]
     fn missing_official_snapshot_does_not_use_local_usage() {
         let error = estimate_codex_weekly_value(Path::new("unused"), None).unwrap_err();
-        assert!(error.contains("official weekly quota snapshot is unavailable"));
+        assert!(error
+            .diagnostic
+            .contains("official weekly quota snapshot is unavailable"));
     }
 
     #[test]
@@ -246,5 +251,37 @@ mod tests {
         assert_eq!(data.error.as_deref(), Some("No local quota snapshot"));
         assert!(data.value_estimate.is_some());
         assert!(data.value_estimate_error.is_none());
+    }
+
+    #[test]
+    fn missing_model_prices_keep_structured_metadata_across_ipc() {
+        let sdk_error = ccstats::CodexWeeklyValueWindowError::Estimate(
+            ccstats::CodexWeeklyValueError::UnpricedModels {
+                models: "gpt-reserve".to_string(),
+            },
+        );
+        let diagnostic = sdk_error.to_string();
+        let data = crate::domain::models::CodexWeeklyQuotaData::from_results(
+            Err("No local quota snapshot".to_string()),
+            Err(sdk_error.into()),
+        );
+        let payload = serde_json::to_value(data).unwrap();
+        assert!(payload["valueEstimate"].is_null());
+        assert_eq!(
+            payload["valueEstimateError"]["unpricedModels"],
+            "gpt-reserve"
+        );
+        assert_eq!(payload["valueEstimateError"]["diagnostic"], diagnostic);
+    }
+
+    #[test]
+    fn other_estimate_errors_preserve_diagnostics_without_missing_models() {
+        let sdk_error = ccstats::CodexWeeklyValueWindowError::Estimate(
+            ccstats::CodexWeeklyValueError::NoUsageInWindow,
+        );
+        let diagnostic = sdk_error.to_string();
+        let error = CodexWeeklyValueError::from(sdk_error);
+        assert_eq!(error.diagnostic, diagnostic);
+        assert!(error.unpriced_models.is_none());
     }
 }

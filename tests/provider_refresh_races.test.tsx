@@ -537,11 +537,11 @@ describe('Codex weekly pace', () => {
         projectedPctAtReset: 90,
         status: 'on_track',
       },
-      valueEstimateError: 'no matching local token usage',
+      valueEstimateError: { diagnostic: 'no matching local token usage' },
     });
 
     expect(rendered_text(renderer)).not.toContain('Local pace:');
-    expect(rendered_text(renderer)).toContain('Weekly value unavailable');
+    expect(rendered_text(renderer)).toContain('Weekly value could not be calculated. See diagnostics for details.');
     expect(rendered_text(renderer)).toContain('no matching local token usage');
     await unmount(renderer);
   });

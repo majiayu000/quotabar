@@ -440,7 +440,7 @@ pub async fn get_codex_weekly_quota() -> Result<CodexWeeklyQuotaData, String> {
         let quota =
             ccstats::load_codex_weekly_quota(Some(&codex_home)).map_err(|error| error.to_string());
         let value_estimate = match fetched_official.error {
-            Some(error) => Err(error),
+            Some(error) => Err(error.into()),
             None => codex_weekly::estimate_codex_weekly_value(&codex_home, official.as_ref()),
         };
         CodexWeeklyQuotaData::from_results(quota, value_estimate)

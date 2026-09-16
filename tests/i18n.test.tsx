@@ -13,6 +13,7 @@ import { subscribeStorageWriteFailures } from '../src/services/storage';
 import { backend } from '../src/services/backend';
 import GrokPanel from '../src/components/GrokPanel';
 import ClaudePanel from '../src/components/ClaudePanel';
+import CodexPanel from '../src/components/CodexPanel';
 import QuotaOverview from '../src/components/QuotaOverview';
 import { buildClaudeQuotaWindows, buildGrokQuotaWindows } from '../src/services/provider_summary';
 import { formatResetTime } from '../src/utils/quota_format';
@@ -105,6 +106,39 @@ describe('language ownership', () => {
 });
 
 describe('live bilingual rendering', () => {
+  it.each([true, false])('localizes a Codex valuation failure and isolates raw diagnostics (missing prices: %s)', async (missingPrices) => {
+    const diagnostic = missingPrices
+      ? 'cannot price Codex models in the active weekly window: gpt-reserve'
+      : 'failed to load pricing data: network offline';
+    vi.spyOn(backend, 'getCodexInfo').mockResolvedValue({ connected: true });
+    vi.spyOn(backend, 'getCodexRateLimits').mockResolvedValue({
+      connected: true,
+      secondary: { usedPercent: 40, windowMinutes: 10_080, resetsAt: Math.floor(Date.now() / 1000) + 86400 },
+    });
+    vi.spyOn(backend, 'getCodexResetCredits').mockResolvedValue({ connected: true, availableCount: 0, credits: [] });
+    const fetch = vi.spyOn(backend, 'getCodexWeeklyQuota').mockResolvedValue({
+      valueEstimateError: { diagnostic, unpricedModels: missingPrices ? 'gpt-reserve' : undefined },
+    });
+    setLanguagePreference('zh-CN');
+    await act(async () => { renderer = create(createElement(CodexPanel, { autoRefreshIntervalMs: 0, showCostSummary: false })); });
+    const card = () => renderer!.root.findByProps({ className: 'quota-card weekly-value-card' });
+    const copy = () => card().findByProps({ className: 'quota-pace warning' }).children.join('');
+    expect(copy()).toBe(missingPrices
+      ? '缺少 gpt-reserve 的价格，暂时无法计算每周估值。'
+      : '暂时无法计算每周估值，请展开诊断详情查看原因。');
+    const details = card().findByType('details');
+    expect(details.props.open).toBeUndefined();
+    expect(details.findByType('p').children.join('')).toBe(diagnostic);
+    expect(details.findByType('summary').children.join('')).toBe('诊断详情');
+    await act(async () => { setLanguagePreference('en'); });
+    expect(copy()).toBe(missingPrices
+      ? 'Weekly value unavailable because prices are missing for gpt-reserve.'
+      : 'Weekly value could not be calculated. See diagnostics for details.');
+    expect(card().findByType('summary').children.join('')).toBe('Diagnostics');
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(renderer!.root.findByProps({ 'aria-label': 'Weekly quota remaining quota' }).props['aria-valuenow']).toBe(60);
+  });
+
   it('switches a connected provider without refetching, losing quota or remounting data', async () => {
     const fetch = vi.spyOn(backend, 'getGrokInfo').mockResolvedValue({ connected: true, percentage: 27, periodType: 'weekly', periodLabel: 'Weekly' });
     await act(async () => { renderer = create(createElement(GrokPanel, { autoRefreshIntervalMs: 0 })); });
