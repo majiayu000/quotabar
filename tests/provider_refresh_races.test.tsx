@@ -375,7 +375,7 @@ describe('Codex weekly pace', () => {
         estimatedWeeklyValueUsd: 200,
         observedTokens: 1_600_000,
         estimatedWeeklyTokens: 4_000_000,
-        models: ['gpt-6-astra'],
+        modelEstimates: [{ model: 'gpt-6-astra', estimatedWeeklyTokens: 4_000_000, sampleTokens: 400_000, sampleUsedPct: 10 }],
       },
     });
 
@@ -384,13 +384,13 @@ describe('Codex weekly pace', () => {
     expect(rendered_text(renderer)).not.toContain('% at reset');
     expect(rendered_text(renderer)).toContain('API-equivalent week');
     expect(rendered_text(renderer)).toContain('$200.00');
-    expect(rendered_text(renderer)).toContain('4M');
-    expect(rendered_text(renderer)).toContain('tokens based on gpt-6-astra usage');
+    expect(rendered_text(renderer)).toContain('4M tokens / week');
+    expect(rendered_text(renderer)).toContain('If only gpt-6-astra');
     expect(rendered_text(renderer)).toContain('Local estimate');
     expect(rendered_text(renderer)).toContain('Based on 60% remaining');
-    expect(renderer.root.findByProps({ className: 'weekly-value-amount' }).children.join('')).toBe('≈$200.00');
+    expect(renderer.root.findByType('details').findAllByType('p')[0].children.join('')).toBe('≈$200.00');
     expect(rendered_text(renderer)).toContain('Standard API prices · Not a bill');
-    expect(renderer.root.findByProps({ className: 'weekly-value-token-row' }).findByType('strong').children.join('')).toBe('≈4M');
+    expect(renderer.root.findByProps({ className: 'weekly-model-estimate' }).findByType('strong').children.join('')).toBe('≈4M tokens / week');
     expect(rendered_text(renderer)).toContain('1.6M observed tokens');
     expect(rendered_text(renderer)).toContain('$80.00 local');
     expect(rendered_text(renderer)).toContain('Not an official allowance');
@@ -426,7 +426,7 @@ describe('Codex weekly pace', () => {
         estimatedWeeklyValueUsd: 200,
         observedTokens: 1_000_000,
         estimatedWeeklyTokens: 4_000_000,
-        models: ['gpt-6-astra'],
+        modelEstimates: [{ model: 'gpt-6-astra', estimatedWeeklyTokens: 4_000_000, sampleTokens: 400_000, sampleUsedPct: 10 }],
       },
     }, null, {
       usedPercent: 25,
@@ -440,7 +440,7 @@ describe('Codex weekly pace', () => {
     await unmount(renderer);
   });
 
-  it('keeps the full-week estimate prominent at low usage', async () => {
+  it('uses the model sample for capacity and keeps mixed API value in details', async () => {
     const renderer = await render_codex({
       valueEstimate: {
         observedAt: new Date().toISOString(),
@@ -451,11 +451,12 @@ describe('Codex weekly pace', () => {
         estimatedWeeklyValueUsd: 2469.12,
         observedTokens: 1_000_000,
         estimatedWeeklyTokens: 20_000_000,
-        models: ['gpt-6-astra'],
+        modelEstimates: [{ model: 'gpt-6-astra', estimatedWeeklyTokens: 16_000_000, sampleTokens: 800_000, sampleUsedPct: 5 }],
       },
     }, null, { usedPercent: 5, windowMinutes: 10_080, resetsAt: 1_787_961_600 });
-    expect(renderer.root.findByProps({ className: 'weekly-value-amount' }).children.join('')).toBe('≈$2,469.12');
-    expect(renderer.root.findByProps({ className: 'weekly-value-token-row' }).findByType('strong').children.join('')).toBe('≈20M');
+    expect(renderer.root.findByType('details').findAllByType('p')[0].children.join('')).toBe('≈$2,469.12');
+    expect(renderer.root.findByProps({ className: 'weekly-model-estimate' }).findByType('strong').children.join('')).toBe('≈16M tokens / week');
+    expect(rendered_text(renderer)).not.toContain('≈20M');
     expect(rendered_text(renderer)).toContain('$123.46 local');
     expect(rendered_text(renderer)).toContain('1M observed tokens');
     await unmount(renderer);
@@ -488,7 +489,7 @@ describe('Codex weekly pace', () => {
         estimatedWeeklyValueUsd: 200,
         observedTokens: 1_600_000,
         estimatedWeeklyTokens: 4_000_000,
-        models: ['gpt-6-astra'],
+        modelEstimates: [{ model: 'gpt-6-astra', estimatedWeeklyTokens: 4_000_000, sampleTokens: 400_000, sampleUsedPct: 10 }],
         ...override,
       },
     });
@@ -519,7 +520,7 @@ describe('Codex weekly pace', () => {
         estimatedWeeklyValueUsd: 200,
         observedTokens: 1_600_000,
         estimatedWeeklyTokens: 4_000_000,
-        models: ['gpt-6-astra'],
+        modelEstimates: [{ model: 'gpt-6-astra', estimatedWeeklyTokens: 4_000_000, sampleTokens: 400_000, sampleUsedPct: 10 }],
       },
     });
 

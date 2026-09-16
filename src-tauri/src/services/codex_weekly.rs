@@ -159,7 +159,12 @@ mod tests {
             estimated_weekly_value_usd: 200.0,
             observed_tokens: 1_000,
             estimated_weekly_tokens: 4_000.0,
-            models: vec!["gpt-6-astra".to_string()],
+            model_estimates: vec![ccstats::CodexModelTokenEstimate {
+                model: "gpt-6-astra".to_string(),
+                estimated_weekly_tokens: Some(4_000.0),
+                sample_tokens: 1_000,
+                sample_used_pct: 25.0,
+            }],
             valid_entries: 1,
             dedup_skipped_entries: 0,
         }
@@ -253,8 +258,11 @@ mod tests {
         assert!(data.value_estimate.is_some());
         let payload = serde_json::to_value(&data).unwrap();
         assert_eq!(
-            payload["valueEstimate"]["models"],
-            serde_json::json!(["gpt-6-astra"])
+            payload["valueEstimate"]["modelEstimates"],
+            serde_json::json!([{
+                "model": "gpt-6-astra", "estimatedWeeklyTokens": 4_000.0,
+                "sampleTokens": 1_000, "sampleUsedPct": 25.0,
+            }])
         );
         assert!(data.value_estimate_error.is_none());
     }

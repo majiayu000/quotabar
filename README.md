@@ -133,8 +133,16 @@ archive with its upstream commit and SHA-256 in `vendor/ccstats-sdk.json`.
 excludes `gpt-reserve` complimentary usage from weekly value/token estimates
 before pricing, while retaining it in general usage analytics. Official quota
 percentages remain provider-reported; ordinary Luna usage is not excluded.
-Weekly token estimates name the models observed in that window, including all
-contributors when usage is mixed, rather than the currently selected model.
+Weekly token capacity is estimated separately for each model: the whole weekly
+quota spent on that model alone. These are alternative uses of the same quota,
+not additive allowances. Calibration uses deduplicated local tokens between
+subscription quota snapshots in the current week. Each accepted continuous
+single-model span must consume at least five percentage points; mixed spans,
+unexplained quota consumption, resets, contradictory snapshots, and saturated
+readings are excluded. Models without a qualifying sample show insufficient
+data; no fixed Astra/Sol capacities or API-price ratios are assumed. Other
+devices, cloud usage, rounding, and workload changes can skew the estimate.
+The mixed-workload API-equivalent value remains available in collapsed details.
 SDK development can refresh the archive with `npm run sdk:update` when a ccstats
 checkout is beside this repository.
 When updating the SDK, review or remove the patch if upstream already includes

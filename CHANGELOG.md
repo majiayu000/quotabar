@@ -4,7 +4,9 @@ All notable QuotaBar changes should be summarized here before a release is cut.
 
 ## Unreleased
 
-- Identify the models behind Codex weekly token estimates, distinguishing one model from a mixed workload in Chinese and English.
+- Apply the bundled SDK patch from the repository root so clean builds include Reserve exclusion and model estimates instead of silently skipping the patch.
+
+- Show separate Codex full-week token capacity estimates for each model, calibrated from single-model local spans covering at least 5% of weekly quota. Mark insufficient samples, exclude mixed/contradictory intervals and independent quota pools, and explain that model scenarios share one allowance. Keep mixed API-equivalent value in details. Chinese and English are supported.
 
 ## 0.5.2 - 2026-09-16
 

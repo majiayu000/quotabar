@@ -106,10 +106,7 @@ describe('language ownership', () => {
 });
 
 describe('live bilingual rendering', () => {
-  it.each([
-    { models: ['gpt-6-astra'], en: 'tokens based on gpt-6-astra usage', zh: '按 gpt-6-astra 用量折算的 Token' },
-    { models: ['gpt-5.6-sol', 'gpt-6-astra'], en: 'tokens based on the gpt-5.6-sol / gpt-6-astra mix', zh: '按 gpt-5.6-sol / gpt-6-astra 混合用量折算的 Token' },
-  ])('names the token estimate models in both languages: $models', async ({ models, en, zh }) => {
+  it('shows independent model capacities and insufficient samples in both languages', async () => {
     const observedAt = new Date().toISOString();
     const resetsAt = Math.floor(Date.now() / 1000) + 86400;
     vi.spyOn(backend, 'getCodexInfo').mockResolvedValue({ connected: true });
@@ -122,15 +119,27 @@ describe('live bilingual rendering', () => {
         observedAt, resetsAt: new Date(resetsAt * 1000).toISOString(),
         windowStartedAt: new Date((resetsAt - 604800) * 1000).toISOString(),
         usedPct: 40, observedCostUsd: 80, estimatedWeeklyValueUsd: 200,
-        observedTokens: 360_000_000, estimatedWeeklyTokens: 900_000_000, models,
+        observedTokens: 360_000_000, estimatedWeeklyTokens: 900_000_000,
+        modelEstimates: [
+          { model: 'gpt-6-astra', estimatedWeeklyTokens: 900_000_000, sampleTokens: 90_000_000, sampleUsedPct: 10 },
+          { model: 'gpt-5.6-sol', estimatedWeeklyTokens: 2_000_000_000, sampleTokens: 200_000_000, sampleUsedPct: 10 },
+          { model: 'gpt-5.6-luna', estimatedWeeklyTokens: null, sampleTokens: 0, sampleUsedPct: 0 },
+        ],
       },
     });
     await act(async () => { renderer = create(createElement(CodexPanel, { autoRefreshIntervalMs: 0, showCostSummary: false })); });
-    const row = () => renderer!.root.findByProps({ className: 'weekly-value-token-row' });
-    expect(row().findAllByType('span')[1].children.join('')).toBe(en);
+    const rows = () => renderer!.root.findAllByProps({ className: 'weekly-model-estimate' });
+    expect(rows()).toHaveLength(3);
+    expect(rows()[0].findByType('strong').children.join('')).toBe('≈900M tokens / week');
+    expect(rows()[1].findByType('strong').children.join('')).toBe('≈2B tokens / week');
+    expect(rows()[2].findAllByType('span')[1].children.join('')).toBe('Insufficient sample');
+    expect(JSON.stringify(renderer!.toJSON())).toContain('These alternatives cannot be added together');
     await act(async () => { setLanguagePreference('zh-CN'); });
-    expect(row().findAllByType('span')[1].children.join('')).toBe(zh);
-    expect(row().findByType('strong').children.join('')).toBe('≈9亿');
+    expect(rows()[0].findByType('span').children.join('')).toBe('若全用 gpt-6-astra');
+    expect(rows()[0].findByType('strong').children.join('')).toBe('≈9亿 Token / 周');
+    expect(rows()[1].findByType('strong').children.join('')).toBe('≈20亿 Token / 周');
+    expect(rows()[2].findAllByType('span')[1].children.join('')).toBe('样本不足');
+    expect(JSON.stringify(renderer!.toJSON())).toContain('同一份周额度的不同用法，不能相加');
     expect(fetch).toHaveBeenCalledTimes(1);
   });
 

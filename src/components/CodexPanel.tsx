@@ -576,7 +576,7 @@ export default function CodexPanel({
                       <div className="weekly-value-topline">
                         <span className="weekly-value-title">
                           <span className="weekly-value-dot" />
-                          {t("API-equivalent week")}
+                          {t("Weekly token capacity")}
                         </span>
                         <span className="weekly-value-badge">
                           {valueIsLastEstimate ? t("Last estimate") : t("Local estimate")}
@@ -584,19 +584,26 @@ export default function CodexPanel({
                       </div>
                       <div className="weekly-value-body">
                         <div className="weekly-value-metrics">
-                          <span className="weekly-value-amount">
-                            ≈{USD_FORMAT().format(displayedWeeklyValueEstimate.estimatedWeeklyValueUsd)}
-                          </span>
-                          <span className="weekly-value-token-row">
-                            <strong>
-                              ≈{COMPACT_TOKEN_FORMAT().format(displayedWeeklyValueEstimate.estimatedWeeklyTokens)}
-                            </strong>
-                            <span>
-                              {displayedWeeklyValueEstimate.models.length === 1
-                                ? t("tokens based on {models} usage", { models: displayedWeeklyValueEstimate.models.join(' / ') })
-                                : t("tokens based on the {models} mix", { models: displayedWeeklyValueEstimate.models.join(' / ') })}
-                            </span>
-                          </span>
+                          {displayedWeeklyValueEstimate.modelEstimates.map((estimate) => (
+                            <div className="weekly-model-estimate" key={estimate.model}>
+                              <span>{t("If only {model}", { model: estimate.model })}</span>
+                              {estimate.estimatedWeeklyTokens == null ? (
+                                <span className="weekly-model-unavailable">{t("Insufficient sample")}</span>
+                              ) : (
+                                <>
+                                  <strong>
+                                    {t("≈{tokens} tokens / week", { tokens: COMPACT_TOKEN_FORMAT().format(estimate.estimatedWeeklyTokens) })}
+                                  </strong>
+                                  <small>
+                                    {t("Sample: {tokens} tokens · {percent}% of weekly quota", {
+                                      tokens: COMPACT_TOKEN_FORMAT().format(estimate.sampleTokens),
+                                      percent: new Intl.NumberFormat(getLocale(), { maximumFractionDigits: 1 }).format(estimate.sampleUsedPct),
+                                    })}
+                                  </small>
+                                </>
+                              )}
+                            </div>
+                          ))}
                         </div>
                         <div
                           className="weekly-value-gauge"
@@ -614,7 +621,7 @@ export default function CodexPanel({
                       </div>
                       <div className="weekly-value-footer weekly-value-footer-basis">
                         <span>
-                          {t("Based on {p0}% remaining · {p1} local", { p0: remainingPercent(displayedWeeklyValueEstimate.usedPct), p1: USD_FORMAT().format(displayedWeeklyValueEstimate.observedCostUsd) })}
+                          {t("Same weekly quota · These alternatives cannot be added together")}
                         </span>
                         <span>
                           {valueIsLastEstimate
@@ -622,9 +629,16 @@ export default function CodexPanel({
                             : t("{p0} observed tokens · Not an official allowance", { p0: COMPACT_TOKEN_FORMAT().format(displayedWeeklyValueEstimate.observedTokens) })}
                         </span>
                         <span>
-                          {t("Standard API prices · Not a bill")}
+                          {t("Requires a single-model span using at least 5% of this week's quota.")}
                         </span>
+                        <span>{t("Other devices, cloud usage and workload changes can skew the estimate.")}</span>
                         <span>{t("Excludes GPT-Reserve complimentary usage")}</span>
+                        <details className="weekly-value-diagnostic">
+                          <summary>{t("API-equivalent week · current mix")}</summary>
+                          <p>≈{USD_FORMAT().format(displayedWeeklyValueEstimate.estimatedWeeklyValueUsd)}</p>
+                          <p>{t("Based on {p0}% remaining · {p1} local", { p0: remainingPercent(displayedWeeklyValueEstimate.usedPct), p1: USD_FORMAT().format(displayedWeeklyValueEstimate.observedCostUsd) })}</p>
+                          <p>{t("Standard API prices · Not a bill")}</p>
+                        </details>
                       </div>
                     </>
                   ) : (

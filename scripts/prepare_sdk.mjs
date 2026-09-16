@@ -32,5 +32,7 @@ if (digest() !== expected.sha256) throw new Error('ccstats SDK archive checksum 
 rmSync(destination, { recursive: true, force: true });
 mkdirSync(destination, { recursive: true });
 execFileSync('tar', ['-xzf', archive, '-C', destination], { stdio: 'inherit' });
-execFileSync('git', ['apply', '--whitespace=error', weeklyReservePatch], { cwd: destination, stdio: 'inherit' });
+// Git interprets patch paths from the repository root; running in the ignored
+// SDK subdirectory would silently skip every src/... path in this patch.
+execFileSync('git', ['apply', '--whitespace=error', '--directory=vendor/ccstats', weeklyReservePatch], { cwd: root, stdio: 'inherit' });
 console.log(`Prepared ccstats SDK ${expected.sha256.slice(0, 12)} with the weekly reserve exclusion patch.`);

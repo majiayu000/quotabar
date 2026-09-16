@@ -455,6 +455,30 @@
   white-space: nowrap;
 }
 
+.weekly-model-estimate {
+  display: grid;
+  gap: 4px;
+  padding: 6px 0;
+  color: var(--sub);
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
+.weekly-model-estimate + .weekly-model-estimate {
+  border-top: 1px solid var(--line);
+}
+
+.weekly-model-estimate strong {
+  color: var(--mint);
+  font-size: 18px;
+  font-variant-numeric: tabular-nums;
+}
+
+.weekly-model-estimate small,
+.weekly-model-unavailable {
+  font-size: 10px;
+}
+
 .weekly-value-gauge {
   width: 46px;
   height: 46px;

@@ -83,7 +83,14 @@ export interface CodexWeeklyValueEstimate {
   estimatedWeeklyValueUsd: number;
   observedTokens: number;
   estimatedWeeklyTokens: number;
-  models: string[];
+  modelEstimates: CodexModelTokenEstimate[];
+}
+
+export interface CodexModelTokenEstimate {
+  model: string;
+  estimatedWeeklyTokens: number | null;
+  sampleTokens: number;
+  sampleUsedPct: number;
 }
 
 export interface CodexWeeklyValueError {
