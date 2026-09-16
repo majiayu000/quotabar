@@ -1,0 +1,2 @@
+# SDK archives contain LF sources; preserve matching patch context on Windows.
+vendor/*.patch text eol=lf
