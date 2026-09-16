@@ -385,17 +385,18 @@ describe('Codex weekly pace', () => {
     expect(rendered_text(renderer)).toContain('API-equivalent week');
     expect(rendered_text(renderer)).toContain('$200.00');
     expect(rendered_text(renderer)).toContain('4M tokens / week');
-    expect(rendered_text(renderer)).toContain('If only gpt-6-astra');
+    expect(rendered_text(renderer)).toContain('Astra');
+    expect(rendered_text(renderer)).toContain('GPT-5.6 Sol');
     expect(rendered_text(renderer)).toContain('Local estimate');
     expect(rendered_text(renderer)).toContain('Based on 60% remaining');
     expect(renderer.root.findByType('details').findAllByType('p')[0].children.join('')).toBe('≈$200.00');
     expect(rendered_text(renderer)).toContain('Standard API prices · Not a bill');
-    expect(renderer.root.findByProps({ className: 'weekly-model-estimate' }).findByType('strong').children.join('')).toBe('≈4M tokens / week');
+    expect(renderer.root.findAllByProps({ className: 'weekly-model-estimate' })[0].findByType('strong').children.join('')).toBe('≈4M tokens / week');
     expect(rendered_text(renderer)).toContain('1.6M observed tokens');
     expect(rendered_text(renderer)).toContain('$80.00 local');
     expect(rendered_text(renderer)).toContain('Not an official allowance');
     expect(renderer.root.findByProps({
-      'aria-label': 'Estimate based on 60% remaining',
+      'aria-label': '60% remaining',
     })).toBeDefined();
     expect(rendered_text(renderer)).not.toContain('Estimated depletion');
     const weekly_value_card = renderer.root.findByProps({
@@ -455,7 +456,8 @@ describe('Codex weekly pace', () => {
       },
     }, null, { usedPercent: 5, windowMinutes: 10_080, resetsAt: 1_787_961_600 });
     expect(renderer.root.findByType('details').findAllByType('p')[0].children.join('')).toBe('≈$2,469.12');
-    expect(renderer.root.findByProps({ className: 'weekly-model-estimate' }).findByType('strong').children.join('')).toBe('≈16M tokens / week');
+    expect(renderer.root.findAllByProps({ className: 'weekly-model-estimate' })[0].findByType('strong').children.join('')).toBe('≈16M tokens / week');
+    expect(renderer.root.findAllByProps({ className: 'weekly-model-estimate' })[1].findByType('strong').children.join('')).toBe('≈40M tokens / week');
     expect(rendered_text(renderer)).not.toContain('≈20M');
     expect(rendered_text(renderer)).toContain('$123.46 local');
     expect(rendered_text(renderer)).toContain('1M observed tokens');
@@ -469,7 +471,7 @@ describe('Codex weekly pace', () => {
     ['reset mismatch', { resetsAt: '2026-09-05T00:00:00Z' }],
     ['one second reset mismatch', { resetsAt: '2026-08-29T00:00:01Z' }],
     ['future observation', { observedAt: new Date(Date.now() + 11 * 60 * 1000).toISOString() }],
-  ])('hides a weekly value estimate with %s', async (_case, override) => {
+  ])('uses community capacity instead of a weekly value estimate with %s', async (_case, override) => {
     const renderer = await render_codex({
       quota: {
         observedAt: new Date().toISOString(),
@@ -497,6 +499,10 @@ describe('Codex weekly pace', () => {
     expect(rendered_text(renderer)).not.toContain('API-equivalent week');
     expect(rendered_text(renderer)).not.toContain('Last estimate');
     expect(rendered_text(renderer)).not.toContain('Weekly value unavailable');
+    expect(rendered_text(renderer)).toContain('Community reference');
+    expect(rendered_text(renderer)).toContain('≈853.5M tokens / week');
+    expect(rendered_text(renderer)).toContain('≈3.6B tokens / week');
+    expect(renderer.root.findByProps({ className: 'weekly-value-gauge-center' }).findByType('strong').children.join('')).toBe('60%');
     await unmount(renderer);
   });
 

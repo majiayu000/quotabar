@@ -6,7 +6,7 @@ All notable QuotaBar changes should be summarized here before a release is cut.
 
 - Apply the bundled SDK patch from the repository root so clean builds include Reserve exclusion and model estimates instead of silently skipping the patch.
 
-- Show separate Codex full-week token capacity estimates for each model, calibrated from single-model local spans covering at least 5% of weekly quota. Mark insufficient samples, exclude mixed/contradictory intervals and independent quota pools, and explain that model scenarios share one allowance. Keep mixed API-equivalent value in details. Chinese and English are supported.
+- Simplify Codex weekly token capacity to Astra and GPT-5.6 Sol in Chinese and English. Prefer the current week's local Astra sample and convert Sol tokens at the dated standard API price ratio (2.5×). Without local Astra data, show attributed Pro 20× community references. Remove other models and insufficient-sample rows; keep mixed API value and diagnostics collapsed.
 
 ## 0.5.2 - 2026-09-16
 

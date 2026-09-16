@@ -474,8 +474,7 @@
   font-variant-numeric: tabular-nums;
 }
 
-.weekly-model-estimate small,
-.weekly-model-unavailable {
+.weekly-model-estimate small {
   font-size: 10px;
 }
 

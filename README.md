@@ -133,16 +133,29 @@ archive with its upstream commit and SHA-256 in `vendor/ccstats-sdk.json`.
 excludes `gpt-reserve` complimentary usage from weekly value/token estimates
 before pricing, while retaining it in general usage analytics. Official quota
 percentages remain provider-reported; ordinary Luna usage is not excluded.
-Weekly token capacity is estimated separately for each model: the whole weekly
-quota spent on that model alone. These are alternative uses of the same quota,
-not additive allowances. Calibration uses deduplicated local tokens between
-subscription quota snapshots in the current week. Each accepted continuous
-single-model span must consume at least five percentage points; mixed spans,
-unexplained quota consumption, resets, contradictory snapshots, and saturated
-readings are excluded. Models without a qualifying sample show insufficient
-data; no fixed Astra/Sol capacities or API-price ratios are assumed. Other
-devices, cloud usage, rounding, and workload changes can skew the estimate.
-The mixed-workload API-equivalent value remains available in collapsed details.
+Weekly token capacity shows only **Astra** and **GPT-5.6 Sol**. When an Astra
+estimate is available for the current weekly window, Astra uses that local
+estimate and Sol shows its API-price equivalent: Astra tokens × 2.5. The
+[Astra](https://openai.com/index/gpt-6-astra/) and
+[Sol](https://developers.openai.com/api/docs/models/gpt-5.6-sol) standard API
+input/cached-input/output prices checked on September 16, 2026 have the same
+2.5 ratio. This is price conversion, not a measured Sol subscription allowance.
+Local calibration still requires a continuous single-model span covering at
+least five quota percentage points; mixed or contradictory spans are excluded.
+
+Without a usable local Astra estimate, both rows explicitly show a **community
+reference**: Astra ≈853.5M and Sol ≈3.6B tokens per full week, including cached
+input. These factual results come from [Codex Weekly Quota
+Observatory](https://codex-quota.manetli.com/data/), snapshot
+`2026-09-16T08:50:43.414Z`, one Pro 20× account at Standard speed. They are not
+scaled to or presented as the current account's allowance. The source and date
+are shown in the panel; the reference values and dated price ratio live in
+`src/services/codex_weekly_reference.json`.
+
+The two rows represent alternative uses of one quota and cannot be added.
+Other devices, cloud usage and workload changes can skew local estimates.
+Official remaining percentages stay provider-reported. The mixed-workload
+API-equivalent value and any local valuation errors remain in collapsed details.
 SDK development can refresh the archive with `npm run sdk:update` when a ccstats
 checkout is beside this repository.
 When updating the SDK, review or remove the patch if upstream already includes

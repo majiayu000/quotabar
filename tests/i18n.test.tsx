@@ -106,7 +106,14 @@ describe('language ownership', () => {
 });
 
 describe('live bilingual rendering', () => {
-  it('shows independent model capacities and insufficient samples in both languages', async () => {
+  it.each([
+    ['local Astra', 900_000_000],
+    ['no Astra', undefined],
+    ['no Astra sample', null],
+    ['zero Astra estimate', 0],
+    ['invalid Astra estimate', Number.NaN],
+  ])('shows only Astra and Sol with the right source in both languages: %s', async (_case, astraTokens) => {
+    const isLocal = astraTokens === 900_000_000;
     const observedAt = new Date().toISOString();
     const resetsAt = Math.floor(Date.now() / 1000) + 86400;
     vi.spyOn(backend, 'getCodexInfo').mockResolvedValue({ connected: true });
@@ -121,24 +128,38 @@ describe('live bilingual rendering', () => {
         usedPct: 40, observedCostUsd: 80, estimatedWeeklyValueUsd: 200,
         observedTokens: 360_000_000, estimatedWeeklyTokens: 900_000_000,
         modelEstimates: [
-          { model: 'gpt-6-astra', estimatedWeeklyTokens: 900_000_000, sampleTokens: 90_000_000, sampleUsedPct: 10 },
+          ...(astraTokens === undefined ? [] : [{ model: 'gpt-6-astra', estimatedWeeklyTokens: astraTokens, sampleTokens: 90_000_000, sampleUsedPct: 10 }]),
           { model: 'gpt-5.6-sol', estimatedWeeklyTokens: 2_000_000_000, sampleTokens: 200_000_000, sampleUsedPct: 10 },
           { model: 'gpt-5.6-luna', estimatedWeeklyTokens: null, sampleTokens: 0, sampleUsedPct: 0 },
+          { model: 'codex-auto-review', estimatedWeeklyTokens: 12_000_000_000, sampleTokens: 1_200_000_000, sampleUsedPct: 10 },
         ],
       },
     });
     await act(async () => { renderer = create(createElement(CodexPanel, { autoRefreshIntervalMs: 0, showCostSummary: false })); });
     const rows = () => renderer!.root.findAllByProps({ className: 'weekly-model-estimate' });
-    expect(rows()).toHaveLength(3);
-    expect(rows()[0].findByType('strong').children.join('')).toBe('≈900M tokens / week');
-    expect(rows()[1].findByType('strong').children.join('')).toBe('≈2B tokens / week');
-    expect(rows()[2].findAllByType('span')[1].children.join('')).toBe('Insufficient sample');
+    expect(rows()).toHaveLength(2);
+    expect(rows().map((row) => row.findByType('span').children.join(''))).toEqual(['Astra', 'GPT-5.6 Sol']);
+    expect(rows()[0].findByType('strong').children.join('')).toBe(isLocal ? '≈900M tokens / week' : '≈853.5M tokens / week');
+    expect(rows()[1].findByType('strong').children.join('')).toBe(isLocal ? '≈2.3B tokens / week' : '≈3.6B tokens / week');
+    expect(JSON.stringify(renderer!.toJSON())).toContain(isLocal ? 'Price conversion from Astra · 2.5× tokens' : 'Community reference');
+    for (const unwanted of ['codex-auto-review', 'gpt-5.6-luna', 'If only', 'Insufficient sample']) {
+      expect(JSON.stringify(renderer!.toJSON())).not.toContain(unwanted);
+    }
     expect(JSON.stringify(renderer!.toJSON())).toContain('These alternatives cannot be added together');
     await act(async () => { setLanguagePreference('zh-CN'); });
-    expect(rows()[0].findByType('span').children.join('')).toBe('若全用 gpt-6-astra');
-    expect(rows()[0].findByType('strong').children.join('')).toBe('≈9亿 Token / 周');
-    expect(rows()[1].findByType('strong').children.join('')).toBe('≈20亿 Token / 周');
-    expect(rows()[2].findAllByType('span')[1].children.join('')).toBe('样本不足');
+    expect(rows()[0].findByType('span').children.join('')).toBe('Astra');
+    expect(rows()[0].findByType('strong').children.join('')).toBe(isLocal ? '≈9亿 Token / 周' : '≈8.5亿 Token / 周');
+    expect(rows()[1].findByType('strong').children.join('')).toBe(isLocal ? '≈22.5亿 Token / 周' : '≈36亿 Token / 周');
+    const chinese = JSON.stringify(renderer!.toJSON());
+    expect(chinese).toContain(isLocal ? '按 Astra 价格折算 · 2.5 倍 Token' : '社区参考');
+    expect(chinese).not.toContain('样本不足');
+    expect(chinese).not.toContain('若全用');
+    if (!isLocal) {
+      expect(chinese).toContain('Pro 20×');
+      expect(chinese).toContain('非当前账户额度');
+      expect(chinese).toContain('codex-quota.manetli.com');
+      expect(chinese).toContain('2026-09-16');
+    }
     expect(JSON.stringify(renderer!.toJSON())).toContain('同一份周额度的不同用法，不能相加');
     expect(fetch).toHaveBeenCalledTimes(1);
   });
@@ -165,7 +186,10 @@ describe('live bilingual rendering', () => {
       : '暂时无法计算每周估值，请展开诊断详情查看原因。');
     const details = card().findByType('details');
     expect(details.props.open).toBeUndefined();
-    expect(details.findByType('p').children.join('')).toBe(diagnostic);
+    expect(details.findAllByType('p')[1].children.join('')).toBe(diagnostic);
+    expect(details.findByProps({ className: 'quota-pace warning' })).toBeDefined();
+    expect(card().findAllByProps({ className: 'weekly-model-estimate' })).toHaveLength(2);
+    expect(card().findByProps({ className: 'weekly-value-badge' }).children.join('')).toBe('社区参考');
     expect(details.findByType('summary').children.join('')).toBe('诊断详情');
     await act(async () => { setLanguagePreference('en'); });
     expect(copy()).toBe(missingPrices

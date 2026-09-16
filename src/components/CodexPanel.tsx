@@ -2,6 +2,7 @@ import { localizeLabel, getLocale, t } from '../i18n';
 import { useLocale } from '../i18n/react';
 import { useEffect, useState, useCallback, type CSSProperties } from 'react';
 import { backend } from '../services/backend';
+import weeklyReference from '../services/codex_weekly_reference.json';
 import CostSummarySection from './CostSummarySection';
 import ResetTimeline from './ResetTimeline';
 import SmartTip from './SmartTip';
@@ -21,6 +22,7 @@ import {
   checkWeeklyQuotaWindow,
   checkWeeklyValueEstimate,
   formatLocalExtrasPaused,
+  getWeeklyTokenCapacity,
   isHardDisplayCheck,
   isSoftDisplayCheck,
   isWeeklyExhausted,
@@ -371,6 +373,8 @@ export default function CodexPanel({
     ? weeklyValueEstimate
     : null;
   const valueIsLastEstimate = isSoftDisplayCheck(weeklyValueCheck);
+  const weeklyTokenCapacity = getWeeklyTokenCapacity(displayedWeeklyValueEstimate);
+  const usesCommunityCapacity = weeklyTokenCapacity.source === 'community';
   const displayedWeeklyValueEstimateError = officialWeeklyLimit && !displayedWeeklyValueEstimate
     ? (isHardDisplayCheck(weeklyValueCheck) ? null : weeklyValueEstimateError)
     : null;
@@ -566,96 +570,81 @@ export default function CodexPanel({
 
           {weeklyExhausted && renderBonusPanel()}
 
-          {officialWeeklyLimit
-            && (displayedWeeklyValueEstimate || displayedWeeklyValueEstimateError) && (
+          {officialWeeklyLimit && (
             <div className="section weekly-value-section">
               <div className="quota-group">
                 <div className="quota-card weekly-value-card">
-                  {displayedWeeklyValueEstimate ? (
-                    <>
-                      <div className="weekly-value-topline">
-                        <span className="weekly-value-title">
-                          <span className="weekly-value-dot" />
-                          {t("Weekly token capacity")}
-                        </span>
-                        <span className="weekly-value-badge">
-                          {valueIsLastEstimate ? t("Last estimate") : t("Local estimate")}
-                        </span>
+                  <div className="weekly-value-topline">
+                    <span className="weekly-value-title">
+                      <span className="weekly-value-dot" />
+                      {t("Weekly token capacity")}
+                    </span>
+                    <span className="weekly-value-badge">
+                      {usesCommunityCapacity ? t("Community reference") : valueIsLastEstimate ? t("Last estimate") : t("Local estimate")}
+                    </span>
+                  </div>
+                  <div className="weekly-value-body">
+                    <div className="weekly-value-metrics">
+                      <div className="weekly-model-estimate">
+                        <span>Astra</span>
+                        <strong>{t("≈{tokens} tokens / week", { tokens: COMPACT_TOKEN_FORMAT().format(weeklyTokenCapacity.astraTokens) })}</strong>
                       </div>
-                      <div className="weekly-value-body">
-                        <div className="weekly-value-metrics">
-                          {displayedWeeklyValueEstimate.modelEstimates.map((estimate) => (
-                            <div className="weekly-model-estimate" key={estimate.model}>
-                              <span>{t("If only {model}", { model: estimate.model })}</span>
-                              {estimate.estimatedWeeklyTokens == null ? (
-                                <span className="weekly-model-unavailable">{t("Insufficient sample")}</span>
-                              ) : (
-                                <>
-                                  <strong>
-                                    {t("≈{tokens} tokens / week", { tokens: COMPACT_TOKEN_FORMAT().format(estimate.estimatedWeeklyTokens) })}
-                                  </strong>
-                                  <small>
-                                    {t("Sample: {tokens} tokens · {percent}% of weekly quota", {
-                                      tokens: COMPACT_TOKEN_FORMAT().format(estimate.sampleTokens),
-                                      percent: new Intl.NumberFormat(getLocale(), { maximumFractionDigits: 1 }).format(estimate.sampleUsedPct),
-                                    })}
-                                  </small>
-                                </>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                        <div
-                          className="weekly-value-gauge"
-                          role="img"
-                          aria-label={t("Estimate based on {p0}% remaining", { p0: remainingPercent(displayedWeeklyValueEstimate.usedPct) })}
-                          style={{
-                            '--weekly-value-used': `${remainingPercent(displayedWeeklyValueEstimate.usedPct)}%`,
-                          } as CSSProperties}
-                        >
-                          <span className="weekly-value-gauge-center">
-                            <strong>{remainingPercent(displayedWeeklyValueEstimate.usedPct)}%</strong>
-                            <small>{t("Remaining")}</small>
-                          </span>
-                        </div>
+                      <div className="weekly-model-estimate">
+                        <span>GPT-5.6 Sol</span>
+                        <strong>{t("≈{tokens} tokens / week", { tokens: COMPACT_TOKEN_FORMAT().format(weeklyTokenCapacity.solTokens) })}</strong>
+                        {!usesCommunityCapacity && <small>{t("Price conversion from Astra · {ratio}× tokens", { ratio: weeklyReference.pricing.solTokensPerAstraToken })}</small>}
                       </div>
-                      <div className="weekly-value-footer weekly-value-footer-basis">
-                        <span>
-                          {t("Same weekly quota · These alternatives cannot be added together")}
-                        </span>
-                        <span>
-                          {valueIsLastEstimate
-                            ? t("{p0} observed tokens · Not an official allowance · snapshot not refreshed", { p0: COMPACT_TOKEN_FORMAT().format(displayedWeeklyValueEstimate.observedTokens) })
-                            : t("{p0} observed tokens · Not an official allowance", { p0: COMPACT_TOKEN_FORMAT().format(displayedWeeklyValueEstimate.observedTokens) })}
-                        </span>
-                        <span>
-                          {t("Requires a single-model span using at least 5% of this week's quota.")}
-                        </span>
-                        <span>{t("Other devices, cloud usage and workload changes can skew the estimate.")}</span>
-                        <span>{t("Excludes GPT-Reserve complimentary usage")}</span>
-                        <details className="weekly-value-diagnostic">
-                          <summary>{t("API-equivalent week · current mix")}</summary>
-                          <p>≈{USD_FORMAT().format(displayedWeeklyValueEstimate.estimatedWeeklyValueUsd)}</p>
-                          <p>{t("Based on {p0}% remaining · {p1} local", { p0: remainingPercent(displayedWeeklyValueEstimate.usedPct), p1: USD_FORMAT().format(displayedWeeklyValueEstimate.observedCostUsd) })}</p>
-                          <p>{t("Standard API prices · Not a bill")}</p>
-                        </details>
-                      </div>
-                    </>
-                  ) : (
-                    <div>
-                      <p className="quota-pace warning">
-                        {displayedWeeklyValueEstimateError?.unpricedModels
+                    </div>
+                    <div
+                      className="weekly-value-gauge"
+                      role="img"
+                      aria-label={t("{p0}% remaining", { p0: remainingPercent(officialWeeklyLimit.usedPercent) })}
+                      style={{
+                        '--weekly-value-used': `${remainingPercent(officialWeeklyLimit.usedPercent)}%`,
+                      } as CSSProperties}
+                    >
+                      <span className="weekly-value-gauge-center">
+                        <strong>{remainingPercent(officialWeeklyLimit.usedPercent)}%</strong>
+                        <small>{t("Remaining")}</small>
+                      </span>
+                    </div>
+                  </div>
+                  <div className="weekly-value-footer weekly-value-footer-basis">
+                    <span>
+                      {t("Same weekly quota · These alternatives cannot be added together")}
+                    </span>
+                    {usesCommunityCapacity && (
+                      <>
+                        <span>{t("Community sample · Pro 20× · Standard speed · Not your account's allowance")}</span>
+                        <span>{weeklyReference.community.source} · {weeklyReference.community.snapshotAt.slice(0, 10)}</span>
+                      </>
+                    )}
+                    <span>{t("Excludes GPT-Reserve complimentary usage")}</span>
+                    {displayedWeeklyValueEstimate && (
+                      <details className="weekly-value-diagnostic">
+                        <summary>{t("API-equivalent week · current mix")}</summary>
+                        <p>≈{USD_FORMAT().format(displayedWeeklyValueEstimate.estimatedWeeklyValueUsd)}</p>
+                        <p>{t("Based on {p0}% remaining · {p1} local", { p0: remainingPercent(displayedWeeklyValueEstimate.usedPct), p1: USD_FORMAT().format(displayedWeeklyValueEstimate.observedCostUsd) })}</p>
+                        <p>{t("Standard API prices · Not a bill")}</p>
+                        <p>{valueIsLastEstimate
+                          ? t("{p0} observed tokens · Not an official allowance · snapshot not refreshed", { p0: COMPACT_TOKEN_FORMAT().format(displayedWeeklyValueEstimate.observedTokens) })
+                          : t("{p0} observed tokens · Not an official allowance", { p0: COMPACT_TOKEN_FORMAT().format(displayedWeeklyValueEstimate.observedTokens) })}</p>
+                        {!usesCommunityCapacity && <p>{t("Astra-to-Sol conversion uses standard API prices checked on {date}; not a measured Sol quota.", { date: weeklyReference.pricing.checkedAt })}</p>}
+                        <p>{t("Other devices, cloud usage and workload changes can skew the estimate.")}</p>
+                      </details>
+                    )}
+                    {displayedWeeklyValueEstimateError && (
+                      <details className="weekly-value-diagnostic">
+                        <summary>{t("Diagnostics")}</summary>
+                        <p className="quota-pace warning">
+                        {displayedWeeklyValueEstimateError.unpricedModels
                           ? t("Weekly value unavailable because prices are missing for {models}.", { models: displayedWeeklyValueEstimateError.unpricedModels })
                           : t("Weekly value could not be calculated. See diagnostics for details.")}
-                      </p>
-                      {displayedWeeklyValueEstimateError && (
-                        <details className="weekly-value-diagnostic">
-                          <summary>{t("Diagnostics")}</summary>
-                          <p>{displayedWeeklyValueEstimateError.diagnostic}</p>
-                        </details>
-                      )}
-                    </div>
-                  )}
+                        </p>
+                        <p>{displayedWeeklyValueEstimateError.diagnostic}</p>
+                      </details>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
