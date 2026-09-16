@@ -408,8 +408,8 @@
   flex: 0 0 auto;
   padding: 2px 6px;
   border-radius: 5px;
-  color: var(--mint);
-  background: color-mix(in srgb, var(--mint) 13%, transparent);
+  color: var(--weekly-source-color, var(--mint));
+  background: var(--weekly-source-background, color-mix(in srgb, var(--mint) 13%, transparent));
   font-size: 8px;
   font-weight: 750;
   letter-spacing: 0.07em;
@@ -454,9 +454,18 @@
 }
 
 .weekly-value-source-flipper > .weekly-value-badge {
+  --weekly-source-background: color-mix(in srgb, var(--weekly-source-color) 14%, var(--card));
   grid-area: 1 / 1;
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
+}
+
+.weekly-value-source-local {
+  --weekly-source-color: var(--a-teal);
+}
+
+.weekly-value-source-community {
+  --weekly-source-color: var(--a-blue);
 }
 
 @media (prefers-reduced-motion: reduce) {
