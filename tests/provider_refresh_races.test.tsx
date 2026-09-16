@@ -375,6 +375,7 @@ describe('Codex weekly pace', () => {
         estimatedWeeklyValueUsd: 200,
         observedTokens: 1_600_000,
         estimatedWeeklyTokens: 4_000_000,
+        models: ['gpt-6-astra'],
       },
     });
 
@@ -384,7 +385,7 @@ describe('Codex weekly pace', () => {
     expect(rendered_text(renderer)).toContain('API-equivalent week');
     expect(rendered_text(renderer)).toContain('$200.00');
     expect(rendered_text(renderer)).toContain('4M');
-    expect(rendered_text(renderer)).toContain('tokens at current mix');
+    expect(rendered_text(renderer)).toContain('tokens based on gpt-6-astra usage');
     expect(rendered_text(renderer)).toContain('Local estimate');
     expect(rendered_text(renderer)).toContain('Based on 60% remaining');
     expect(renderer.root.findByProps({ className: 'weekly-value-amount' }).children.join('')).toBe('≈$200.00');
@@ -425,6 +426,7 @@ describe('Codex weekly pace', () => {
         estimatedWeeklyValueUsd: 200,
         observedTokens: 1_000_000,
         estimatedWeeklyTokens: 4_000_000,
+        models: ['gpt-6-astra'],
       },
     }, null, {
       usedPercent: 25,
@@ -449,6 +451,7 @@ describe('Codex weekly pace', () => {
         estimatedWeeklyValueUsd: 2469.12,
         observedTokens: 1_000_000,
         estimatedWeeklyTokens: 20_000_000,
+        models: ['gpt-6-astra'],
       },
     }, null, { usedPercent: 5, windowMinutes: 10_080, resetsAt: 1_787_961_600 });
     expect(renderer.root.findByProps({ className: 'weekly-value-amount' }).children.join('')).toBe('≈$2,469.12');
@@ -485,6 +488,7 @@ describe('Codex weekly pace', () => {
         estimatedWeeklyValueUsd: 200,
         observedTokens: 1_600_000,
         estimatedWeeklyTokens: 4_000_000,
+        models: ['gpt-6-astra'],
         ...override,
       },
     });
@@ -515,6 +519,7 @@ describe('Codex weekly pace', () => {
         estimatedWeeklyValueUsd: 200,
         observedTokens: 1_600_000,
         estimatedWeeklyTokens: 4_000_000,
+        models: ['gpt-6-astra'],
       },
     });
 

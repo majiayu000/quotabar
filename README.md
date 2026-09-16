@@ -133,6 +133,8 @@ archive with its upstream commit and SHA-256 in `vendor/ccstats-sdk.json`.
 excludes `gpt-reserve` complimentary usage from weekly value/token estimates
 before pricing, while retaining it in general usage analytics. Official quota
 percentages remain provider-reported; ordinary Luna usage is not excluded.
+Weekly token estimates name the models observed in that window, including all
+contributors when usage is mixed, rather than the currently selected model.
 SDK development can refresh the archive with `npm run sdk:update` when a ccstats
 checkout is beside this repository.
 When updating the SDK, review or remove the patch if upstream already includes

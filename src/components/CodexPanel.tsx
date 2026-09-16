@@ -591,7 +591,11 @@ export default function CodexPanel({
                             <strong>
                               ≈{COMPACT_TOKEN_FORMAT().format(displayedWeeklyValueEstimate.estimatedWeeklyTokens)}
                             </strong>
-                            <span>{t("tokens at current mix")}</span>
+                            <span>
+                              {displayedWeeklyValueEstimate.models.length === 1
+                                ? t("tokens based on {models} usage", { models: displayedWeeklyValueEstimate.models.join(' / ') })
+                                : t("tokens based on the {models} mix", { models: displayedWeeklyValueEstimate.models.join(' / ') })}
+                            </span>
                           </span>
                         </div>
                         <div

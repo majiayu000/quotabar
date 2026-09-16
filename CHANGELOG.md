@@ -4,6 +4,8 @@ All notable QuotaBar changes should be summarized here before a release is cut.
 
 ## Unreleased
 
+- Identify the models behind Codex weekly token estimates, distinguishing one model from a mixed workload in Chinese and English.
+
 ## 0.5.2 - 2026-09-16
 
 - Exclude GPT-Reserve complimentary usage from Codex weekly value and token estimates, while preserving general usage analytics and provider-reported quota percentages. Show the exclusion in Chinese and English.

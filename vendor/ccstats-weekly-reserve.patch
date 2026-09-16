@@ -25,16 +25,16 @@
          })
 @@ -117,6 +121,8 @@
      use tempfile::{NamedTempFile, tempdir};
- 
+
      use super::*;
 +    use crate::pricing::PricingDb;
 +    use crate::sdk::{CodexWeeklyValueError, estimate_codex_weekly_value_with_pricing};
      use crate::source::{CodexQuotaStatus, CodexWeeklyQuota};
- 
+
      fn quota() -> CodexWeeklyQuota {
-@@ -209,6 +215,92 @@
+@@ -209,6 +215,114 @@
      }
- 
+
      #[test]
 +    fn reserve_is_excluded_from_weekly_value_but_kept_in_general_usage() {
 +        let home = tempdir().unwrap();
@@ -72,6 +72,7 @@
 +        assert_eq!(estimate.estimated_weekly_tokens, 1200.0);
 +        assert_eq!(estimate.used_pct, 25.0);
 +        assert_eq!(estimate.valid_entries, 2);
++        assert_eq!(estimate.models, vec!["gpt-5"]);
 +        let cost = crate::pricing::calculate_cost(
 +            &Stats {
 +                input_tokens: 300,
@@ -104,6 +105,27 @@
 +    }
 +
 +    #[test]
++    fn estimate_models_follow_all_contributors_not_the_last_selected_model() {
++        let home = tempdir().unwrap();
++        fs::create_dir_all(home.path().join("sessions")).unwrap();
++        let first = usage_event("2026-08-21T08:00:00Z", 100, 100).replace("gpt-5", "gpt-5.4");
++        let second = usage_event("2026-08-21T09:00:00Z", 300, 200);
++        fs::write(
++            home.path().join("sessions/mixed.jsonl"),
++            format!("{first}\n{second}\n"),
++        )
++        .unwrap();
++        let estimate = estimate_codex_weekly_value_with_pricing(
++            &quota(),
++            Some(home.path()),
++            &PricingDb::default(),
++        )
++        .unwrap();
++        assert_eq!(estimate.models, vec!["gpt-5", "gpt-5.4"]);
++        assert_eq!(estimate.observed_tokens, 300);
++    }
++
++    #[test]
 +    fn regular_luna_and_unknown_models_are_not_excluded() {
 +        let luna = usage_event("2026-08-21T08:00:00Z", 100, 100).replace("gpt-5", "gpt-5.6-luna");
 +        let unknown =
@@ -125,3 +147,52 @@
      fn malformed_usage_fails_value_estimate_closed() {
          let valid = usage_event("2026-08-21T00:00:00Z", 100, 100);
          let file = write_log(&[&valid, "{malformed"]);
+--- a/src/sdk/codex_weekly.rs
++++ b/src/sdk/codex_weekly.rs
+@@ -24,6 +24,8 @@
+     pub estimated_weekly_value_usd: f64,
+     pub observed_tokens: i64,
+     pub estimated_weekly_tokens: f64,
++    /// Models contributing to this window's usage, sorted by identifier.
++    pub models: Vec<String>,
+     pub valid_entries: i64,
+     pub dedup_skipped_entries: i64,
+ }
+@@ -249,6 +251,9 @@
+         return Err(CodexWeeklyValueError::NonFiniteEstimate);
+     }
+
++    let mut models: Vec<_> = usage.models.keys().cloned().collect();
++    models.sort();
++
+     Ok(CodexWeeklyValueEstimate {
+         observed_at: window.observed_at,
+         window_started_at,
+@@ -258,6 +263,7 @@
+         estimated_weekly_value_usd,
+         observed_tokens,
+         estimated_weekly_tokens,
++        models,
+         valid_entries: usage.valid_entries,
+         dedup_skipped_entries: usage.dedup_skipped_entries,
+     })
+--- a/src/output/quota.rs
++++ b/src/output/quota.rs
+@@ -247,6 +247,7 @@
+             estimated_weekly_value_usd: 200.0,
+             observed_tokens: 1_000_000,
+             estimated_weekly_tokens: 4_000_000.0,
++            models: vec!["gpt-5".to_string()],
+             valid_entries: 12,
+             dedup_skipped_entries: 2,
+         }
+--- a/src/output/limits.rs
++++ b/src/output/limits.rs
+@@ -389,6 +389,7 @@
+             estimated_weekly_value_usd: 200.0,
+             observed_tokens: 1_000_000,
+             estimated_weekly_tokens: 4_000_000.0,
++            models: vec!["gpt-5".to_string()],
+             valid_entries: 12,
+             dedup_skipped_entries: 2,
+         }

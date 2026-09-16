@@ -159,6 +159,7 @@ mod tests {
             estimated_weekly_value_usd: 200.0,
             observed_tokens: 1_000,
             estimated_weekly_tokens: 4_000.0,
+            models: vec!["gpt-6-astra".to_string()],
             valid_entries: 1,
             dedup_skipped_entries: 0,
         }
@@ -250,6 +251,11 @@ mod tests {
         assert!(data.quota.is_none());
         assert_eq!(data.error.as_deref(), Some("No local quota snapshot"));
         assert!(data.value_estimate.is_some());
+        let payload = serde_json::to_value(&data).unwrap();
+        assert_eq!(
+            payload["valueEstimate"]["models"],
+            serde_json::json!(["gpt-6-astra"])
+        );
         assert!(data.value_estimate_error.is_none());
     }
 

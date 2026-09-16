@@ -440,6 +440,7 @@
 }
 
 .weekly-value-token-row {
+  flex-wrap: wrap;
   gap: 6px;
   color: var(--sub);
   font-size: 10px;
