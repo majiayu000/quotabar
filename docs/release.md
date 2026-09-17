@@ -60,13 +60,14 @@ gh workflow run release-artifacts.yml
 The workflow uploads GitHub Actions artifacts only. It does not create tags,
 publish GitHub Releases, or attach files to a public release.
 
-The default `unsigned` mode remains available for pull requests and internal
-artifact inspection. It must not be presented as a trusted public macOS build.
-After the signing secrets below are configured, build a public macOS release
-candidate with:
+Pushing a `v*` tag always builds macOS artifacts with Developer ID signing and
+notarization. `workflow_dispatch` defaults to the same `developer-id` mode.
+Pull requests stay `unsigned` so inspection builds do not require Apple
+secrets. Unsigned artifacts must not be presented as a trusted public macOS
+build. To force an unsigned inspection bundle from Actions:
 
 ```bash
-gh workflow run release-artifacts.yml -f macos_signing=developer-id
+gh workflow run release-artifacts.yml -f macos_signing=unsigned
 ```
 
 The `developer-id` mode fails before building when any required secret is
@@ -118,8 +119,10 @@ npm run tauri build -- --bundles app
 Publishing is a separate human-gated step:
 
 1. Confirm the candidate's signing mode in the workflow run. A public macOS
-   release must use `developer-id`; unsigned builds are tester artifacts only.
-2. Create an annotated tag only after the release notes are final.
+   release must use `developer-id`; `v*` tags always do. Unsigned builds are
+   tester artifacts only.
+2. Create an annotated tag only after the release notes are final. The tag
+   run is the signed candidate.
 3. Create the GitHub Release manually.
 4. Attach the inspected bundles and their SHA-256 manifests to the release.
 5. Record the release URL and the exact verification commands used.
