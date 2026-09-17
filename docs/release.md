@@ -76,11 +76,12 @@ Gatekeeper, and `stapler`, then removes the temporary certificate and key.
 
 Required GitHub Actions secrets:
 
-- `APPLE_CERTIFICATE`: base64-encoded Developer ID Application `.p12`
+- `APPLE_CERTIFICATE`: base64-encoded Developer ID Application `.p12` from your own Apple Developer team
 - `APPLE_CERTIFICATE_PASSWORD`: password used when exporting the `.p12`
+- `APPLE_SIGNING_IDENTITY`: `Developer ID Application: Your Name (TEAMID)`
 - `APPLE_API_ISSUER`: App Store Connect API issuer ID
 - `APPLE_API_KEY`: App Store Connect API key ID
-- `APPLE_API_PRIVATE_KEY`: complete contents of the matching `.p8` private key
+- `APPLE_API_KEY_CONTENT`: base64-encoded App Store Connect `.p8` private key
 
 Expected artifact contents:
 

@@ -105,17 +105,19 @@ jobs:
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
           APPLE_API_ISSUER_SECRET: ${{ secrets.APPLE_API_ISSUER }}
           APPLE_API_KEY_SECRET: ${{ secrets.APPLE_API_KEY }}
-          APPLE_API_PRIVATE_KEY: ${{ secrets.APPLE_API_PRIVATE_KEY }}
+          APPLE_API_KEY_CONTENT: ${{ secrets.APPLE_API_KEY_CONTENT }}
         run: |
           set -euo pipefail
           for variable_name in \
             APPLE_CERTIFICATE \
             APPLE_CERTIFICATE_PASSWORD \
+            APPLE_SIGNING_IDENTITY \
             APPLE_API_ISSUER_SECRET \
             APPLE_API_KEY_SECRET \
-            APPLE_API_PRIVATE_KEY
+            APPLE_API_KEY_CONTENT
           do
             if [ -z "${!variable_name}" ]; then
               echo "Required signing secret is missing: ${variable_name}" >&2
@@ -130,7 +132,7 @@ jobs:
           echo "::add-mask::$keychain_password"
 
           printf '%s' "$APPLE_CERTIFICATE" | openssl base64 -d -A -out "$certificate_path"
-          printf '%s' "$APPLE_API_PRIVATE_KEY" > "$api_key_path"
+          printf '%s' "$APPLE_API_KEY_CONTENT" | openssl base64 -d -A -out "$api_key_path"
           chmod 600 "$certificate_path" "$api_key_path"
 
           security create-keychain -p "$keychain_password" "$keychain_path"
@@ -147,18 +149,14 @@ jobs:
             "$keychain_path"
           security list-keychains -d user -s "$keychain_path"
 
-          signing_identity="$(
-            security find-identity -v -p codesigning "$keychain_path" \
-              | sed -n 's/.*"\(Developer ID Application:.*\)"/\1/p' \
-              | head -n 1
-          )"
-          if [ -z "$signing_identity" ]; then
-            echo "No Developer ID Application identity was imported" >&2
+          if ! security find-identity -v -p codesigning "$keychain_path" \
+            | grep -F -- "$APPLE_SIGNING_IDENTITY" >/dev/null; then
+            echo "APPLE_SIGNING_IDENTITY was not found in the imported certificate" >&2
             exit 1
           fi
 
           {
-            echo "APPLE_SIGNING_IDENTITY=$signing_identity"
+            echo "APPLE_SIGNING_IDENTITY=$APPLE_SIGNING_IDENTITY"
             echo "APPLE_API_ISSUER=$APPLE_API_ISSUER_SECRET"
             echo "APPLE_API_KEY=$APPLE_API_KEY_SECRET"
             echo "APPLE_API_KEY_PATH=$api_key_path"
