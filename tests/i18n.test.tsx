@@ -139,9 +139,15 @@ describe('live bilingual rendering', () => {
     });
     await act(async () => { renderer = create(createElement(CodexPanel, { autoRefreshIntervalMs: 0, showCostSummary: false })); });
     const rows = () => renderer!.root.findAllByProps({ className: 'weekly-model-estimate' });
-    const toggle = () => renderer!.root.findByProps({ className: 'weekly-value-source-toggle' });
-    expect(toggle().props.disabled).toBe(!isLocal);
-    expect(toggle().props['aria-label']).toBe(isLocal ? 'Switch to community reference' : 'Local estimate unavailable');
+    const toggles = () => renderer!.root.findAllByProps({ className: 'weekly-value-source-toggle' });
+    expect(toggles()).toHaveLength(1);
+    if (isLocal) {
+      expect(toggles()[0].props['aria-label']).toBe('Switch to community reference');
+      expect(toggles()[0].props['aria-pressed']).toBe(true);
+    } else {
+      expect(toggles()[0].props['aria-label']).toBe('Why local estimate is unavailable');
+      expect(toggles()[0].props['aria-pressed']).toBeUndefined();
+    }
     expect(rows()).toHaveLength(2);
     expect(rows().map((row) => row.findByType('span').children.join(''))).toEqual(['Astra', 'GPT-5.6 Sol']);
     expect(rows()[0].findByType('strong').children.join('')).toBe(isLocal ? '≈900M tokens / week' : '≈853.5M tokens / week');
@@ -167,20 +173,30 @@ describe('live bilingual rendering', () => {
     }
     expect(JSON.stringify(renderer!.toJSON())).toContain('同一份周额度的不同用法，不能相加');
     if (isLocal) {
-      expect(toggle().props['aria-label']).toBe('切换到社区参考');
-      await act(async () => { toggle().props.onClick(); });
+      expect(toggles()[0].props['aria-label']).toBe('切换到社区参考');
+      await act(async () => { toggles()[0].props.onClick(); });
       expect(rows()[0].findByType('strong').children.join('')).toBe('≈8.5亿 Token / 周');
       expect(rows()[1].findByType('strong').children.join('')).toBe('≈36亿 Token / 周');
-      expect(toggle().props['aria-label']).toBe('切换到本机估算');
+      expect(toggles()[0].props['aria-label']).toBe('切换到本机估算');
+      expect(toggles()[0].props['aria-pressed']).toBe(false);
       await act(async () => { setLanguagePreference('en'); });
-      expect(toggle().props['aria-label']).toBe('Switch to local estimate');
+      expect(toggles()[0].props['aria-label']).toBe('Switch to local estimate');
       expect(rows()[0].findByType('strong').children.join('')).toBe('≈853.5M tokens / week');
-      await act(async () => { toggle().props.onClick(); });
+      await act(async () => { toggles()[0].props.onClick(); });
       expect(rows()[0].findByType('strong').children.join('')).toBe('≈900M tokens / week');
       expect(rows()[1].findByType('strong').children.join('')).toBe('≈2.3B tokens / week');
       expect(renderer!.root.findByProps({ className: 'weekly-value-gauge-center' }).findByType('strong').children.join('')).toBe('60%');
+      expect(fetch).toHaveBeenCalledTimes(1);
+    } else {
+      expect(toggles()[0].props['aria-label']).toBe('本机估算为什么不可用');
+      await act(async () => { toggles()[0].props.onClick(); });
+      const hint = renderer!.root.findByProps({ className: 'weekly-value-local-hint' });
+      expect(hint.findByType('p').children.join('')).toContain('本机用量还不能折成 Astra Token');
+      expect(hint.findByType('p').children.join('')).toContain('在这台电脑上使用 Codex，然后点底部刷新。');
+      expect(fetch).toHaveBeenCalledTimes(1);
+      await act(async () => { hint.findByProps({ className: 'weekly-value-local-retry' }).props.onClick(); await Promise.resolve(); });
+      expect(fetch).toHaveBeenCalledTimes(2);
     }
-    expect(fetch).toHaveBeenCalledTimes(1);
   });
 
   it.each([true, false])('localizes a Codex valuation failure and isolates raw diagnostics (missing prices: %s)', async (missingPrices) => {
@@ -208,14 +224,21 @@ describe('live bilingual rendering', () => {
     expect(details.findAllByType('p')[1].children.join('')).toBe(diagnostic);
     expect(details.findByProps({ className: 'quota-pace warning' })).toBeDefined();
     expect(card().findAllByProps({ className: 'weekly-model-estimate' })).toHaveLength(2);
-    expect(card().findByProps({ className: 'weekly-value-source-toggle' }).props.disabled).toBe(true);
+    const toggle = card().findByProps({ className: 'weekly-value-source-toggle' });
+    expect(toggle.props['aria-label']).toBe('本机估算为什么不可用');
+    await act(async () => { toggle.props.onClick(); });
+    const hint = card().findByProps({ className: 'weekly-value-local-hint' });
+    expect(hint.findByType('p').children.join('')).toContain(missingPrices ? '缺少 gpt-reserve 的价格' : '暂时无法计算每周估值');
+    expect(hint.findByType('p').children.join('')).toContain('在这台电脑上使用 Codex，然后点底部刷新。');
+    expect(fetch).toHaveBeenCalledTimes(1);
+    await act(async () => { hint.findByProps({ className: 'weekly-value-local-retry' }).props.onClick(); await Promise.resolve(); });
     expect(details.findByType('summary').children.join('')).toBe('诊断详情');
     await act(async () => { setLanguagePreference('en'); });
     expect(copy()).toBe(missingPrices
       ? 'Weekly value unavailable because prices are missing for gpt-reserve.'
       : 'Weekly value could not be calculated. See diagnostics for details.');
     expect(card().findByType('summary').children.join('')).toBe('Diagnostics');
-    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(fetch).toHaveBeenCalledTimes(2);
     expect(renderer!.root.findByProps({ 'aria-label': 'Weekly quota remaining quota' }).props['aria-valuenow']).toBe(60);
   });
 

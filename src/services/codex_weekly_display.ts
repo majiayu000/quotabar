@@ -1,6 +1,6 @@
 import { t } from '../i18n';
 import weeklyReference from './codex_weekly_reference.json';
-import type { CodexRateLimitWindow, CodexWeeklyQuota, CodexWeeklyValueEstimate } from '../types/models';
+import type { CodexRateLimitWindow, CodexWeeklyQuota, CodexWeeklyValueError, CodexWeeklyValueEstimate } from '../types/models';
 
 export function getWeeklyTokenCapacity(estimate: CodexWeeklyValueEstimate | null) {
   const astraTokens = estimate?.astraEquivalentWeeklyTokens;
@@ -32,6 +32,24 @@ export function isHardDisplayCheck(
   check: DisplayCheck | null,
 ): check is { ok: false; kind: 'hard'; message: string } {
   return check != null && !check.ok && check.kind === 'hard';
+}
+
+export function getLocalCapacityUnavailableMessage(
+  estimate: CodexWeeklyValueEstimate | null,
+  check: DisplayCheck | null,
+  error: CodexWeeklyValueError | null,
+): string {
+  const nextStep = t("Use Codex on this device, then tap Refresh.");
+  const reason = error?.unpricedModels
+    ? t("Weekly value unavailable because prices are missing for {models}.", { models: error.unpricedModels })
+    : error
+      ? t("Weekly value could not be calculated. See diagnostics for details.")
+      : isHardDisplayCheck(check)
+        ? check.message
+        : estimate
+          ? t("Local usage is not enough to convert into Astra tokens yet.")
+          : t("No local weekly snapshot yet.");
+  return `${reason} ${nextStep}`;
 }
 
 export function checkWeeklyValueEstimate(

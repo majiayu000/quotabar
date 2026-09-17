@@ -4,6 +4,10 @@ All notable QuotaBar changes should be summarized here before a release is cut.
 
 ## Unreleased
 
+- Make the Codex weekly token source switch cover the whole title row. When a local estimate exists, tapping flips local and community views. When it does not, tapping explains why and how to get a local week; an explicit retry stays on that hint, not on the title.
+
+- Keep today, week, and month API-equivalent tiles visually even in the tray. The primary-range ring was leaking through the compact override and made only Today look shadowed.
+
 - Distinguish local estimates with green source badges and community references with blue badges in light and dark themes, preserving the flip transition. Keep the community color independent of the tray's green accent override.
 
 - Apply the bundled SDK patch from the repository root so clean builds include Reserve exclusion and model estimates instead of silently skipping the patch.

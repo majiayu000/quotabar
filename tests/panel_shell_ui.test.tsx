@@ -202,6 +202,11 @@ describe('panel shell UI', () => {
     expect(css).toMatch(/\.settings-group \.event-row \{[^}]*display: flex;/s);
   });
 
+  it('keeps tray cost tiles even, including the primary range', () => {
+    const css = readFileSync(new URL('../src/styles/compact.css', import.meta.url), 'utf8');
+    expect(css).toMatch(/\.app\.quota-detail \.cost-range,\s*html:not\(\.analysis-document\) \.app\.quota-detail \.cost-range\.active \{[^}]*box-shadow: none;/s);
+  });
+
   it('labels local cost as an estimate and makes the daily trend keyboard accessible', async () => {
     vi.spyOn(backend, 'getCostOverview').mockResolvedValue({
       source: 'claude',

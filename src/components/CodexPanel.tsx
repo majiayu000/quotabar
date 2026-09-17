@@ -1,6 +1,6 @@
 import { localizeLabel, getLocale, t } from '../i18n';
 import { useLocale } from '../i18n/react';
-import { useEffect, useState, useCallback, type CSSProperties } from 'react';
+import { useEffect, useState, useCallback, useRef, type CSSProperties } from 'react';
 import { backend } from '../services/backend';
 import weeklyReference from '../services/codex_weekly_reference.json';
 import CostSummarySection from './CostSummarySection';
@@ -22,6 +22,7 @@ import {
   checkWeeklyQuotaWindow,
   checkWeeklyValueEstimate,
   formatLocalExtrasPaused,
+  getLocalCapacityUnavailableMessage,
   getWeeklyTokenCapacity,
   isHardDisplayCheck,
   isSoftDisplayCheck,
@@ -209,6 +210,9 @@ export default function CodexPanel({
   const [weeklyValueEstimate, setWeeklyValueEstimate] = useState<CodexWeeklyValueEstimate | null>(null);
   const [weeklyValueEstimateError, setWeeklyValueEstimateError] = useState<CodexWeeklyValueError | null>(null);
   const [preferCommunityCapacity, setPreferCommunityCapacity] = useState(false);
+  const [showLocalHint, setShowLocalHint] = useState(false);
+  const [weeklyQuotaBusy, setWeeklyQuotaBusy] = useState(false);
+  const weeklyUserFetch = useRef(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [rateLimitsError, setRateLimitsError] = useState<string | null>(null);
@@ -234,6 +238,18 @@ export default function CodexPanel({
       setWeeklyValueEstimateError(null);
     }
   }, [weekly_request_generation]);
+
+  const retryLocalEstimate = useCallback(async () => {
+    const userFetchId = ++weeklyUserFetch.current;
+    setWeeklyQuotaBusy(true);
+    try {
+      await fetchWeeklyQuota();
+    } finally {
+      if (weeklyUserFetch.current === userFetchId) {
+        setWeeklyQuotaBusy(false);
+      }
+    }
+  }, [fetchWeeklyQuota]);
 
   const fetchData = useCallback(async () => {
     const generation = request_generation.begin();
@@ -379,7 +395,7 @@ export default function CodexPanel({
   const weeklyTokenCapacity = preferCommunityCapacity ? getWeeklyTokenCapacity(null) : localTokenCapacity;
   const usesCommunityCapacity = weeklyTokenCapacity.source === 'community';
   const capacityToggleLabel = !hasLocalTokenCapacity
-    ? t("Local estimate unavailable")
+    ? t("Why local estimate is unavailable")
     : usesCommunityCapacity ? t("Switch to local estimate") : t("Switch to community reference");
   const displayedWeeklyValueEstimateError = officialWeeklyLimit && !displayedWeeklyValueEstimate
     ? (isHardDisplayCheck(weeklyValueCheck) ? null : weeklyValueEstimateError)
@@ -581,22 +597,34 @@ export default function CodexPanel({
               <div className="quota-group">
                 <div className="quota-card weekly-value-card">
                   <div className="weekly-value-topline">
-                    <span className="weekly-value-title">
-                      <span className="weekly-value-dot" />
-                      {t("Weekly token capacity")}
-                    </span>
                     <button
                       type="button"
                       className="weekly-value-source-toggle"
-                      disabled={!hasLocalTokenCapacity}
-                      onClick={() => setPreferCommunityCapacity(usesCommunityCapacity ? false : true)}
+                      onClick={() => {
+                        if (hasLocalTokenCapacity) {
+                          setPreferCommunityCapacity(usesCommunityCapacity ? false : true);
+                          setShowLocalHint(false);
+                          return;
+                        }
+                        setShowLocalHint((open) => !open);
+                      }}
                       aria-label={capacityToggleLabel}
+                      aria-pressed={hasLocalTokenCapacity ? !usesCommunityCapacity : undefined}
+                      aria-expanded={hasLocalTokenCapacity ? undefined : showLocalHint}
                       title={capacityToggleLabel}
                     >
-                      <span className={`weekly-value-source-flipper${usesCommunityCapacity ? '' : ' is-local'}`} aria-hidden="true">
-                        <span className="weekly-value-badge weekly-value-source-community">{t("Community reference")}</span>
-                        <span className="weekly-value-badge weekly-value-source-local">{valueIsLastEstimate ? t("Last estimate") : t("Local estimate")}</span>
+                      <span className="weekly-value-title">
+                        <span className="weekly-value-dot" />
+                        {t("Weekly token capacity")}
                       </span>
+                      {hasLocalTokenCapacity ? (
+                        <span className={`weekly-value-source-flipper${usesCommunityCapacity ? '' : ' is-local'}`} aria-hidden="true">
+                          <span className="weekly-value-badge weekly-value-source-community">{t("Community reference")}</span>
+                          <span className="weekly-value-badge weekly-value-source-local">{valueIsLastEstimate ? t("Last estimate") : t("Local estimate")}</span>
+                        </span>
+                      ) : (
+                        <span className="weekly-value-badge weekly-value-source-community">{t("Community reference")}</span>
+                      )}
                     </button>
                   </div>
                   <div className="weekly-value-body">
@@ -661,6 +689,25 @@ export default function CodexPanel({
                         </p>
                         <p>{displayedWeeklyValueEstimateError.diagnostic}</p>
                       </details>
+                    )}
+                    {showLocalHint && !hasLocalTokenCapacity && (
+                      <div className="weekly-value-local-hint" role="status">
+                        <p>
+                          {getLocalCapacityUnavailableMessage(
+                            weeklyValueEstimate,
+                            weeklyValueCheck,
+                            weeklyValueEstimateError,
+                          )}
+                        </p>
+                        <button
+                          type="button"
+                          className="weekly-value-local-retry"
+                          disabled={weeklyQuotaBusy}
+                          onClick={() => { void retryLocalEstimate(); }}
+                        >
+                          {weeklyQuotaBusy ? t("Checking local estimate…") : t("Retry local estimate")}
+                        </button>
+                      </div>
                     )}
                   </div>
                 </div>
