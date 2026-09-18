@@ -207,6 +207,15 @@ describe('panel shell UI', () => {
     expect(css).toMatch(/\.app\.quota-detail \.cost-range,\s*html:not\(\.analysis-document\) \.app\.quota-detail \.cost-range\.active \{[^}]*box-shadow: none;/s);
   });
 
+  it('keeps tray cost amounts fully visible in narrow tiles', () => {
+    const panels = readFileSync(new URL('../src/redesign/panels.css', import.meta.url), 'utf8');
+    const compact = readFileSync(new URL('../src/styles/compact.css', import.meta.url), 'utf8');
+    const valueRule = panels.match(/\.cost-range-value \{[^}]+\}/)?.[0] ?? '';
+    expect(valueRule).not.toMatch(/text-overflow:\s*ellipsis/);
+    expect(compact).toMatch(/\.app\.quota-detail \.cost-range-value \{[^}]*white-space: nowrap/s);
+    expect(compact).not.toMatch(/\.cost-range-value \{[^}]*text-overflow:\s*ellipsis/s);
+  });
+
   it('labels local cost as an estimate and makes the daily trend keyboard accessible', async () => {
     vi.spyOn(backend, 'getCostOverview').mockResolvedValue({
       source: 'claude',

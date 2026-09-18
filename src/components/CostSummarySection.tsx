@@ -1,6 +1,6 @@
 import { localizeLabel, getLocale, t } from '../i18n';
 import { useLocale } from '../i18n/react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { backend } from '../services/backend';
 import { getBudgetForSources, getSavedMonthlyBudgets } from '../services/budget';
 import type { CostDailyPoint, CostDailySeries, CostOverview, CostRangeSummary, CostSource } from '../types/models';
@@ -71,20 +71,64 @@ export function getCostSummaryErrorMessage(err: unknown): string {
   return t("Failed to load cost summary");
 }
 
-function formatMoney(value: number | null | undefined, currency: string): string {
+export function formatCostMoney(
+  value: number | null | undefined,
+  currency: string,
+  locale = getLocale(),
+): string {
   if (value == null || !Number.isFinite(value)) return t("n/a");
 
   const maximumFractionDigits = Math.abs(value) < 1 ? 4 : 2;
   try {
-    return new Intl.NumberFormat(getLocale(), {
+    return new Intl.NumberFormat(locale, {
       style: 'currency',
       currency,
+      currencyDisplay: 'narrowSymbol',
       minimumFractionDigits: 2,
       maximumFractionDigits,
     }).format(value);
   } catch {
     return `${currency} ${value.toFixed(maximumFractionDigits)}`;
   }
+}
+
+const COST_RANGE_MIN_FONT_PX = 9;
+
+export function nextCostRangeFontSize(
+  currentPx: number,
+  clientWidth: number,
+  scrollWidth: number,
+  minPx = COST_RANGE_MIN_FONT_PX,
+): number | null {
+  if (!(currentPx > 0) || !(clientWidth > 1) || !(scrollWidth > clientWidth)) return null;
+  return Math.max(minPx, currentPx * ((clientWidth - 1) / scrollWidth));
+}
+
+function fitCostRangeAmount(el: HTMLElement): void {
+  el.style.removeProperty('font-size');
+  for (let pass = 0; pass < 8; pass += 1) {
+    const next = nextCostRangeFontSize(
+      parseFloat(getComputedStyle(el).fontSize),
+      el.clientWidth,
+      el.scrollWidth,
+    );
+    if (next == null) return;
+    el.style.fontSize = `${next}px`;
+  }
+}
+
+function CostRangeAmount({ value }: { value: string }) {
+  const ref = useRef<HTMLElement>(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    fitCostRangeAmount(el);
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(() => fitCostRangeAmount(el));
+    observer.observe(el.parentElement ?? el);
+    return () => observer.disconnect();
+  }, [value]);
+  return <strong ref={ref} className="cost-range-value" title={value}>{value}</strong>;
 }
 
 function formatCompactNumber(value: number): string {
@@ -370,17 +414,18 @@ export default function CostSummarySection({
       {overview && (
         <div className="cost-panel">
           <div className="cost-range-grid">
-            {overview.ranges.map((range) => (
-              <div
-                className={`cost-range ${range.range === primaryRange?.range ? 'active' : ''}`}
-                key={range.range}
-              >
-                <span className="cost-range-label">{localizeLabel(range.label)}</span>
-                <strong className="cost-range-value">
-                  {formatMoney(range.cost, range.currency)}
-                </strong>
-              </div>
-            ))}
+            {overview.ranges.map((range) => {
+              const amount = formatCostMoney(range.cost, range.currency);
+              return (
+                <div
+                  className={`cost-range ${range.range === primaryRange?.range ? 'active' : ''}`}
+                  key={range.range}
+                >
+                  <span className="cost-range-label">{localizeLabel(range.label)}</span>
+                  <CostRangeAmount value={amount} />
+                </div>
+              );
+            })}
           </div>
 
           {primaryRange && (
@@ -390,9 +435,9 @@ export default function CostSummarySection({
                   <div className="budget-row">
                     <span>{t("Monthly reference budget")}</span>
                     <strong>
-                      {formatMoney(monthCost, monthRange?.currency ?? 'USD')}
+                      {formatCostMoney(monthCost, monthRange?.currency ?? 'USD')}
                       {' / '}
-                      {formatMoney(monthlyBudget, monthRange?.currency ?? 'USD')}
+                      {formatCostMoney(monthlyBudget, monthRange?.currency ?? 'USD')}
                     </strong>
                   </div>
                   <div
@@ -439,7 +484,7 @@ export default function CostSummarySection({
                         aria-valuemin={1}
                         aria-valuemax={sparkDays.length}
                         aria-valuenow={activeIndex + 1}
-                        aria-valuetext={activeDay ? `${activeDay.date}: ${formatMoney(activeValue, primaryRange.currency)}` : t("n/a")}
+                        aria-valuetext={activeDay ? `${activeDay.date}: ${formatCostMoney(activeValue, primaryRange.currency)}` : t("n/a")}
                         onFocus={() => focusDay(activeIndex)}
                         onBlur={() => setFocusedDay(null)}
                         onMouseLeave={() => setHoveredDay(null)}
@@ -485,8 +530,8 @@ export default function CostSummarySection({
                       <div className="cost-footer">
                         <span className={inspectedDay ? 'spark-hover-label' : undefined}>
                           {inspectedDay
-                            ? `${inspectedDay.date} · ${formatMoney(dayCost(inspectedDay), primaryRange.currency)}`
-                            : `${sparkRange === '7d' ? t("Past 7 days") : t("Past 30 days")} · ${formatMoney(sumDailyCost(sparkDays), primaryRange.currency)}`}
+                            ? `${inspectedDay.date} · ${formatCostMoney(dayCost(inspectedDay), primaryRange.currency)}`
+                            : `${sparkRange === '7d' ? t("Past 7 days") : t("Past 30 days")} · ${formatCostMoney(sumDailyCost(sparkDays), primaryRange.currency)}`}
                         </span>
                         <span className="spark-range-chips">
                           <button
@@ -510,7 +555,7 @@ export default function CostSummarySection({
                 <div className="cost-model-list" aria-label={t("Model costs")}>
                   {topModels.map((model) => (
                     <div className="cost-footer" key={model.model}>
-                      <span>{model.model}</span><span>{formatMoney(model.cost, primaryRange.currency)}</span>
+                      <span>{model.model}</span><span>{formatCostMoney(model.cost, primaryRange.currency)}</span>
                     </div>
                   ))}
                 </div>

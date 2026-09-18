@@ -900,6 +900,7 @@
 
 .cost-range {
   min-width: 0;
+  container-type: inline-size;
   padding: 8px 10px;
   border: 0;
   border-radius: 9px;
@@ -924,16 +925,17 @@
 
 .cost-range-value {
   display: block;
+  width: 100%;
   margin-top: 3px;
   color: var(--text);
   font-family: inherit;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
-  overflow-wrap: normal;
+  letter-spacing: -0.04em;
+  line-height: 1.2;
   white-space: nowrap;
   overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .budget-panel {
