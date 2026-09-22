@@ -54,6 +54,7 @@ function grokScaleBasisCopy(estimate: { scaleProduct?: string; scaleUsedPct?: nu
 const USD_FORMAT = () => (new Intl.NumberFormat(getLocale(), {
   style: 'currency',
   currency: 'USD',
+  currencyDisplay: 'narrowSymbol',
   minimumFractionDigits: 2,
   maximumFractionDigits: 2,
 }));

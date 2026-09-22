@@ -36,6 +36,7 @@ function formatCents(cents: number): string {
   return new Intl.NumberFormat(getLocale(), {
     style: 'currency',
     currency: 'USD',
+    currencyDisplay: 'narrowSymbol',
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(cents / 100);
