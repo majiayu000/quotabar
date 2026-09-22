@@ -129,9 +129,11 @@ failed reads wait for a manual recheck, with rate-limit deadlines still applied.
 The repositories remain separate. This checkout contains an immutable SDK source
 archive with its upstream commit and SHA-256 in `vendor/ccstats-sdk.json`.
 `npm run sdk:prepare` verifies and extracts it, then applies the tracked
-`vendor/ccstats-weekly-reserve.patch`; no sibling checkout is needed. The patch
+`vendor/ccstats-weekly-reserve.patch` and `vendor/ccstats-grok-47-rates.patch`;
+no sibling checkout is needed. The reserve patch
 excludes `gpt-reserve` complimentary usage from weekly value/token estimates
-before pricing, while retaining it in general usage analytics. Official quota
+before pricing, while retaining it in general usage analytics. The Grok 4.7
+patch prices `grok-4.7` and `grok-4.7-build` on the published API card. Official quota
 percentages remain provider-reported; ordinary Luna usage is not excluded.
 Weekly token capacity shows only **Astra** and **GPT-5.6 Sol**. It defaults to
 the local estimate when available. Click the source badge to switch between

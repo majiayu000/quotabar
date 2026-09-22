@@ -10,6 +10,7 @@ const archive = resolve(vendor, 'ccstats-sdk.tar.gz');
 const manifest = resolve(vendor, 'ccstats-sdk.json');
 const destination = resolve(vendor, 'ccstats');
 const weeklyReservePatch = resolve(vendor, 'ccstats-weekly-reserve.patch');
+const grok47RatesPatch = resolve(vendor, 'ccstats-grok-47-rates.patch');
 const digest = () => createHash('sha256').update(readFileSync(archive)).digest('hex');
 const args = process.argv.slice(2);
 if (args.length > 1 || args.length === 1 && args[0] !== '--update') throw new Error('Usage: node scripts/prepare_sdk.mjs [--update]');
@@ -35,4 +36,5 @@ execFileSync('tar', ['-xzf', archive, '-C', destination], { stdio: 'inherit' });
 // Git interprets patch paths from the repository root; running in the ignored
 // SDK subdirectory would silently skip every src/... path in this patch.
 execFileSync('git', ['apply', '--whitespace=error', '--directory=vendor/ccstats', weeklyReservePatch], { cwd: root, stdio: 'inherit' });
-console.log(`Prepared ccstats SDK ${expected.sha256.slice(0, 12)} with the weekly reserve exclusion patch.`);
+execFileSync('git', ['apply', '--whitespace=error', '--directory=vendor/ccstats', grok47RatesPatch], { cwd: root, stdio: 'inherit' });
+console.log(`Prepared ccstats SDK ${expected.sha256.slice(0, 12)} with the weekly reserve and Grok 4.7 rate patches.`);
