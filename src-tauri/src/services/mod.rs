@@ -13,6 +13,7 @@ mod grok_local;
 pub mod http;
 pub mod link;
 mod log_path;
+pub mod popover_layout;
 pub mod tray;
 pub mod tray_icon;
 pub mod window;

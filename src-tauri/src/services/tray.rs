@@ -1,13 +1,14 @@
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{mpsc, Arc, Mutex};
 
+use super::popover_layout::{self, Rect, POPOVER_WIDTH};
 use super::tray_icon;
 use serde::{Deserialize, Serialize};
 use tauri::{
     image::Image,
     menu::{MenuBuilder, MenuItemBuilder},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    AppHandle, Emitter, Manager, Position, State,
+    AppHandle, Emitter, Manager, PhysicalPosition, PhysicalSize, Position, State, WebviewWindow,
 };
 
 const ICON_SIZE: u32 = 44;
@@ -119,9 +120,18 @@ impl TrayRuntimeState {
     }
 }
 
+/// Last tray anchor and content height, so every placement is recomputed from
+/// the same inputs instead of from the window's previous physical frame.
+#[derive(Default)]
+struct PopoverLayoutState {
+    anchor: Option<Rect>,
+    logical_height: Option<f64>,
+}
+
 #[derive(Default)]
 pub struct TrayState {
     runtime: Arc<Mutex<TrayRuntimeState>>,
+    popover: Mutex<PopoverLayoutState>,
 }
 
 #[derive(Clone, Copy, Deserialize)]
@@ -269,48 +279,101 @@ pub fn position_panel_at_visible_tray(app: &AppHandle) -> Result<(), String> {
     Ok(())
 }
 
-fn position_window_near_tray(app: &AppHandle, tray: &tauri::tray::TrayIcon) {
-    let Some(window) = app.get_webview_window("main") else {
-        return;
-    };
-    let Ok(Some(rect)) = tray.rect() else {
-        return;
-    };
-    let Ok(window_size) = window.outer_size() else {
-        return;
-    };
-
-    let pos = match rect.position {
+fn tray_anchor(tray: &tauri::tray::TrayIcon) -> Option<Rect> {
+    let rect = tray.rect().ok()??;
+    let (x, y) = match rect.position {
         Position::Physical(p) => (p.x, p.y),
         Position::Logical(l) => (l.x as i32, l.y as i32),
     };
-    let tray_size = match rect.size {
+    let (width, height) = match rect.size {
         tauri::Size::Physical(s) => (s.width, s.height),
         tauri::Size::Logical(l) => (l.width as u32, l.height as u32),
     };
+    Some(Rect {
+        x,
+        y,
+        width,
+        height,
+    })
+}
 
-    let window_width = window_size.width as i32;
-    let window_height = window_size.height as i32;
-    let mut x = pos.0 + (tray_size.0 as i32 / 2) - (window_width / 2);
-    let mut y = pos.1 + tray_size.1 as i32 + 8;
-
-    if let Some(monitor) = find_monitor_at_point(app, pos.0, pos.1) {
-        let screen_pos = monitor.position();
-        let screen_size = monitor.size();
-        let min_x = screen_pos.x;
-        let max_x = (screen_pos.x + screen_size.width as i32 - window_width).max(screen_pos.x);
-        let min_y = screen_pos.y;
-        let max_y = (screen_pos.y + screen_size.height as i32 - window_height).max(screen_pos.y);
-
-        if pos.1 - screen_pos.y > screen_size.height as i32 / 2 {
-            y = pos.1 - window_height - 8;
+fn position_window_near_tray(app: &AppHandle, tray: &tauri::tray::TrayIcon) {
+    let Some(anchor) = tray_anchor(tray) else {
+        return;
+    };
+    let state = app.state::<TrayState>();
+    match state.popover.lock() {
+        Ok(mut layout) => layout.anchor = Some(anchor),
+        Err(error) => {
+            eprintln!("[Tray] popover layout state poisoned: {error}");
+            return;
         }
-
-        x = x.clamp(min_x, max_x);
-        y = y.clamp(min_y, max_y);
     }
+    if let Err(error) = apply_popover_layout(app) {
+        eprintln!("[Tray] failed to place popover: {error}");
+    }
+}
 
-    let _ = window.set_position(tauri::Position::Physical(tauri::PhysicalPosition { x, y }));
+/// Records the content height reported by the frontend and re-places the
+/// popover. Returns `false` when no tray anchor is known yet, so the caller can
+/// fall back to a plain resize.
+pub fn set_popover_logical_height(app: &AppHandle, logical_height: f64) -> Result<bool, String> {
+    let state = app.state::<TrayState>();
+    let has_anchor = {
+        let mut layout = state.popover.lock().map_err(|error| error.to_string())?;
+        layout.logical_height = Some(logical_height);
+        layout.anchor.is_some()
+    };
+    if has_anchor {
+        apply_popover_layout(app)?;
+    }
+    Ok(has_anchor)
+}
+
+fn apply_popover_layout(app: &AppHandle) -> Result<(), String> {
+    let window = app
+        .get_webview_window("main")
+        .ok_or("Tray panel is unavailable")?;
+    let (anchor, stored_height) = {
+        let state = app.state::<TrayState>();
+        let layout = state.popover.lock().map_err(|error| error.to_string())?;
+        (layout.anchor, layout.logical_height)
+    };
+    let anchor = anchor.ok_or("Tray anchor is unknown")?;
+    let (cx, cy) = anchor.center();
+    let monitor = find_monitor_at_point(app, cx, cy).ok_or("No monitor contains the tray icon")?;
+    let logical_height = match stored_height {
+        Some(height) => height,
+        None => current_logical_height(&window)?,
+    };
+    let area = monitor.work_area();
+    let work_area = Rect {
+        x: area.position.x,
+        y: area.position.y,
+        width: area.size.width,
+        height: area.size.height,
+    };
+    let frame = popover_layout::place_popover(
+        anchor,
+        work_area,
+        monitor.scale_factor(),
+        POPOVER_WIDTH,
+        logical_height,
+    );
+    let position = PhysicalPosition::new(frame.x, frame.y);
+    // Move first: crossing onto a monitor with another scale makes the OS rescale
+    // the window, so the final size and position are applied after that settles.
+    window.set_position(position).map_err(|e| e.to_string())?;
+    window
+        .set_size(PhysicalSize::new(frame.width, frame.height))
+        .map_err(|e| e.to_string())?;
+    window.set_position(position).map_err(|e| e.to_string())
+}
+
+fn current_logical_height(window: &WebviewWindow) -> Result<f64, String> {
+    let scale = window.scale_factor().map_err(|e| e.to_string())?;
+    let size = window.inner_size().map_err(|e| e.to_string())?;
+    Ok(size.to_logical::<f64>(scale).height)
 }
 
 fn toggle_main_window(app: &AppHandle) {
