@@ -10,9 +10,13 @@ All notable QuotaBar changes should be summarized here before a release is cut.
 
 - Distinguish local estimates with green source badges and community references with blue badges in light and dark themes, preserving the flip transition. Keep the community color independent of the tray's green accent override.
 
-- Apply the bundled SDK patch from the repository root so clean builds include Reserve exclusion and model estimates instead of silently skipping the patch.
-
 - Simplify Codex weekly token capacity to Astra and GPT-5.6 Sol in Chinese and English. Calculate Astra from this device's weekly API value and input/cache/output mix, including mixed-model usage without a single-model sample requirement; convert Sol at the dated API price ratio (2.5×). Prefer local values and let users flip the source badge horizontally to switch to attributed Pro 20× community references. Keep mixed API value and diagnostics collapsed.
+
+## 0.5.3 - Candidate
+
+- Replace the bundled ccstats source archive and local patches with a registry dependency on ccstats 0.9.0. Reserve exclusion and model estimates are included in the upstream SDK candidate.
+- Use the SDK's public version constant for cost-cache identity and remove local SDK preparation from development and CI.
+- Release remains pending until ccstats 0.9.0 is published, Cargo.lock resolves the registry packages, and the registry-backed build passes verification.
 
 ## 0.5.2 - 2026-09-16
 
