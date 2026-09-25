@@ -126,15 +126,12 @@ analysis runs in the background. First-run loading has a reduced-motion-aware
 animation. Invalid Claude credentials require login before a quota request;
 failed reads wait for a manual recheck, with rate-limit deadlines still applied.
 
-The repositories remain separate. This checkout contains an immutable SDK source
-archive with its upstream commit and SHA-256 in `vendor/ccstats-sdk.json`.
-`npm run sdk:prepare` verifies and extracts it, then applies the tracked
-`vendor/ccstats-weekly-reserve.patch` and `vendor/ccstats-grok-47-rates.patch`;
-no sibling checkout is needed. The reserve patch
-excludes `gpt-reserve` complimentary usage from weekly value/token estimates
-before pricing, while retaining it in general usage analytics. The Grok 4.7
-patch prices `grok-4.7` and `grok-4.7-build` on the published API card. Official quota
-percentages remain provider-reported; ordinary Luna usage is not excluded.
+The repositories remain separate. QuotaBar depends on the ccstats 0.9
+SDK; Cargo.lock pins the resolved version. Claude/Codex parsing is shared through
+agent-sessions. The SDK excludes the independent gpt-reserve pool from subscription
+week estimates while retaining it in general usage, and includes Grok 4.7 pricing.
+No local SDK archive or patch preparation is needed. Official quota percentages
+remain provider-reported; ordinary Luna usage is not excluded.
 Weekly token capacity shows only **Astra** and **GPT-5.6 Sol**. It defaults to
 the local estimate when available. Click the source badge to switch between
 local and community values; the badge flips horizontally and respects reduced
@@ -167,14 +164,10 @@ The two rows represent alternative uses of one quota and cannot be added.
 Other devices, cloud usage and workload changes can skew local estimates.
 Official remaining percentages stay provider-reported. The mixed-workload
 API-equivalent value and any local valuation errors remain in collapsed details.
-SDK development can refresh the archive with `npm run sdk:update` when a ccstats
-checkout is beside this repository.
-When updating the SDK, review or remove the patch if upstream already includes
-the exclusion. A patch that no longer applies stops preparation with an error.
+SDK changes are tested and released in ccstats first, then adopted with an explicit Cargo dependency update.
 
 ```bash
 npm ci
-npm run sdk:prepare
 npm run tauri dev
 ```
 

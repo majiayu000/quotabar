@@ -13,8 +13,8 @@ pub const STALE_MAX_AGE: Duration = Duration::from_secs(24 * 60 * 60);
 /// Bump when the cost snapshot or range payload schema changes.
 pub const COST_CACHE_SCHEMA_VERSION: u32 = 2;
 
-/// Identity of the compiled `ccstats` crate, injected by `src-tauri/build.rs`.
-pub const CCSTATS_VERSION: &str = env!("CCSTATS_VERSION");
+/// Identity of the actual compiled SDK, including registry patch updates.
+pub const CCSTATS_VERSION: &str = ccstats::VERSION;
 
 #[derive(serde::Serialize, serde::Deserialize)]
 struct Snapshot<T> {
@@ -253,22 +253,6 @@ mod tests {
             .collect();
         assert!(overview_name.contains(&format!("ccstats{ccstats_file_token}")));
         assert!(overview_name.contains("claude-USD-local"));
-    }
-
-    #[test]
-    fn ccstats_version_matches_vendor_manifest_and_cargo_dep() {
-        let vendor = include_str!("../../../vendor/ccstats/Cargo.toml");
-        let cargo = include_str!("../../Cargo.toml");
-        assert!(
-            vendor.contains(&format!("version = \"{CCSTATS_VERSION}\"")),
-            "vendor/ccstats package version must match CCSTATS_VERSION"
-        );
-        assert!(
-            cargo.contains(&format!(
-                "ccstats = {{ path = \"../vendor/ccstats\", version = \"{CCSTATS_VERSION}\" }}"
-            )),
-            "src-tauri/Cargo.toml ccstats version must match CCSTATS_VERSION"
-        );
     }
 
     #[test]
