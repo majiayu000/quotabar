@@ -11,6 +11,8 @@ checksum = "320119579fcad9c21884f5c4861d16174d0e06250625266f50fe6898340abefa"
 [[package]]
 name = "agent-sessions"
 version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "741368addca6a3758a911dc5b0871df029863c67d2d2008788662586ed4748c3"
 dependencies = [
  "chrono",
  "memchr",

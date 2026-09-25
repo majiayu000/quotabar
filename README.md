@@ -126,8 +126,9 @@ analysis runs in the background. First-run loading has a reduced-motion-aware
 animation. Invalid Claude credentials require login before a quota request;
 failed reads wait for a manual recheck, with rate-limit deadlines still applied.
 
-The repositories remain separate. QuotaBar depends on the ccstats 0.9
-SDK; Cargo.lock pins the resolved version. Claude/Codex parsing is shared through
+The repositories remain separate. QuotaBar 0.5.3 is a candidate pending
+ccstats 0.9.0 publication and final registry-backed verification. The dependency
+is declared as a registry SDK; Cargo.lock pins the resolved version. Claude/Codex parsing is shared through
 agent-sessions. The SDK excludes the independent gpt-reserve pool from subscription
 week estimates while retaining it in general usage, and includes Grok 4.7 pricing.
 No local SDK archive or patch preparation is needed. Official quota percentages
