@@ -7,9 +7,39 @@
   <img src="src-tauri/icons/app-icon.svg" alt="QuotaBar logo" width="128" />
 </p>
 
-QuotaBar is a Tauri v2 menubar app for monitoring Claude Code, Codex, Cursor, Grok Build, and Antigravity usage. It shows live quota windows, per-provider tray indicators, and local cost estimates from on-device logs.
+See which AI coding quota is closest to its limit, when it resets, and where
+your local usage went. QuotaBar combines a tray monitor and desktop analysis
+for Claude Code, Codex, Cursor and Grok Build. Antigravity currently reports
+availability only; quota tracking is pending.
 
 Website: https://majiayu000.github.io/quotabar/
+
+## Download and first run
+
+1. Download the installer for your OS and CPU from
+   [the latest release](https://github.com/majiayu000/quotabar/releases/latest).
+   Normal use does not require Node.js or Rust.
+2. Open QuotaBar and click its tray icon. Sign in through your provider's own
+   application/CLI, then use **Check connection**. QuotaBar reads existing
+   sign-ins; it does not manage login or refresh tokens.
+3. Overview shows remaining quota and reset windows. Open **Usage analysis**
+   for local projects, sessions and history. Unavailable or stale readings stay
+   labeled; API-equivalent values are estimates, not subscription bills.
+
+See the release's installation/signing notes for that exact build. Features in
+[Unreleased](CHANGELOG.md#unreleased), including text-size controls, require a
+source build until the next release. Windows native acceptance remains tracked
+in [GH186](specs/GH186/tasks.md).
+
+## How the projects fit together
+
+[agent-sessions](https://github.com/majiayu000/agent-sessions) reads native
+session records and preserves provenance.
+[ccstats](https://github.com/majiayu000/ccstats) handles local accounting,
+pricing and CLI/SDK/machine interfaces. QuotaBar uses its published SDK and owns
+the tray, desktop analysis, alerts and settings. Install QuotaBar to use the app;
+you do not need to install those libraries or the separate ccstats desktop.
+See [product boundaries](PRODUCT.md) and [delivery status](docs/product/delivery-status.md).
 
 ## Features
 
@@ -97,6 +127,10 @@ This `v0.4.0` screenshot was refreshed on 2026-08-31 from the production React U
 - Antigravity installed for Antigravity provider status
 
 ## Language
+
+Settings → Display → Text size offers **100%**, **115%** and **130%** in source
+builds with the unreleased readability changes. Both windows share the saved
+choice; OS display scaling and quota values remain unchanged.
 
 Settings → Display → Language offers **Follow system**, **简体中文**, and **English**.
 Both the menu bar panel and desktop workspace update immediately and share the
