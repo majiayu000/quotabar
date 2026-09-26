@@ -4,6 +4,9 @@ All notable QuotaBar changes should be summarized here before a release is cut.
 
 ## Unreleased
 
+- Keep the Windows tray popover anchored to its icon on every resolution and scale ([#186](https://github.com/majiayu000/quotabar/issues/186)). Placement now uses the work area and scale of the monitor holding the icon, keeps an 8-logical-pixel gap, re-anchors after content resizes instead of growing into the taskbar, and applies the final size after crossing onto a monitor with a different scale.
+- Disable the Windows tray's native shadow and border so hidden frame insets do not push the popover beyond its calculated position. The analysis window and macOS shadow are unchanged.
+
 - Make the Codex weekly token source switch cover the whole title row. When a local estimate exists, tapping flips local and community views. When it does not, tapping explains why and how to get a local week; an explicit retry stays on that hint, not on the title.
 
 - Keep today, week, and month API-equivalent tiles visually even in the tray. The primary-range ring was leaking through the compact override and made only Today look shadowed.
