@@ -12,11 +12,11 @@ All notable QuotaBar changes should be summarized here before a release is cut.
 
 - Simplify Codex weekly token capacity to Astra and GPT-5.6 Sol in Chinese and English. Calculate Astra from this device's weekly API value and input/cache/output mix, including mixed-model usage without a single-model sample requirement; convert Sol at the dated API price ratio (2.5×). Prefer local values and let users flip the source badge horizontally to switch to attributed Pro 20× community references. Keep mixed API value and diagnostics collapsed.
 
-## 0.5.3 - Candidate
+## 0.5.3 - 2026-09-26
 
-- Replace the bundled ccstats source archive and local patches with a registry dependency on ccstats 0.9.0. Reserve exclusion and model estimates are included in the upstream SDK candidate.
+- Replace the bundled ccstats source archive and local patches with a registry dependency on ccstats 0.9.0. Reserve exclusion and model estimates are included in the published upstream SDK.
 - Use the SDK's public version constant for cost-cache identity and remove local SDK preparation from development and CI.
-- Release remains pending until ccstats 0.9.0 is published, Cargo.lock resolves the registry packages, and the registry-backed build passes verification.
+- Lock the published ccstats and agent-sessions packages from crates.io for reproducible builds.
 
 ## 0.5.2 - 2026-09-16
 
