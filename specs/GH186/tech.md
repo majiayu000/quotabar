@@ -15,6 +15,8 @@ Linked issue: https://github.com/majiayu000/quotabar/issues/186
 - `src-tauri/src/services/tray.rs` — `TrayState.popover` stores the last tray anchor and logical content height. `apply_popover_layout` is the only code path that sizes or positions the popover: it picks the monitor that contains the anchor center, reads its `work_area()` and `scale_factor()`, then runs `set_position → set_size → set_position`.
 - `src-tauri/src/services/window.rs` — `resize_window` records the logical height and re-places the popover; before the first tray anchor exists it falls back to a plain logical resize.
 - Frontend contract (`resize_window(height)`) is unchanged.
+- Windows tray initialization disables the native window shadow, propagating errors through `setup_tray`. Tauri sets an outer position but an inner size; Tao otherwise adds hidden non-client insets to an undecorated window with shadows, making the actual frame exceed the computed work-area bounds. This removes the Windows tray's native shadow/border; the analysis window and macOS shadow are unchanged.
+- The move/size/move sequence is not evidence that native mixed-DPI transitions have settled. In particular, Tao queues these operations asynchronously on macOS; cross-monitor behavior still requires platform testing.
 
 ## Verification
 

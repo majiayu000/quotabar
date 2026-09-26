@@ -361,8 +361,9 @@ fn apply_popover_layout(app: &AppHandle) -> Result<(), String> {
         logical_height,
     );
     let position = PhysicalPosition::new(frame.x, frame.y);
-    // Move first: crossing onto a monitor with another scale makes the OS rescale
-    // the window, so the final size and position are applied after that settles.
+    // Move first so Windows handles the target monitor's DPI before sizing.
+    // Native mixed-DPI timing still needs platform validation, particularly on
+    // macOS where Tao queues position and size changes asynchronously.
     window.set_position(position).map_err(|e| e.to_string())?;
     window
         .set_size(PhysicalSize::new(frame.width, frame.height))
@@ -560,6 +561,12 @@ fn build_service_tray(app: &AppHandle, service: TrayService) -> tauri::Result<()
 
 pub fn setup_tray(app: &AppHandle) -> tauri::Result<()> {
     if let Some(window) = app.get_webview_window("main") {
+        // Windows adds hidden non-client insets to undecorated windows with
+        // native shadows. Placement uses an outer position and an inner size,
+        // so keep these frames identical before the first popover is shown.
+        #[cfg(target_os = "windows")]
+        window.set_shadow(false)?;
+
         let window_clone = window.clone();
         window.on_window_event(move |event| {
             if let tauri::WindowEvent::Focused(false) = event {
