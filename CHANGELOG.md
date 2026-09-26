@@ -4,6 +4,9 @@ All notable QuotaBar changes should be summarized here before a release is cut.
 
 ## Unreleased
 
+- Add 100%, 115% and 130% text sizes under Display, shared by the tray and analysis window and retained after restart. Preserve system DPI and tray positioning, and report settings storage failures.
+- Fit the tray's scroll area to the actual window height on constrained displays while measuring hidden content for subsequent resizes, keeping bottom controls reachable.
+
 - Adopt ccstats 0.9.1 for stable model-alias price precedence and lock agent-sessions 0.2.1. SDK-versioned caches discard previous estimates after the upgrade.
 
 - Keep the Windows tray popover anchored to its icon on every resolution and scale ([#186](https://github.com/majiayu000/quotabar/issues/186)). Placement now uses the work area and scale of the monitor holding the icon, keeps an 8-logical-pixel gap, re-anchors after content resizes instead of growing into the taskbar, and applies the final size after crossing onto a monitor with a different scale.

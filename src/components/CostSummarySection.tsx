@@ -106,14 +106,16 @@ export function nextCostRangeFontSize(
 
 function fitCostRangeAmount(el: HTMLElement): void {
   el.style.removeProperty('font-size');
+  const scale = parseFloat(getComputedStyle(el).getPropertyValue('--qb-text-scale')) || 1;
   for (let pass = 0; pass < 8; pass += 1) {
     const next = nextCostRangeFontSize(
       parseFloat(getComputedStyle(el).fontSize),
       el.clientWidth,
       el.scrollWidth,
+      COST_RANGE_MIN_FONT_PX * scale,
     );
     if (next == null) return;
-    el.style.fontSize = `${next}px`;
+    el.style.fontSize = `calc(${next / scale}px * var(--qb-text-scale, 1))`;
   }
 }
 

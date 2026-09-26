@@ -2,6 +2,7 @@ import { setLanguagePreference, type LanguagePreference, localizeLabel, renderTe
 import { useLanguagePreference, useLocale } from '../i18n/react';
 import { useEffect, useState } from 'react';
 import type { QuotaDisplay } from '../services/quota_display';
+import { isTextScale, TEXT_SCALES, type TextScale } from '../services/text_scale';
 import ThemeSelector, { type ThemeName } from './ThemeSelector';
 import type { TrayToggleEntry } from './TrayToggles';
 import ProviderIcon from './ProviderIcon';
@@ -35,6 +36,8 @@ interface SettingsViewProps {
   workspace?: boolean;
   quotaDisplay?: QuotaDisplay;
   onQuotaDisplayChange?: (display: QuotaDisplay) => void;
+  textScale?: TextScale;
+  onTextScaleChange?: (scale: TextScale) => void;
   isMacOS: boolean;
   showDockToggle?: boolean;
   theme: ThemeName;
@@ -65,6 +68,8 @@ export default function SettingsView({
   workspace = false,
   quotaDisplay,
   onQuotaDisplayChange,
+  textScale = 1,
+  onTextScaleChange,
   isMacOS,
   showDockToggle = true,
   theme,
@@ -186,6 +191,21 @@ export default function SettingsView({
             <option value="en">English</option>
           </select>
         </label>
+        {onTextScaleChange && <>
+          <label className="settings-line">
+            <span>{t("Text size")}</span>
+            <select aria-label={t("Text size")} value={textScale}
+              onChange={(event) => {
+                const value = Number(event.target.value);
+                if (isTextScale(value)) onTextScaleChange(value);
+              }}>
+              {TEXT_SCALES.map((scale) => <option key={scale} value={scale}>
+                {scale === 1 ? t("100% (default)") : `${Math.round(scale * 100)}%`}
+              </option>)}
+            </select>
+          </label>
+          <p className="settings-hint">{t("Larger text in both windows. System display scaling stays unchanged.")}</p>
+        </>}
         {quotaDisplay && onQuotaDisplayChange && <>
           <div className="settings-subsection-title">{t("Quota overview")}</div>
           <p className="settings-hint">{t("All quota percentages and rings show remaining capacity.")}</p>

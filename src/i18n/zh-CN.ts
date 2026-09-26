@@ -1,6 +1,9 @@
 import type { en } from './en';
 
 export const zhCN = {
+  "Text size": "文字大小",
+  "100% (default)": "100%（默认）",
+  "Larger text in both windows. System display scaling stays unchanged.": "同时放大托盘和分析窗口的文字，不改变系统显示缩放。",
   "At least one provider must stay in the switcher": "至少保留一个服务入口",
   "Quota unavailable": "额度不可用",
   "Unknown error": "未知错误",

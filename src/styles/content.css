@@ -4,7 +4,7 @@
 }
 
 .section-title {
-  font-size: 10px;
+  font-size: calc(10px * var(--qb-text-scale, 1));
   font-weight: 700;
   color: var(--text-muted);
   text-transform: uppercase;
@@ -65,7 +65,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 13px;
+  font-size: calc(13px * var(--qb-text-scale, 1));
   font-weight: 650;
   color: var(--text-primary);
 }
@@ -77,7 +77,7 @@
 }
 
 .status-badge {
-  font-size: 10px;
+  font-size: calc(10px * var(--qb-text-scale, 1));
   font-weight: 700;
   padding: 2px 8px;
   border-radius: 4px;
@@ -92,7 +92,7 @@
 .quota-percentage {
   flex-shrink: 0;
   font-family: var(--metric-font);
-  font-size: 14px;
+  font-size: calc(14px * var(--qb-text-scale, 1));
   font-weight: 600;
   color: var(--text-primary);
   min-width: 36px;
@@ -129,15 +129,15 @@
   align-items: center;
   gap: 4px;
   color: var(--text-muted);
-  font-size: 11px;
+  font-size: calc(11px * var(--qb-text-scale, 1));
 }
 
-.reset-icon { font-size: 12px; }
+.reset-icon { font-size: calc(12px * var(--qb-text-scale, 1)); }
 
 /* No Data */
 .no-data {
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: calc(12px * var(--qb-text-scale, 1));
   text-align: center;
   padding: 16px;
   background: var(--bg-secondary);
@@ -160,7 +160,7 @@
   padding: 8px 16px;
   border-radius: 6px;
   cursor: pointer;
-  font-size: 12px;
+  font-size: calc(12px * var(--qb-text-scale, 1));
   font-weight: 500;
 }
 
@@ -192,7 +192,7 @@
   background: linear-gradient(180deg, var(--surface-card-strong), var(--surface-card));
   color: var(--text-primary);
   cursor: pointer;
-  font-size: 10px;
+  font-size: calc(10px * var(--qb-text-scale, 1));
   font-weight: 700;
   transition: transform 0.15s ease, background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
   box-shadow: var(--shadow-sm);
@@ -237,7 +237,7 @@
 
 .btn-icon {
   flex: 0 0 auto;
-  font-size: 13px;
+  font-size: calc(13px * var(--qb-text-scale, 1));
   line-height: 1;
 }
 
@@ -286,7 +286,7 @@
   color: var(--service-accent);
   background: color-mix(in srgb, var(--service-accent) 10%, var(--bg-card));
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--service-accent) 70%, transparent);
-  font-size: 12px;
+  font-size: calc(12px * var(--qb-text-scale, 1));
   font-weight: 850;
 }
 
@@ -307,14 +307,14 @@
 
 .provider-detail-name {
   color: var(--text-primary);
-  font-size: 16px;
+  font-size: calc(16px * var(--qb-text-scale, 1));
   line-height: 1.1;
   font-weight: 850;
 }
 
 .provider-detail-status {
   color: var(--text-muted);
-  font-size: 10px;
+  font-size: calc(10px * var(--qb-text-scale, 1));
   font-weight: 720;
 }
 
@@ -326,7 +326,7 @@
   background: color-mix(in srgb, var(--service-accent) 10%, var(--bg-card));
   color: var(--service-accent);
   font-family: var(--metric-font);
-  font-size: 12px;
+  font-size: calc(12px * var(--qb-text-scale, 1));
   font-weight: 850;
   text-align: center;
 }
@@ -340,7 +340,7 @@
   border-radius: 10px;
   background: color-mix(in srgb, var(--color-warning-bg) 42%, var(--bg-card));
   color: var(--text-secondary);
-  font-size: 11px;
+  font-size: calc(11px * var(--qb-text-scale, 1));
   line-height: 1.35;
 }
 
@@ -386,14 +386,14 @@
 
 .reset-timeline-row span {
   color: var(--text-secondary);
-  font-size: 11px;
+  font-size: calc(11px * var(--qb-text-scale, 1));
   font-weight: 700;
 }
 
 .reset-timeline-row strong {
   flex: 0 0 auto;
   color: var(--text-primary);
-  font-size: 11px;
+  font-size: calc(11px * var(--qb-text-scale, 1));
   font-weight: 850;
 }
 
@@ -436,7 +436,7 @@
 .cost-detail-label {
   display: block;
   color: var(--text-secondary);
-  font-size: 10px;
+  font-size: calc(10px * var(--qb-text-scale, 1));
   line-height: 1.2;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -447,7 +447,7 @@
   margin-top: 3px;
   color: var(--text-primary);
   font-family: var(--metric-font);
-  font-size: 12px;
+  font-size: calc(12px * var(--qb-text-scale, 1));
   font-weight: 650;
   line-height: 1.2;
   overflow-wrap: anywhere;
@@ -473,7 +473,7 @@
   margin-top: 2px;
   color: var(--text-primary);
   font-family: var(--metric-font);
-  font-size: 12px;
+  font-size: calc(12px * var(--qb-text-scale, 1));
   font-weight: 650;
   line-height: 1.2;
   overflow-wrap: anywhere;
@@ -499,20 +499,20 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--text-primary);
-  font-size: 11px;
+  font-size: calc(11px * var(--qb-text-scale, 1));
   font-weight: 500;
 }
 
 .cost-model-tokens {
   color: var(--text-muted);
-  font-size: 10px;
+  font-size: calc(10px * var(--qb-text-scale, 1));
   white-space: nowrap;
 }
 
 .cost-model-cost {
   color: var(--text-primary);
   font-family: var(--metric-font);
-  font-size: 11px;
+  font-size: calc(11px * var(--qb-text-scale, 1));
   font-weight: 600;
   white-space: nowrap;
 }
@@ -523,7 +523,7 @@
   gap: 8px;
   margin-top: 8px;
   color: var(--text-muted);
-  font-size: 10px;
+  font-size: calc(10px * var(--qb-text-scale, 1));
 }
 
 .cost-loading,
@@ -532,7 +532,7 @@
   border-radius: 8px;
   background: var(--bg-secondary);
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: calc(12px * var(--qb-text-scale, 1));
   text-align: center;
 }
 
@@ -545,7 +545,7 @@
 .cost-inline-error.compact {
   margin-top: 8px;
   padding: 6px 8px;
-  font-size: 10px;
+  font-size: calc(10px * var(--qb-text-scale, 1));
   text-align: left;
 }
 
@@ -559,7 +559,7 @@
   color: var(--bg-primary);
   padding: 10px 20px;
   border-radius: 8px;
-  font-size: 13px;
+  font-size: calc(13px * var(--qb-text-scale, 1));
   font-weight: 500;
   z-index: 1000;
   animation: fadeInOut 2s ease;

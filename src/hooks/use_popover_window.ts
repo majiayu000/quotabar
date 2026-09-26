@@ -5,6 +5,14 @@ import { backend } from '../services/backend';
 const VISIBILITY_READ_ERROR_MESSAGE = 'Failed to read popover window visibility';
 const FOCUS_SUBSCRIPTION_ERROR_MESSAGE = 'Failed to subscribe to popover focus changes';
 
+export function measurePopoverHeight(container: HTMLElement): number {
+  // A screen-constrained panel scrolls internally. Include its hidden content
+  // when requesting a new frame, otherwise the current height prevents growth.
+  const overflow = Array.from(container.querySelectorAll<HTMLElement>(':scope > .panel-scroll'))
+    .reduce((total, panel) => total + Math.max(0, panel.scrollHeight - panel.clientHeight), 0);
+  return Math.min(Math.max(container.scrollHeight + overflow + 2, 300), 582);
+}
+
 /**
  * Tracks popover window visibility (via focus events) and keeps the
  * window height in sync with the rendered content while visible.
@@ -26,9 +34,8 @@ export function usePopoverWindow(
     const updateHeight = async () => {
       if (containerRef.current) {
         // The tray frame has only a 1px border on each side, no outer padding.
-        const height = containerRef.current.scrollHeight + 2;
         try {
-          await backend.resizeWindow(Math.min(Math.max(height, 300), 582));
+          await backend.resizeWindow(measurePopoverHeight(containerRef.current));
         } catch (err) {
           console.error('Failed to resize window:', err);
         }

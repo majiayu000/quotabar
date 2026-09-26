@@ -1,13 +1,14 @@
 import { getLocale, t, localizeLabel, message, type DisplayText } from './i18n';
 import { useLocale } from './i18n/react';
 import type { ProviderReadState } from './services/provider_summary';
-import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef, type CSSProperties } from 'react';
 import { listen } from '@tauri-apps/api/event';
 import ActionButtons from './components/ActionButtons';
 import OverviewPanel, { AnalysisApp } from './components/OverviewPanel';
 import SettingsView from './components/SettingsView';
 import QuotaOverview from './components/QuotaOverview';
 import { getSavedQuotaDisplay, saveQuotaDisplay, type QuotaDisplay } from './services/quota_display';
+import { getSavedTextScale, saveTextScale, type TextScale } from './services/text_scale';
 import type { ThemeName } from './components/ThemeSelector';
 import TabSwitcher, { TabName } from './components/TabSwitcher';
 import ClaudePanel from './components/ClaudePanel';
@@ -169,6 +170,7 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
   });
   const [panelSections, setPanelSections] = useState<PanelSectionVisibility>(getSavedPanelSections);
   const [quotaDisplay, setQuotaDisplay] = useState<QuotaDisplay>(getSavedQuotaDisplay);
+  const [textScale, setTextScale] = useState<TextScale>(getSavedTextScale);
   const [settingsPage, setSettingsPage] = useState<'display' | 'accounts'>('display');
   const [trayStyle, setTrayStyle] = useState<TrayStyle>(getSavedTrayStyle);
   const [trayCycle, setTrayCycle] = useState<boolean>(getSavedTrayCycle);
@@ -180,7 +182,7 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
   const [detectedProviders, setDetectedProviders] = useState<SwitcherVisibility>(() => defaultServiceMap(false));
   const switcherVisibility = savedSwitcherVisibility ?? detectedProviders;
   const containerRef = useRef<HTMLDivElement>(null);
-  const windowVisible = usePopoverWindow(containerRef, [activeView, quota, connected], !workspace);
+  const windowVisible = usePopoverWindow(containerRef, [activeView, quota, connected, textScale], !workspace);
   const lastTrayIconRequestRef = useRef<Partial<Record<TrayServiceName, TrayIconRequest>>>({});
   const trayIconGenerationRef = useRef<Partial<Record<TrayServiceName, number>>>({});
 
@@ -191,6 +193,7 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
       setTrayEnabled(getInitialTrayEnabledState()); setTrayStyle(getSavedTrayStyle()); setTrayCycle(getSavedTrayCycle());
       setPanelSections(getSavedPanelSections()); setNotifSettings(getSavedNotificationSettings());
       setQuotaDisplay(getSavedQuotaDisplay());
+      setTextScale(getSavedTextScale());
       setSwitcherVisibility(getSavedSwitcherVisibility()); setEvents(getSavedEvents());
     };
     window.addEventListener('storage', syncPreferences);
@@ -580,6 +583,11 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
     setQuotaDisplay(display);
   }, []);
 
+  const handleTextScaleChange = useCallback((scale: TextScale) => {
+    saveTextScale(scale);
+    setTextScale(scale);
+  }, []);
+
   const handleTabChange = useCallback((tab: TabName) => {
     if (isProviderTab(tab) && !switcherVisibility[tab]) {
       if (savedSwitcherVisibility === null) {
@@ -670,7 +678,7 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
   const overviewCostRefreshKey = claudeCostRefreshNonce + refreshNonces.codex + refreshNonces.cursor;
 
   const content = (
-    <div className={`app theme-${theme}${workspace ? '' : ' quota-popover'}${activeView === 'all' && !workspace ? ' quota-home' : !workspace && providerViewActive ? ' quota-detail' : ''}`}>
+    <div style={{ '--qb-text-scale': textScale } as CSSProperties} className={`app theme-${theme}${workspace ? '' : ' quota-popover'}${activeView === 'all' && !workspace ? ' quota-home' : !workspace && providerViewActive ? ' quota-detail' : ''}`}>
       {toast && <div className="toast">{localizeLabel(toast)}</div>}
       <div className="container" ref={containerRef}>
         {activeView === 'settings' ? (
@@ -684,6 +692,8 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
               panelSections={panelSections}
               quotaDisplay={quotaDisplay}
               onQuotaDisplayChange={handleQuotaDisplayChange}
+              textScale={textScale}
+              onTextScaleChange={handleTextScaleChange}
               trayStyle={trayStyle}
               trayCycle={trayCycle}
               events={events}
@@ -779,5 +789,5 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
       </div>
     </div>
   );
-  return workspace ? <AnalysisApp visible={windowVisible} onRefreshProvider={handleProviderRefresh} providerContent={content} providerView={activeView} theme={theme} summaries={providerSummaries} quotaWindows={allQuotaWindows} onProviderView={setActiveView} onThemeChange={handleThemeChange} /> : content;
+  return workspace ? <AnalysisApp textScale={textScale} visible={windowVisible} onRefreshProvider={handleProviderRefresh} providerContent={content} providerView={activeView} theme={theme} summaries={providerSummaries} quotaWindows={allQuotaWindows} onProviderView={setActiveView} onThemeChange={handleThemeChange} /> : content;
 }

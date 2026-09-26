@@ -1,4 +1,7 @@
 export const en = {
+  "Text size": "Text size",
+  "100% (default)": "100% (default)",
+  "Larger text in both windows. System display scaling stays unchanged.": "Larger text in both windows. System display scaling stays unchanged.",
   "At least one provider must stay in the switcher": "At least one provider must stay in the switcher",
   "Quota unavailable": "Quota unavailable",
   "Unknown error": "Unknown error",

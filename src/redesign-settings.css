@@ -18,7 +18,7 @@
 
 .settings-view-header h1 {
   color: var(--text);
-  font-size: 13px;
+  font-size: calc(13px * var(--qb-text-scale, 1));
   font-weight: 600;
 }
 
@@ -30,7 +30,7 @@
   color: var(--sub);
   background: transparent;
   cursor: pointer;
-  font-size: 17px;
+  font-size: calc(17px * var(--qb-text-scale, 1));
 }
 
 
@@ -53,21 +53,21 @@
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.3),
     0 2px 6px rgba(0, 0, 0, 0.18);
-  font-size: 12px;
+  font-size: calc(12px * var(--qb-text-scale, 1));
   font-weight: 700;
 }
 
 .offline-title {
   margin-top: 9px;
   color: var(--text);
-  font-size: 13px;
+  font-size: calc(13px * var(--qb-text-scale, 1));
   font-weight: 700;
 }
 
 .offline-hint {
   margin-top: 3px;
   color: var(--sub);
-  font-size: 11px;
+  font-size: calc(11px * var(--qb-text-scale, 1));
   line-height: 1.45;
 }
 
@@ -80,12 +80,12 @@
   border-radius: 7px;
   background: var(--track);
   font-family: ui-monospace, 'SF Mono', Menlo, monospace;
-  font-size: 11px;
+  font-size: calc(11px * var(--qb-text-scale, 1));
 }
 
 .offline-copy {
   opacity: 0.55;
-  font-size: 10px;
+  font-size: calc(10px * var(--qb-text-scale, 1));
 }
 
 .error-banner {
@@ -95,7 +95,7 @@
   border-radius: 11px;
   background: rgba(255, 59, 48, 0.13);
   color: #ff3b30;
-  font-size: 12px;
+  font-size: calc(12px * var(--qb-text-scale, 1));
 }
 
 .loading-state,
@@ -110,7 +110,7 @@
   background: var(--card);
   box-shadow: 0 0 0 0.5px var(--line);
   text-align: center;
-  font-size: 12px;
+  font-size: calc(12px * var(--qb-text-scale, 1));
 }
 
 /* Task-oriented settings layout. Offline provider panels above continue to
@@ -127,7 +127,7 @@
 .settings-view-header .overview-kicker {
   display: block;
   color: var(--sub);
-  font-size: 11px;
+  font-size: calc(11px * var(--qb-text-scale, 1));
   font-weight: 650;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -135,7 +135,7 @@
 
 .settings-view-header h1 {
   margin-top: 1px;
-  font-size: 15px;
+  font-size: calc(15px * var(--qb-text-scale, 1));
   line-height: 17px;
   font-weight: 700;
 }
@@ -144,7 +144,7 @@
   width: 28px;
   height: 28px;
   border-radius: 8px;
-  font-size: 19px;
+  font-size: calc(19px * var(--qb-text-scale, 1));
 }
 
 .settings-back-btn:hover {
@@ -174,7 +174,7 @@
   padding-top: 1px;
   color: var(--acc);
   font-family: ui-monospace, 'SF Mono', Menlo, monospace;
-  font-size: 9px;
+  font-size: calc(9px * var(--qb-text-scale, 1));
   font-weight: 700;
   line-height: 15px;
 }
@@ -182,7 +182,7 @@
 .settings-group-header h2 {
   margin: 0;
   color: var(--text);
-  font-size: 13px;
+  font-size: calc(13px * var(--qb-text-scale, 1));
   line-height: 15px;
   font-weight: 700;
 }
@@ -190,14 +190,14 @@
 .settings-group-header p {
   margin: 2px 0 0;
   color: var(--sub);
-  font-size: 10.5px;
+  font-size: calc(10.5px * var(--qb-text-scale, 1));
   line-height: 13px;
 }
 
 .settings-subsection-title {
   margin: 11px 0 5px;
   color: var(--sub);
-  font-size: 9.5px;
+  font-size: calc(9.5px * var(--qb-text-scale, 1));
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -265,7 +265,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 11px;
+  font-size: calc(11px * var(--qb-text-scale, 1));
   font-weight: 650;
 }
 
@@ -276,7 +276,7 @@
   min-height: 32px;
   padding: 0;
   color: var(--text);
-  font-size: 12px;
+  font-size: calc(12px * var(--qb-text-scale, 1));
 }
 
 .settings-group .settings-line > span:first-child {
@@ -356,7 +356,7 @@
 .provider-visibility-head {
   padding: 5px 7px 4px;
   color: var(--sub);
-  font-size: 8.5px;
+  font-size: calc(8.5px * var(--qb-text-scale, 1));
   font-weight: 700;
   letter-spacing: 0.05em;
   text-transform: uppercase;
@@ -397,13 +397,13 @@
   color: var(--text);
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 11.5px;
+  font-size: calc(11.5px * var(--qb-text-scale, 1));
   line-height: 13px;
 }
 
 .provider-visibility-service small {
   color: var(--sub);
-  font-size: 9px;
+  font-size: calc(9px * var(--qb-text-scale, 1));
   line-height: 11px;
 }
 
@@ -439,7 +439,7 @@
   align-items: center;
   gap: 4px;
   color: var(--sub);
-  font-size: 11px;
+  font-size: calc(11px * var(--qb-text-scale, 1));
   font-variant-numeric: tabular-nums;
 }
 
@@ -452,7 +452,7 @@
   box-shadow: 0 0 0 0.5px var(--line);
   color: var(--text);
   font: inherit;
-  font-size: 11px;
+  font-size: calc(11px * var(--qb-text-scale, 1));
   text-align: right;
   font-variant-numeric: tabular-nums;
   appearance: textfield;
@@ -472,7 +472,7 @@
 
 .settings-group .settings-hint {
   margin-top: 6px;
-  font-size: 10px;
+  font-size: calc(10px * var(--qb-text-scale, 1));
   line-height: 13px;
 }
 
@@ -495,7 +495,7 @@
   background: transparent;
   color: var(--sub);
   font: inherit;
-  font-size: 11px;
+  font-size: calc(11px * var(--qb-text-scale, 1));
   font-weight: 650;
   text-align: center;
   cursor: pointer;
@@ -520,7 +520,7 @@
   gap: 7px;
   padding: 6px 0;
   color: var(--text);
-  font-size: 10.5px;
+  font-size: calc(10.5px * var(--qb-text-scale, 1));
 }
 
 .settings-group .event-row + .event-row {
@@ -564,7 +564,7 @@
 .settings-group .event-time {
   flex: none;
   color: var(--sub);
-  font-size: 9px;
+  font-size: calc(9px * var(--qb-text-scale, 1));
   font-variant-numeric: tabular-nums;
 }
 
