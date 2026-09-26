@@ -25,4 +25,3 @@ dist-ssr
 src-tauri/icons/variants/previews/
 
 # Generated from the checked-in, checksummed SDK source archive.
-/vendor/ccstats/

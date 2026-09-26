@@ -9,6 +9,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "320119579fcad9c21884f5c4861d16174d0e06250625266f50fe6898340abefa"
 
 [[package]]
+name = "agent-sessions"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "741368addca6a3758a911dc5b0871df029863c67d2d2008788662586ed4748c3"
+dependencies = [
+ "chrono",
+ "memchr",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "aho-corasick"
 version = "1.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -482,8 +494,11 @@ dependencies = [
 
 [[package]]
 name = "ccstats"
-version = "0.7.0"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0a275bc6c8b6c3cd5b7c846cfe5f314647bc5a4d58e4c4db57d33b8567314480"
 dependencies = [
+ "agent-sessions",
  "base64 0.23.1",
  "chrono",
  "chrono-tz",
@@ -503,6 +518,7 @@ dependencies = [
  "thiserror 2.0.18",
  "toml 1.0.1+spec-1.1.0",
  "ureq",
+ "windows-sys 0.61.2",
  "zstd",
 ]
 
@@ -3413,7 +3429,7 @@ dependencies = [
 
 [[package]]
 name = "quotabar"
-version = "0.5.2"
+version = "0.5.3"
 dependencies = [
  "base64 0.22.1",
  "ccstats",

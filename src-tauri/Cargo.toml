@@ -1,6 +1,6 @@
 [package]
 name = "quotabar"
-version = "0.5.2"
+version = "0.5.3"
 description = "Quota and cost monitor for Claude Code and Codex"
 authors = ["QuotaBar Contributors"]
 edition = "2021"
@@ -30,8 +30,8 @@ dirs = "5"
 rusqlite = { version = "0.40", features = ["bundled"] }
 image = { version = "0.25", default-features = false, features = ["png"] }
 once_cell = "1.19"
-# Immutable SDK sources and provenance are stored in vendor/ccstats-sdk.json.
-ccstats = { path = "../vendor/ccstats", version = "0.7.0" }
+# Statistics SDK with shared native session parsing and weekly value estimates.
+ccstats = "0.9.0"
 tauri-plugin-notification = "2.3.3"
 tauri-plugin-autostart = "2.5.1"
 
