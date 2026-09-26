@@ -170,7 +170,7 @@ jobs:
       - name: Build desktop bundle
         run: npm run tauri build -- --bundles ${{ matrix.bundles }}
 
-      - name: Verify signed and notarized macOS app
+      - name: Verify app and notarize signed macOS DMG
         if: runner.os == 'macOS' && env.MACOS_SIGNING == 'developer-id'
         run: |
           set -euo pipefail
@@ -198,8 +198,38 @@ jobs:
           xcrun stapler validate "$app_path"
           cleanup_mount
           trap - EXIT
-          xcrun stapler staple "$dmg_path"
+          # Tauri notarizes the enclosed app, but only signs the DMG itself.
+          notary_result="$RUNNER_TEMP/quotabar-dmg-notary.json"
+          xcrun notarytool submit "$dmg_path" \
+            --key "$APPLE_API_KEY_PATH" \
+            --key-id "$APPLE_API_KEY" \
+            --issuer "$APPLE_API_ISSUER" \
+            --wait --output-format json > "$notary_result"
+          python3 - "$notary_result" <<'PYTHON'
+          import json
+          import sys
+          with open(sys.argv[1], encoding="utf-8") as result_file:
+              result = json.load(result_file)
+          if result.get("status") != "Accepted":
+              raise SystemExit("DMG notarization was not accepted")
+          PYTHON
+          staple_ok=0
+          for attempt in 1 2 3 4 5 6; do
+            if xcrun stapler staple "$dmg_path"; then
+              staple_ok=1
+              break
+            fi
+            if [ "$attempt" -lt 6 ]; then
+              echo "DMG ticket unavailable on attempt ${attempt}; retrying in 15s"
+              sleep 15
+            fi
+          done
+          if [ "$staple_ok" -ne 1 ]; then
+            echo "Failed to staple the accepted notarization ticket onto the DMG" >&2
+            exit 1
+          fi
           xcrun stapler validate "$dmg_path"
+          spctl --assess --type open --context context:primary-signature --verbose=2 "$dmg_path"
 
       - name: Generate Unix SHA-256 manifest
         if: runner.os != 'Windows'

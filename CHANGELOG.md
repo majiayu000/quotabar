@@ -12,7 +12,15 @@ All notable QuotaBar changes should be summarized here before a release is cut.
 
 - Simplify Codex weekly token capacity to Astra and GPT-5.6 Sol in Chinese and English. Calculate Astra from this device's weekly API value and input/cache/output mix, including mixed-model usage without a single-model sample requirement; convert Sol at the dated API price ratio (2.5×). Prefer local values and let users flip the source badge horizontally to switch to attributed Pro 20× community references. Keep mixed API value and diagnostics collapsed.
 
-## 0.5.3 - 2026-09-26
+## 0.5.4 - 2026-09-26
+
+- Adopt the published ccstats 0.9.0 SDK and agent-sessions parser from crates.io, replacing the bundled SDK archive and local patches. Preserve Reserve exclusion, model estimates, and SDK-versioned cost caches.
+- Submit the signed macOS DMG itself for notarization after verifying the enclosed app. Require an Accepted result, retry ticket stapling within a bounded window, and validate the DMG before publishing artifacts.
+
+## 0.5.3 - Unpublished candidate (2026-09-26)
+
+- The existing tag is retained. Its macOS artifact workflow failed because the DMG was signed but not submitted for notarization; this candidate was not published as a public release.
+
 
 - Replace the bundled ccstats source archive and local patches with a registry dependency on ccstats 0.9.0. Reserve exclusion and model estimates are included in the published upstream SDK.
 - Use the SDK's public version constant for cost-cache identity and remove local SDK preparation from development and CI.
