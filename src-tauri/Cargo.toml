@@ -31,7 +31,7 @@ rusqlite = { version = "0.40", features = ["bundled"] }
 image = { version = "0.25", default-features = false, features = ["png"] }
 once_cell = "1.19"
 # Statistics SDK with shared native session parsing and weekly value estimates.
-ccstats = "0.9.0"
+ccstats = "0.9.1"
 tauri-plugin-notification = "2.3.3"
 tauri-plugin-autostart = "2.5.1"
 

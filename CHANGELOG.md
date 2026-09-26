@@ -4,6 +4,8 @@ All notable QuotaBar changes should be summarized here before a release is cut.
 
 ## Unreleased
 
+- Adopt ccstats 0.9.1 for stable model-alias price precedence and lock agent-sessions 0.2.1. SDK-versioned caches discard previous estimates after the upgrade.
+
 - Keep the Windows tray popover anchored to its icon on every resolution and scale ([#186](https://github.com/majiayu000/quotabar/issues/186)). Placement now uses the work area and scale of the monitor holding the icon, keeps an 8-logical-pixel gap, re-anchors after content resizes instead of growing into the taskbar, and applies the final size after crossing onto a monitor with a different scale.
 - Disable the Windows tray's native shadow and border so hidden frame insets do not push the popover beyond its calculated position. The analysis window and macOS shadow are unchanged.
 

@@ -10,9 +10,9 @@ checksum = "320119579fcad9c21884f5c4861d16174d0e06250625266f50fe6898340abefa"
 
 [[package]]
 name = "agent-sessions"
-version = "0.2.0"
+version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "741368addca6a3758a911dc5b0871df029863c67d2d2008788662586ed4748c3"
+checksum = "c078a983ce703c27069e826d9558d56b06c92723bb3480db526edbc3b4f89908"
 dependencies = [
  "chrono",
  "memchr",
@@ -494,9 +494,9 @@ dependencies = [
 
 [[package]]
 name = "ccstats"
-version = "0.9.0"
+version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0a275bc6c8b6c3cd5b7c846cfe5f314647bc5a4d58e4c4db57d33b8567314480"
+checksum = "69a59db45c3aebcea3568ea596bb9b73edbb244faf09c17f750169b4acf592ba"
 dependencies = [
  "agent-sessions",
  "base64 0.23.1",

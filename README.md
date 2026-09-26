@@ -127,7 +127,7 @@ animation. Invalid Claude credentials require login before a quota request;
 failed reads wait for a manual recheck, with rate-limit deadlines still applied.
 
 The repositories remain separate. QuotaBar depends on the published ccstats
-0.9.0 SDK from crates.io; Cargo.lock pins the resolved version. Claude/Codex
+0.9.1 SDK from crates.io; Cargo.lock pins the resolved version. Claude/Codex
 parsing is shared through
 agent-sessions. The SDK excludes the independent gpt-reserve pool from subscription
 week estimates while retaining it in general usage, and includes Grok 4.7 pricing.
