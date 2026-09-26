@@ -59,11 +59,20 @@ pub fn open_direction(anchor: Rect, work_area: Rect) -> OpenToward {
     if cx < work_area.x {
         return OpenToward::Right;
     }
-    // Auto-hidden taskbar or overflow flyout: open away from the nearer edge.
-    if cy - work_area.y > work_area.bottom() - cy {
+    // Auto-hidden taskbar or overflow flyout: open away from the nearest edge.
+    let top = cy - work_area.y;
+    let bottom = work_area.bottom() - cy;
+    let left = cx - work_area.x;
+    let right = work_area.right() - cx;
+    let nearest = top.min(bottom).min(left).min(right);
+    if nearest == bottom {
         OpenToward::Up
-    } else {
+    } else if nearest == top {
         OpenToward::Down
+    } else if nearest == right {
+        OpenToward::Left
+    } else {
+        OpenToward::Right
     }
 }
 
@@ -437,17 +446,41 @@ mod tests {
             width: 3840,
             height: 2160,
         };
-        let icon = Rect {
-            x: 3600,
-            y: 2110,
-            width: 48,
-            height: 48,
-        };
-        assert_eq!(open_direction(icon, area), OpenToward::Up);
-        assert!(inside(
-            place_popover(icon, area, 2.0, POPOVER_WIDTH, 582.0),
-            area
-        ));
+        for (icon, direction) in [
+            (
+                Rect {
+                    x: 3600,
+                    y: 2110,
+                    width: 48,
+                    height: 48,
+                },
+                OpenToward::Up,
+            ),
+            (
+                Rect {
+                    x: 0,
+                    y: 900,
+                    width: 48,
+                    height: 48,
+                },
+                OpenToward::Right,
+            ),
+            (
+                Rect {
+                    x: 3792,
+                    y: 900,
+                    width: 48,
+                    height: 48,
+                },
+                OpenToward::Left,
+            ),
+        ] {
+            assert_eq!(open_direction(icon, area), direction);
+            assert!(inside(
+                place_popover(icon, area, 2.0, POPOVER_WIDTH, 582.0),
+                area
+            ));
+        }
     }
 
     #[test]
