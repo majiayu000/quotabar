@@ -1,3 +1,7 @@
+#[cfg(target_os = "macos")]
+#[path = "native_tray.rs"]
+mod native_tray;
+
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{mpsc, Arc, Mutex};
 
@@ -411,26 +415,25 @@ fn seed_status_item_defaults(service: TrayService) {
     let defaults = NSUserDefaults::standardUserDefaults();
     let autosave = service.tray_id();
     let position_key = NSString::from_str(&format!("NSStatusItem Preferred Position {autosave}"));
-    let visible_key = NSString::from_str(&format!("NSStatusItem Visible {autosave}"));
-    defaults.setDouble_forKey(service.preferred_position(), &position_key);
-    defaults.setBool_forKey(true, &visible_key);
+    if defaults.objectForKey(&position_key).is_none() {
+        defaults.setDouble_forKey(service.preferred_position(), &position_key);
+    }
+    // Visibility is applied by update_tray_icon, not by saved defaults.
 }
 
 #[cfg(target_os = "macos")]
-fn apply_status_item_autosave(app: AppHandle, tray_id: &'static str) {
-    std::thread::spawn(move || {
-        std::thread::sleep(std::time::Duration::from_millis(16));
-        let Some(tray) = app.tray_by_id(tray_id) else {
-            return;
-        };
-        let _ = tray.with_inner_tray_icon(move |inner| {
-            use objc2_foundation::NSString;
-            if let Some(item) = inner.ns_status_item() {
-                item.setAutosaveName(Some(&NSString::from_str(tray_id)));
-                item.setVisible(true);
-            }
-        });
-    });
+fn apply_status_item_autosave(app: &AppHandle, tray_id: &str) -> Result<(), String> {
+    let tray = app.tray_by_id(tray_id).ok_or("missing tray icon")?;
+    let autosave_name = tray_id.to_owned();
+    // Configure synchronously on the main thread. A delayed callback must not
+    // resurrect an item after a newer update has hidden it.
+    tray.with_inner_tray_icon(move |inner| {
+        use objc2_foundation::NSString;
+        let item = inner.ns_status_item().ok_or("missing native status item")?;
+        item.setAutosaveName(Some(&NSString::from_str(&autosave_name)));
+        Ok(())
+    })
+    .map_err(|error| error.to_string())?
 }
 
 fn destroy_hidden_tray() -> bool {
@@ -438,17 +441,20 @@ fn destroy_hidden_tray() -> bool {
 }
 
 #[cfg(target_os = "macos")]
-fn set_status_item_collapsed(app: &AppHandle, tray_id: &str, collapsed: bool) {
+fn set_status_item_visible(app: &AppHandle, tray_id: &str, visible: bool) -> Result<(), String> {
     let Some(tray) = app.tray_by_id(tray_id) else {
-        return;
+        return if visible {
+            Err("missing tray icon".into())
+        } else {
+            Ok(())
+        };
     };
-    let _ = tray.with_inner_tray_icon(move |inner| {
-        if let Some(item) = inner.ns_status_item() {
-            // NSVariableStatusItemLength == -1. Length 0 hides without destroying
-            // the extras-region item (set_visible(false) removes it on macOS 26).
-            item.setLength(if collapsed { 0.0 } else { -1.0 });
-        }
-    });
+    tray.with_inner_tray_icon(move |inner| {
+        let item = inner.ns_status_item().ok_or("missing native status item")?;
+        native_tray::set_visible(&item, visible);
+        Ok(())
+    })
+    .map_err(|error| error.to_string())?
 }
 
 fn format_tooltip(service: TrayService, percentage: Option<u8>, stale: bool) -> String {
@@ -555,13 +561,11 @@ fn build_service_tray(app: &AppHandle, service: TrayService) -> tauri::Result<()
         })
         .build(app)?;
 
-    // Keep the NSStatusItem alive. On macOS 26, set_visible(false) removes the
-    // status item; recreating it later parks the icon under the notch instead of
-    // in the extras region, so only one provider tray remains usable.
-    let _ = tray.set_visible(true);
-    let _ = tray.set_icon_as_template(false);
+    // Keep ownership in tray-icon; native visibility controls menu-bar layout.
+    tray.set_icon_as_template(false)?;
     #[cfg(target_os = "macos")]
-    apply_status_item_autosave(app.clone(), service.tray_id());
+    apply_status_item_autosave(app, service.tray_id())
+        .map_err(|error| tauri::Error::Io(std::io::Error::other(error)))?;
     Ok(())
 }
 
@@ -644,7 +648,7 @@ pub async fn update_tray_icon(
                     let _ = app_handle.remove_tray_by_id(service.tray_id());
                 } else {
                     #[cfg(target_os = "macos")]
-                    set_status_item_collapsed(&app_handle, service.tray_id(), true);
+                    set_status_item_visible(&app_handle, service.tray_id(), false)?;
                 }
                 {
                     let mut state = runtime
@@ -660,8 +664,6 @@ pub async fn update_tray_icon(
             if app_handle.tray_by_id(service.tray_id()).is_none() {
                 build_service_tray(&app_handle, service).map_err(|e| e.to_string())?;
             }
-            #[cfg(target_os = "macos")]
-            set_status_item_collapsed(&app_handle, service.tray_id(), false);
 
             let Some(tray) = app_handle.tray_by_id(service.tray_id()) else {
                 return Err(format!("missing tray icon for {}", service.label()));
@@ -682,6 +684,9 @@ pub async fn update_tray_icon(
                 .map_err(|e| e.to_string())?;
             tray.set_tooltip(Some(format_tooltip(service, percentage, stale)))
                 .map_err(|e| e.to_string())?;
+            #[cfg(target_os = "macos")]
+            set_status_item_visible(&app_handle, service.tray_id(), true)?;
+            #[cfg(not(target_os = "macos"))]
             tray.set_visible(true).map_err(|e| e.to_string())?;
 
             {
