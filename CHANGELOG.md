@@ -4,11 +4,6 @@ All notable QuotaBar changes should be summarized here before a release is cut.
 
 ## Unreleased
 
-- Renew expired Grok sessions through the installed official `grok models` command when refresh credentials are available. Retry failed renewal automatically and offer opening Grok instead of immediately requiring a new login.
-
-- Keep the Windows tray popover anchored to its icon on every resolution and scale ([#186](https://github.com/majiayu000/quotabar/issues/186)). Placement now uses the work area and scale of the monitor holding the icon, keeps an 8-logical-pixel gap, re-anchors after content resizes instead of growing into the taskbar, and applies the final size after crossing onto a monitor with a different scale.
-- Disable the Windows tray's native shadow and border so hidden frame insets do not push the popover beyond its calculated position. The analysis window and macOS shadow are unchanged.
-
 - Make the Codex weekly token source switch cover the whole title row. When a local estimate exists, tapping flips local and community views. When it does not, tapping explains why and how to get a local week; an explicit retry stays on that hint, not on the title.
 
 - Keep today, week, and month API-equivalent tiles visually even in the tray. The primary-range ring was leaking through the compact override and made only Today look shadowed.
@@ -16,6 +11,12 @@ All notable QuotaBar changes should be summarized here before a release is cut.
 - Distinguish local estimates with green source badges and community references with blue badges in light and dark themes, preserving the flip transition. Keep the community color independent of the tray's green accent override.
 
 - Simplify Codex weekly token capacity to Astra and GPT-5.6 Sol in Chinese and English. Calculate Astra from this device's weekly API value and input/cache/output mix, including mixed-model usage without a single-model sample requirement; convert Sol at the dated API price ratio (2.5×). Prefer local values and let users flip the source badge horizontally to switch to attributed Pro 20× community references. Keep mixed API value and diagnostics collapsed.
+
+## 0.5.5 - 2026-09-29
+
+- Renew expired Grok sessions through the installed official `grok models` command when refresh credentials are available. Retry failed renewal automatically and offer opening Grok instead of immediately requiring a new login.
+- Keep the Windows tray popover anchored to its icon on every resolution and scale ([#186](https://github.com/majiayu000/quotabar/issues/186)). Placement now uses the work area and scale of the monitor holding the icon, keeps an 8-logical-pixel gap, re-anchors after content resizes instead of growing into the taskbar, and applies the final size after crossing onto a monitor with a different scale.
+- Disable the Windows tray's native shadow and border so hidden frame insets do not push the popover beyond its calculated position. The analysis window and macOS shadow are unchanged.
 
 ## 0.5.4 - 2026-09-26
 
