@@ -163,6 +163,8 @@ export const zhCN = {
   "Remaining {p0} / {p1}": "剩余 {p0} / {p1}",
   "Prepaid remaining": "预付余额",
   "Grok not connected": "未连接 Grok",
+  "Could not renew Grok session": "Grok 登录状态暂时无法续期",
+  "QuotaBar will retry automatically. You can also open Grok in Terminal to renew the session; sign in only if Grok asks you to.": "QuotaBar 会自动重试。也可以在终端打开 Grok 续期；只有 Grok 提示登录时，才需要重新登录。",
   "Run grok login; the connection will be checked automatically": "请先运行 grok login，随后会自动检测连接",
   "Quota usage": "额度用量",
   "Subscription quota": "订阅额度",

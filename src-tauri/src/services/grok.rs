@@ -4,13 +4,15 @@
 //!   1. `$GROK_HOME/auth.json` when `GROK_HOME` is set
 //!   2. `~/.grok/auth.json`
 //!
-//! Credentials are read-only. QuotaBar never writes, refreshes, or logs tokens.
+//! QuotaBar reads credentials; the official Grok CLI owns renewal and storage.
+//! Tokens and CLI output are never logged.
 
 use crate::domain::models::{GrokData, GrokExtraCredits, GrokProductUsage, GrokValueEstimate};
 use crate::services::grok_local;
 use crate::services::http::{is_transient_os_error, shared_http_client};
 use chrono::{DateTime, Utc};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+use std::process::{Command, Stdio};
 use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
@@ -18,6 +20,9 @@ const BILLING_URL: &str = "https://cli-chat-proxy.grok.com/v1/billing?format=cre
 const TOKEN_AUTH_HEADER: &str = "xai-grok-cli";
 const QUOTA_CACHE_TTL: Duration = Duration::from_secs(120);
 const MAX_STALE_GROK_AGE: Duration = Duration::from_secs(15 * 60);
+const RENEWAL_RETRY_INTERVAL: Duration = Duration::from_secs(5 * 60);
+const RENEWAL_TIMEOUT: Duration = Duration::from_secs(20);
+static LAST_RENEWAL_ATTEMPT: Mutex<Option<Instant>> = Mutex::new(None);
 
 struct CachedGrok {
     data: GrokData,
@@ -144,15 +149,123 @@ fn pick_credential(auth: &serde_json::Value) -> Result<GrokCredential, String> {
     Err("Grok Build not configured. Run 'grok login'.".to_string())
 }
 
-fn read_auth_json() -> Result<serde_json::Value, String> {
-    let home = grok_home().ok_or_else(|| "Could not find home directory".to_string())?;
-    let auth_file = home.join("auth.json");
+fn read_auth_json(auth_file: &Path) -> Result<serde_json::Value, String> {
     if !auth_file.exists() {
         return Err("Grok Build not configured. Run 'grok login'.".to_string());
     }
-    let content = std::fs::read_to_string(&auth_file)
+    let content = std::fs::read_to_string(auth_file)
         .map_err(|err| format!("Failed to read Grok auth: {err}"))?;
     serde_json::from_str(&content).map_err(|err| format!("Failed to parse Grok auth: {err}"))
+}
+
+fn read_credential_with_renewal(
+    auth_file: &Path,
+    renew: impl FnOnce() -> Result<(), String>,
+) -> Result<GrokCredential, String> {
+    let auth = read_auth_json(auth_file)?;
+    let error = match pick_credential(&auth) {
+        Ok(credential) => return Ok(credential),
+        Err(error) => error,
+    };
+    let can_renew = |entry: &serde_json::Value| {
+        entry["key"].as_str().is_some_and(|s| !s.trim().is_empty())
+            && is_expired(&entry["expires_at"])
+            && entry["refresh_token"]
+                .as_str()
+                .is_some_and(|s| !s.trim().is_empty())
+    };
+    if !can_renew(&auth)
+        && !auth
+            .as_object()
+            .is_some_and(|entries| entries.values().any(can_renew))
+    {
+        return Err(error);
+    }
+    renew()?;
+    // A successful command is not proof of renewal: only the saved credential is.
+    pick_credential(&read_auth_json(auth_file)?).map_err(|_| {
+        "Grok session renewal did not produce a valid credential. Open 'grok' to check sign-in."
+            .to_string()
+    })
+}
+
+fn run_renewal_command(command: &mut Command, timeout: Duration) -> Result<(), String> {
+    command
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null());
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        command.creation_flags(0x08000000); // CREATE_NO_WINDOW
+    }
+    let mut child = command
+        .spawn()
+        .map_err(|error| format!("Grok session renewal could not start the Grok CLI: {error}"))?;
+    let started = Instant::now();
+    let result = loop {
+        match child.try_wait() {
+            Ok(Some(status)) if status.success() => return Ok(()),
+            Ok(Some(status)) => {
+                return Err(format!(
+                    "Grok session renewal failed ({status}). Open 'grok' to check sign-in."
+                ));
+            }
+            Ok(None) if started.elapsed() < timeout => {
+                std::thread::sleep(Duration::from_millis(50));
+            }
+            Ok(None) => break "Grok session renewal timed out; it will retry later.".to_string(),
+            Err(error) => {
+                break format!("Grok session renewal could not wait for the CLI: {error}")
+            }
+        }
+    };
+    // Do not leave a hung helper running after returning to the polling loop.
+    let cleanup = child.kill().and_then(|_| child.wait());
+    match cleanup {
+        Ok(_) => Err(result),
+        Err(error) => Err(format!("{result} Could not stop the CLI: {error}")),
+    }
+}
+
+fn renew_session(home: &Path, manual: bool) -> Result<(), String> {
+    {
+        let mut last_attempt = LAST_RENEWAL_ATTEMPT
+            .lock()
+            .map_err(|_| "Grok session renewal state is unavailable".to_string())?;
+        if !manual && last_attempt.is_some_and(|last| last.elapsed() < RENEWAL_RETRY_INTERVAL) {
+            return Err(
+                "Grok session renewal is waiting to retry. Open 'grok' or retry manually now."
+                    .to_string(),
+            );
+        }
+        *last_attempt = Some(Instant::now());
+    }
+    let executable = if cfg!(windows) { "grok.exe" } else { "grok" };
+    let installed_cli = home.join("bin").join(executable);
+    let mut command = Command::new(if installed_cli.is_file() {
+        installed_cli
+    } else {
+        PathBuf::from(executable)
+    });
+    // `models` renews through Grok's auth manager without opening a conversation.
+    // Keep its auth path aligned with the file we read, including custom GROK_HOME.
+    command
+        .arg("models")
+        .current_dir(home)
+        .env("GROK_HOME", home)
+        .env("GROK_AUTH_PATH", home.join("auth.json"))
+        .env_remove("GROK_AUTH");
+    run_renewal_command(&mut command, RENEWAL_TIMEOUT)
+}
+
+async fn read_credential(manual: bool) -> Result<GrokCredential, String> {
+    let home = grok_home().ok_or_else(|| "Could not find home directory".to_string())?;
+    tauri::async_runtime::spawn_blocking(move || {
+        read_credential_with_renewal(&home.join("auth.json"), || renew_session(&home, manual))
+    })
+    .await
+    .map_err(|error| format!("Grok session renewal task failed: {error}"))?
 }
 
 fn parse_cent(value: &serde_json::Value) -> Option<i64> {
@@ -520,11 +633,7 @@ fn is_grok_auth_status(status: reqwest::StatusCode) -> bool {
 }
 
 pub async fn fetch_grok_info(manual: bool) -> GrokData {
-    let auth = match read_auth_json() {
-        Ok(value) => value,
-        Err(error) => return fallback_or_disconnected(error),
-    };
-    let credential = match pick_credential(&auth) {
+    let credential = match read_credential(manual).await {
         Ok(value) => value,
         Err(error) => return fallback_or_disconnected(error),
     };
@@ -602,6 +711,7 @@ mod tests {
         should_read_grok_cache, stale_grok_usable, MAX_STALE_GROK_AGE,
     };
     use crate::domain::models::{GrokData, GrokProductUsage};
+    use chrono::Utc;
     use serde_json::json;
     use std::time::Duration;
 
@@ -886,6 +996,104 @@ mod tests {
         };
         assert!(err.contains("expired"));
         assert!(!err.contains("expired-token"));
+    }
+
+    #[test]
+    fn renewal_rereads_credentials_and_preserves_failures() {
+        let directory = std::env::temp_dir().join(format!(
+            "quotabar-grok-renewal-{}-{}",
+            std::process::id(),
+            Utc::now().timestamp_nanos_opt().unwrap()
+        ));
+        std::fs::create_dir(&directory).unwrap();
+        let path = directory.join("auth.json");
+        let expired = json!({"entry": {
+            "key": "test-expired-key",
+            "refresh_token": "test-refresh-token",
+            "expires_at": "2020-01-01T00:00:00Z"
+        }});
+        let live = json!({"entry": {
+            "key": "test-renewed-key",
+            "expires_at": "2099-01-01T00:00:00Z"
+        }});
+        std::fs::write(&path, expired.to_string()).unwrap();
+        let credential = super::read_credential_with_renewal(&path, || {
+            std::fs::write(&path, live.to_string()).unwrap();
+            Ok(())
+        })
+        .unwrap_or_else(|error| panic!("{error}"));
+        assert_eq!(credential.key, "test-renewed-key");
+
+        assert!(super::read_credential_with_renewal(&path, || {
+            panic!("valid credentials must not launch the CLI")
+        })
+        .is_ok());
+
+        std::fs::write(&path, expired.to_string()).unwrap();
+        let failed = super::read_credential_with_renewal(&path, || {
+            Err("Grok session renewal timed out".to_string())
+        });
+        assert_eq!(failed.err().unwrap(), "Grok session renewal timed out");
+        let unchanged = super::read_credential_with_renewal(&path, || Ok(()));
+        assert!(unchanged
+            .err()
+            .unwrap()
+            .contains("did not produce a valid credential"));
+
+        let mut no_refresh = expired;
+        no_refresh["entry"]
+            .as_object_mut()
+            .unwrap()
+            .remove("refresh_token");
+        std::fs::write(&path, no_refresh.to_string()).unwrap();
+        assert!(super::read_credential_with_renewal(&path, || {
+            panic!("credentials without a refresh token must not launch the CLI")
+        })
+        .err()
+        .unwrap()
+        .contains("session expired"));
+
+        std::fs::write(&path, "{").unwrap();
+        assert!(super::read_credential_with_renewal(&path, || {
+            panic!("malformed credentials must not launch the CLI")
+        })
+        .err()
+        .unwrap()
+        .contains("Failed to parse Grok auth"));
+
+        std::fs::remove_file(&path).unwrap();
+        assert!(super::read_credential_with_renewal(&path, || {
+            panic!("missing credentials must not launch the CLI")
+        })
+        .err()
+        .unwrap()
+        .contains("not configured"));
+        std::fs::remove_dir(directory).unwrap();
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn renewal_command_handles_success_failure_timeout_and_missing_cli() {
+        let mut success = std::process::Command::new("sh");
+        success.args(["-c", "exit 0"]);
+        assert!(super::run_renewal_command(&mut success, Duration::from_secs(1)).is_ok());
+
+        let mut failure = std::process::Command::new("sh");
+        failure.args(["-c", "echo test-secret >&2; exit 42"]);
+        let error = super::run_renewal_command(&mut failure, Duration::from_secs(1)).unwrap_err();
+        assert!(error.contains("42"));
+        assert!(!error.contains("test-secret"));
+
+        let mut hung = std::process::Command::new("sh");
+        hung.args(["-c", "exec sleep 30"]);
+        let started = std::time::Instant::now();
+        let error = super::run_renewal_command(&mut hung, Duration::from_millis(20)).unwrap_err();
+        assert!(error.contains("timed out"));
+        assert!(started.elapsed() < Duration::from_secs(2));
+
+        let mut missing = std::process::Command::new("/nonexistent/quotabar-test-grok");
+        let error = super::run_renewal_command(&mut missing, Duration::from_secs(1)).unwrap_err();
+        assert!(error.contains("could not start"));
     }
 
     #[test]

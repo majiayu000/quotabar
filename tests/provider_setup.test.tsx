@@ -2,11 +2,21 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import { act, create } from 'react-test-renderer';
 import ProviderSetup from '../src/components/ProviderSetup';
+import { quotaRecovery } from '../src/components/QuotaRecovery';
 import OverviewPanel from '../src/components/OverviewPanel';
 import { buildProviderSummaries } from '../src/services/provider_summary';
 import { defaultServiceMap, getSavedTab } from '../src/services/app_state';
 
 describe('first connection', () => {
+  it('offers opening Grok after renewal fails without claiming a new login is required', () => {
+    const recovery = quotaRecovery('grok', 'Grok session renewal timed out; it will retry later.');
+    expect(recovery?.title).toBe('Could not renew Grok session');
+    expect(recovery?.description).toContain('retry automatically');
+    expect(recovery?.command).toBe('grok');
+    expect(recovery).not.toHaveProperty('requiresLogin', true);
+    expect(quotaRecovery('grok', 'Grok Build not configured.')?.command).toBe('grok login');
+  });
+
   it('starts new installs on Overview', () => {
     expect(getSavedTab()).toBe('all');
   });
