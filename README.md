@@ -29,7 +29,7 @@ Website: https://majiayu000.github.io/quotabar/
 - Notifications: 80%, 95%, 100%, unused bonus reset, and bonus-expiry alerts.
 - Background polling: refreshes every 60 seconds, backs off to 5 minutes on 429, and backs off to 1 hour on Claude auth failures.
 - Read-only Claude OAuth: reads Claude Code credentials from the correct source, but never refreshes or writes OAuth tokens.
-- Read-only Grok auth: checks `~/.grok/auth.json` on each polling cycle, skips quota requests while credentials are locally expired, and automatically detects a new `grok login`. Network failures keep retrying on the existing refresh schedule; QuotaBar never refreshes or writes tokens.
+- Grok auth: checks `~/.grok/auth.json` on each polling cycle. When an expired credential has a refresh token, runs the installed official `grok models` command to let Grok renew and save its own credentials, then rereads them before requesting quota. This does not start a conversation. The helper has a 20-second timeout; unsuccessful automatic renewal retries after 5 minutes, while manual refresh can retry immediately. QuotaBar never writes tokens itself or logs CLI output. If renewal remains unavailable, open `grok` and sign in only if prompted.
 - Hidden-window polling: disables macOS webview throttling so menubar mode keeps working.
 
 ## Demo Proof
@@ -226,7 +226,7 @@ Release candidates should be built by the `release-artifacts` GitHub Actions wor
 
 With no saved panel preferences, the switcher shows detected services and keeps them accessible if a connection later fails. Use **Add service** for setup, or Settings to choose providers manually.
 
-On first launch, Overview shows detected connections and instructions for signing in through each provider. Use **Check connection** after signing in. QuotaBar reads existing local sign-ins; it does not manage login or refresh tokens. Antigravity quota tracking is still pending.
+On first launch, Overview shows detected connections and instructions for signing in through each provider. Use **Check connection** after signing in. QuotaBar reads existing local sign-ins and delegates expired Grok session renewal to the installed Grok CLI; interactive sign-in stays with the provider. Antigravity quota tracking is still pending.
 
 For normal use, download the current installer from [GitHub Releases](https://github.com/majiayu000/quotabar/releases/latest). For development, install from a local build.
 

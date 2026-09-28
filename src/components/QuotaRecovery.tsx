@@ -14,6 +14,11 @@ export function quotaRecovery(provider: TrayServiceName, error?: string | null) 
       : t("The provider is rate limiting quota requests. Automatic refresh is paused; retry manually after the wait."),
     command: null,
   };
+  if (provider === 'grok' && /session renewal/i.test(error)) return {
+    title: t("Could not renew Grok session"),
+    description: t("QuotaBar will retry automatically. You can also open Grok in Terminal to renew the session; sign in only if Grok asks you to."),
+    command: 'grok',
+  };
   if (provider === 'grok' && /session expired|not configured|authentication failed/i.test(error)) return {
     requiresLogin: true,
     title: /expired/i.test(error) ? t("Session expired") : /authentication failed/i.test(error) ? t("Authentication failed; check sign-in") : t("Sign in first"),

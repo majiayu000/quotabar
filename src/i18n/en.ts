@@ -161,6 +161,8 @@ export const en = {
   "Remaining {p0} / {p1}": "Remaining {p0} / {p1}",
   "Prepaid remaining": "Prepaid remaining",
   "Grok not connected": "Grok not connected",
+  "Could not renew Grok session": "Could not renew Grok session",
+  "QuotaBar will retry automatically. You can also open Grok in Terminal to renew the session; sign in only if Grok asks you to.": "QuotaBar will retry automatically. You can also open Grok in Terminal to renew the session; sign in only if Grok asks you to.",
   "Run grok login; the connection will be checked automatically": "Run grok login; the connection will be checked automatically",
   "Quota usage": "Quota usage",
   "Subscription quota": "Subscription quota",
