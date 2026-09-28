@@ -36,15 +36,22 @@ fn main() {
     settle();
     assert!(item.isVisible(), "zero width does not hide the native item");
 
-    let autosave_name = "quotabar-macos-tray-visibility-test";
+    // A previous hide persists `NSStatusItem VisibleCC <autosave>` in this
+    // process's defaults. Reusing that name makes the next autosave assignment
+    // delete the preferred position, so each run gets its own name.
+    let autosave_name = format!("quotabar-macos-tray-visibility-{}", std::process::id());
     let position_key =
         NSString::from_str(&format!("NSStatusItem Preferred Position {autosave_name}"));
+    let visible_key = NSString::from_str(&format!("NSStatusItem Visible {autosave_name}"));
+    let visible_cc_key = NSString::from_str(&format!("NSStatusItem VisibleCC {autosave_name}"));
     let defaults = NSUserDefaults::standardUserDefaults();
-    let _clear_position = ClearPreferredPosition(position_key.to_string());
+    let _clear_position = ClearStatusItemDefaults(autosave_name.clone());
     defaults.removeObjectForKey(&position_key);
+    defaults.removeObjectForKey(&visible_key);
+    defaults.removeObjectForKey(&visible_cc_key);
     defaults.setDouble_forKey(4242.0, &position_key);
     item.setLength(-1.0);
-    item.setAutosaveName(Some(&NSString::from_str(autosave_name)));
+    item.setAutosaveName(Some(&NSString::from_str(&autosave_name)));
     // The menu bar keeps the previous slot briefly, then applies the preferred position.
     NSRunLoop::currentRunLoop().runUntilDate(&NSDate::dateWithTimeIntervalSinceNow(1.0));
     assert_preferred_position(&defaults, &position_key, 4242.0);
@@ -77,7 +84,7 @@ fn main() {
     }
     native_tray::set_visible(&item, false);
     bar.removeStatusItem(&item);
-    defaults.removeObjectForKey(&position_key);
+    clear_status_item_defaults(&autosave_name);
     println!("PASS: zero-width control remained visible; 8 native hide/show cycles retained identity, title, nonzero button width, preferred position and window origin");
 }
 
@@ -106,13 +113,26 @@ fn button_window_origin_x(item: &NSStatusItem, mtm: MainThreadMarker) -> f64 {
 }
 
 #[cfg(target_os = "macos")]
-struct ClearPreferredPosition(String);
+struct ClearStatusItemDefaults(String);
 
 #[cfg(target_os = "macos")]
-impl Drop for ClearPreferredPosition {
+impl Drop for ClearStatusItemDefaults {
     fn drop(&mut self) {
-        NSUserDefaults::standardUserDefaults().removeObjectForKey(&NSString::from_str(&self.0));
+        clear_status_item_defaults(&self.0);
     }
+}
+
+#[cfg(target_os = "macos")]
+fn clear_status_item_defaults(autosave_name: &str) {
+    let defaults = NSUserDefaults::standardUserDefaults();
+    for suffix in [
+        "NSStatusItem Preferred Position",
+        "NSStatusItem Visible",
+        "NSStatusItem VisibleCC",
+    ] {
+        defaults.removeObjectForKey(&NSString::from_str(&format!("{suffix} {autosave_name}")));
+    }
+    let _ = defaults.synchronize();
 }
 
 #[cfg(not(target_os = "macos"))]
