@@ -25,6 +25,26 @@ pub fn set_visible(item: &NSStatusItem, visible: bool) {
     }
 }
 
+/// Bind `autosave_name` without dropping a slot saved by an earlier hide.
+///
+/// `setVisible(false)` leaves `NSStatusItem VisibleCC <autosave_name>` false.
+/// The next `setAutosaveName` then deletes `NSStatusItem Preferred Position`
+/// before `set_visible` can read it.
+pub fn assign_autosave_name(item: &NSStatusItem, autosave_name: &str) {
+    let defaults = NSUserDefaults::standardUserDefaults();
+    let position_key =
+        NSString::from_str(&format!("NSStatusItem Preferred Position {autosave_name}"));
+    let saved_position = defaults
+        .objectForKey(&position_key)
+        .map(|_| defaults.doubleForKey(&position_key));
+
+    item.setAutosaveName(Some(&NSString::from_str(autosave_name)));
+
+    if let Some(position) = saved_position {
+        defaults.setDouble_forKey(position, &position_key);
+    }
+}
+
 fn preferred_position_key(item: &NSStatusItem) -> Option<String> {
     let name = autosave_name(item)?;
     Some(format!("NSStatusItem Preferred Position {name}"))

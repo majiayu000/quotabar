@@ -428,9 +428,8 @@ fn apply_status_item_autosave(app: &AppHandle, tray_id: &str) -> Result<(), Stri
     // Configure synchronously on the main thread. A delayed callback must not
     // resurrect an item after a newer update has hidden it.
     tray.with_inner_tray_icon(move |inner| {
-        use objc2_foundation::NSString;
         let item = inner.ns_status_item().ok_or("missing native status item")?;
-        item.setAutosaveName(Some(&NSString::from_str(&autosave_name)));
+        native_tray::assign_autosave_name(&item, &autosave_name);
         Ok(())
     })
     .map_err(|error| error.to_string())?

@@ -36,9 +36,8 @@ fn main() {
     settle();
     assert!(item.isVisible(), "zero width does not hide the native item");
 
-    // A previous hide persists `NSStatusItem VisibleCC <autosave>` in this
-    // process's defaults. Reusing that name makes the next autosave assignment
-    // delete the preferred position, so each run gets its own name.
+    // A per-run name keeps cleanup away from the real tray ids. The relaunch
+    // below reuses this name with VisibleCC already false.
     let autosave_name = format!("quotabar-macos-tray-visibility-{}", std::process::id());
     let position_key =
         NSString::from_str(&format!("NSStatusItem Preferred Position {autosave_name}"));
@@ -51,7 +50,7 @@ fn main() {
     defaults.removeObjectForKey(&visible_cc_key);
     defaults.setDouble_forKey(4242.0, &position_key);
     item.setLength(-1.0);
-    item.setAutosaveName(Some(&NSString::from_str(&autosave_name)));
+    native_tray::assign_autosave_name(&item, &autosave_name);
     // The menu bar keeps the previous slot briefly, then applies the preferred position.
     NSRunLoop::currentRunLoop().runUntilDate(&NSDate::dateWithTimeIntervalSinceNow(1.0));
     assert_preferred_position(&defaults, &position_key, 4242.0);
@@ -82,10 +81,41 @@ fn main() {
             "status item moved in cycle {cycle}"
         );
     }
+    // Next launch: hide persists VisibleCC=false, removeStatusItem leaves the
+    // restored position, and a new item is assigned the same autosave name
+    // before it is shown. Clearing VisibleCC here would skip that failure.
     native_tray::set_visible(&item, false);
+    settle();
+    assert!(!item.isVisible(), "item stayed visible before relaunch");
+    assert_preferred_position(&defaults, &position_key, 4242.0);
+    assert_visible_cc_false(&defaults, &visible_cc_key);
     bar.removeStatusItem(&item);
+    settle();
+    assert_preferred_position(&defaults, &position_key, 4242.0);
+    assert_visible_cc_false(&defaults, &visible_cc_key);
+
+    let relaunched = bar.statusItemWithLength(-1.0);
+    relaunched
+        .button(mtm)
+        .expect("relaunched status button")
+        .setTitle(&NSString::from_str("QB-test"));
+    assert_visible_cc_false(&defaults, &visible_cc_key);
+    native_tray::assign_autosave_name(&relaunched, &autosave_name);
+    assert_preferred_position(&defaults, &position_key, 4242.0);
+    native_tray::set_visible(&relaunched, true);
+    NSRunLoop::currentRunLoop().runUntilDate(&NSDate::dateWithTimeIntervalSinceNow(1.0));
+    assert!(relaunched.isVisible(), "relaunched item stayed hidden");
+    assert_preferred_position(&defaults, &position_key, 4242.0);
+    assert_eq!(
+        button_window_origin_x(&relaunched, mtm),
+        origin_x,
+        "relaunch moved the status item"
+    );
+
+    native_tray::set_visible(&relaunched, false);
+    bar.removeStatusItem(&relaunched);
     clear_status_item_defaults(&autosave_name);
-    println!("PASS: zero-width control remained visible; 8 native hide/show cycles retained identity, title, nonzero button width, preferred position and window origin");
+    println!("PASS: zero-width control remained visible; 8 native hide/show cycles retained identity, title, nonzero button width, preferred position and window origin; relaunch with VisibleCC false kept the saved slot");
 }
 
 #[cfg(target_os = "macos")]
@@ -98,6 +128,18 @@ fn assert_preferred_position(defaults: &NSUserDefaults, key: &NSString, expected
         defaults.doubleForKey(key),
         expected,
         "preferred position default changed"
+    );
+}
+
+#[cfg(target_os = "macos")]
+fn assert_visible_cc_false(defaults: &NSUserDefaults, key: &NSString) {
+    assert!(
+        defaults.objectForKey(key).is_some(),
+        "VisibleCC was cleared before autosave assignment"
+    );
+    assert!(
+        !defaults.boolForKey(key),
+        "VisibleCC was not false before autosave assignment"
     );
 }
 
