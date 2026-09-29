@@ -7,28 +7,33 @@ const FOCUS_SUBSCRIPTION_ERROR_MESSAGE = 'Failed to subscribe to popover focus c
 
 /**
  * Tracks popover window visibility (via focus events) and keeps the
- * window height in sync with the rendered content while visible.
+ * window size in sync with content, including while hidden so reopening
+ * uses the selected scale.
  * Returns the current visibility.
  */
 export function usePopoverWindow(
   containerRef: RefObject<HTMLDivElement | null>,
   resizeDeps: readonly unknown[],
   autoResize = true,
+  uiScale = 1,
 ): boolean {
   const [windowVisible, setWindowVisible] = useState(false);
 
   // Auto-resize window to content.
   useEffect(() => {
-    if (!windowVisible || !autoResize) {
+    if (!autoResize) {
       return;
     }
 
     const updateHeight = async () => {
       if (containerRef.current) {
         // The tray frame has only a 1px border on each side, no outer padding.
-        const height = containerRef.current.scrollHeight + 2;
+        // Include scrollable overflow so a viewport-clamped panel can grow again.
+        const panel = containerRef.current.querySelector<HTMLElement>('.panel-scroll');
+        const overflow = panel ? Math.max(0, panel.scrollHeight - panel.clientHeight) : 0;
+        const height = containerRef.current.scrollHeight + overflow + 2;
         try {
-          await backend.resizeWindow(Math.min(Math.max(height, 300), 582));
+          await backend.resizeWindow(Math.min(Math.max(height, 300), 582) * uiScale, 340 * uiScale);
         } catch (err) {
           console.error('Failed to resize window:', err);
         }
@@ -44,6 +49,8 @@ export function usePopoverWindow(
 
     if (containerRef.current) {
       observer.observe(containerRef.current);
+      const panel = containerRef.current.querySelector('.panel-scroll');
+      if (panel) for (const child of panel.children) observer.observe(child);
     }
 
     return () => {
@@ -52,7 +59,7 @@ export function usePopoverWindow(
       observer.disconnect();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [windowVisible, autoResize, containerRef, ...resizeDeps]);
+  }, [windowVisible, autoResize, containerRef, uiScale, ...resizeDeps]);
 
   useEffect(() => {
     if (typeof window === 'undefined' || !('__TAURI_INTERNALS__' in window)) {

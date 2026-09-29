@@ -94,6 +94,7 @@ import { bonusReadyEntered, bonusReadyMessage } from './services/bonus_ready';
 import { planProviderPreset, planRevealProviderPanel, type ProviderPreset } from './services/provider_presets';
 import { useServiceEvents, subscribeStorageReadFailureToast } from './hooks/use_service_events';
 export { subscribeStorageReadFailureToast } from './hooks/use_service_events';
+import { useUiScale } from './hooks/use_ui_scale';
 import { usePopoverWindow } from './hooks/use_popover_window';
 import { useLatestRequestGeneration } from './hooks/use_latest_request_generation';
 import { useFooterStatus } from './hooks/use_footer_status';
@@ -160,6 +161,7 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
         : next;
     });
   }, []);
+  const { scale: uiScale, busy: uiScaleBusy, changeScale } = useUiScale(setToast);
   const [activeView, setActiveView] = useState<AppViewName>(() =>
     workspace ? 'all' : getSavedSettingsExpanded() ? 'settings' : getSavedTab(),
   );
@@ -180,7 +182,7 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
   const [detectedProviders, setDetectedProviders] = useState<SwitcherVisibility>(() => defaultServiceMap(false));
   const switcherVisibility = savedSwitcherVisibility ?? detectedProviders;
   const containerRef = useRef<HTMLDivElement>(null);
-  const windowVisible = usePopoverWindow(containerRef, [activeView, quota, connected], !workspace);
+  const windowVisible = usePopoverWindow(containerRef, [activeView, quota, connected], !workspace && !uiScaleBusy, uiScale);
   const lastTrayIconRequestRef = useRef<Partial<Record<TrayServiceName, TrayIconRequest>>>({});
   const trayIconGenerationRef = useRef<Partial<Record<TrayServiceName, number>>>({});
 
@@ -679,6 +681,9 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
               initialPage={settingsPage}
               isMacOS={isMacOS} showDockToggle={!workspace} workspace={workspace}
               theme={theme}
+              uiScale={uiScale}
+              uiScaleBusy={uiScaleBusy}
+              onUiScaleChange={changeScale}
               dockHidden={dockHidden}
               trayEntries={trayEntries}
               panelSections={panelSections}

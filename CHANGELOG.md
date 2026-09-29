@@ -4,6 +4,8 @@ All notable QuotaBar changes should be summarized here before a release is cut.
 
 ## Unreleased
 
+- Add a shared, persistent 100% / 125% / 150% interface-size setting. Scale tray dimensions with the content and keep the popover anchored inside the monitor work area (#186).
+
 - Make the Codex weekly token source switch cover the whole title row. When a local estimate exists, tapping flips local and community views. When it does not, tapping explains why and how to get a local week; an explicit retry stays on that hint, not on the title.
 
 - Keep today, week, and month API-equivalent tiles visually even in the tray. The primary-range ring was leaking through the compact override and made only Today look shadowed.
