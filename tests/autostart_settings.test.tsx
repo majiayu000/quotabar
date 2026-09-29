@@ -28,6 +28,7 @@ const trayEntries: TrayToggleEntry[] = [
 
 function settingsProps(overrides: Partial<Parameters<typeof SettingsView>[0]> = {}) {
   return {
+    uiScale: 1 as const, uiScaleBusy: false, onUiScaleChange: () => {},
     isMacOS: true,
     theme: 'light' as const,
     dockHidden: false,
@@ -138,6 +139,22 @@ describe('Launch at Login settings row', () => {
     expect(autostart.setAutostartEnabled).toHaveBeenCalledExactlyOnceWith(true);
     expect(launchSwitch(renderer).props['aria-checked']).toBe(true);
     expect(renderer.root.findAllByProps({ role: 'alert' })).toHaveLength(0);
+    await act(async () => renderer.unmount());
+  });
+});
+
+describe('interface size settings row', () => {
+  it('exposes three sizes and disables changes while native zoom is applying', async () => {
+    const onUiScaleChange = vi.fn();
+    let renderer!: ReactTestRenderer;
+    await act(async () => { renderer = create(createElement(SettingsView, settingsProps({ uiScale: 1.25, onUiScaleChange }))); });
+    const select = renderer.root.findByProps({ 'aria-label': 'Interface size' });
+    expect(select.props.value).toBe(1.25);
+    expect(select.findAllByType('option').map((option) => option.props.value)).toEqual([1, 1.25, 1.5]);
+    await act(async () => select.props.onChange({ target: { value: '1.5' } }));
+    expect(onUiScaleChange).toHaveBeenCalledWith(1.5);
+    await act(async () => renderer.update(createElement(SettingsView, settingsProps({ uiScaleBusy: true }))));
+    expect(renderer.root.findByProps({ 'aria-label': 'Interface size' }).props.disabled).toBe(true);
     await act(async () => renderer.unmount());
   });
 });

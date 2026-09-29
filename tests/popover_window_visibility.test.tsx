@@ -502,3 +502,28 @@ describe('focus callback source gate', () => {
     expect(() => validate_focus_guard(mutated_source)).toThrow();
   });
 });
+
+
+describe('scaled popover sizing', () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+  it('includes clipped content and sends scaled dimensions before opening', async () => {
+    const content = { scrollHeight: 150, clientHeight: 148, children: [] };
+    const container = { scrollHeight: 298, querySelector: () => content };
+    function SizingProbe({ scale }: { scale: number }) {
+      const ref = useRef(container as unknown as HTMLDivElement);
+      usePopoverWindow(ref, [], true, scale);
+      return null;
+    }
+    let renderer!: ReactTestRenderer;
+    await act(async () => { renderer = create(createElement(SizingProbe, { scale: 1.25 })); });
+    renderers.add(renderer);
+    await act(async () => { await vi.advanceTimersByTimeAsync(50); });
+    expect(boundary.resize_window).toHaveBeenLastCalledWith(377.5, 425);
+    // The viewport stays short, but content grows inside its scrollable region.
+    content.scrollHeight = 900;
+    await act(async () => { renderer.update(createElement(SizingProbe, { scale: 1.5 })); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(50); });
+    expect(boundary.resize_window).toHaveBeenLastCalledWith(873, 510);
+  });
+});

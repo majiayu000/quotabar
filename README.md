@@ -98,6 +98,8 @@ This `v0.4.0` screenshot was refreshed on 2026-08-31 from the production React U
 
 ## Language
 
+Settings → Display → Interface size offers **100%**, **125%**, and **150%**. It scales text and controls in both windows and is remembered across restarts. The tray resizes and stays anchored to its icon; content scrolls when screen space is limited.
+
 Settings → Display → Language offers **Follow system**, **简体中文**, and **English**.
 Both the menu bar panel and desktop workspace update immediately and share the
 saved preference. Chinese system locales use Simplified Chinese; other system

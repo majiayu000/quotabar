@@ -175,8 +175,8 @@ export const backend = {
     });
   },
 
-  resizeWindow(height: number) {
-    return invokeBackend<void>('resize_window', { height });
+  resizeWindow(height: number, width: number) {
+    return invokeBackend<void>('resize_window', { height, width });
   },
 
   getDockVisibility() {

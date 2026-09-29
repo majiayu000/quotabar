@@ -14,6 +14,7 @@ const trayEntries: TrayToggleEntry[] = [
 
 function settingsProps() {
   return {
+    uiScale: 1 as const, uiScaleBusy: false, onUiScaleChange: () => {},
     isMacOS: true,
     theme: 'light' as const,
     dockHidden: true,

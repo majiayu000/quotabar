@@ -145,12 +145,12 @@ pub fn apply_startup_activation_policy(app: &AppHandle) {
     }
 }
 
-pub async fn resize_window(app: AppHandle, height: f64) -> Result<(), String> {
-    if super::tray::set_popover_logical_height(&app, height)? {
+pub async fn resize_window(app: AppHandle, height: f64, width: f64) -> Result<(), String> {
+    if super::tray::set_popover_logical_size(&app, height, width)? {
         return Ok(());
     }
     if let Some(window) = app.get_webview_window("main") {
-        let size = LogicalSize::new(super::popover_layout::POPOVER_WIDTH, height);
+        let size = LogicalSize::new(width, height);
         window.set_size(size).map_err(|e| e.to_string())?;
     }
     Ok(())

@@ -6,6 +6,7 @@ html:not(.analysis-document) .app.quota-popover {
   --a-blue: #168773;
   border-radius: 16px;
 }
+html:not(.analysis-document) .quota-popover .container { max-height: min(580px, calc(100dvh - 2px)); }
 html:not(.analysis-document) .app.quota-popover:is(.theme-dark,.theme-claude-dark,.theme-minimal-dark) {
   --a-bg: #25282b;
   --a-surface: #303438;

@@ -120,12 +120,13 @@ impl TrayRuntimeState {
     }
 }
 
-/// Last tray anchor and content height, so every placement is recomputed from
+/// Last tray anchor and content size, so every placement is recomputed from
 /// the same inputs instead of from the window's previous physical frame.
 #[derive(Default)]
 struct PopoverLayoutState {
     anchor: Option<Rect>,
     logical_height: Option<f64>,
+    logical_width: Option<f64>,
 }
 
 #[derive(Default)]
@@ -314,14 +315,19 @@ fn position_window_near_tray(app: &AppHandle, tray: &tauri::tray::TrayIcon) {
     }
 }
 
-/// Records the content height reported by the frontend and re-places the
+/// Records the scaled logical content size reported by the frontend and re-places the
 /// popover. Returns `false` when no tray anchor is known yet, so the caller can
 /// fall back to a plain resize.
-pub fn set_popover_logical_height(app: &AppHandle, logical_height: f64) -> Result<bool, String> {
+pub fn set_popover_logical_size(
+    app: &AppHandle,
+    logical_height: f64,
+    logical_width: f64,
+) -> Result<bool, String> {
     let state = app.state::<TrayState>();
     let has_anchor = {
         let mut layout = state.popover.lock().map_err(|error| error.to_string())?;
         layout.logical_height = Some(logical_height);
+        layout.logical_width = Some(logical_width);
         layout.anchor.is_some()
     };
     if has_anchor {
@@ -334,10 +340,10 @@ fn apply_popover_layout(app: &AppHandle) -> Result<(), String> {
     let window = app
         .get_webview_window("main")
         .ok_or("Tray panel is unavailable")?;
-    let (anchor, stored_height) = {
+    let (anchor, stored_height, stored_width) = {
         let state = app.state::<TrayState>();
         let layout = state.popover.lock().map_err(|error| error.to_string())?;
-        (layout.anchor, layout.logical_height)
+        (layout.anchor, layout.logical_height, layout.logical_width)
     };
     let anchor = anchor.ok_or("Tray anchor is unknown")?;
     let (cx, cy) = anchor.center();
@@ -357,7 +363,7 @@ fn apply_popover_layout(app: &AppHandle) -> Result<(), String> {
         anchor,
         work_area,
         monitor.scale_factor(),
-        POPOVER_WIDTH,
+        stored_width.unwrap_or(POPOVER_WIDTH),
         logical_height,
     );
     let position = PhysicalPosition::new(frame.x, frame.y);
