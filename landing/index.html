@@ -3,8 +3,21 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>QuotaBar — AI quota, right in your menu bar</title>
-<meta name="description" content="QuotaBar is a lightweight menubar app that tracks live usage quota for Claude Code, Codex, Cursor, Grok, and Antigravity — with per-provider tray indicators and local cost estimates." />
+<title>QuotaBar — Claude Code, Codex, Cursor &amp; Grok quota monitor</title>
+<meta name="description" content="Monitor Claude Code, Codex, Cursor and Grok quota windows from your menu bar, with remaining quota, reset times and local cost estimates." />
+<link rel="canonical" href="https://majiayu000.github.io/quotabar/" />
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content="QuotaBar" />
+<meta property="og:title" content="QuotaBar — Claude Code, Codex, Cursor &amp; Grok quota monitor" />
+<meta property="og:description" content="Monitor Claude Code, Codex, Cursor and Grok quota windows from your menu bar, with remaining quota, reset times and local cost estimates." />
+<meta property="og:url" content="https://majiayu000.github.io/quotabar/" />
+<meta property="og:image" content="https://majiayu000.github.io/quotabar/assets/quota-tray-preview.png" />
+<meta property="og:image:alt" content="QuotaBar interface with illustrative quota data; no account data is shown." />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="QuotaBar — Claude Code, Codex, Cursor &amp; Grok quota monitor" />
+<meta name="twitter:description" content="Monitor Claude Code, Codex, Cursor and Grok quota windows from your menu bar, with remaining quota, reset times and local cost estimates." />
+<meta name="twitter:image" content="https://majiayu000.github.io/quotabar/assets/quota-tray-preview.png" />
+<meta name="twitter:image:alt" content="QuotaBar interface with illustrative quota data; no account data is shown." />
 <link rel="icon" type="image/svg+xml" href="assets/app-icon.svg" />
 <style>
   :root {
@@ -293,12 +306,13 @@
 <header class="hero">
   <div class="wrap hero-grid">
     <div>
-      <span class="badge"><span class="dot"></span> v0.5.1 · macOS &amp; Windows · MIT</span>
+      <span class="badge"><span class="dot"></span> macOS · Windows · Linux · MIT</span>
       <h1>Your AI quota,<br /><span class="grad">right in the menu bar.</span></h1>
       <p class="lede">
         QuotaBar is a lightweight Tauri menubar app that watches your Claude Code,
-        Codex, Cursor, Grok, and Antigravity usage — live quota windows, per-provider tray
-        indicators, and local cost estimates computed on-device.
+        Codex, Cursor, and Grok usage — live quota windows, per-provider tray
+        indicators, and local cost estimates computed on-device. Antigravity
+        currently reports provider availability; quota tracking is pending.
       </p>
       <div class="cta-row">
         <a class="btn btn-primary" href="https://github.com/majiayu000/quotabar/releases/latest">
@@ -370,8 +384,8 @@
     <p class="kicker">Providers</p>
     <h2>One menu bar, five providers</h2>
     <p class="section-lede">
-      Tray percentages always represent <em>used</em> quota, not remaining — so a full
-      bar means it's time to slow down.
+      Tray percentages represent <em>remaining</em> quota. A low percentage means
+      the selected provider is close to its limit; reset times appear in the panel.
     </p>
 
     <div class="tray-strip" aria-hidden="true">
@@ -392,7 +406,7 @@
         </div>
         <ul>
           <li>5-hour, 7-day, Opus, Sonnet &amp; Design windows</li>
-          <li>Tray value prefers weekly total, with model-window fallbacks</li>
+          <li>Tray shows remaining quota for the most constrained Claude window</li>
           <li>Auth from <span class="inline-code">claude login</span> keychain entry or <span class="inline-code">CLAUDE_CODE_OAUTH_TOKEN</span></li>
         </ul>
       </div>
@@ -405,7 +419,7 @@
         <ul>
           <li>Short and weekly ChatGPT usage windows</li>
           <li>Reset times shown as days plus hours when available</li>
-          <li>Tray value prefers the secondary window's used percent</li>
+          <li>Tray shows remaining quota from the weekly window, with a short-window fallback</li>
         </ul>
       </div>
       <div class="card provider">
@@ -417,7 +431,7 @@
         <ul>
           <li>Signed-in usage and request-limit windows</li>
           <li>Works with Cursor sign-in or <span class="inline-code">CURSOR_SESSION_TOKEN</span></li>
-          <li>Tray value uses the Cursor quota percentage</li>
+          <li>Tray shows remaining Cursor Models quota, with an overall-quota fallback</li>
         </ul>
       </div>
       <div class="card provider">
@@ -429,7 +443,7 @@
         <ul>
           <li>SuperGrok weekly and monthly pool plus extra credits</li>
           <li>Auth from an existing Grok Build login on this machine</li>
-          <li>Tray value uses the official pool used percent</li>
+          <li>Tray shows remaining quota from the shared SuperGrok credits pool</li>
         </ul>
       </div>
       <div class="card provider">
@@ -459,7 +473,7 @@
         <div class="step">
           <div>
             <h3>Download the installer</h3>
-            <p>Grab the <code>.dmg</code> for macOS or the <code>.msi</code> / <code>.exe</code> for Windows from <a href="https://github.com/majiayu000/quotabar/releases/latest">GitHub Releases</a>.</p>
+            <p>Grab the <code>.dmg</code> for macOS or the <code>.msi</code> / <code>.exe</code> for Windows, or the <code>.AppImage</code> for Linux x64, from <a href="https://github.com/majiayu000/quotabar/releases/latest">GitHub Releases</a>.</p>
           </div>
         </div>
         <div class="step">
@@ -501,6 +515,7 @@
       <a href="https://github.com/majiayu000/quotabar/issues">Issues</a>
       <a href="https://github.com/majiayu000/quotabar/releases">Releases</a>
       <a href="https://github.com/majiayu000/quotabar/blob/main/CHANGELOG.md">Changelog</a>
+      <a href="sitemap.xml">Sitemap</a>
     </div>
   </div>
 </footer>
