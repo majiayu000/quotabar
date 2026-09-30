@@ -6,6 +6,10 @@ All notable QuotaBar changes should be summarized here before a release is cut.
 
 - Adopt ccstats 0.9.1 for stable model-alias price precedence and lock agent-sessions 0.2.1. SDK-versioned caches discard previous estimates after the upgrade.
 
+## 0.5.9 - 2026-09-30
+
+- Fix Linux AppImage startup in Firejail and other environments that mount the image as a different user. Make the bundled launcher executable by all users.
+
 ## 0.5.8 - 2026-09-30
 
 - Fix the Linux AppImage icon link so it remains valid after distribution and passes the AppImage catalog's required-file check.

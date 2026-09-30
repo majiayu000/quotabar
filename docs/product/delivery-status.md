@@ -26,10 +26,11 @@ Windows build/test CI and native UI acceptance are separate evidence.
 - Frontend: 620 tests passed; TypeScript and production asset build passed.
 - CRLF reproduction: 23 test failures and one suite load failure before the
   correction; all 110 affected tests passed afterward with CRLF source files.
-- Release manifests agree on 0.5.8. No release or installed-app update is
+- Release manifests agree on 0.5.9. No release or installed-app update is
   performed by this PR.
-- Rust and exact-head remote CI results are recorded in the PR description
-  after their checks finish.
+- Rust 1.97.0: formatting and locked compilation passed; 147 tests passed,
+  7 live/manual/helper tests ignored. Exact-head remote CI results are recorded
+  in the PR description after their checks finish.
 
 ## Remaining delivery gates
 
