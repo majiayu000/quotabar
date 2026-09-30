@@ -4,6 +4,7 @@ All notable QuotaBar changes should be summarized here before a release is cut.
 
 ## Unreleased
 
+- Fix the Linux AppImage icon link so it remains valid after distribution and passes the AppImage catalog's required-file check.
 - Automatically refresh the public model price catalog through ccstats for cost summaries, daily charts, and Grok period estimates. Include GPT-6.1 Sol standard and long-context rates from the catalog; newly cataloged models no longer require a QuotaBar release solely to add prices.
 
 ## 0.5.7 - 2026-09-30
