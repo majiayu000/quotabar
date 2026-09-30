@@ -205,33 +205,36 @@ fn read_rejected_credential_with_renewal(
     renew: impl FnOnce() -> Result<(), String>,
 ) -> Result<GrokCredential, String> {
     let auth = read_auth_json(auth_file)?;
-    // Another process may have already replaced the rejected credential.
-    if let Ok(credential) = pick_credential(&auth) {
-        if credential.key != rejected_key {
-            return Ok(credential);
-        }
-    }
-    let can_renew = |entry: &serde_json::Value| {
-        entry["key"].as_str().map(str::trim) == Some(rejected_key)
-            && entry["refresh_token"]
-                .as_str()
-                .is_some_and(|value| !value.trim().is_empty())
+    let auth_error = || {
+        "Grok authentication failed (401/403). Run 'grok login'; QuotaBar will check again automatically."
+            .to_string()
     };
-    if !can_renew(&auth)
-        && !auth
-            .as_object()
-            .is_some_and(|entries| entries.values().any(can_renew))
+    let (entry_name, entry) = std::iter::once((None, &auth))
+        .chain(auth.as_object().into_iter().flat_map(|entries| {
+            entries
+                .iter()
+                .map(|(name, entry)| (Some(name.as_str()), entry))
+        }))
+        .find(|(_, entry)| entry["key"].as_str().map(str::trim) == Some(rejected_key))
+        .ok_or_else(auth_error)?;
+    if !entry["refresh_token"]
+        .as_str()
+        .is_some_and(|value| !value.trim().is_empty())
     {
-        return Err(
-            "Grok authentication failed (401/403). Run 'grok login'; QuotaBar will check again automatically."
-                .to_string(),
-        );
+        return Err(auth_error());
     }
     renew()?;
-    pick_credential(&read_auth_json(auth_file)?).map_err(|_| {
-        "Grok session renewal did not produce a valid credential. Open 'grok' to check sign-in."
-            .to_string()
-    })
+    let renewed_auth = read_auth_json(auth_file)?;
+    let renewed_entry = match entry_name {
+        Some(name) => &renewed_auth[name],
+        None => &renewed_auth,
+    };
+    credential_from_object(renewed_entry)
+        .map(|(credential, _)| credential)
+        .ok_or_else(|| {
+            "Grok session renewal did not produce a valid credential. Open 'grok' to check sign-in."
+                .to_string()
+        })
 }
 
 fn run_renewal_command(command: &mut Command, timeout: Duration) -> Result<(), String> {
@@ -1150,6 +1153,7 @@ mod tests {
                         Err(error) => panic!("local billing server: {error}"),
                     }
                 };
+                stream.set_nonblocking(false).unwrap();
                 stream
                     .set_read_timeout(Some(Duration::from_secs(2)))
                     .unwrap();
@@ -1318,12 +1322,11 @@ mod tests {
             })
             .unwrap_or_else(|_| panic!("flat auth renewal"));
         assert_eq!(credential.key, "test-new-key");
-        let credential =
+        let replaced =
             super::read_rejected_credential_with_renewal(&path, "test-rejected-key", || {
-                panic!("already replaced credentials do not need renewal")
-            })
-            .unwrap_or_else(|_| panic!("replacement credential"));
-        assert_eq!(credential.key, "test-new-key");
+                panic!("removed rejected entries must not renew another credential")
+            });
+        assert!(replaced.err().unwrap().contains("authentication failed"));
         std::fs::write(&path, "{").unwrap();
         assert!(
             super::read_rejected_credential_with_renewal(&path, "test-key", || panic!(
@@ -1373,6 +1376,34 @@ mod tests {
             }
             assert!(command.status().unwrap().success());
         }
+    }
+
+    #[test]
+    fn rejected_entry_renewal_never_selects_another_account() {
+        let path = auth_test_path();
+        for other_expiry in [serde_json::Value::Null, json!("2199-01-01T00:00:00Z")] {
+            let mut auth = json!({
+                "rejected": {"key": "test-rejected-key", "refresh_token": "test-refresh",
+                    "expires_at": "2020-01-01T00:00:00Z", "user_id": "test-original-user"},
+                "other": {"key": "test-other-key", "expires_at": other_expiry,
+                    "user_id": "test-unrelated-user"}
+            });
+            std::fs::write(&path, auth.to_string()).unwrap();
+            let mut renewals = 0;
+            let credential =
+                super::read_rejected_credential_with_renewal(&path, "test-rejected-key", || {
+                    renewals += 1;
+                    auth["rejected"]["key"] = json!("test-renewed-key");
+                    auth["rejected"]["expires_at"] = json!("2099-01-01T00:00:00Z");
+                    std::fs::write(&path, auth.to_string()).unwrap();
+                    Ok(())
+                })
+                .unwrap_or_else(|_| panic!("rejected entry renewal"));
+            assert_eq!(renewals, 1);
+            assert_eq!(credential.key, "test-renewed-key");
+            assert_eq!(credential.user_id.as_deref(), Some("test-original-user"));
+        }
+        std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
     }
 
     #[test]
