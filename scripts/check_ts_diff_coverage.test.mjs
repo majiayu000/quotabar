@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { resolve } from 'node:path';
 import {
   createDependencies,
   evaluateCoverage,
@@ -183,7 +184,7 @@ describe('dependencies and end-to-end check', () => {
     assert.deepEqual(calls[1].args, [
       'diff', '--unified=0', '--diff-filter=AM', 'origin/main...HEAD', '--', 'src',
     ]);
-    assert.deepEqual(reads, [{ path: '/repo/coverage/lcov.info', encoding: 'utf8' }]);
+    assert.deepEqual(reads, [{ path: resolve('/repo', 'coverage/lcov.info'), encoding: 'utf8' }]);
   });
 
   it('reports git process errors and non-zero status', () => {

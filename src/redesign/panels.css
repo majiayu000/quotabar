@@ -32,7 +32,7 @@
 
 .provider-detail-name {
   color: var(--text);
-  font-size: calc(13px * var(--qb-text-scale, 1));
+  font-size: 13px;
   line-height: 1.2;
   font-weight: 700;
 }
@@ -67,7 +67,7 @@
 .provider-detail-state {
   overflow: hidden;
   color: var(--sub);
-  font-size: calc(10.5px * var(--qb-text-scale, 1));
+  font-size: 10.5px;
   font-weight: 500;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -82,7 +82,7 @@
   gap: 4px;
   max-width: 58%;
   color: var(--sub);
-  font-size: calc(11px * var(--qb-text-scale, 1));
+  font-size: 11px;
   font-weight: 500;
   white-space: nowrap;
 }
@@ -115,7 +115,7 @@
 .cost-title-row .section-title {
   margin: 10px 10px 6px;
   color: var(--sub);
-  font-size: calc(11px * var(--qb-text-scale, 1));
+  font-size: 11px;
   line-height: 1.2;
   font-weight: 600;
   letter-spacing: 0.06em;
@@ -212,7 +212,7 @@
   margin: 6px 2px 0;
   padding: 5px 10px;
   color: var(--sub);
-  font-size: calc(10.5px * var(--qb-text-scale, 1));
+  font-size: 10.5px;
 }
 
 .account-strip-label {
@@ -242,7 +242,7 @@
 
 .quota-label {
   color: var(--text);
-  font-size: calc(13px * var(--qb-text-scale, 1));
+  font-size: 13px;
   line-height: 1.2;
   font-weight: 500;
 }
@@ -250,7 +250,7 @@
 .quota-percentage,
 .quota-value {
   color: var(--text);
-  font-size: calc(14px * var(--qb-text-scale, 1));
+  font-size: 14px;
   line-height: 1.2;
   font-weight: 700;
   letter-spacing: -0.01em;
@@ -286,7 +286,7 @@
   justify-content: space-between;
   margin-top: 6px;
   color: var(--sub);
-  font-size: calc(11px * var(--qb-text-scale, 1));
+  font-size: 11px;
   line-height: 1.2;
 }
 
@@ -294,7 +294,7 @@
   display: block;
   margin-top: 5px;
   color: var(--sub);
-  font-size: calc(11px * var(--qb-text-scale, 1));
+  font-size: 11px;
   font-weight: 500;
 }
 
@@ -306,7 +306,7 @@
   display: block;
   margin-top: 2px;
   color: color-mix(in srgb, currentColor 72%, var(--text));
-  font-size: calc(10.5px * var(--qb-text-scale, 1));
+  font-size: 10.5px;
   font-weight: 500;
 }
 
@@ -353,7 +353,7 @@
 .weekly-value-diagnostic {
   margin-top: 8px;
   color: var(--sub);
-  font-size: calc(11px * var(--qb-text-scale, 1));
+  font-size: 11px;
   line-height: 1.5;
   overflow-wrap: anywhere;
 }
@@ -391,7 +391,7 @@
   min-width: 0;
   gap: 6px;
   color: var(--text);
-  font-size: calc(12px * var(--qb-text-scale, 1));
+  font-size: 12px;
   font-weight: 650;
 }
 
@@ -410,7 +410,7 @@
   border-radius: 5px;
   color: var(--weekly-source-color, var(--mint));
   background: var(--weekly-source-background, color-mix(in srgb, var(--mint) 13%, transparent));
-  font-size: calc(8px * var(--qb-text-scale, 1));
+  font-size: 8px;
   font-weight: 750;
   letter-spacing: 0.07em;
   text-transform: uppercase;
@@ -453,7 +453,7 @@
   border-radius: 8px;
   background: color-mix(in srgb, var(--mint) 10%, var(--track));
   color: var(--text);
-  font-size: calc(11px * var(--qb-text-scale, 1));
+  font-size: 11px;
   line-height: 1.45;
 }
 
@@ -469,7 +469,7 @@
   background: color-mix(in srgb, var(--mint) 16%, var(--card));
   color: var(--text);
   font: inherit;
-  font-size: calc(11px * var(--qb-text-scale, 1));
+  font-size: 11px;
   font-weight: 650;
   cursor: pointer;
 }
@@ -520,7 +520,7 @@
 .weekly-value-amount {
   color: var(--text);
   font-family: var(--metric-font);
-  font-size: calc(22px * var(--qb-text-scale, 1));
+  font-size: 22px;
   font-weight: 750;
   line-height: 1;
   letter-spacing: -0.045em;
@@ -532,14 +532,14 @@
   flex-wrap: wrap;
   gap: 6px;
   color: var(--sub);
-  font-size: calc(10px * var(--qb-text-scale, 1));
+  font-size: 10px;
   line-height: 1.2;
 }
 
 .weekly-value-token-row strong {
   color: var(--mint);
   font-family: var(--metric-font);
-  font-size: calc(11px * var(--qb-text-scale, 1));
+  font-size: 11px;
   font-weight: 700;
   white-space: nowrap;
 }
@@ -549,7 +549,7 @@
   gap: 4px;
   padding: 6px 0;
   color: var(--sub);
-  font-size: calc(11px * var(--qb-text-scale, 1));
+  font-size: 11px;
   overflow-wrap: anywhere;
 }
 
@@ -559,12 +559,12 @@
 
 .weekly-model-estimate strong {
   color: var(--mint);
-  font-size: calc(18px * var(--qb-text-scale, 1));
+  font-size: 18px;
   font-variant-numeric: tabular-nums;
 }
 
 .weekly-model-estimate small {
-  font-size: calc(10px * var(--qb-text-scale, 1));
+  font-size: 10px;
 }
 
 .weekly-value-gauge {
@@ -593,14 +593,14 @@
 
 .weekly-value-gauge-center strong {
   font-family: var(--metric-font);
-  font-size: calc(10px * var(--qb-text-scale, 1));
+  font-size: 10px;
   font-weight: 750;
 }
 
 .weekly-value-gauge-center small {
   margin-top: 2px;
   color: var(--sub);
-  font-size: calc(7px * var(--qb-text-scale, 1));
+  font-size: 7px;
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
@@ -612,7 +612,7 @@
   padding-top: 7px;
   border-top: 0.5px solid var(--line);
   color: var(--sub);
-  font-size: calc(8.5px * var(--qb-text-scale, 1));
+  font-size: 8.5px;
   line-height: 1.2;
 }
 
@@ -642,7 +642,7 @@
   background: var(--card);
   box-shadow: 0 0 0 0.5px var(--line);
   color: var(--sub);
-  font-size: calc(11px * var(--qb-text-scale, 1));
+  font-size: 11px;
   line-height: 1.4;
   backdrop-filter: blur(14px) saturate(1.4);
   -webkit-backdrop-filter: blur(14px) saturate(1.4);
@@ -650,7 +650,7 @@
 
 .smart-tip-label {
   color: #e8850c;
-  font-size: calc(10px * var(--qb-text-scale, 1));
+  font-size: 10px;
   font-weight: 800;
   letter-spacing: 0.05em;
   text-transform: uppercase;
@@ -677,7 +677,7 @@
 .codex-local-extras {
   margin: 4px 2px 0;
   color: var(--text-muted);
-  font-size: calc(11px * var(--qb-text-scale, 1));
+  font-size: 11px;
   line-height: 1.35;
 }
 
@@ -699,7 +699,7 @@
 }
 
 .bonus-title {
-  font-size: calc(13px * var(--qb-text-scale, 1));
+  font-size: 13px;
   font-weight: 600;
 }
 
@@ -708,7 +708,7 @@
   border-radius: 5px;
   color: var(--mint);
   background: rgba(16, 163, 127, 0.16);
-  font-size: calc(9px * var(--qb-text-scale, 1));
+  font-size: 9px;
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -716,7 +716,7 @@
 
 .bonus-count {
   color: #10a37f;
-  font-size: calc(13px * var(--qb-text-scale, 1));
+  font-size: 13px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
@@ -730,7 +730,7 @@
   gap: 7px;
   padding: 5px 0;
   border-top: 0.5px solid var(--line);
-  font-size: calc(12px * var(--qb-text-scale, 1));
+  font-size: 12px;
 }
 
 .bonus-grant-left {
@@ -756,7 +756,7 @@
 
 .bonus-grant-right {
   color: var(--sub);
-  font-size: calc(11px * var(--qb-text-scale, 1));
+  font-size: 11px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
@@ -769,7 +769,7 @@
 .bonus-note {
   margin-top: 6px;
   color: var(--sub);
-  font-size: calc(10px * var(--qb-text-scale, 1));
+  font-size: 10px;
 }
 
 .timeline-card {
@@ -802,7 +802,7 @@
   color: var(--text);
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: calc(10.5px * var(--qb-text-scale, 1));
+  font-size: 10.5px;
   font-weight: 600;
 }
 
@@ -837,7 +837,7 @@
   flex: none;
   color: var(--sub);
   text-align: right;
-  font-size: calc(10px * var(--qb-text-scale, 1));
+  font-size: 10px;
   font-variant-numeric: tabular-nums;
 }
 
@@ -847,7 +847,7 @@
   margin-top: 5px;
   padding-left: 114px;
   color: var(--sub);
-  font-size: calc(9px * var(--qb-text-scale, 1));
+  font-size: 9px;
 }
 
 .cost-title-row {
@@ -864,7 +864,7 @@
 .cost-note {
   margin: 0;
   color: var(--sub);
-  font-size: calc(10px * var(--qb-text-scale, 1));
+  font-size: 10px;
   font-variant-numeric: tabular-nums;
 }
 
@@ -881,7 +881,7 @@
   border-radius: 5px;
   color: var(--acc);
   background: color-mix(in srgb, var(--acc) 10%, transparent);
-  font-size: calc(8px * var(--qb-text-scale, 1));
+  font-size: 8px;
   line-height: 11px;
   font-weight: 700;
   letter-spacing: 0.04em;
@@ -917,7 +917,7 @@
 
 .cost-range-label {
   color: var(--sub);
-  font-size: calc(10px * var(--qb-text-scale, 1));
+  font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -929,7 +929,7 @@
   margin-top: 3px;
   color: var(--text);
   font-family: inherit;
-  font-size: calc(16px * var(--qb-text-scale, 1));
+  font-size: 16px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.04em;
@@ -955,7 +955,7 @@
   justify-content: space-between;
   align-items: baseline;
   color: var(--sub);
-  font-size: calc(11px * var(--qb-text-scale, 1));
+  font-size: 11px;
 }
 
 .budget-row strong {
@@ -1046,7 +1046,7 @@
   background: transparent;
   color: var(--sub);
   font: inherit;
-  font-size: calc(10px * var(--qb-text-scale, 1));
+  font-size: 10px;
   font-weight: 600;
   cursor: pointer;
 }
@@ -1062,7 +1062,7 @@
   margin-top: 5px;
   padding: 0 2px;
   color: var(--sub);
-  font-size: calc(10px * var(--qb-text-scale, 1));
+  font-size: 10px;
 }
 
 .footer-divider {
@@ -1097,7 +1097,7 @@
   box-shadow: none;
   cursor: pointer;
   font-family: inherit;
-  font-size: calc(12px * var(--qb-text-scale, 1));
+  font-size: 12px;
   font-weight: 500;
 }
 
@@ -1138,7 +1138,7 @@
   text-align: right;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: calc(11px * var(--qb-text-scale, 1));
+  font-size: 11px;
   line-height: 14px;
 }
 
@@ -1162,7 +1162,7 @@
   justify-content: center;
   padding: 0;
   color: var(--sub);
-  font-size: calc(14px * var(--qb-text-scale, 1));
+  font-size: 14px;
 }
 
 .settings-btn.active {
@@ -1171,7 +1171,7 @@
 }
 
 .quit-btn {
-  font-size: calc(13px * var(--qb-text-scale, 1));
+  font-size: 13px;
 }
 
 .setup-services {
@@ -1180,34 +1180,34 @@
   border: 1px solid var(--line);
   border-radius: 12px;
   background: var(--card);
-  font-size: calc(13px * var(--qb-text-scale, 1));
+  font-size: 13px;
   line-height: 1.5;
 }
 .setup-services summary { cursor: pointer; font-weight: 600; }
-.setup-privacy { color: var(--sub); font-size: calc(12px * var(--qb-text-scale, 1)); }
+.setup-privacy { color: var(--sub); font-size: 12px; }
 .setup-service { padding: 10px 0; border-top: 1px solid var(--line); }
-.provider-setup { text-align: left; font-size: calc(13px * var(--qb-text-scale, 1)); line-height: 1.5; }
+.provider-setup { text-align: left; font-size: 13px; line-height: 1.5; }
 .provider-setup .retry-btn { margin-top: 4px; }
 .setup-services summary:focus-visible { outline: 2px solid var(--acc); outline-offset: 3px; }
 
 /* Keep quota, recovery time, and freshness readable at the 340px popover width. */
 .provider-detail-header { flex-wrap: wrap; padding-bottom: 8px; }
 .provider-detail-meta { max-width: 100%; flex-wrap: wrap; white-space: normal; }
-.provider-detail-state { font-size: calc(12px * var(--qb-text-scale, 1)); }
+.provider-detail-state { font-size: 12px; }
 .quota-header { gap: 8px; flex-wrap: wrap; }
-.quota-used-caption { margin: 3px 0 7px; font-size: calc(12px * var(--qb-text-scale, 1)); color: var(--sub); }
-.overview-quota-row .quota-value { font-size: calc(19px * var(--qb-text-scale, 1)); }
+.quota-used-caption { margin: 3px 0 7px; font-size: 12px; color: var(--sub); }
+.overview-quota-row .quota-value { font-size: 19px; }
 .usage-details { margin: 12px 2px; }
-.usage-details > summary { padding: 10px 0; font-size: calc(13px * var(--qb-text-scale, 1)); font-weight: 600; cursor: pointer; }
+.usage-details > summary { padding: 10px 0; font-size: 13px; font-weight: 600; cursor: pointer; }
 .usage-details > summary:focus-visible { outline: 2px solid var(--acc); outline-offset: 2px; }
-.cost-estimate-explanation { font-size: calc(12px * var(--qb-text-scale, 1)); line-height: 1.5; color: var(--sub); margin: 6px 0 10px; }
+.cost-estimate-explanation { font-size: 12px; line-height: 1.5; color: var(--sub); margin: 6px 0 10px; }
 .action-buttons { flex-wrap: wrap; }
 .action-status {
   order: 1;
   flex: 0 0 100%;
   text-align: left;
   white-space: normal;
-  font-size: calc(12px * var(--qb-text-scale, 1));
+  font-size: 12px;
   line-height: 1.5;
   padding: 4px 0 0;
 }

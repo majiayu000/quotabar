@@ -22,6 +22,19 @@ Before tagging:
   in the repository or release artifacts.
 - CI is green on `main`.
 
+## Changelog Maintenance
+
+- Add a short, user-visible note to `CHANGELOG.md` under `Unreleased` with each
+  behavior change. Describe the result, rather than copying commit messages.
+- Before a release, move only the changes included in its tag into a
+  `## X.Y.Z - YYYY-MM-DD` section. Keep pending changes under `Unreleased`.
+- Use the same version section for GitHub Release notes, adding download,
+  signing, verification, and known-limitations details as needed.
+- Check the previous public tag when assigning historical changes to a version.
+  A tagged but unpublished candidate is not a public release.
+- Use a patch version for fixes, a minor version for new functionality, and a
+  major version for breaking changes once the project reaches 1.0.
+
 ## Local Verification
 
 Run from a clean checkout:

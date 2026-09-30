@@ -188,7 +188,7 @@ html, body, #root {
   min-width: 0;
   background: transparent;
   font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Avenir Next', 'Helvetica Neue', sans-serif;
-  font-size: calc(13px * var(--qb-text-scale, 1));
+  font-size: 13px;
   line-height: 1.4;
   color: var(--text-primary);
   border-radius: 12px;
@@ -280,7 +280,7 @@ html, body, #root {
 }
 
 .app-title {
-  font-size: calc(16px * var(--qb-text-scale, 1));
+  font-size: 16px;
   font-weight: 600;
   color: var(--text-primary);
 }
@@ -289,7 +289,7 @@ html, body, #root {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: calc(11px * var(--qb-text-scale, 1));
+  font-size: 11px;
 }
 
 .status-dot {
@@ -308,7 +308,7 @@ html, body, #root {
 }
 
 .last-updated {
-  font-size: calc(10px * var(--qb-text-scale, 1));
+  font-size: 10px;
   color: var(--text-muted);
   margin-top: 4px;
 }
@@ -373,7 +373,7 @@ html, body, #root {
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--text-secondary);
-  font-size: calc(11px * var(--qb-text-scale, 1));
+  font-size: 11px;
   font-weight: 650;
 }
 
@@ -476,7 +476,7 @@ html, body, #root {
 }
 
 .settings-title {
-  font-size: calc(10px * var(--qb-text-scale, 1));
+  font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -512,7 +512,7 @@ html, body, #root {
   align-items: center;
   gap: 8px;
   cursor: pointer;
-  font-size: calc(11px * var(--qb-text-scale, 1));
+  font-size: 11px;
   color: var(--text-secondary);
 }
 
@@ -588,7 +588,7 @@ html, body, #root {
 }
 
 .tray-toggle-status {
-  font-size: calc(10px * var(--qb-text-scale, 1));
+  font-size: 10px;
   line-height: 1.2;
 }
 
@@ -681,7 +681,7 @@ html, body, #root {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: calc(9px * var(--qb-text-scale, 1));
+  font-size: 9px;
   font-weight: 700;
   color: #fff;
 }
@@ -715,12 +715,12 @@ html, body, #root {
   align-items: center;
   justify-content: center;
   font-weight: bold;
-  font-size: calc(11px * var(--qb-text-scale, 1));
+  font-size: 11px;
   flex-shrink: 0;
 }
 
 .error-text {
-  font-size: calc(12px * var(--qb-text-scale, 1));
+  font-size: 12px;
   line-height: 1.3;
 }
 

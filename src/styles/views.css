@@ -33,7 +33,7 @@
     linear-gradient(180deg, color-mix(in srgb, var(--bg-card) 95%, var(--service-accent)), var(--bg-card));
   color: var(--text-secondary);
   cursor: pointer;
-  font-size: calc(12px * var(--qb-text-scale, 1));
+  font-size: 12px;
   font-weight: 650;
   white-space: nowrap;
   overflow: hidden;
@@ -90,7 +90,7 @@
     linear-gradient(145deg, var(--bg-card), color-mix(in srgb, var(--service-accent) 10%, var(--bg-secondary)));
   box-shadow: inset 0 0 0 1px var(--service-accent);
   color: var(--service-accent);
-  font-size: calc(9px * var(--qb-text-scale, 1));
+  font-size: 9px;
   font-weight: 850;
 }
 
@@ -127,7 +127,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: calc(10px * var(--qb-text-scale, 1));
+  font-size: 10px;
   font-weight: 800;
   line-height: 1.1;
   text-align: center;
@@ -140,7 +140,7 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--text-muted);
-  font-size: calc(9px * var(--qb-text-scale, 1));
+  font-size: 9px;
   font-weight: 720;
   line-height: 1.2;
 }
@@ -171,7 +171,7 @@
 
 .overview-kicker {
   color: var(--text-muted);
-  font-size: calc(10px * var(--qb-text-scale, 1));
+  font-size: 10px;
   font-weight: 800;
   letter-spacing: 0.08em;
   line-height: 1.2;
@@ -182,7 +182,7 @@
 .settings-view-header h1 {
   margin-top: 2px;
   color: var(--text-primary);
-  font-size: calc(18px * var(--qb-text-scale, 1));
+  font-size: 18px;
   line-height: 1.05;
   font-weight: 850;
 }
@@ -203,13 +203,13 @@
 
 .overview-health strong {
   font-family: var(--metric-font);
-  font-size: calc(18px * var(--qb-text-scale, 1));
+  font-size: 18px;
   line-height: 1;
 }
 
 .overview-health span {
   margin-top: 2px;
-  font-size: calc(9px * var(--qb-text-scale, 1));
+  font-size: 9px;
   font-weight: 750;
   text-transform: uppercase;
 }
@@ -252,7 +252,7 @@
   color: var(--service-accent);
   background: color-mix(in srgb, var(--service-accent) 10%, var(--bg-card));
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--service-accent) 72%, transparent);
-  font-size: calc(11px * var(--qb-text-scale, 1));
+  font-size: 11px;
   font-weight: 850;
 }
 
@@ -272,13 +272,13 @@
 }
 
 .overview-provider-name {
-  font-size: calc(12px * var(--qb-text-scale, 1));
+  font-size: 12px;
   font-weight: 820;
 }
 
 .overview-provider-status {
   color: var(--text-muted);
-  font-size: calc(10px * var(--qb-text-scale, 1));
+  font-size: 10px;
   font-weight: 700;
 }
 
@@ -331,14 +331,14 @@
 
 .overview-window-provider {
   color: var(--text-primary);
-  font-size: calc(12px * var(--qb-text-scale, 1));
+  font-size: 12px;
   font-weight: 800;
 }
 
 .overview-window-label,
 .overview-window-reset {
   color: var(--text-muted);
-  font-size: calc(10px * var(--qb-text-scale, 1));
+  font-size: 10px;
   font-weight: 650;
 }
 
@@ -353,7 +353,7 @@
 .overview-window-percent {
   font-family: var(--metric-font);
   color: var(--text-primary);
-  font-size: calc(12px * var(--qb-text-scale, 1));
+  font-size: 12px;
   font-weight: 800;
 }
 
@@ -386,7 +386,7 @@
   gap: 8px;
   padding: 8px 9px;
   color: var(--text-secondary);
-  font-size: calc(10px * var(--qb-text-scale, 1));
+  font-size: 10px;
 }
 
 .overview-reset-row strong,
@@ -399,7 +399,7 @@
 
 .overview-reset-row strong {
   color: var(--text-primary);
-  font-size: calc(11px * var(--qb-text-scale, 1));
+  font-size: 11px;
 }
 
 .overview-reset-row em {
@@ -469,20 +469,20 @@
 }
 
 .codex-label {
-  font-size: calc(12px * var(--qb-text-scale, 1));
+  font-size: 12px;
   color: var(--text-secondary);
 }
 
 .codex-value {
   flex-shrink: 0;
   font-family: var(--metric-font);
-  font-size: calc(12px * var(--qb-text-scale, 1));
+  font-size: 12px;
   font-weight: 600;
   color: var(--text-primary);
 }
 
 .codex-value.email {
-  font-size: calc(11px * var(--qb-text-scale, 1));
+  font-size: 11px;
   color: var(--text-secondary);
   max-width: 150px;
   overflow: hidden;
@@ -495,13 +495,13 @@
   color: var(--accent-color);
   padding: 2px 8px;
   border-radius: 4px;
-  font-size: calc(11px * var(--qb-text-scale, 1));
+  font-size: 11px;
   font-weight: 600;
   text-transform: capitalize;
 }
 
 .codex-quota-notice {
-  font-size: calc(11px * var(--qb-text-scale, 1));
+  font-size: 11px;
   color: var(--text-secondary);
   line-height: 1.5;
   padding: 8px 0;
@@ -519,7 +519,7 @@
   background: linear-gradient(180deg, var(--surface-card-strong), var(--surface-card));
   color: var(--text-primary);
   cursor: pointer;
-  font-size: calc(12px * var(--qb-text-scale, 1));
+  font-size: 12px;
   font-weight: 700;
   transition: transform 0.15s ease, border-color 0.15s ease, color 0.15s ease, background-color 0.15s ease;
   box-shadow: var(--shadow-sm);
@@ -534,13 +534,13 @@
 
 .loading-state {
   color: var(--text-muted);
-  font-size: calc(12px * var(--qb-text-scale, 1));
+  font-size: 12px;
   text-align: center;
   padding: 24px;
 }
 
 .hint {
-  font-size: calc(11px * var(--qb-text-scale, 1));
+  font-size: 11px;
   color: var(--text-muted);
   margin-top: 4px;
 }
@@ -553,7 +553,7 @@
   color: var(--accent-color);
   padding: 2px 8px;
   border-radius: 4px;
-  font-size: calc(9px * var(--qb-text-scale, 1));
+  font-size: 9px;
   font-weight: 600;
   letter-spacing: 0.08em;
   white-space: nowrap;
@@ -561,7 +561,7 @@
 
 /* Reset time text */
 .reset-time {
-  font-size: calc(10px * var(--qb-text-scale, 1));
+  font-size: 10px;
   color: var(--text-muted);
   margin-top: 4px;
 }
@@ -570,7 +570,7 @@
 .quota-value {
   flex-shrink: 0;
   font-family: var(--metric-font);
-  font-size: calc(12px * var(--qb-text-scale, 1));
+  font-size: 12px;
   font-weight: 600;
   color: var(--text-primary);
 }

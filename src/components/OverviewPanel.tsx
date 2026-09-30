@@ -1,8 +1,7 @@
 import { formatResetTime, remainingPercent, getRemainingProgressStyle } from '../utils/quota_format';
 import { localizeLabel, message, renderText, type DisplayText, getLocale, t } from '../i18n';
 import { useLocale } from '../i18n/react';
-import { useEffect, useState, useId, useRef, useMemo, type ReactNode, type CSSProperties } from 'react';
-import type { TextScale } from '../services/text_scale';
+import { useEffect, useState, useId, useRef, useMemo, type ReactNode } from 'react';
 import { listen } from '@tauri-apps/api/event';
 import { backend, hasTauriBackend, type AnalysisCatalog, type AnalysisMetrics, type AnalysisRange, type AnalysisReport, type AnalysisSession, type AnalysisTitle, type AnalysisView } from '../services/backend';
 import { getSavedTheme, saveTheme } from '../services/app_state';
@@ -251,8 +250,7 @@ export function AnalysisLoading({ progress }: { progress: string }) {
   </div>;
 }
 
-export function AnalysisApp({ textScale = 1, visible = true, providerContent, providerView, theme: workspaceTheme, summaries = [], quotaWindows = [], onProviderView, onThemeChange, onRefreshProvider }: {
-  textScale?: TextScale;
+export function AnalysisApp({ visible = true, providerContent, providerView, theme: workspaceTheme, summaries = [], quotaWindows = [], onProviderView, onThemeChange, onRefreshProvider }: {
   onRefreshProvider?: (provider: TrayServiceName) => void;
   providerContent?: ReactNode; providerView?: AppViewName; theme?: ThemeName;
   visible?: boolean;
@@ -402,7 +400,7 @@ export function AnalysisApp({ textScale = 1, visible = true, providerContent, pr
   const modelOptions = report?.available_models ?? [];
   const rangeLabel = selectedDate ?? (range === 'custom' ? `${appliedDates.since} — ${appliedDates.until}` : ANALYSIS_RANGES().find(([value]) => value === range)![1]);
   const projectOptions = (report?.available_projects ?? []).map((path) => [path, path.split(/[\\/]/).filter(Boolean).slice(-2).join('/') || path]);
-  return <div style={{ '--qb-text-scale': textScale } as CSSProperties} className={`analysis-app ${dark ? 'analysis-dark' : ''}`}>
+  return <div className={`analysis-app ${dark ? 'analysis-dark' : ''}`}>
     <aside className="analysis-sidebar">
       <div className="analysis-brand"><b className="quota-mark">Q</b><strong>QuotaBar</strong></div>
       <small className="analysis-nav-label">{t("Workspace")}</small>

@@ -1,49 +1,49 @@
-# Usage product delivery status — 2026-09-27
+# Usage product delivery status — 2026-09-30
 
-This records the product-boundary change and source-branch validation. It is not
-a release announcement or evidence of Windows native acceptance.
+This records PR #190's source changes after reconciliation with current `main`.
+Windows build/test CI and native UI acceptance are separate evidence.
 
-## Implemented in this change
+## Implementation
 
-- Define agent-sessions as the native parser/provenance layer, ccstats as the
-  accounting/price/CLI/SDK layer, and QuotaBar as the tray/desktop/alerts/settings
-  product. ccstats' separate tray plan is withdrawn; its current desktop stays
-  maintained behind an explicit handover gate.
-- Adopt ccstats 0.9.1 (stable model-alias price precedence) and lock
-  agent-sessions 0.2.1 from crates.io. Existing SDK-versioned caches invalidate
-  older cost snapshots.
-- Add shared 100%/115%/130% text sizes with storage failure reporting, and fit
-  the scroll area to constrained tray windows while measuring intrinsic content.
+- agent-sessions owns native parsing/provenance, ccstats owns accounting,
+  pricing and CLI/SDK contracts, and QuotaBar owns tray/desktop analysis,
+  notifications and settings. ccstats desktop retirement still requires a
+  verified handover of its diagnostics, investigation and device workflows.
+- Adopt published ccstats 0.9.1 and lock agent-sessions 0.2.1 from crates.io.
+  Existing SDK-versioned caches invalidate older cost snapshots. Retain
+  current main's automatic public price refresh.
+- Retain the released 100%/125%/150% Interface size control from PR #194/v0.5.6.
+  Remove PR #190's superseded text-only control. Both windows share the saved
+  size; native work-area clamping and clipped-content measurement remain.
 - Put installer/first-run guidance ahead of developer setup, distinguish
   Antigravity availability from quota support, and use QuotaBar page branding.
-- Run frontend, build and Rust checks in CI on macOS and Windows using the
-  checked-in Cargo lockfile. A workflow definition is not a passing remote run.
+- Run frontend, production build and locked Rust checks in CI on macOS and
+  Windows. Source-fixture tests normalize CRLF before applying LF mutations;
+  the coverage-path test uses the host platform's path resolution.
 
-## Local verification
+## Verification in this maintenance session
 
-| Surface | Completed check |
-|---|---|
-| agent-sessions | Rust 1.88 all-target contract/fixture tests and README rustdoc |
-| ccstats | Rust 1.95 pricing tests: 129 passed |
-| QuotaBar SDK integration | Rust 1.95 tests: 143 passed, 5 ignored live/manual/helper cases; isolated synthetic child verification is invoked by its parent test |
-| QuotaBar frontend | 631 tests passed; TypeScript and production asset build passed |
-| Release metadata | All app manifests remain 0.5.4; no tag or installer published |
-| Readability | Browser settings checks, cross-tab synchronization and reload; see [scope and Windows gate](../../specs/GH186/text-size.md) |
+- Frontend: 620 tests passed; TypeScript and production asset build passed.
+- CRLF reproduction: 23 test failures and one suite load failure before the
+  correction; all 110 affected tests passed afterward with CRLF source files.
+- Release manifests agree on 0.5.8. No release or installed-app update is
+  performed by this PR.
+- Rust and exact-head remote CI results are recorded in the PR description
+  after their checks finish.
 
 ## Remaining delivery gates
 
-1. Native Windows 10/11 acceptance for tray placement, DPI changes and text size
-   ([matrix](../../specs/GH186/tasks.md)). Browser and unit tests cannot close it.
-2. Compare ccstats desktop's source diagnostics, investigation and device
-   snapshot workflows before retiring any feature. QuotaBar parity is not yet
-   certified, and no data migration is performed by this change.
-3. Refresh the public demo using a current native build and deliberately curated
-   data. The existing README screenshot remains explicitly labeled v0.4.0
-   browser preview; it is not relabeled as a new runtime capture.
-4. Review/merge this source change, then perform normal release verification and
-   distribution. The currently installed app is not updated by repository edits.
-5. External first-run/retention and paid-use validation remain product work,
-   not claims established by these tests. No telemetry or paid service is added.
+1. The [maintainer's #186 comment](https://github.com/majiayu000/quotabar/issues/186#issuecomment-5890254980)
+   reports Windows 11/4K/150% acceptance for v0.5.6. The original Windows 10 /
+   27-inch 2K environment still needs reporter confirmation; this macOS CLI
+   session performs no Windows native UI test. Keep #186 open.
+2. Verify ccstats desktop workflow parity before retiring any feature. No data
+   migration or desktop removal is part of this PR.
+3. Refresh the public demo using a current native build and curated data. The
+   existing README screenshot remains labeled v0.4.0 browser preview.
+4. Review and merge the source change, then follow normal release verification.
+   Repository edits do not update the installed application.
+5. External first-run/retention and paid-use validation remain product work.
+   No telemetry or paid service is added.
 
-Antigravity quota support is pending independently. It is not silently included
-in this delivery or represented as zero remaining quota.
+Antigravity quota support remains pending independently.

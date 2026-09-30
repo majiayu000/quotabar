@@ -21,15 +21,15 @@ Website: https://majiayu000.github.io/quotabar/
    Normal use does not require Node.js or Rust.
 2. Open QuotaBar and click its tray icon. Sign in through your provider's own
    application/CLI, then use **Check connection**. QuotaBar reads existing
-   sign-ins; it does not manage login or refresh tokens.
+   sign-ins and delegates expired Grok session renewal to the installed Grok
+   CLI. Interactive sign-in stays with the provider.
 3. Overview shows remaining quota and reset windows. Open **Usage analysis**
    for local projects, sessions and history. Unavailable or stale readings stay
    labeled; API-equivalent values are estimates, not subscription bills.
 
-See the release's installation/signing notes for that exact build. Features in
-[Unreleased](CHANGELOG.md#unreleased), including text-size controls, require a
-source build until the next release. Windows native acceptance remains tracked
-in [GH186](specs/GH186/tasks.md).
+See the release's installation/signing notes for that exact build. Interface
+scaling is available since v0.5.6. The original Windows 10 / 27-inch 2K case
+still needs confirmation in [GH186](specs/GH186/tasks.md).
 
 ## How the projects fit together
 
@@ -59,7 +59,7 @@ See [product boundaries](PRODUCT.md) and [delivery status](docs/product/delivery
 - Notifications: 80%, 95%, 100%, unused bonus reset, and bonus-expiry alerts.
 - Background polling: refreshes every 60 seconds, backs off to 5 minutes on 429, and backs off to 1 hour on Claude auth failures.
 - Read-only Claude OAuth: reads Claude Code credentials from the correct source, but never refreshes or writes OAuth tokens.
-- Read-only Grok auth: checks `~/.grok/auth.json` on each polling cycle, skips quota requests while credentials are locally expired, and automatically detects a new `grok login`. Network failures keep retrying on the existing refresh schedule; QuotaBar never refreshes or writes tokens.
+- Grok auth: checks `~/.grok/auth.json` on each polling cycle. When an expired credential has a refresh token, runs the installed official `grok models` command to let Grok renew and save its own credentials, then rereads them before requesting quota. This does not start a conversation. The helper has a 20-second timeout; unsuccessful automatic renewal retries after 5 minutes, while manual refresh can retry immediately. QuotaBar never writes tokens itself or logs CLI output. If renewal remains unavailable, open `grok` and sign in only if prompted.
 - Hidden-window polling: disables macOS webview throttling so menubar mode keeps working.
 
 ## Demo Proof
@@ -128,9 +128,7 @@ This `v0.4.0` screenshot was refreshed on 2026-08-31 from the production React U
 
 ## Language
 
-Settings → Display → Text size offers **100%**, **115%** and **130%** in source
-builds with the unreleased readability changes. Both windows share the saved
-choice; OS display scaling and quota values remain unchanged.
+Settings → Display → Interface size offers **100%**, **125%**, and **150%**. It scales text and controls in both windows and is remembered across restarts. The tray resizes and stays anchored to its icon; content scrolls when screen space is limited.
 
 Settings → Display → Language offers **Follow system**, **简体中文**, and **English**.
 Both the menu bar panel and desktop workspace update immediately and share the
@@ -167,6 +165,24 @@ agent-sessions. The SDK excludes the independent gpt-reserve pool from subscript
 week estimates while retaining it in general usage, and includes Grok 4.7 pricing.
 No local SDK archive or patch preparation is needed. Official quota percentages
 remain provider-reported; ordinary Luna usage is not excluded.
+
+Cost estimates automatically use the SDK's public
+[LiteLLM price catalog](https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json).
+The SDK downloads it when no fresh price cache exists and refreshes it after
+24 hours. Once a new model is included in that catalog and recognized by the
+SDK, its prices become available without a QuotaBar release. Only the public
+catalog is fetched; local usage logs are processed on-device. If the download
+fails, the SDK uses its existing cache or bundled prices; models without a known
+price remain unavailable rather than being shown as free.
+
+For GPT-6.1 Sol, the catalog supplies the
+[standard API prices](https://developers.openai.com/api/docs/pricing): $2 input,
+$0.10 cached input, $2.50 cache writes, and $10 output per million tokens.
+Above 272K input tokens, the full request uses $4 input, $0.20 cached input,
+$5 cache writes, and $15 output. These are API-equivalent estimates, not
+subscription charges. The dated GPT-5.6 Sol weekly reference below remains
+specific to that model.
+
 Weekly token capacity shows only **Astra** and **GPT-5.6 Sol**. It defaults to
 the local estimate when available. Click the source badge to switch between
 local and community values; the badge flips horizontally and respects reduced
@@ -260,7 +276,7 @@ Release candidates should be built by the `release-artifacts` GitHub Actions wor
 
 With no saved panel preferences, the switcher shows detected services and keeps them accessible if a connection later fails. Use **Add service** for setup, or Settings to choose providers manually.
 
-On first launch, Overview shows detected connections and instructions for signing in through each provider. Use **Check connection** after signing in. QuotaBar reads existing local sign-ins; it does not manage login or refresh tokens. Antigravity quota tracking is still pending.
+On first launch, Overview shows detected connections and instructions for signing in through each provider. Use **Check connection** after signing in. QuotaBar reads existing local sign-ins and delegates expired Grok session renewal to the installed Grok CLI; interactive sign-in stays with the provider. Antigravity quota tracking is still pending.
 
 For normal use, download the current installer from [GitHub Releases](https://github.com/majiayu000/quotabar/releases/latest). For development, install from a local build.
 
@@ -333,7 +349,7 @@ npm run tauri build -- --bundles app
   - polling backs off to 5 minutes after 429 responses
 - Cost data is empty:
   - local logs may not exist yet
-  - costs are estimated offline from local Claude/Codex logs via `ccstats`
+  - costs are estimated from local logs via `ccstats`, using automatically refreshed public prices
 
 ## Support and Security
 

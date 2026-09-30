@@ -502,4 +502,34 @@ mod tests {
             assert_eq!((frame.width, frame.height), (340, 300));
         }
     }
+
+    #[test]
+    fn ui_zoom_and_monitor_dpi_scale_once_and_keep_the_frame_inside() {
+        let area = Rect {
+            x: -1920,
+            y: 0,
+            width: 1920,
+            height: 1032,
+        };
+        let icon = Rect {
+            x: -200,
+            y: 1044,
+            width: 36,
+            height: 36,
+        };
+        for ui_scale in [1.0, 1.25, 1.5] {
+            for dpi in [1.0, 1.5, 2.0] {
+                let small =
+                    place_popover(icon, area, dpi, POPOVER_WIDTH * ui_scale, 300.0 * ui_scale);
+                let large =
+                    place_popover(icon, area, dpi, POPOVER_WIDTH * ui_scale, 582.0 * ui_scale);
+                assert_eq!(small.width, (POPOVER_WIDTH * ui_scale * dpi).round() as u32);
+                if large.height < area.height {
+                    assert_eq!(small.bottom(), large.bottom());
+                }
+                assert!(inside(small, area));
+                assert!(inside(large, area));
+            }
+        }
+    }
 }

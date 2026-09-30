@@ -18,7 +18,7 @@ const paths = {
 
 function changed_source(path, from, to) {
   const sources = read_owner_sources();
-  const original = sources.get(path);
+  const original = sources.get(path)?.replace(/\r\n/g, '\n');
   assert.equal(typeof original, 'string');
   const parts = original.split(from);
   assert.equal(parts.length, 2, `fixture mutation must match once: ${from}`);
@@ -177,7 +177,7 @@ test('rejects a wrong generation owner binding', () => {
 
 test('rejects a generation hook moved outside its owning component', () => {
   const sources = read_owner_sources();
-  const original = sources.get(paths.cursor);
+  const original = sources.get(paths.cursor)?.replace(/\r\n/g, '\n');
   assert.equal(typeof original, 'string');
   const without_binding = original.replace('  const request_generation = useLatestRequestGeneration();\n', '');
   assert.notEqual(without_binding, original);

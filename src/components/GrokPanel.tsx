@@ -305,7 +305,7 @@ export default function GrokPanel({
                   );
                 })}
               </div>
-              <p className="hint" style={{ marginTop: 8, fontSize: 'calc(11px * var(--qb-text-scale, 1))', opacity: 0.65 }}>
+              <p className="hint" style={{ marginTop: 8, fontSize: 11, opacity: 0.65 }}>
                 {t("Share of the same usage pool, not a separate limit.")}
               </p>
             </div>

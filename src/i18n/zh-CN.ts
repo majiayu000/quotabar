@@ -1,9 +1,6 @@
 import type { en } from './en';
 
 export const zhCN = {
-  "Text size": "文字大小",
-  "100% (default)": "100%（默认）",
-  "Larger text in both windows. System display scaling stays unchanged.": "同时放大托盘和分析窗口的文字，不改变系统显示缩放。",
   "At least one provider must stay in the switcher": "至少保留一个服务入口",
   "Quota unavailable": "额度不可用",
   "Unknown error": "未知错误",
@@ -166,6 +163,8 @@ export const zhCN = {
   "Remaining {p0} / {p1}": "剩余 {p0} / {p1}",
   "Prepaid remaining": "预付余额",
   "Grok not connected": "未连接 Grok",
+  "Could not renew Grok session": "Grok 登录状态暂时无法续期",
+  "QuotaBar will retry automatically. You can also open Grok in Terminal to renew the session; sign in only if Grok asks you to.": "QuotaBar 会自动重试。也可以在终端打开 Grok 续期；只有 Grok 提示登录时，才需要重新登录。",
   "Run grok login; the connection will be checked automatically": "请先运行 grok login，随后会自动检测连接",
   "Quota usage": "额度用量",
   "Subscription quota": "订阅额度",
@@ -642,6 +641,9 @@ export const zhCN = {
   "Saved data could not be loaded. Default values are being used.": "无法读取已保存的数据，当前使用默认值。",
   "At this pace, quota runs out in about {p0}": "按当前速度，约 {p0} 后用尽",
   "At this pace, about {p0}% will remain at reset": "按当前速度，重置时约剩余 {p0}%",
+  "Interface size": "界面大小",
+  "Enlarge text and controls in both windows.": "放大两个窗口中的文字和控件。",
+  "Could not change interface size. Please try again.": "无法更改界面大小，请重试。",
   "Language": "语言",
   "Follow system": "跟随系统",
   "Use in ChatGPT; QuotaBar cannot reset it for you.": "打开 ChatGPT 使用；QuotaBar 无法代为重置。",

@@ -4,13 +4,28 @@ All notable QuotaBar changes should be summarized here before a release is cut.
 
 ## Unreleased
 
-- Add 100%, 115% and 130% text sizes under Display, shared by the tray and analysis window and retained after restart. Preserve system DPI and tray positioning, and report settings storage failures.
-- Fit the tray's scroll area to the actual window height on constrained displays while measuring hidden content for subsequent resizes, keeping bottom controls reachable.
-
 - Adopt ccstats 0.9.1 for stable model-alias price precedence and lock agent-sessions 0.2.1. SDK-versioned caches discard previous estimates after the upgrade.
 
+## 0.5.8 - 2026-09-30
+
+- Fix the Linux AppImage icon link so it remains valid after distribution and passes the AppImage catalog's required-file check.
+- Automatically refresh the public model price catalog through ccstats for cost summaries, daily charts, and Grok period estimates. Include GPT-6.1 Sol standard and long-context rates from the catalog; newly cataloged models no longer require a QuotaBar release solely to add prices.
+
+## 0.5.7 - 2026-09-30
+
+- Format Codex credit balances with locale-aware thousands separators and at most two decimal places, instead of showing the raw decimal string (for example, `60975.9865140000` becomes `60,975.99`). Preserve zero, unavailable, and unlimited states.
+
+## 0.5.6 - 2026-09-29
+
+- Add a shared, persistent 100% / 125% / 150% interface-size setting. Scale tray dimensions with the content and keep the popover anchored inside the monitor work area (#186).
+
+## 0.5.5 - 2026-09-29
+
+- Renew expired Grok sessions through the installed official `grok models` command when refresh credentials are available. Retry failed renewal automatically and offer opening Grok instead of immediately requiring a new login.
 - Keep the Windows tray popover anchored to its icon on every resolution and scale ([#186](https://github.com/majiayu000/quotabar/issues/186)). Placement now uses the work area and scale of the monitor holding the icon, keeps an 8-logical-pixel gap, re-anchors after content resizes instead of growing into the taskbar, and applies the final size after crossing onto a monitor with a different scale.
 - Disable the Windows tray's native shadow and border so hidden frame insets do not push the popover beyond its calculated position. The analysis window and macOS shadow are unchanged.
+
+## 0.5.4 - 2026-09-26
 
 - Make the Codex weekly token source switch cover the whole title row. When a local estimate exists, tapping flips local and community views. When it does not, tapping explains why and how to get a local week; an explicit retry stays on that hint, not on the title.
 
@@ -20,7 +35,7 @@ All notable QuotaBar changes should be summarized here before a release is cut.
 
 - Simplify Codex weekly token capacity to Astra and GPT-5.6 Sol in Chinese and English. Calculate Astra from this device's weekly API value and input/cache/output mix, including mixed-model usage without a single-model sample requirement; convert Sol at the dated API price ratio (2.5×). Prefer local values and let users flip the source badge horizontally to switch to attributed Pro 20× community references. Keep mixed API value and diagnostics collapsed.
 
-## 0.5.4 - 2026-09-26
+- Keep six-digit API-equivalent cost amounts readable in the tray and consistently display USD amounts with the `$` symbol.
 
 - Adopt the published ccstats 0.9.0 SDK and agent-sessions parser from crates.io, replacing the bundled SDK archive and local patches. Preserve Reserve exclusion, model estimates, and SDK-versioned cost caches.
 - Submit the signed macOS DMG itself for notarization after verifying the enclosed app. Require an Accepted result, retry ticket stapling within a bounded window, and validate the DMG before publishing artifacts.

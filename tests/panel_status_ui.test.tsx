@@ -503,7 +503,7 @@ describe('provider status UI', () => {
     await act(async () => renderer.unmount());
   });
 
-  it('shows n/a when Codex credits exist without a balance', async () => {
+  it('formats Codex credit balances while preserving missing and unlimited states', async () => {
     async function renderCredits(credits: { hasCredits: boolean; unlimited: boolean; balance?: string }) {
       vi.spyOn(backend, 'getCodexInfo').mockResolvedValue({ connected: true, planType: 'plus' });
       vi.spyOn(backend, 'getCodexRateLimits').mockResolvedValue({
@@ -544,6 +544,22 @@ describe('provider status UI', () => {
     const zero = await renderCredits({ hasCredits: true, unlimited: false, balance: '0' });
     expect(creditValue(zero)).toBe('0');
     await act(async () => zero.unmount());
+
+    const fractional = await renderCredits({ hasCredits: true, unlimited: false, balance: '60975.9865140000' });
+    expect(creditValue(fractional)).toBe('60,975.99');
+    await act(async () => fractional.unmount());
+
+    const integer = await renderCredits({ hasCredits: true, unlimited: false, balance: '1200.0000' });
+    expect(creditValue(integer)).toBe('1,200');
+    await act(async () => integer.unmount());
+
+    const unlimited = await renderCredits({ hasCredits: true, unlimited: true, balance: '60975.9865140000' });
+    expect(creditValue(unlimited)).toBe('Unlimited');
+    await act(async () => unlimited.unmount());
+
+    const unavailable = await renderCredits({ hasCredits: true, unlimited: false, balance: 'n/a' });
+    expect(creditValue(unavailable)).toBe('n/a');
+    await act(async () => unavailable.unmount());
   });
 });
 

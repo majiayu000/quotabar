@@ -516,8 +516,8 @@ pub fn open_grok_dashboard() -> Result<(), String> {
 }
 
 #[tauri::command]
-pub async fn resize_window(app: AppHandle, height: f64) -> Result<(), String> {
-    window::resize_window(app, height).await
+pub async fn resize_window(app: AppHandle, height: f64, width: f64) -> Result<(), String> {
+    window::resize_window(app, height, width).await
 }
 
 #[tauri::command]
