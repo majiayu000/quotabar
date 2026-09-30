@@ -9,7 +9,11 @@
 
 QuotaBar is a Tauri v2 menubar app for monitoring Claude Code, Codex, Cursor, Grok Build, and Antigravity usage. It shows live quota windows, per-provider tray indicators, and local cost estimates from on-device logs.
 
-Website: https://majiayu000.github.io/quotabar/
+[Website](https://majiayu000.github.io/quotabar/) ·
+[Download installers](https://github.com/majiayu000/quotabar/releases/latest) ·
+[Installation and first run](#install--run) · [Build from source](#development)
+
+Antigravity currently reports provider availability; its quota tracking is pending.
 
 ## Features
 
