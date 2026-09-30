@@ -4,13 +4,9 @@ All notable QuotaBar changes should be summarized here before a release is cut.
 
 ## Unreleased
 
-- Make the Codex weekly token source switch cover the whole title row. When a local estimate exists, tapping flips local and community views. When it does not, tapping explains why and how to get a local week; an explicit retry stays on that hint, not on the title.
+## 0.5.7 - 2026-09-30
 
-- Keep today, week, and month API-equivalent tiles visually even in the tray. The primary-range ring was leaking through the compact override and made only Today look shadowed.
-
-- Distinguish local estimates with green source badges and community references with blue badges in light and dark themes, preserving the flip transition. Keep the community color independent of the tray's green accent override.
-
-- Simplify Codex weekly token capacity to Astra and GPT-5.6 Sol in Chinese and English. Calculate Astra from this device's weekly API value and input/cache/output mix, including mixed-model usage without a single-model sample requirement; convert Sol at the dated API price ratio (2.5×). Prefer local values and let users flip the source badge horizontally to switch to attributed Pro 20× community references. Keep mixed API value and diagnostics collapsed.
+- Format Codex credit balances with locale-aware thousands separators and at most two decimal places, instead of showing the raw decimal string (for example, `60975.9865140000` becomes `60,975.99`). Preserve zero, unavailable, and unlimited states.
 
 ## 0.5.6 - 2026-09-29
 
@@ -23,6 +19,16 @@ All notable QuotaBar changes should be summarized here before a release is cut.
 - Disable the Windows tray's native shadow and border so hidden frame insets do not push the popover beyond its calculated position. The analysis window and macOS shadow are unchanged.
 
 ## 0.5.4 - 2026-09-26
+
+- Make the Codex weekly token source switch cover the whole title row. When a local estimate exists, tapping flips local and community views. When it does not, tapping explains why and how to get a local week; an explicit retry stays on that hint, not on the title.
+
+- Keep today, week, and month API-equivalent tiles visually even in the tray. The primary-range ring was leaking through the compact override and made only Today look shadowed.
+
+- Distinguish local estimates with green source badges and community references with blue badges in light and dark themes, preserving the flip transition. Keep the community color independent of the tray's green accent override.
+
+- Simplify Codex weekly token capacity to Astra and GPT-5.6 Sol in Chinese and English. Calculate Astra from this device's weekly API value and input/cache/output mix, including mixed-model usage without a single-model sample requirement; convert Sol at the dated API price ratio (2.5×). Prefer local values and let users flip the source badge horizontally to switch to attributed Pro 20× community references. Keep mixed API value and diagnostics collapsed.
+
+- Keep six-digit API-equivalent cost amounts readable in the tray and consistently display USD amounts with the `$` symbol.
 
 - Adopt the published ccstats 0.9.0 SDK and agent-sessions parser from crates.io, replacing the bundled SDK archive and local patches. Preserve Reserve exclusion, model estimates, and SDK-versioned cost caches.
 - Submit the signed macOS DMG itself for notarization after verifying the enclosed app. Require an Accepted result, retry ticket stapling within a bounded window, and validate the DMG before publishing artifacts.
