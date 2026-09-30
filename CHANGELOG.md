@@ -4,6 +4,8 @@ All notable QuotaBar changes should be summarized here before a release is cut.
 
 ## Unreleased
 
+- Automatically refresh the public model price catalog through ccstats for cost summaries, daily charts, and Grok period estimates. Include GPT-6.1 Sol standard and long-context rates from the catalog; newly cataloged models no longer require a QuotaBar release solely to add prices.
+
 ## 0.5.7 - 2026-09-30
 
 - Format Codex credit balances with locale-aware thousands separators and at most two decimal places, instead of showing the raw decimal string (for example, `60975.9865140000` becomes `60,975.99`). Preserve zero, unavailable, and unlimited states.

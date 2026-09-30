@@ -135,6 +135,24 @@ agent-sessions. The SDK excludes the independent gpt-reserve pool from subscript
 week estimates while retaining it in general usage, and includes Grok 4.7 pricing.
 No local SDK archive or patch preparation is needed. Official quota percentages
 remain provider-reported; ordinary Luna usage is not excluded.
+
+Cost estimates automatically use the SDK's public
+[LiteLLM price catalog](https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json).
+The SDK downloads it when no fresh price cache exists and refreshes it after
+24 hours. Once a new model is included in that catalog and recognized by the
+SDK, its prices become available without a QuotaBar release. Only the public
+catalog is fetched; local usage logs are processed on-device. If the download
+fails, the SDK uses its existing cache or bundled prices; models without a known
+price remain unavailable rather than being shown as free.
+
+For GPT-6.1 Sol, the catalog supplies the
+[standard API prices](https://developers.openai.com/api/docs/pricing): $2 input,
+$0.10 cached input, $2.50 cache writes, and $10 output per million tokens.
+Above 272K input tokens, the full request uses $4 input, $0.20 cached input,
+$5 cache writes, and $15 output. These are API-equivalent estimates, not
+subscription charges. The dated GPT-5.6 Sol weekly reference below remains
+specific to that model.
+
 Weekly token capacity shows only **Astra** and **GPT-5.6 Sol**. It defaults to
 the local estimate when available. Click the source badge to switch between
 local and community values; the badge flips horizontally and respects reduced
@@ -301,7 +319,7 @@ npm run tauri build -- --bundles app
   - polling backs off to 5 minutes after 429 responses
 - Cost data is empty:
   - local logs may not exist yet
-  - costs are estimated offline from local Claude/Codex logs via `ccstats`
+  - costs are estimated from local logs via `ccstats`, using automatically refreshed public prices
 
 ## Support and Security
 
