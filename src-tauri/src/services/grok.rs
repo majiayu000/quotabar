@@ -89,7 +89,9 @@ fn credential_from_object(
         .map(str::trim)
         .filter(|key| !key.is_empty())?
         .to_string();
-    if is_expired(&value["expires_at"]) {
+    let expires_at = parse_expiry(&value["expires_at"]);
+    // Pick the preferred wire-valid entry before deciding whether it needs renewal.
+    if expires_at.is_some_and(|expires| expires <= Utc::now()) {
         return None;
     }
     Some((
@@ -109,7 +111,7 @@ fn credential_from_object(
                 .filter(|id| !id.is_empty())
                 .map(ToString::to_string),
         },
-        parse_expiry(&value["expires_at"]),
+        expires_at,
     ))
 }
 
@@ -151,7 +153,13 @@ fn pick_credential(auth: &serde_json::Value) -> Result<GrokCredential, String> {
     }
 
     if let Some((cred, _)) = best {
-        return Ok(cred);
+        let entry = match cred.entry_name.as_deref() {
+            Some(name) => &auth[name],
+            None => auth,
+        };
+        if !is_expired(&entry["expires_at"]) {
+            return Ok(cred);
+        }
     }
     if saw_entry {
         return Err(
@@ -1147,6 +1155,35 @@ mod tests {
         std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
         assert_eq!(renewals, 1, "renew inside the CLI's 300-second window");
         assert_eq!(credential.key, "test-renewed-key");
+    }
+
+    #[test]
+    fn early_invalidation_renews_preferred_entry_before_an_unbounded_account() {
+        let path = auth_test_path();
+        let mut auth = json!({
+            "preferred": {"key": "test-near-expiry-key", "refresh_token": "test-refresh",
+                "expires_at": (Utc::now() + chrono::Duration::seconds(120)).to_rfc3339(),
+                "user_id": "test-preferred-user"},
+            "other": {"key": "test-other-key", "user_id": "test-unrelated-user"}
+        });
+        std::fs::write(&path, auth.to_string()).unwrap();
+        let mut renewals = 0;
+        let credential = super::read_credential_with_renewal(&path, || {
+            renewals += 1;
+            auth["preferred"]["key"] = json!("test-renewed-key");
+            auth["preferred"]["expires_at"] = json!("2099-01-01T00:00:00Z");
+            std::fs::write(&path, auth.to_string()).unwrap();
+            Ok(())
+        })
+        .unwrap_or_else(|_| panic!("preferred entry renewal"));
+        std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
+        assert_eq!(
+            renewals, 1,
+            "renew the due preferred entry before selecting another account"
+        );
+        assert_eq!(credential.key, "test-renewed-key");
+        assert_eq!(credential.user_id.as_deref(), Some("test-preferred-user"));
+        assert_eq!(credential.entry_name.as_deref(), Some("preferred"));
     }
 
     fn billing_server(statuses: Vec<u16>) -> (String, std::thread::JoinHandle<Vec<String>>) {
