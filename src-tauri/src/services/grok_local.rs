@@ -23,7 +23,7 @@ pub(super) fn sum_period(
             until,
         },
         timezone: Some("UTC".to_string()),
-        offline: true,
+        offline: false,
         strict_pricing: false,
         currency: None,
     })
