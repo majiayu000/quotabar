@@ -33,7 +33,7 @@ Antigravity currently reports provider availability; its quota tracking is pendi
 - Notifications: 80%, 95%, 100%, unused bonus reset, and bonus-expiry alerts.
 - Background polling: refreshes every 60 seconds, backs off to 5 minutes on 429, and backs off to 1 hour on Claude auth failures.
 - Read-only Claude OAuth: reads Claude Code credentials from the correct source, but never refreshes or writes OAuth tokens.
-- Grok auth: checks `~/.grok/auth.json` on each polling cycle. When an expired credential has a refresh token, runs the installed official `grok models` command to let Grok renew and save its own credentials, then rereads them before requesting quota. This does not start a conversation. The helper has a 20-second timeout; unsuccessful automatic renewal retries after 5 minutes, while manual refresh can retry immediately. QuotaBar never writes tokens itself or logs CLI output. If renewal remains unavailable, open `grok` and sign in only if prompted.
+- Grok auth: checks `~/.grok/auth.json` on each polling cycle. When a credential has a refresh token and is inside the CLI's early-invalidation window (300 seconds by default, or `GROK_AUTH_EARLY_INVALIDATION_SECS`), runs the installed official `grok models` command to let Grok renew and save its own credentials, then rereads them before requesting quota. A billing 401/403 also runs renewal once when the rejected credential still has a refresh token, rereads credentials, and retries billing once; failed renewal or a second authentication rejection stays disconnected. This does not start a conversation. The helper has a 20-second timeout; unsuccessful automatic renewal retries after 5 minutes, while manual refresh can retry immediately. QuotaBar never writes tokens itself or logs CLI output. If renewal remains unavailable, open `grok` and sign in only if prompted.
 - Hidden-window polling: disables macOS webview throttling so menubar mode keeps working.
 
 ## Demo Proof
@@ -250,7 +250,7 @@ Release candidates should be built by the `release-artifacts` GitHub Actions wor
 
 With no saved panel preferences, the switcher shows detected services and keeps them accessible if a connection later fails. Use **Add service** for setup, or Settings to choose providers manually.
 
-On first launch, Overview shows detected connections and instructions for signing in through each provider. Use **Check connection** after signing in. QuotaBar reads existing local sign-ins and delegates expired Grok session renewal to the installed Grok CLI; interactive sign-in stays with the provider. Antigravity quota tracking is still pending.
+On first launch, Overview shows detected connections and instructions for signing in through each provider. Use **Check connection** after signing in. QuotaBar reads existing local sign-ins and delegates Grok session renewal to the installed Grok CLI; interactive sign-in stays with the provider. Antigravity quota tracking is still pending.
 
 For normal use, download the current installer from [GitHub Releases](https://github.com/majiayu000/quotabar/releases/latest). For development, install from a local build.
 

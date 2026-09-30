@@ -4,6 +4,8 @@ All notable QuotaBar changes should be summarized here before a release is cut.
 
 ## Unreleased
 
+- Renew Grok credentials inside the official CLI's early-invalidation window and retry billing once after 401/403 when the rejected credential has a refresh token. Preserve disconnected errors when renewal or the retried authentication fails.
+
 - Make macOS startup scripts target the installed app explicitly. Stage complete bundles before shutdown, wait for exit, and replace rather than merge app contents; propagate stop and install failures.
 - Show a status recheck when Launch at Login cannot be confirmed, instead of claiming the system setting stayed unchanged.
 
