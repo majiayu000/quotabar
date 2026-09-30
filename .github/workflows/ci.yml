@@ -35,6 +35,9 @@ jobs:
       - name: Run frontend tests
         run: npm test
 
+      - name: Test macOS app lifecycle scripts
+        run: node --test scripts/test_app_lifecycle.mjs
+
       - name: Build frontend
         run: npm run build
 

@@ -81,7 +81,7 @@ describe('Launch at Login settings row', () => {
     await act(async () => renderer.unmount());
   });
 
-  it('keeps the switch off and shows copy when status cannot be read', async () => {
+  it('offers a read-only recheck instead of an off switch when status cannot be read', async () => {
     autostart.readAutostartEnabled.mockResolvedValue({
       status: 'failure',
       message: AUTOSTART_STATUS_FAILURE_MESSAGE,
@@ -92,14 +92,21 @@ describe('Launch at Login settings row', () => {
       await Promise.resolve();
     });
 
-    expect(launchSwitch(renderer).props['aria-checked']).toBe(false);
+    expect(renderer.root.findAllByProps({ 'aria-label': 'Launch at Login' })).toHaveLength(0);
     expect(renderer.root.findByProps({ role: 'alert' }).props.children).toBe(
       AUTOSTART_STATUS_FAILURE_MESSAGE,
     );
+    autostart.readAutostartEnabled.mockResolvedValue({ status: 'ok', enabled: true });
+    await act(async () => {
+      renderer.root.findAllByType('button').find((button) => button.props.children === 'Check again')!.props.onClick();
+    });
+    expect(launchSwitch(renderer).props['aria-checked']).toBe(true);
+    expect(autostart.setAutostartEnabled).not.toHaveBeenCalled();
+    expect(renderer.root.findAllByProps({ role: 'alert' })).toHaveLength(0);
     await act(async () => renderer.unmount());
   });
 
-  it('does not flip the switch when registration fails', async () => {
+  it('rechecks uncertain writes without writing the login item again', async () => {
     const onAutostartNotice = vi.fn();
     autostart.setAutostartEnabled.mockResolvedValue({
       status: 'failure',
@@ -116,11 +123,17 @@ describe('Launch at Login settings row', () => {
       await Promise.resolve();
     });
 
-    expect(launchSwitch(renderer).props['aria-checked']).toBe(false);
+    expect(renderer.root.findAllByProps({ 'aria-label': 'Launch at Login' })).toHaveLength(0);
     expect(onAutostartNotice).toHaveBeenCalledExactlyOnceWith(AUTOSTART_UPDATE_FAILURE_MESSAGE);
     expect(renderer.root.findByProps({ role: 'alert' }).props.children).toBe(
       AUTOSTART_UPDATE_FAILURE_MESSAGE,
     );
+    autostart.readAutostartEnabled.mockResolvedValue({ status: 'ok', enabled: true });
+    await act(async () => {
+      renderer.root.findAllByType('button').find((button) => button.props.children === 'Check again')!.props.onClick();
+    });
+    expect(launchSwitch(renderer).props['aria-checked']).toBe(true);
+    expect(autostart.setAutostartEnabled).toHaveBeenCalledTimes(1);
     await act(async () => renderer.unmount());
   });
 

@@ -4,6 +4,9 @@ All notable QuotaBar changes should be summarized here before a release is cut.
 
 ## Unreleased
 
+- Make macOS startup scripts target the installed app explicitly. Stage complete bundles before shutdown, wait for exit, and replace rather than merge app contents; propagate stop and install failures.
+- Show a status recheck when Launch at Login cannot be confirmed, instead of claiming the system setting stayed unchanged.
+
 ## 0.5.9 - 2026-09-30
 
 - Fix Linux AppImage startup in Firejail and other environments that mount the image as a different user. Make the bundled launcher executable by all users.
