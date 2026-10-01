@@ -194,7 +194,9 @@ fn read_credential_with_renewal(
                 return Err("Grok session expired. Run 'grok login'; QuotaBar will check again automatically.".to_string());
             }
             renew()?;
-            return read_renewed_credential(auth_file, credential.entry_name.as_deref());
+            let renewed = read_renewed_credential(auth_file, credential.entry_name.as_deref())?;
+            clear_renewal_retry()?;
+            return Ok(renewed);
         }
         Err(error) => error,
     };
@@ -214,13 +216,15 @@ fn read_credential_with_renewal(
     }
     renew()?;
     // A successful command is not proof of renewal: only the saved credential is.
-    pick_credential(&read_auth_json(auth_file)?)
+    let renewed = pick_credential(&read_auth_json(auth_file)?)
         .ok()
         .filter(|credential| !credential.needs_renewal)
         .ok_or_else(|| {
             "Grok session renewal did not produce a valid credential. Open 'grok' to check sign-in."
                 .to_string()
-        })
+        })?;
+    clear_renewal_retry()?;
+    Ok(renewed)
 }
 
 fn read_renewed_credential(
@@ -317,6 +321,13 @@ fn run_renewal_command(command: &mut Command, timeout: Duration) -> Result<(), S
     }
 }
 
+fn clear_renewal_retry() -> Result<(), String> {
+    *LAST_RENEWAL_ATTEMPT
+        .lock()
+        .map_err(|_| "Grok session renewal state is unavailable".to_string())? = None;
+    Ok(())
+}
+
 fn renew_session(home: &Path, manual: bool) -> Result<(), String> {
     {
         let mut last_attempt = LAST_RENEWAL_ATTEMPT
@@ -345,13 +356,7 @@ fn renew_session(home: &Path, manual: bool) -> Result<(), String> {
         .env("GROK_HOME", home)
         .env("GROK_AUTH_PATH", home.join("auth.json"))
         .env_remove("GROK_AUTH");
-    let result = run_renewal_command(&mut command, RENEWAL_TIMEOUT);
-    if result.is_ok() {
-        *LAST_RENEWAL_ATTEMPT
-            .lock()
-            .map_err(|_| "Grok session renewal state is unavailable".to_string())? = None;
-    }
-    result
+    run_renewal_command(&mut command, RENEWAL_TIMEOUT)
 }
 
 async fn read_credential(manual: bool) -> Result<GrokCredential, String> {
@@ -779,6 +784,9 @@ where
                     .map_err(GrokData::disconnected)?;
                 continue;
             }
+        }
+        if renew.is_none() && response.status().is_success() {
+            clear_renewal_retry().map_err(GrokData::disconnected)?;
         }
         return Ok((response, credential));
     }
@@ -1259,13 +1267,53 @@ mod tests {
         let bin = home.join("bin");
         std::fs::create_dir(&bin).unwrap();
         let cli = bin.join("grok");
-        std::fs::write(&cli, "#!/bin/sh\nexit 0\n").unwrap();
+        let near_expiry = (Utc::now() + chrono::Duration::seconds(120)).to_rfc3339();
+        let near = json!({"key": "test-near-key", "refresh_token": "test-refresh", "expires_at": near_expiry});
+        let renewed = json!({"key": "test-renewed-key", "refresh_token": "test-refresh", "expires_at": "2099-01-01T00:00:00Z"});
+        std::fs::write(&path, near.to_string()).unwrap();
+        std::fs::write(home.join("renewed.json"), renewed.to_string()).unwrap();
+        std::fs::write(
+            &cli,
+            "#!/bin/sh\ncp \"$GROK_HOME/renewed.json\" \"$GROK_AUTH_PATH\"\n",
+        )
+        .unwrap();
         std::fs::set_permissions(&cli, std::fs::Permissions::from_mode(0o700)).unwrap();
-        assert!(super::renew_session(home, false).is_ok());
+        let credential =
+            super::read_credential_with_renewal(&path, || super::renew_session(home, false))
+                .unwrap();
+        let (url, server) = billing_server(vec![401, 200]);
+        let result = tauri::async_runtime::block_on(super::fetch_grok_billing(
+            credential,
+            &url,
+            |key, entry_name| {
+                std::future::ready(super::read_rejected_credential_with_renewal(
+                    &path,
+                    &key,
+                    entry_name.as_deref(),
+                    || super::renew_session(home, false),
+                ))
+            },
+        ));
         assert!(
-            super::renew_session(home, false).is_ok(),
+            result.unwrap().0.status().is_success(),
             "a successful proactive renewal must allow rejection recovery"
         );
+        assert_eq!(server.join().unwrap().len(), 2);
+
+        std::fs::write(&path, near.to_string()).unwrap();
+        std::fs::write(&cli, "#!/bin/sh\nexit 0\n").unwrap();
+        let invalid =
+            super::read_credential_with_renewal(&path, || super::renew_session(home, false))
+                .err()
+                .unwrap();
+        assert!(invalid.contains("did not produce a valid credential"));
+        let backoff = super::renew_session(home, false).err().unwrap();
+        assert!(
+            backoff.contains("waiting to retry"),
+            "a zero CLI exit without a valid saved credential retains cooldown"
+        );
+
+        *super::LAST_RENEWAL_ATTEMPT.lock().unwrap() = None;
         std::fs::write(&cli, "#!/bin/sh\nexit 7\n").unwrap();
         assert!(super::renew_session(home, false).is_err());
         let backoff = super::renew_session(home, false).err().unwrap();
