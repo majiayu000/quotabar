@@ -264,7 +264,7 @@ fn read_rejected_credential_with_renewal(
         None => &auth,
     };
     if let Some((mut credential, _)) = credential_from_object(entry) {
-        if credential.key != rejected_key && !credential.needs_renewal {
+        if credential.key != rejected_key {
             credential.entry_name = entry_name.map(ToString::to_string);
             return Ok(credential);
         }
@@ -1694,7 +1694,12 @@ mod tests {
         let selected = pick_credential(&auth).unwrap_or_else(|_| panic!("selected credential"));
         assert_eq!(selected.key, "test-rejected-key");
         auth["issuer"]["key"] = json!("test-concurrently-renewed-key");
-        auth["issuer"]["expires_at"] = json!("2099-01-01T00:00:00Z");
+        auth["issuer"]["expires_at"] =
+            json!((Utc::now() + chrono::Duration::seconds(120)).to_rfc3339());
+        auth["issuer"]
+            .as_object_mut()
+            .unwrap()
+            .remove("refresh_token");
         std::fs::write(&path, auth.to_string()).unwrap();
         let result = super::read_rejected_credential_with_renewal(
             &path,
