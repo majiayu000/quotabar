@@ -785,7 +785,7 @@ where
                 continue;
             }
         }
-        if renew.is_none() && response.status().is_success() {
+        if response.status().is_success() {
             clear_renewal_retry().map_err(GrokData::disconnected)?;
         }
         return Ok((response, credential));
@@ -1294,11 +1294,43 @@ mod tests {
                 ))
             },
         ));
+        let (response, credential) = result.unwrap();
         assert!(
-            result.unwrap().0.status().is_success(),
+            response.status().is_success(),
             "a successful proactive renewal must allow rejection recovery"
         );
         assert_eq!(server.join().unwrap().len(), 2);
+
+        let (url, server) = billing_server(vec![401, 500]);
+        let result = tauri::async_runtime::block_on(super::fetch_grok_billing(
+            credential,
+            &url,
+            |key, entry_name| {
+                std::future::ready(super::read_rejected_credential_with_renewal(
+                    &path,
+                    &key,
+                    entry_name.as_deref(),
+                    || super::renew_session(home, false),
+                ))
+            },
+        ));
+        let (response, credential) = result.unwrap();
+        assert_eq!(response.status().as_u16(), 500);
+        assert_eq!(server.join().unwrap().len(), 2);
+        assert!(super::LAST_RENEWAL_ATTEMPT.lock().unwrap().is_some());
+
+        let (url, server) = billing_server(vec![200]);
+        let result = tauri::async_runtime::block_on(super::fetch_grok_billing(
+            credential,
+            &url,
+            |_, _| async { panic!("successful billing must not renew") },
+        ));
+        assert!(result.unwrap().0.status().is_success());
+        assert_eq!(server.join().unwrap().len(), 1);
+        assert!(
+            super::LAST_RENEWAL_ATTEMPT.lock().unwrap().is_none(),
+            "a later successful poll validates the credential and clears cooldown"
+        );
 
         std::fs::write(&path, near.to_string()).unwrap();
         std::fs::write(&cli, "#!/bin/sh\nexit 0\n").unwrap();
