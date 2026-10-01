@@ -191,7 +191,7 @@ fn read_credential_with_renewal(
                 .as_str()
                 .is_some_and(|value| !value.trim().is_empty())
             {
-                return Err("Grok session expired. Run 'grok login'; QuotaBar will check again automatically.".to_string());
+                return Ok(credential);
             }
             renew()?;
             let renewed = read_renewed_credential(auth_file, credential.entry_name.as_deref())?;
@@ -1190,6 +1190,35 @@ mod tests {
         std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
         assert_eq!(renewals, 1, "renew inside the CLI's 300-second window");
         assert_eq!(credential.key, "test-renewed-key");
+    }
+
+    #[test]
+    fn near_expiry_without_refresh_still_requests_billing() {
+        let path = auth_test_path();
+        for refresh in [serde_json::Value::Null, json!(""), json!("   ")] {
+            let auth = json!({
+                "preferred": {"key": "test-near-key", "refresh_token": refresh,
+                    "expires_at": (Utc::now() + chrono::Duration::seconds(120)).to_rfc3339()},
+                "other": {"key": "test-unrelated-key"}
+            });
+            std::fs::write(&path, auth.to_string()).unwrap();
+            let credential = super::read_credential_with_renewal(&path, || {
+                panic!("a wire-valid credential without refresh must not launch the CLI")
+            })
+            .unwrap_or_else(|_| panic!("wire-valid credential should remain usable"));
+            assert_eq!(credential.entry_name.as_deref(), Some("preferred"));
+            let (url, server) = billing_server(vec![200]);
+            let result = tauri::async_runtime::block_on(super::fetch_grok_billing(
+                credential,
+                &url,
+                |_, _| async { panic!("successful billing must not renew") },
+            ));
+            assert!(result.unwrap().0.status().is_success());
+            let requests = server.join().unwrap();
+            assert_eq!(requests.len(), 1);
+            assert!(requests[0].contains("authorization: bearer test-near-key"));
+        }
+        std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
     }
 
     #[test]
