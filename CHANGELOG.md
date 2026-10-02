@@ -5,6 +5,8 @@ All notable QuotaBar changes should be summarized here before a release is cut.
 ## Unreleased
 
 - Adopt ccstats 0.9.1 for stable model-alias price precedence and lock agent-sessions 0.2.1. SDK-versioned caches discard previous estimates after the upgrade.
+- Make macOS startup scripts target the installed app explicitly. Stage complete bundles before shutdown, wait for exit, and replace rather than merge app contents; propagate stop and install failures.
+- Show a status recheck when Launch at Login cannot be confirmed, instead of claiming the system setting stayed unchanged.
 
 ## 0.5.9 - 2026-09-30
 

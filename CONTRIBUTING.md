@@ -30,6 +30,9 @@ cargo check --manifest-path src-tauri/Cargo.toml
 cargo test --manifest-path src-tauri/Cargo.toml
 ```
 
+For macOS app lifecycle script changes, run `node --test scripts/test_app_lifecycle.mjs`.
+The tests use temporary app directories and simulated process commands.
+
 For release or installer changes, also run:
 
 ```bash

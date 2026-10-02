@@ -104,4 +104,21 @@ describe('autostart adapter', () => {
       AUTOSTART_UPDATE_FAILURE_MESSAGE,
     ]);
   });
+
+  it.each([true, false])('reports uncertainty if the write to %s succeeds but confirmation fails', async (enabled) => {
+    let systemEnabled = !enabled;
+    autostartPlugin.enable.mockImplementation(async () => { systemEnabled = true; });
+    autostartPlugin.disable.mockImplementation(async () => { systemEnabled = false; });
+    autostartPlugin.isEnabled.mockRejectedValue(new Error('private-system-error'));
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    const result = await setAutostartEnabled(enabled);
+
+    expect(systemEnabled).toBe(enabled);
+    expect(result).toEqual({ status: 'failure', message: AUTOSTART_UPDATE_FAILURE_MESSAGE });
+    if (result.status !== 'failure') throw new Error('Expected an unconfirmed write');
+    expect(result.message).not.toContain('unchanged');
+    expect(result.message).not.toContain('private-system-error');
+    expect(consoleError).toHaveBeenCalledExactlyOnceWith(AUTOSTART_UPDATE_FAILURE_MESSAGE);
+  });
 });

@@ -179,7 +179,8 @@ describe('panel shell UI', () => {
     expect(html).toContain('>Sign-in required<');
     expect(html).toContain('>Preview<');
     expect(html).toContain('>Launch at Login<');
-    expect(html).toContain('aria-label="Launch at Login"');
+    expect(html).toContain('<button type="button" disabled="">Check again</button>');
+    expect(html).not.toContain('aria-label="Launch at Login"');
   });
 
   it('keeps service navigation on one horizontally scrollable row', () => {

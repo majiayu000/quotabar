@@ -12,7 +12,11 @@ your local usage went. QuotaBar combines a tray monitor and desktop analysis
 for Claude Code, Codex, Cursor and Grok Build. Antigravity currently reports
 availability only; quota tracking is pending.
 
-Website: https://majiayu000.github.io/quotabar/
+[Website](https://majiayu000.github.io/quotabar/) ·
+[Download installers](https://github.com/majiayu000/quotabar/releases/latest) ·
+[Installation and first run](#install--run) · [Build from source](#development)
+
+Antigravity currently reports provider availability; its quota tracking is pending.
 
 ## Download and first run
 
@@ -283,16 +287,27 @@ For normal use, download the current installer from [GitHub Releases](https://gi
 macOS:
 
 ```bash
-./scripts/stop_app.sh
 ./scripts/install_app.sh
 ./scripts/run_app.sh
 ```
 
-Or one-shot restart after rebuild:
+These macOS scripts operate only on `/Applications/QuotaBar.app`; they do not
+launch or stop development binaries. `install_app.sh` stages the complete local
+bundle before stopping the installed app, waits about five seconds for exit,
+and replaces the bundle without retaining obsolete files. Failed staging or
+shutdown leaves the installed bundle untouched.
+
+Build and install the current checkout, then request launch:
 
 ```bash
+npm run tauri build -- --bundles app
 ./scripts/reinstall_and_run.sh
 ```
+
+`reinstall_and_run.sh` itself does not build. For development with hot reload,
+use `npm run tauri dev`. `run_app.sh` fails if the installed app is missing;
+it never falls back to an older local binary. A successful launch request does
+not certify that the app stayed running.
 
 Windows:
 

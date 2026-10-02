@@ -1,9 +1,9 @@
 import { hasTauriBackend } from './backend';
 
 export const AUTOSTART_STATUS_FAILURE_MESSAGE =
-  'Launch at Login status could not be read. The toggle stays off.';
+  'Launch at Login status could not be read. Check again to see its current status.';
 export const AUTOSTART_UPDATE_FAILURE_MESSAGE =
-  'Launch at Login could not be updated. The system login item was left unchanged.';
+  'Launch at Login could not be confirmed. The system setting may have changed.';
 
 export type AutostartReadResult =
   | { status: 'ok'; enabled: boolean }
