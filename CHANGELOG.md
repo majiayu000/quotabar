@@ -4,6 +4,7 @@ All notable QuotaBar changes should be summarized here before a release is cut.
 
 ## Unreleased
 
+- Hide macOS tray items through native visibility while retaining their identity, instead of leaving zero-width visible slots. Apply autosave identity synchronously, preserve saved positions, and propagate native visibility errors.
 - Renew Grok credentials inside the official CLI's early-invalidation window and retry billing once after 401/403 when the rejected credential has a refresh token. Keep the selected account through renewal, allow immediate authentication recovery after successful renewal, and preserve disconnected errors when renewal or the retried authentication fails.
 
 - Let Grok session renewal finish saving credentials after the 20-second request deadline, prevent overlapping helpers, and retain matching-account last-known quota for up to 15 minutes with renewal errors shown. Reap completed helpers before applying the current refresh request’s retry policy.
