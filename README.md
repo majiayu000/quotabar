@@ -7,13 +7,43 @@
   <img src="src-tauri/icons/app-icon.svg" alt="QuotaBar logo" width="128" />
 </p>
 
-QuotaBar is a Tauri v2 menubar app for monitoring Claude Code, Codex, Cursor, Grok Build, and Antigravity usage. It shows live quota windows, per-provider tray indicators, and local cost estimates from on-device logs.
+See which AI coding quota is closest to its limit, when it resets, and where
+your local usage went. QuotaBar combines a tray monitor and desktop analysis
+for Claude Code, Codex, Cursor and Grok Build. Antigravity currently reports
+availability only; quota tracking is pending.
 
 [Website](https://majiayu000.github.io/quotabar/) ·
 [Download installers](https://github.com/majiayu000/quotabar/releases/latest) ·
 [Installation and first run](#install--run) · [Build from source](#development)
 
 Antigravity currently reports provider availability; its quota tracking is pending.
+
+## Download and first run
+
+1. Download the installer for your OS and CPU from
+   [the latest release](https://github.com/majiayu000/quotabar/releases/latest).
+   Normal use does not require Node.js or Rust.
+2. Open QuotaBar and click its tray icon. Sign in through your provider's own
+   application/CLI, then use **Check connection**. QuotaBar reads existing
+   sign-ins and delegates expired Grok session renewal to the installed Grok
+   CLI. Interactive sign-in stays with the provider.
+3. Overview shows remaining quota and reset windows. Open **Usage analysis**
+   for local projects, sessions and history. Unavailable or stale readings stay
+   labeled; API-equivalent values are estimates, not subscription bills.
+
+See the release's installation/signing notes for that exact build. Interface
+scaling is available since v0.5.6. The original Windows 10 / 27-inch 2K case
+still needs confirmation in [GH186](specs/GH186/tasks.md).
+
+## How the projects fit together
+
+[agent-sessions](https://github.com/majiayu000/agent-sessions) reads native
+session records and preserves provenance.
+[ccstats](https://github.com/majiayu000/ccstats) handles local accounting,
+pricing and CLI/SDK/machine interfaces. QuotaBar uses its published SDK and owns
+the tray, desktop analysis, alerts and settings. Install QuotaBar to use the app;
+you do not need to install those libraries or the separate ccstats desktop.
+See [product boundaries](PRODUCT.md) and [delivery status](docs/product/delivery-status.md).
 
 ## Features
 
@@ -33,7 +63,7 @@ Antigravity currently reports provider availability; its quota tracking is pendi
 - Notifications: 80%, 95%, 100%, unused bonus reset, and bonus-expiry alerts.
 - Background polling: refreshes every 60 seconds, backs off to 5 minutes on 429, and backs off to 1 hour on Claude auth failures.
 - Read-only Claude OAuth: reads Claude Code credentials from the correct source, but never refreshes or writes OAuth tokens.
-- Grok auth: checks `~/.grok/auth.json` on each polling cycle. When a credential has a refresh token and is inside the CLI's early-invalidation window (300 seconds by default, or `GROK_AUTH_EARLY_INVALIDATION_SECS`), runs the installed official `grok models` command to let Grok renew and save its own credentials, then rereads them before requesting quota. Renewal rereads the same selected account record. Successful renewal keeps immediate authentication recovery available. A billing 401/403 also runs renewal once when the rejected credential still has a refresh token, rereads credentials, and retries billing once; failed renewal or a second authentication rejection stays disconnected. This does not start a conversation. The helper has a 20-second timeout; unsuccessful automatic renewal retries after 5 minutes, while manual refresh can retry immediately. QuotaBar never writes tokens itself or logs CLI output. If renewal remains unavailable, open `grok` and sign in only if prompted.
+- Grok auth: checks `~/.grok/auth.json` on each polling cycle. When a credential has a refresh token and is inside the CLI's early-invalidation window (300 seconds by default, or `GROK_AUTH_EARLY_INVALIDATION_SECS`), runs the installed official `grok models` command to let Grok renew and save its own credentials, then rereads them before requesting quota. Renewal rereads the same selected account record. Successful renewal keeps immediate authentication recovery available. A billing 401/403 also runs renewal once when the rejected credential still has a refresh token, rereads credentials, and retries billing once; failed renewal or a second authentication rejection stays disconnected. This does not start a conversation. QuotaBar waits up to 20 seconds per request, then lets the CLI finish saving credentials in the background. Automatic and manual refreshes do not start another helper while it is running. Unsuccessful automatic renewal retries after 5 minutes; manual refresh can retry after the helper exits. Proactive renewal errors keep matching-account snapshots younger than 15 minutes as last known data with the error attached; unknown or ambiguous account identities cannot reuse a snapshot. Confirmed authentication rejection and failed rejection-driven renewal remain disconnected. QuotaBar never writes tokens itself or logs CLI output. If renewal remains unavailable, open `grok` and sign in only if prompted.
 - Hidden-window polling: disables macOS webview throttling so menubar mode keeps working.
 
 ## Demo Proof
@@ -133,7 +163,7 @@ animation. Invalid Claude credentials require login before a quota request;
 failed reads wait for a manual recheck, with rate-limit deadlines still applied.
 
 The repositories remain separate. QuotaBar depends on the published ccstats
-0.9.0 SDK from crates.io; Cargo.lock pins the resolved version. Claude/Codex
+0.9.1 SDK from crates.io; Cargo.lock pins the resolved version. Claude/Codex
 parsing is shared through
 agent-sessions. The SDK excludes the independent gpt-reserve pool from subscription
 week estimates while retaining it in general usage, and includes Grok 4.7 pricing.

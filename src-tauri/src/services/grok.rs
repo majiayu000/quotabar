@@ -22,11 +22,20 @@ const QUOTA_CACHE_TTL: Duration = Duration::from_secs(120);
 const MAX_STALE_GROK_AGE: Duration = Duration::from_secs(15 * 60);
 const RENEWAL_RETRY_INTERVAL: Duration = Duration::from_secs(5 * 60);
 const RENEWAL_TIMEOUT: Duration = Duration::from_secs(20);
-static LAST_RENEWAL_ATTEMPT: Mutex<Option<Instant>> = Mutex::new(None);
+struct RenewalState {
+    last_attempt: Option<Instant>,
+    running: Option<std::thread::JoinHandle<Result<(), String>>>,
+}
+
+static RENEWAL_STATE: Mutex<RenewalState> = Mutex::new(RenewalState {
+    last_attempt: None,
+    running: None,
+});
 
 struct CachedGrok {
     data: GrokData,
     cached_at: Instant,
+    account_id: Option<String>,
 }
 
 static GROK_CACHE: OnceLock<Mutex<Option<CachedGrok>>> = OnceLock::new();
@@ -178,8 +187,8 @@ fn read_auth_json(auth_file: &Path) -> Result<serde_json::Value, String> {
 fn read_credential_with_renewal(
     auth_file: &Path,
     renew: impl FnOnce() -> Result<(), String>,
-) -> Result<GrokCredential, String> {
-    let auth = read_auth_json(auth_file)?;
+) -> Result<GrokCredential, GrokData> {
+    let auth = read_auth_json(auth_file).map_err(fallback_or_disconnected)?;
     let error = match pick_credential(&auth) {
         Ok(credential) if !credential.needs_renewal => return Ok(credential),
         Ok(credential) => {
@@ -193,9 +202,15 @@ fn read_credential_with_renewal(
             {
                 return Ok(credential);
             }
-            renew()?;
-            let renewed = read_renewed_credential(auth_file, credential.entry_name.as_deref())?;
-            clear_renewal_retry()?;
+            let account_id =
+                grok_account_id(credential.user_id.as_deref(), credential.email.as_deref());
+            renew().map_err(|error| match account_id.as_deref() {
+                Some(id) => last_good_snapshot_fallback(error, Some(id)),
+                None => GrokData::disconnected(error),
+            })?;
+            let renewed = read_renewed_credential(auth_file, credential.entry_name.as_deref())
+                .map_err(GrokData::disconnected)?;
+            clear_renewal_retry().map_err(GrokData::disconnected)?;
             return Ok(renewed);
         }
         Err(error) => error,
@@ -207,23 +222,37 @@ fn read_credential_with_renewal(
                 .as_str()
                 .is_some_and(|s| !s.trim().is_empty())
     };
-    if !can_renew(&auth)
-        && !auth
-            .as_object()
-            .is_some_and(|entries| entries.values().any(can_renew))
-    {
-        return Err(error);
-    }
-    renew()?;
+    let mut entries = std::iter::once(&auth)
+        .chain(
+            auth.as_object()
+                .into_iter()
+                .flat_map(|entries| entries.values()),
+        )
+        .filter(|entry| can_renew(entry));
+    let Some(entry) = entries.next() else {
+        return Err(fallback_or_disconnected(error));
+    };
+    let entry_account_id = |entry: &serde_json::Value| {
+        grok_account_id(entry["user_id"].as_str(), entry["email"].as_str())
+    };
+    // Only retain quota when every renewable entry identifies the same account.
+    let account_id = entry_account_id(entry)
+        .filter(|id| entries.all(|entry| entry_account_id(entry).as_ref() == Some(id)));
+    renew().map_err(|error| match account_id.as_deref() {
+        Some(id) => last_good_snapshot_fallback(error, Some(id)),
+        None => GrokData::disconnected(error),
+    })?;
     // A successful command is not proof of renewal: only the saved credential is.
-    let renewed = pick_credential(&read_auth_json(auth_file)?)
+    let auth = read_auth_json(auth_file).map_err(fallback_or_disconnected)?;
+    let renewed = pick_credential(&auth)
         .ok()
         .filter(|credential| !credential.needs_renewal)
         .ok_or_else(|| {
-            "Grok session renewal did not produce a valid credential. Open 'grok' to check sign-in."
-                .to_string()
+            GrokData::disconnected(
+                "Grok session renewal did not produce a valid credential. Open 'grok' to check sign-in.",
+            )
         })?;
-    clear_renewal_retry()?;
+    clear_renewal_retry().map_err(GrokData::disconnected)?;
     Ok(renewed)
 }
 
@@ -282,7 +311,38 @@ fn read_rejected_credential_with_renewal(
     read_renewed_credential(auth_file, entry_name)
 }
 
-fn run_renewal_command(command: &mut Command, timeout: Duration) -> Result<(), String> {
+fn run_renewal_command(
+    mut command: Command,
+    state: &mut RenewalState,
+    manual: bool,
+    timeout: Duration,
+) -> Result<(), String> {
+    if state
+        .running
+        .as_ref()
+        .is_some_and(|task| !task.is_finished())
+    {
+        return Err(
+            "Grok session renewal is still running; waiting for the CLI to finish.".to_string(),
+        );
+    }
+    let completed_error = match state.running.take() {
+        Some(task) => task
+            .join()
+            .map_err(|_| "Grok session renewal task failed".to_string())?
+            .err(),
+        None => None,
+    };
+    if !manual
+        && state
+            .last_attempt
+            .is_some_and(|last| last.elapsed() < RENEWAL_RETRY_INTERVAL)
+    {
+        return Err(completed_error.unwrap_or_else(|| {
+            "Grok session renewal is waiting to retry. Open 'grok' or retry manually now."
+                .to_string()
+        }));
+    }
     command
         .stdin(Stdio::null())
         .stdout(Stdio::null())
@@ -292,55 +352,61 @@ fn run_renewal_command(command: &mut Command, timeout: Duration) -> Result<(), S
         use std::os::windows::process::CommandExt;
         command.creation_flags(0x08000000); // CREATE_NO_WINDOW
     }
-    let mut child = command
-        .spawn()
-        .map_err(|error| format!("Grok session renewal could not start the Grok CLI: {error}"))?;
     let started = Instant::now();
-    let result = loop {
-        match child.try_wait() {
-            Ok(Some(status)) if status.success() => return Ok(()),
-            Ok(Some(status)) => {
-                return Err(format!(
-                    "Grok session renewal failed ({status}). Open 'grok' to check sign-in."
-                ));
-            }
-            Ok(None) if started.elapsed() < timeout => {
-                std::thread::sleep(Duration::from_millis(50));
-            }
-            Ok(None) => break "Grok session renewal timed out; it will retry later.".to_string(),
-            Err(error) => {
-                break format!("Grok session renewal could not wait for the CLI: {error}")
-            }
+    state.running = Some(
+        std::thread::Builder::new()
+            .spawn(move || {
+                let mut child = command.spawn().map_err(|error| {
+                    format!("Grok session renewal could not start the Grok CLI: {error}")
+                })?;
+                // Always reap the CLI, even if the caller's deadline passes or credentials
+                // become usable before the command exits. Never interrupt token storage.
+                let status = child.wait().map_err(|error| {
+                    format!("Grok session renewal could not wait for the CLI: {error}")
+                })?;
+                if status.success() {
+                    Ok(())
+                } else {
+                    Err(format!(
+                        "Grok session renewal failed ({status}). Open 'grok' to check sign-in."
+                    ))
+                }
+            })
+            .map_err(|error| format!("Grok session renewal could not start its task: {error}"))?,
+    );
+    state.last_attempt = Some(started);
+    while state
+        .running
+        .as_ref()
+        .is_some_and(|task| !task.is_finished())
+    {
+        if started.elapsed() >= timeout {
+            return Err(
+                "Grok session renewal timed out; waiting for the CLI to finish.".to_string(),
+            );
         }
-    };
-    // Do not leave a hung helper running after returning to the polling loop.
-    let cleanup = child.kill().and_then(|_| child.wait());
-    match cleanup {
-        Ok(_) => Err(result),
-        Err(error) => Err(format!("{result} Could not stop the CLI: {error}")),
+        std::thread::sleep(Duration::from_millis(50));
     }
+    state
+        .running
+        .take()
+        .ok_or_else(|| "Grok session renewal state is unavailable".to_string())?
+        .join()
+        .map_err(|_| "Grok session renewal task failed".to_string())?
 }
 
 fn clear_renewal_retry() -> Result<(), String> {
-    *LAST_RENEWAL_ATTEMPT
+    RENEWAL_STATE
         .lock()
-        .map_err(|_| "Grok session renewal state is unavailable".to_string())? = None;
+        .map_err(|_| "Grok session renewal state is unavailable".to_string())?
+        .last_attempt = None;
     Ok(())
 }
 
 fn renew_session(home: &Path, manual: bool) -> Result<(), String> {
-    {
-        let mut last_attempt = LAST_RENEWAL_ATTEMPT
-            .lock()
-            .map_err(|_| "Grok session renewal state is unavailable".to_string())?;
-        if !manual && last_attempt.is_some_and(|last| last.elapsed() < RENEWAL_RETRY_INTERVAL) {
-            return Err(
-                "Grok session renewal is waiting to retry. Open 'grok' or retry manually now."
-                    .to_string(),
-            );
-        }
-        *last_attempt = Some(Instant::now());
-    }
+    let mut state = RENEWAL_STATE
+        .lock()
+        .map_err(|_| "Grok session renewal state is unavailable".to_string())?;
     let executable = if cfg!(windows) { "grok.exe" } else { "grok" };
     let installed_cli = home.join("bin").join(executable);
     let mut command = Command::new(if installed_cli.is_file() {
@@ -356,16 +422,17 @@ fn renew_session(home: &Path, manual: bool) -> Result<(), String> {
         .env("GROK_HOME", home)
         .env("GROK_AUTH_PATH", home.join("auth.json"))
         .env_remove("GROK_AUTH");
-    run_renewal_command(&mut command, RENEWAL_TIMEOUT)
+    run_renewal_command(command, &mut state, manual, RENEWAL_TIMEOUT)
 }
 
-async fn read_credential(manual: bool) -> Result<GrokCredential, String> {
-    let home = grok_home().ok_or_else(|| "Could not find home directory".to_string())?;
+async fn read_credential(manual: bool) -> Result<GrokCredential, GrokData> {
+    let home =
+        grok_home().ok_or_else(|| GrokData::disconnected("Could not find home directory"))?;
     tauri::async_runtime::spawn_blocking(move || {
         read_credential_with_renewal(&home.join("auth.json"), || renew_session(&home, manual))
     })
     .await
-    .map_err(|error| format!("Grok session renewal task failed: {error}"))?
+    .map_err(|error| GrokData::disconnected(format!("Grok session renewal task failed: {error}")))?
 }
 
 async fn renew_rejected_credential(
@@ -688,11 +755,26 @@ fn get_cached(manual: bool) -> Option<GrokData> {
     }
 }
 
-fn save_cache(data: &GrokData) {
+fn grok_account_id(user_id: Option<&str>, email: Option<&str>) -> Option<String> {
+    user_id
+        .map(str::trim)
+        .filter(|id| !id.is_empty())
+        .map(|id| format!("user_id:{id}"))
+        .or_else(|| {
+            email
+                .map(str::trim)
+                .filter(|email| !email.is_empty())
+                .map(|email| format!("email:{}", email.to_ascii_lowercase()))
+        })
+}
+
+fn save_cache(data: &GrokData, credential: &GrokCredential) {
+    let account_id = grok_account_id(credential.user_id.as_deref(), credential.email.as_deref());
     if let Ok(mut guard) = grok_cache().lock() {
         *guard = Some(CachedGrok {
             data: data.clone(),
             cached_at: Instant::now(),
+            account_id: account_id.clone(),
         });
     }
     if data.connected && data.error.is_none() {
@@ -700,6 +782,7 @@ fn save_cache(data: &GrokData) {
             *guard = Some(CachedGrok {
                 data: data.clone(),
                 cached_at: Instant::now(),
+                account_id,
             });
         }
     }
@@ -727,11 +810,13 @@ fn last_good_or_disconnected(
     }
 }
 
-fn last_good_snapshot_fallback(error: String) -> GrokData {
+fn last_good_snapshot_fallback(error: String, account_id: Option<&str>) -> GrokData {
     let (snapshot, age) = match last_good().lock() {
         Ok(guard) => match guard.as_ref() {
-            Some(cached) => (Some(cached.data.clone()), cached.cached_at.elapsed()),
-            None => (None, Duration::ZERO),
+            Some(cached) if account_id.is_none() || account_id == cached.account_id.as_deref() => {
+                (Some(cached.data.clone()), cached.cached_at.elapsed())
+            }
+            _ => (None, Duration::ZERO),
         },
         Err(_) => (None, Duration::ZERO),
     };
@@ -741,7 +826,7 @@ fn last_good_snapshot_fallback(error: String) -> GrokData {
 fn fallback_or_disconnected(error: impl Into<String>) -> GrokData {
     let error = error.into();
     if is_transient_os_error(&error) {
-        return last_good_snapshot_fallback(error);
+        return last_good_snapshot_fallback(error, None);
     }
     GrokData::disconnected(error)
 }
@@ -795,7 +880,7 @@ where
 pub async fn fetch_grok_info(manual: bool) -> GrokData {
     let credential = match read_credential(manual).await {
         Ok(value) => value,
-        Err(error) => return fallback_or_disconnected(error),
+        Err(data) => return data,
     };
 
     // Check local expiry on every poll, even while a quota snapshot is cached.
@@ -820,7 +905,7 @@ pub async fn fetch_grok_info(manual: bool) -> GrokData {
                 "Grok authentication failed (401/403). Run 'grok login'; QuotaBar will check again automatically.",
             );
         }
-        return last_good_snapshot_fallback(format!("Grok billing API error: {status}"));
+        return last_good_snapshot_fallback(format!("Grok billing API error: {status}"), None);
     }
 
     let data = match response.json::<serde_json::Value>().await {
@@ -830,7 +915,7 @@ pub async fn fetch_grok_info(manual: bool) -> GrokData {
         }
     };
 
-    let mut result = parse_billing_payload(&data, credential.email);
+    let mut result = parse_billing_payload(&data, credential.email.clone());
     if result.connected {
         let used_pct = result.percentage;
         let started_at = result.period_started_at.clone();
@@ -852,7 +937,7 @@ pub async fn fetch_grok_info(manual: bool) -> GrokData {
                 result.value_estimate_error = Some(format!("Grok pool value task failed: {error}"));
             }
         }
-        save_cache(&result);
+        save_cache(&result, &credential);
     }
     result
 }
@@ -868,6 +953,8 @@ mod tests {
     use chrono::Utc;
     use serde_json::json;
     use std::time::Duration;
+
+    static LAST_GOOD_TEST_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
     fn grok_from_http_status(
         status: reqwest::StatusCode,
@@ -1346,7 +1433,7 @@ mod tests {
         let (response, credential) = result.unwrap();
         assert_eq!(response.status().as_u16(), 500);
         assert_eq!(server.join().unwrap().len(), 2);
-        assert!(super::LAST_RENEWAL_ATTEMPT.lock().unwrap().is_some());
+        assert!(super::RENEWAL_STATE.lock().unwrap().last_attempt.is_some());
 
         let (url, server) = billing_server(vec![200]);
         let result = tauri::async_runtime::block_on(super::fetch_grok_billing(
@@ -1357,7 +1444,7 @@ mod tests {
         assert!(result.unwrap().0.status().is_success());
         assert_eq!(server.join().unwrap().len(), 1);
         assert!(
-            super::LAST_RENEWAL_ATTEMPT.lock().unwrap().is_none(),
+            super::RENEWAL_STATE.lock().unwrap().last_attempt.is_none(),
             "a later successful poll validates the credential and clears cooldown"
         );
 
@@ -1367,14 +1454,17 @@ mod tests {
             super::read_credential_with_renewal(&path, || super::renew_session(home, false))
                 .err()
                 .unwrap();
-        assert!(invalid.contains("did not produce a valid credential"));
+        assert!(invalid
+            .error
+            .unwrap()
+            .contains("did not produce a valid credential"));
         let backoff = super::renew_session(home, false).err().unwrap();
         assert!(
             backoff.contains("waiting to retry"),
             "a zero CLI exit without a valid saved credential retains cooldown"
         );
 
-        *super::LAST_RENEWAL_ATTEMPT.lock().unwrap() = None;
+        super::RENEWAL_STATE.lock().unwrap().last_attempt = None;
         std::fs::write(&cli, "#!/bin/sh\nexit 7\n").unwrap();
         assert!(super::renew_session(home, false).is_err());
         let backoff = super::renew_session(home, false).err().unwrap();
@@ -1756,7 +1846,7 @@ mod tests {
             std::fs::write(&path, live.to_string()).unwrap();
             Ok(())
         })
-        .unwrap_or_else(|error| panic!("{error}"));
+        .unwrap_or_else(|data| panic!("{:?}", data.error));
         assert_eq!(credential.key, "test-renewed-key");
 
         assert!(super::read_credential_with_renewal(&path, || {
@@ -1768,10 +1858,15 @@ mod tests {
         let failed = super::read_credential_with_renewal(&path, || {
             Err("Grok session renewal timed out".to_string())
         });
-        assert_eq!(failed.err().unwrap(), "Grok session renewal timed out");
+        assert_eq!(
+            failed.err().unwrap().error.as_deref(),
+            Some("Grok session renewal timed out")
+        );
         let unchanged = super::read_credential_with_renewal(&path, || Ok(()));
         assert!(unchanged
             .err()
+            .unwrap()
+            .error
             .unwrap()
             .contains("did not produce a valid credential"));
 
@@ -1786,6 +1881,8 @@ mod tests {
         })
         .err()
         .unwrap()
+        .error
+        .unwrap()
         .contains("session expired"));
 
         std::fs::write(&path, "{").unwrap();
@@ -1794,6 +1891,8 @@ mod tests {
         })
         .err()
         .unwrap()
+        .error
+        .unwrap()
         .contains("Failed to parse Grok auth"));
 
         std::fs::remove_file(&path).unwrap();
@@ -1801,6 +1900,8 @@ mod tests {
             panic!("missing credentials must not launch the CLI")
         })
         .err()
+        .unwrap()
+        .error
         .unwrap()
         .contains("not configured"));
         std::fs::remove_dir(directory).unwrap();
@@ -1811,24 +1912,393 @@ mod tests {
     fn renewal_command_handles_success_failure_timeout_and_missing_cli() {
         let mut success = std::process::Command::new("sh");
         success.args(["-c", "exit 0"]);
-        assert!(super::run_renewal_command(&mut success, Duration::from_secs(1)).is_ok());
+        assert!(super::run_renewal_command(
+            success,
+            &mut renewal_state(),
+            true,
+            Duration::from_secs(1)
+        )
+        .is_ok());
 
         let mut failure = std::process::Command::new("sh");
         failure.args(["-c", "echo test-secret >&2; exit 42"]);
-        let error = super::run_renewal_command(&mut failure, Duration::from_secs(1)).unwrap_err();
+        let error =
+            super::run_renewal_command(failure, &mut renewal_state(), true, Duration::from_secs(1))
+                .unwrap_err();
         assert!(error.contains("42"));
         assert!(!error.contains("test-secret"));
 
         let mut hung = std::process::Command::new("sh");
-        hung.args(["-c", "exec sleep 30"]);
+        hung.args(["-c", "exec sleep 0.3"]);
         let started = std::time::Instant::now();
-        let error = super::run_renewal_command(&mut hung, Duration::from_millis(20)).unwrap_err();
+        let error =
+            super::run_renewal_command(hung, &mut renewal_state(), true, Duration::from_millis(20))
+                .unwrap_err();
         assert!(error.contains("timed out"));
         assert!(started.elapsed() < Duration::from_secs(2));
 
-        let mut missing = std::process::Command::new("/nonexistent/quotabar-test-grok");
-        let error = super::run_renewal_command(&mut missing, Duration::from_secs(1)).unwrap_err();
+        let missing = std::process::Command::new("/nonexistent/quotabar-test-grok");
+        let error =
+            super::run_renewal_command(missing, &mut renewal_state(), true, Duration::from_secs(1))
+                .unwrap_err();
         assert!(error.contains("could not start"));
+    }
+
+    fn renewal_state() -> super::RenewalState {
+        super::RenewalState {
+            last_attempt: None,
+            running: None,
+        }
+    }
+
+    #[test]
+    #[ignore = "subprocess fixture for the renewal deadline regression"]
+    fn renewal_command_fixture() {
+        let directory =
+            std::path::PathBuf::from(std::env::var("QUOTABAR_RENEWAL_FIXTURE").unwrap());
+        std::fs::write(directory.join("started"), "started").unwrap();
+        let started = std::time::Instant::now();
+        while !directory.join("finish").exists() && started.elapsed() < Duration::from_secs(5) {
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        assert!(
+            directory.join("finish").exists(),
+            "fixture must be released by the parent"
+        );
+        std::fs::write(
+            directory.join("auth.json"),
+            json!({"entry": {
+                "key": "synthetic-renewed-key",
+                "expires_at": "2099-01-01T00:00:00Z"
+            }})
+            .to_string(),
+        )
+        .unwrap();
+    }
+
+    #[test]
+    fn renewal_deadline_allows_cli_to_finish_credential_write() {
+        let directory = std::env::temp_dir().join(format!(
+            "quotabar-grok-deadline-{}-{}",
+            std::process::id(),
+            Utc::now().timestamp_nanos_opt().unwrap()
+        ));
+        std::fs::create_dir(&directory).unwrap();
+        let mut command = std::process::Command::new(std::env::current_exe().unwrap());
+        command
+            .args([
+                "--exact",
+                "services::grok::tests::renewal_command_fixture",
+                "--ignored",
+            ])
+            .env("QUOTABAR_RENEWAL_FIXTURE", &directory);
+        let started = std::time::Instant::now();
+        let mut state = renewal_state();
+        let error =
+            super::run_renewal_command(command, &mut state, false, Duration::from_millis(100))
+                .unwrap_err();
+        for manual in [false, true] {
+            let duplicate = std::process::Command::new("/nonexistent/quotabar-test-grok");
+            assert!(super::run_renewal_command(
+                duplicate,
+                &mut state,
+                manual,
+                Duration::from_millis(100)
+            )
+            .unwrap_err()
+            .contains("still running"));
+        }
+        assert!(error.contains("timed out"));
+        assert!(started.elapsed() < Duration::from_secs(2));
+        std::fs::write(directory.join("finish"), "finish").unwrap();
+        while !directory.join("auth.json").exists() && started.elapsed() < Duration::from_secs(2) {
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        let credential = super::read_auth_json(&directory.join("auth.json"))
+            .and_then(|auth| super::pick_credential(&auth));
+        let cli_started = directory.join("started").exists();
+        while state
+            .running
+            .as_ref()
+            .is_some_and(|task| !task.is_finished())
+            && started.elapsed() < Duration::from_secs(2)
+        {
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        let duplicate = std::process::Command::new("/nonexistent/quotabar-test-grok");
+        assert!(
+            super::run_renewal_command(duplicate, &mut state, true, Duration::from_secs(1))
+                .unwrap_err()
+                .contains("could not start"),
+            "first manual refresh must launch its current command"
+        );
+        assert!(state.running.is_none(), "completed renewal must be reaped");
+        let duplicate = std::process::Command::new("/nonexistent/quotabar-test-grok");
+        assert!(super::run_renewal_command(
+            duplicate,
+            &mut state,
+            false,
+            Duration::from_millis(100)
+        )
+        .unwrap_err()
+        .contains("waiting to retry"));
+        let duplicate = std::process::Command::new("/nonexistent/quotabar-test-grok");
+        assert!(
+            super::run_renewal_command(duplicate, &mut state, true, Duration::from_secs(1))
+                .unwrap_err()
+                .contains("could not start")
+        );
+        std::fs::remove_dir_all(directory).unwrap();
+        assert!(
+            cli_started,
+            "synthetic CLI must reach the refresh operation"
+        );
+        assert!(
+            credential.is_ok(),
+            "deadline must allow the CLI to persist its replacement credential"
+        );
+    }
+
+    #[test]
+    fn finished_failure_does_not_skip_an_eligible_retry() {
+        for manual in [false, true] {
+            let mut state = renewal_state();
+            state.last_attempt = Some(std::time::Instant::now() - super::RENEWAL_RETRY_INTERVAL);
+            state.running = Some(std::thread::spawn(|| {
+                Err("previous renewal failed".to_string())
+            }));
+            while !state.running.as_ref().unwrap().is_finished() {
+                std::thread::yield_now();
+            }
+            let retry = std::process::Command::new("/nonexistent/quotabar-test-grok");
+            let error =
+                super::run_renewal_command(retry, &mut state, manual, Duration::from_secs(1))
+                    .unwrap_err();
+            assert!(
+                error.contains("could not start"),
+                "eligible refresh must attempt its current command"
+            );
+        }
+    }
+
+    #[test]
+    fn renewal_errors_retain_last_known_quota() {
+        let _cache_lock = LAST_GOOD_TEST_LOCK.lock().unwrap();
+        let directory = std::env::temp_dir().join(format!(
+            "quotabar-grok-fallback-{}-{}",
+            std::process::id(),
+            Utc::now().timestamp_nanos_opt().unwrap()
+        ));
+        std::fs::create_dir(&directory).unwrap();
+        let path = directory.join("auth.json");
+        std::fs::write(
+            &path,
+            json!({"entry": {
+                "key": "synthetic-expired-key", "refresh_token": "synthetic-refresh-token",
+                "expires_at": "2020-01-01T00:00:00Z", "email": "synthetic@example.invalid"
+            }})
+            .to_string(),
+        )
+        .unwrap();
+        let previous = super::last_good()
+            .lock()
+            .unwrap()
+            .replace(super::CachedGrok {
+                data: sample_connected_grok(),
+                cached_at: std::time::Instant::now(),
+                account_id: super::grok_account_id(None, Some("synthetic@example.invalid")),
+            });
+        let mut results = Vec::new();
+        let errors = [
+            "Grok session renewal timed out; waiting for the CLI to finish.",
+            "Grok session renewal is still running; waiting for the CLI to finish.",
+            "Grok session renewal is waiting to retry. Open 'grok' or retry manually now.",
+        ];
+        for age in [Duration::from_secs(30), MAX_STALE_GROK_AGE] {
+            super::last_good()
+                .lock()
+                .unwrap()
+                .as_mut()
+                .unwrap()
+                .cached_at = std::time::Instant::now() - age;
+            for error in errors {
+                let data = super::read_credential_with_renewal(&path, || Err(error.to_string()))
+                    .err()
+                    .unwrap();
+                results.push((data, age < MAX_STALE_GROK_AGE, Some(error.to_string())));
+            }
+        }
+        // A completed renewal with no usable credential must not reuse a snapshot.
+        super::last_good()
+            .lock()
+            .unwrap()
+            .as_mut()
+            .unwrap()
+            .cached_at = std::time::Instant::now();
+        results.push((
+            super::read_credential_with_renewal(&path, || Ok(()))
+                .err()
+                .unwrap(),
+            false,
+            None,
+        ));
+        std::fs::remove_file(&path).unwrap();
+        results.push((
+            super::read_credential_with_renewal(&path, || {
+                panic!("missing credentials must not renew")
+            })
+            .err()
+            .unwrap(),
+            false,
+            None,
+        ));
+        // No snapshot must still return the renewal failure, with quota unavailable.
+        *super::last_good().lock().unwrap() = None;
+        std::fs::write(
+            &path,
+            json!({"entry": {
+                "key": "synthetic-expired-key", "refresh_token": "synthetic-refresh-token",
+                "expires_at": "2020-01-01T00:00:00Z", "email": "synthetic@example.invalid"
+            }})
+            .to_string(),
+        )
+        .unwrap();
+        results.push((
+            super::read_credential_with_renewal(&path, || Err(errors[0].to_string()))
+                .err()
+                .unwrap(),
+            false,
+            Some(errors[0].to_string()),
+        ));
+        *super::last_good().lock().unwrap() = previous;
+        std::fs::remove_dir_all(directory).unwrap();
+        drop(_cache_lock);
+        for (data, connected, error) in results {
+            assert_eq!(
+                data.connected, connected,
+                "only a recent snapshot can survive renewal errors"
+            );
+            assert_eq!(data.percentage, connected.then_some(4.0));
+            if let Some(error) = error {
+                assert_eq!(data.error, Some(error));
+            } else {
+                assert!(data.error.is_some());
+            }
+        }
+    }
+
+    #[test]
+    fn proactive_timeout_retains_only_recent_matching_account_quota() {
+        let _cache_lock = LAST_GOOD_TEST_LOCK.lock().unwrap();
+        let path = auth_test_path();
+        let previous = super::last_good().lock().unwrap().take();
+        for email in [
+            Some("synthetic@example.invalid"),
+            Some("other@example.invalid"),
+            None,
+        ] {
+            for age in [Duration::ZERO, MAX_STALE_GROK_AGE] {
+                let mut auth = json!({"entry": {
+                    "key": "synthetic-near-key", "refresh_token": "synthetic-refresh",
+                    "expires_at": (Utc::now() + chrono::Duration::seconds(120)).to_rfc3339()
+                }});
+                if let Some(email) = email {
+                    auth["entry"]["email"] = json!(email);
+                }
+                std::fs::write(&path, auth.to_string()).unwrap();
+                *super::last_good().lock().unwrap() = Some(super::CachedGrok {
+                    data: sample_connected_grok(),
+                    cached_at: std::time::Instant::now() - age,
+                    account_id: super::grok_account_id(None, Some("synthetic@example.invalid")),
+                });
+                let data = super::read_credential_with_renewal(&path, || {
+                    Err("synthetic renewal timeout".into())
+                })
+                .err()
+                .unwrap();
+                let retained =
+                    email == Some("synthetic@example.invalid") && age < MAX_STALE_GROK_AGE;
+                assert_eq!(data.connected, retained);
+                assert_eq!(data.percentage, retained.then_some(4.0));
+                assert_eq!(data.error.as_deref(), Some("synthetic renewal timeout"));
+            }
+        }
+        *super::last_good().lock().unwrap() = previous;
+        std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
+    }
+
+    #[test]
+    fn renewal_fallback_does_not_cross_accounts() {
+        let _cache_lock = LAST_GOOD_TEST_LOCK.lock().unwrap();
+        let directory = std::env::temp_dir().join(format!(
+            "quotabar-grok-account-{}-{}",
+            std::process::id(),
+            Utc::now().timestamp_nanos_opt().unwrap()
+        ));
+        std::fs::create_dir(&directory).unwrap();
+        let path = directory.join("auth.json");
+        let mut snapshot = sample_connected_grok();
+        snapshot.email = Some("previous@example.invalid".to_string());
+        let previous = super::last_good()
+            .lock()
+            .unwrap()
+            .replace(super::CachedGrok {
+                data: snapshot,
+                cached_at: std::time::Instant::now(),
+                account_id: super::grok_account_id(None, Some("previous@example.invalid")),
+            });
+        let mut results = Vec::new();
+        for email in [
+            Some("previous@example.invalid"),
+            Some("current@example.invalid"),
+            None,
+        ] {
+            let mut auth = json!({"entry": {
+                "key": "synthetic-expired-key", "refresh_token": "synthetic-refresh-token",
+                "expires_at": "2020-01-01T00:00:00Z"
+            }});
+            if let Some(email) = email {
+                auth["entry"]["email"] = json!(email);
+            }
+            std::fs::write(&path, auth.to_string()).unwrap();
+            let data = super::read_credential_with_renewal(&path, || {
+                Err("Grok session renewal timed out".to_string())
+            })
+            .err()
+            .unwrap();
+            results.push((data, email == Some("previous@example.invalid")));
+        }
+        let auth = json!({
+            "previous": {"key": "synthetic-old-key", "refresh_token": "synthetic-old-refresh", "expires_at": "2020-01-01T00:00:00Z", "email": "previous@example.invalid"},
+            "current": {"key": "synthetic-new-key", "refresh_token": "synthetic-new-refresh", "expires_at": "2020-01-01T00:00:00Z", "email": "current@example.invalid"}
+        });
+        std::fs::write(&path, auth.to_string()).unwrap();
+        results.push((
+            super::read_credential_with_renewal(&path, || {
+                Err("Grok session renewal timed out".to_string())
+            })
+            .err()
+            .unwrap(),
+            false,
+        ));
+        *super::last_good().lock().unwrap() = previous;
+        std::fs::remove_dir_all(directory).unwrap();
+        drop(_cache_lock);
+        for (data, same_account) in results {
+            assert_eq!(
+                data.connected, same_account,
+                "only the same identified account may reuse last-known quota"
+            );
+            assert_eq!(data.percentage, same_account.then_some(4.0));
+            assert_eq!(
+                data.email,
+                same_account.then(|| "previous@example.invalid".to_string())
+            );
+            assert_eq!(
+                data.error.as_deref(),
+                Some("Grok session renewal timed out")
+            );
+        }
     }
 
     #[test]
