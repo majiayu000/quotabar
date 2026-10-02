@@ -63,6 +63,8 @@ struct GrokCredential {
     key: String,
     email: Option<String>,
     user_id: Option<String>,
+    entry_name: Option<String>,
+    needs_renewal: bool,
 }
 
 fn parse_expiry(value: &serde_json::Value) -> Option<DateTime<Utc>> {
@@ -73,8 +75,18 @@ fn parse_expiry(value: &serde_json::Value) -> Option<DateTime<Utc>> {
 }
 
 fn is_expired(expires_at: &serde_json::Value) -> bool {
+    let buffer = std::env::var("GROK_AUTH_EARLY_INVALIDATION_SECS")
+        .ok()
+        .and_then(|value| value.parse::<u64>().ok())
+        .unwrap_or(300);
     parse_expiry(expires_at)
-        .map(|expires| expires <= Utc::now())
+        .map(|expires| {
+            expires
+                .signed_duration_since(Utc::now())
+                .to_std()
+                .map(|remaining| remaining <= Duration::from_secs(buffer))
+                .unwrap_or(true)
+        })
         .unwrap_or(false)
 }
 
@@ -87,12 +99,16 @@ fn credential_from_object(
         .map(str::trim)
         .filter(|key| !key.is_empty())?
         .to_string();
-    if is_expired(&value["expires_at"]) {
+    let expires_at = parse_expiry(&value["expires_at"]);
+    // Pick the preferred wire-valid entry before deciding whether it needs renewal.
+    if expires_at.is_some_and(|expires| expires <= Utc::now()) {
         return None;
     }
     Some((
         GrokCredential {
             key,
+            entry_name: None,
+            needs_renewal: is_expired(&value["expires_at"]),
             email: value
                 .get("email")
                 .and_then(serde_json::Value::as_str)
@@ -106,7 +122,7 @@ fn credential_from_object(
                 .filter(|id| !id.is_empty())
                 .map(ToString::to_string),
         },
-        parse_expiry(&value["expires_at"]),
+        expires_at,
     ))
 }
 
@@ -114,7 +130,7 @@ fn pick_credential(auth: &serde_json::Value) -> Result<GrokCredential, String> {
     let mut best: Option<(GrokCredential, Option<DateTime<Utc>>)> = None;
     let mut saw_entry = false;
 
-    let mut consider = |value: &serde_json::Value| {
+    let mut consider = |value: &serde_json::Value, entry_name: Option<&str>| {
         if !value.is_object()
             || value
                 .get("key")
@@ -124,7 +140,8 @@ fn pick_credential(auth: &serde_json::Value) -> Result<GrokCredential, String> {
             return;
         }
         saw_entry = true;
-        if let Some(candidate) = credential_from_object(value) {
+        if let Some(mut candidate) = credential_from_object(value) {
+            candidate.0.entry_name = entry_name.map(ToString::to_string);
             let replace = match &best {
                 None => true,
                 Some((_, current_expiry)) => match (current_expiry, &candidate.1) {
@@ -140,9 +157,9 @@ fn pick_credential(auth: &serde_json::Value) -> Result<GrokCredential, String> {
     };
 
     if let Some(obj) = auth.as_object() {
-        consider(auth);
-        for value in obj.values() {
-            consider(value);
+        consider(auth, None);
+        for (name, value) in obj {
+            consider(value, Some(name));
         }
     }
 
@@ -173,7 +190,29 @@ fn read_credential_with_renewal(
 ) -> Result<GrokCredential, GrokData> {
     let auth = read_auth_json(auth_file).map_err(fallback_or_disconnected)?;
     let error = match pick_credential(&auth) {
-        Ok(credential) => return Ok(credential),
+        Ok(credential) if !credential.needs_renewal => return Ok(credential),
+        Ok(credential) => {
+            let entry = match credential.entry_name.as_deref() {
+                Some(name) => &auth[name],
+                None => &auth,
+            };
+            if !entry["refresh_token"]
+                .as_str()
+                .is_some_and(|value| !value.trim().is_empty())
+            {
+                return Ok(credential);
+            }
+            let account_id =
+                grok_account_id(credential.user_id.as_deref(), credential.email.as_deref());
+            renew().map_err(|error| match account_id.as_deref() {
+                Some(id) => last_good_snapshot_fallback(error, Some(id)),
+                None => GrokData::disconnected(error),
+            })?;
+            let renewed = read_renewed_credential(auth_file, credential.entry_name.as_deref())
+                .map_err(GrokData::disconnected)?;
+            clear_renewal_retry().map_err(GrokData::disconnected)?;
+            return Ok(renewed);
+        }
         Err(error) => error,
     };
     let can_renew = |entry: &serde_json::Value| {
@@ -205,11 +244,71 @@ fn read_credential_with_renewal(
     })?;
     // A successful command is not proof of renewal: only the saved credential is.
     let auth = read_auth_json(auth_file).map_err(fallback_or_disconnected)?;
-    pick_credential(&auth).map_err(|_| {
-        GrokData::disconnected(
-            "Grok session renewal did not produce a valid credential. Open 'grok' to check sign-in.",
-        )
-    })
+    let renewed = pick_credential(&auth)
+        .ok()
+        .filter(|credential| !credential.needs_renewal)
+        .ok_or_else(|| {
+            GrokData::disconnected(
+                "Grok session renewal did not produce a valid credential. Open 'grok' to check sign-in.",
+            )
+        })?;
+    clear_renewal_retry().map_err(GrokData::disconnected)?;
+    Ok(renewed)
+}
+
+fn read_renewed_credential(
+    auth_file: &Path,
+    entry_name: Option<&str>,
+) -> Result<GrokCredential, String> {
+    let auth = read_auth_json(auth_file)?;
+    let entry = match entry_name {
+        Some(name) => &auth[name],
+        None => &auth,
+    };
+    credential_from_object(entry)
+        .filter(|(credential, _)| !credential.needs_renewal)
+        .map(|(mut credential, _)| {
+            credential.entry_name = entry_name.map(ToString::to_string);
+            credential
+        })
+        .ok_or_else(|| {
+            "Grok session renewal did not produce a valid credential. Open 'grok' to check sign-in."
+                .to_string()
+        })
+}
+
+fn read_rejected_credential_with_renewal(
+    auth_file: &Path,
+    rejected_key: &str,
+    entry_name: Option<&str>,
+    renew: impl FnOnce() -> Result<(), String>,
+) -> Result<GrokCredential, String> {
+    let auth = read_auth_json(auth_file)?;
+    let auth_error = || {
+        "Grok authentication failed (401/403). Run 'grok login'; QuotaBar will check again automatically."
+            .to_string()
+    };
+    let entry = match entry_name {
+        Some(name) => &auth[name],
+        None => &auth,
+    };
+    if let Some((mut credential, _)) = credential_from_object(entry) {
+        if credential.key != rejected_key {
+            credential.entry_name = entry_name.map(ToString::to_string);
+            return Ok(credential);
+        }
+    }
+    if !entry["key"]
+        .as_str()
+        .is_some_and(|value| !value.trim().is_empty())
+        || !entry["refresh_token"]
+            .as_str()
+            .is_some_and(|value| !value.trim().is_empty())
+    {
+        return Err(auth_error());
+    }
+    renew()?;
+    read_renewed_credential(auth_file, entry_name)
 }
 
 fn run_renewal_command(
@@ -296,6 +395,14 @@ fn run_renewal_command(
         .map_err(|_| "Grok session renewal task failed".to_string())?
 }
 
+fn clear_renewal_retry() -> Result<(), String> {
+    RENEWAL_STATE
+        .lock()
+        .map_err(|_| "Grok session renewal state is unavailable".to_string())?
+        .last_attempt = None;
+    Ok(())
+}
+
 fn renew_session(home: &Path, manual: bool) -> Result<(), String> {
     let mut state = RENEWAL_STATE
         .lock()
@@ -326,6 +433,24 @@ async fn read_credential(manual: bool) -> Result<GrokCredential, GrokData> {
     })
     .await
     .map_err(|error| GrokData::disconnected(format!("Grok session renewal task failed: {error}")))?
+}
+
+async fn renew_rejected_credential(
+    rejected_key: String,
+    entry_name: Option<String>,
+    manual: bool,
+) -> Result<GrokCredential, String> {
+    let home = grok_home().ok_or_else(|| "Could not find home directory".to_string())?;
+    tauri::async_runtime::spawn_blocking(move || {
+        read_rejected_credential_with_renewal(
+            &home.join("auth.json"),
+            &rejected_key,
+            entry_name.as_deref(),
+            || renew_session(&home, manual),
+        )
+    })
+    .await
+    .map_err(|error| format!("Grok session renewal task failed: {error}"))?
 }
 
 fn parse_cent(value: &serde_json::Value) -> Option<i64> {
@@ -710,6 +835,48 @@ fn is_grok_auth_status(status: reqwest::StatusCode) -> bool {
     status.as_u16() == 401 || status.as_u16() == 403
 }
 
+async fn fetch_grok_billing<F, Fut>(
+    mut credential: GrokCredential,
+    billing_url: &str,
+    renew: F,
+) -> Result<(reqwest::Response, GrokCredential), GrokData>
+where
+    F: FnOnce(String, Option<String>) -> Fut,
+    Fut: std::future::Future<Output = Result<GrokCredential, String>>,
+{
+    let mut renew = Some(renew);
+    loop {
+        let mut request = shared_http_client()
+            .get(billing_url)
+            .header("Authorization", format!("Bearer {}", credential.key))
+            .header("x-xai-token-auth", TOKEN_AUTH_HEADER)
+            .header("Accept", "application/json")
+            .header("User-Agent", "QuotaBar/0.3 (Grok monitor)")
+            .timeout(Duration::from_secs(10));
+        if let Some(user_id) = credential.user_id.as_deref() {
+            request = request.header("x-userid", user_id);
+        }
+
+        let response = match request.send().await {
+            Ok(resp) => resp,
+            Err(err) => return Err(fallback_or_disconnected(format!("Network error: {err}"))),
+        };
+
+        if is_grok_auth_status(response.status()) {
+            if let Some(renew) = renew.take() {
+                credential = renew(credential.key.clone(), credential.entry_name.clone())
+                    .await
+                    .map_err(GrokData::disconnected)?;
+                continue;
+            }
+        }
+        if response.status().is_success() {
+            clear_renewal_retry().map_err(GrokData::disconnected)?;
+        }
+        return Ok((response, credential));
+    }
+}
+
 pub async fn fetch_grok_info(manual: bool) -> GrokData {
     let credential = match read_credential(manual).await {
         Ok(value) => value,
@@ -721,21 +888,15 @@ pub async fn fetch_grok_info(manual: bool) -> GrokData {
         return cached;
     }
 
-    let mut request = shared_http_client()
-        .get(BILLING_URL)
-        .header("Authorization", format!("Bearer {}", credential.key))
-        .header("x-xai-token-auth", TOKEN_AUTH_HEADER)
-        .header("Accept", "application/json")
-        .header("User-Agent", "QuotaBar/0.3 (Grok monitor)")
-        .timeout(Duration::from_secs(10));
-    if let Some(user_id) = credential.user_id.as_deref() {
-        request = request.header("x-userid", user_id);
-    }
-
-    let response = match request.send().await {
-        Ok(resp) => resp,
-        Err(err) => return fallback_or_disconnected(format!("Network error: {err}")),
-    };
+    let (response, credential) =
+        match fetch_grok_billing(credential, BILLING_URL, |key, entry_name| {
+            renew_rejected_credential(key, entry_name, manual)
+        })
+        .await
+        {
+            Ok(value) => value,
+            Err(data) => return data,
+        };
 
     let status = response.status();
     if !status.is_success() {
@@ -1076,6 +1237,590 @@ mod tests {
         };
         assert!(err.contains("expired"));
         assert!(!err.contains("expired-token"));
+    }
+
+    fn auth_test_path() -> std::path::PathBuf {
+        static NEXT_DIRECTORY: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+        let directory = std::env::temp_dir().join(format!(
+            "quotabar-grok-195-{}-{}-{}",
+            std::process::id(),
+            Utc::now().timestamp_nanos_opt().unwrap(),
+            NEXT_DIRECTORY.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+        ));
+        std::fs::create_dir(&directory).unwrap();
+        directory.join("auth.json")
+    }
+
+    #[test]
+    fn early_invalidation_renews_before_actual_expiry() {
+        let path = auth_test_path();
+        let auth = json!({"entry": {
+            "key": "test-near-expiry-key",
+            "refresh_token": "test-refresh-token",
+            "expires_at": (Utc::now() + chrono::Duration::seconds(120)).to_rfc3339()
+        }});
+        std::fs::write(&path, auth.to_string()).unwrap();
+        let mut renewals = 0;
+        let credential = super::read_credential_with_renewal(&path, || {
+            renewals += 1;
+            std::fs::write(
+                &path,
+                json!({"entry": {
+                    "key": "test-renewed-key", "expires_at": "2099-01-01T00:00:00Z"
+                }})
+                .to_string(),
+            )
+            .unwrap();
+            Ok(())
+        })
+        .unwrap_or_else(|_| panic!("renewal should succeed"));
+        std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
+        assert_eq!(renewals, 1, "renew inside the CLI's 300-second window");
+        assert_eq!(credential.key, "test-renewed-key");
+    }
+
+    #[test]
+    fn near_expiry_without_refresh_still_requests_billing() {
+        let path = auth_test_path();
+        for refresh in [serde_json::Value::Null, json!(""), json!("   ")] {
+            let auth = json!({
+                "preferred": {"key": "test-near-key", "refresh_token": refresh,
+                    "expires_at": (Utc::now() + chrono::Duration::seconds(120)).to_rfc3339()},
+                "other": {"key": "test-unrelated-key"}
+            });
+            std::fs::write(&path, auth.to_string()).unwrap();
+            let credential = super::read_credential_with_renewal(&path, || {
+                panic!("a wire-valid credential without refresh must not launch the CLI")
+            })
+            .unwrap_or_else(|_| panic!("wire-valid credential should remain usable"));
+            assert_eq!(credential.entry_name.as_deref(), Some("preferred"));
+            let (url, server) = billing_server(vec![200]);
+            let result = tauri::async_runtime::block_on(super::fetch_grok_billing(
+                credential,
+                &url,
+                |_, _| async { panic!("successful billing must not renew") },
+            ));
+            assert!(result.unwrap().0.status().is_success());
+            let requests = server.join().unwrap();
+            assert_eq!(requests.len(), 1);
+            assert!(requests[0].contains("authorization: bearer test-near-key"));
+        }
+        std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
+    }
+
+    #[test]
+    fn early_invalidation_renews_preferred_entry_before_an_unbounded_account() {
+        let path = auth_test_path();
+        let mut auth = json!({
+            "preferred": {"key": "test-near-expiry-key", "refresh_token": "test-refresh",
+                "expires_at": (Utc::now() + chrono::Duration::seconds(120)).to_rfc3339(),
+                "user_id": "test-preferred-user"},
+            "other": {"key": "test-other-key", "user_id": "test-unrelated-user"}
+        });
+        std::fs::write(&path, auth.to_string()).unwrap();
+        let mut renewals = 0;
+        let credential = super::read_credential_with_renewal(&path, || {
+            renewals += 1;
+            auth["preferred"]["key"] = json!("test-renewed-key");
+            auth["preferred"]["expires_at"] = json!("2099-01-01T00:00:00Z");
+            std::fs::write(&path, auth.to_string()).unwrap();
+            Ok(())
+        })
+        .unwrap_or_else(|_| panic!("preferred entry renewal"));
+        std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
+        assert_eq!(
+            renewals, 1,
+            "renew the due preferred entry before selecting another account"
+        );
+        assert_eq!(credential.key, "test-renewed-key");
+        assert_eq!(credential.user_id.as_deref(), Some("test-preferred-user"));
+        assert_eq!(credential.entry_name.as_deref(), Some("preferred"));
+    }
+
+    #[test]
+    fn proactive_renewal_cannot_replace_a_removed_preferred_entry() {
+        let path = auth_test_path();
+        let mut auth = json!({
+            "preferred": {"key": "test-near-expiry-key", "refresh_token": "test-refresh",
+                "expires_at": (Utc::now() + chrono::Duration::seconds(120)).to_rfc3339()},
+            "other": {"key": "test-other-key"}
+        });
+        std::fs::write(&path, auth.to_string()).unwrap();
+        let result = super::read_credential_with_renewal(&path, || {
+            auth.as_object_mut().unwrap().remove("preferred");
+            auth["other"]["key"] = json!("test-unrelated-renewed-key");
+            std::fs::write(&path, auth.to_string()).unwrap();
+            Ok(())
+        });
+        std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
+        assert!(
+            result.is_err(),
+            "renewal must reread the same preferred entry"
+        );
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn successful_renewal_does_not_block_auth_recovery() {
+        let status = std::process::Command::new(std::env::current_exe().unwrap())
+            .args([
+                "--exact",
+                "services::grok::tests::renewal_cooldown_fixture",
+                "--ignored",
+            ])
+            .status()
+            .unwrap();
+        assert!(status.success());
+    }
+
+    #[test]
+    #[cfg(unix)]
+    #[ignore = "isolated renewal state fixture executed by parent regression"]
+    fn renewal_cooldown_fixture() {
+        use std::os::unix::fs::PermissionsExt;
+        let path = auth_test_path();
+        let home = path.parent().unwrap();
+        let bin = home.join("bin");
+        std::fs::create_dir(&bin).unwrap();
+        let cli = bin.join("grok");
+        let near_expiry = (Utc::now() + chrono::Duration::seconds(120)).to_rfc3339();
+        let near = json!({"key": "test-near-key", "refresh_token": "test-refresh", "expires_at": near_expiry});
+        let renewed = json!({"key": "test-renewed-key", "refresh_token": "test-refresh", "expires_at": "2099-01-01T00:00:00Z"});
+        std::fs::write(&path, near.to_string()).unwrap();
+        std::fs::write(home.join("renewed.json"), renewed.to_string()).unwrap();
+        std::fs::write(
+            &cli,
+            "#!/bin/sh\ncp \"$GROK_HOME/renewed.json\" \"$GROK_AUTH_PATH\"\n",
+        )
+        .unwrap();
+        std::fs::set_permissions(&cli, std::fs::Permissions::from_mode(0o700)).unwrap();
+        let credential =
+            super::read_credential_with_renewal(&path, || super::renew_session(home, false))
+                .unwrap();
+        let (url, server) = billing_server(vec![401, 200]);
+        let result = tauri::async_runtime::block_on(super::fetch_grok_billing(
+            credential,
+            &url,
+            |key, entry_name| {
+                std::future::ready(super::read_rejected_credential_with_renewal(
+                    &path,
+                    &key,
+                    entry_name.as_deref(),
+                    || super::renew_session(home, false),
+                ))
+            },
+        ));
+        let (response, credential) = result.unwrap();
+        assert!(
+            response.status().is_success(),
+            "a successful proactive renewal must allow rejection recovery"
+        );
+        assert_eq!(server.join().unwrap().len(), 2);
+
+        let (url, server) = billing_server(vec![401, 500]);
+        let result = tauri::async_runtime::block_on(super::fetch_grok_billing(
+            credential,
+            &url,
+            |key, entry_name| {
+                std::future::ready(super::read_rejected_credential_with_renewal(
+                    &path,
+                    &key,
+                    entry_name.as_deref(),
+                    || super::renew_session(home, false),
+                ))
+            },
+        ));
+        let (response, credential) = result.unwrap();
+        assert_eq!(response.status().as_u16(), 500);
+        assert_eq!(server.join().unwrap().len(), 2);
+        assert!(super::RENEWAL_STATE.lock().unwrap().last_attempt.is_some());
+
+        let (url, server) = billing_server(vec![200]);
+        let result = tauri::async_runtime::block_on(super::fetch_grok_billing(
+            credential,
+            &url,
+            |_, _| async { panic!("successful billing must not renew") },
+        ));
+        assert!(result.unwrap().0.status().is_success());
+        assert_eq!(server.join().unwrap().len(), 1);
+        assert!(
+            super::RENEWAL_STATE.lock().unwrap().last_attempt.is_none(),
+            "a later successful poll validates the credential and clears cooldown"
+        );
+
+        std::fs::write(&path, near.to_string()).unwrap();
+        std::fs::write(&cli, "#!/bin/sh\nexit 0\n").unwrap();
+        let invalid =
+            super::read_credential_with_renewal(&path, || super::renew_session(home, false))
+                .err()
+                .unwrap();
+        assert!(invalid
+            .error
+            .unwrap()
+            .contains("did not produce a valid credential"));
+        let backoff = super::renew_session(home, false).err().unwrap();
+        assert!(
+            backoff.contains("waiting to retry"),
+            "a zero CLI exit without a valid saved credential retains cooldown"
+        );
+
+        super::RENEWAL_STATE.lock().unwrap().last_attempt = None;
+        std::fs::write(&cli, "#!/bin/sh\nexit 7\n").unwrap();
+        assert!(super::renew_session(home, false).is_err());
+        let backoff = super::renew_session(home, false).err().unwrap();
+        assert!(
+            backoff.contains("waiting to retry"),
+            "failed automatic renewal retains cooldown"
+        );
+        std::fs::remove_dir_all(home).unwrap();
+    }
+
+    fn billing_server(statuses: Vec<u16>) -> (String, std::thread::JoinHandle<Vec<String>>) {
+        use std::io::{Read, Write};
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        listener.set_nonblocking(true).unwrap();
+        let url = format!("http://{}/billing", listener.local_addr().unwrap());
+        let thread = std::thread::spawn(move || {
+            let started = std::time::Instant::now();
+            let mut requests = Vec::new();
+            for status in statuses {
+                let mut stream = loop {
+                    match listener.accept() {
+                        Ok((stream, _)) => break stream,
+                        Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                            if started.elapsed() > Duration::from_secs(3) {
+                                return requests;
+                            }
+                            std::thread::sleep(Duration::from_millis(5));
+                        }
+                        Err(error) => panic!("local billing server: {error}"),
+                    }
+                };
+                stream.set_nonblocking(false).unwrap();
+                stream
+                    .set_read_timeout(Some(Duration::from_secs(2)))
+                    .unwrap();
+                let mut request = Vec::new();
+                let mut buffer = [0; 1024];
+                while !request.windows(4).any(|part| part == b"\r\n\r\n") {
+                    let count = stream.read(&mut buffer).unwrap();
+                    assert!(count > 0);
+                    request.extend_from_slice(&buffer[..count]);
+                }
+                requests.push(String::from_utf8(request).unwrap().to_ascii_lowercase());
+                let body = "{\"config\":{\"creditUsagePercent\":12.5}}";
+                write!(stream, "HTTP/1.1 {status} Test\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len()).unwrap();
+            }
+            requests
+        });
+        (url, thread)
+    }
+
+    fn rejected_unexpired_billing_renews(status: u16) {
+        let path = auth_test_path();
+        let auth = json!({"entry": {
+            "key": "test-rejected-key", "refresh_token": "test-refresh-token",
+            "expires_at": "2099-01-01T00:00:00Z", "user_id": "test-user-old"
+        }});
+        std::fs::write(&path, auth.to_string()).unwrap();
+        let credential = pick_credential(&auth).unwrap_or_else(|_| panic!("unexpired credential"));
+        let (url, server) = billing_server(vec![status, 200]);
+        let mut renewals = 0;
+        let result = tauri::async_runtime::block_on(super::fetch_grok_billing(
+            credential,
+            &url,
+            |key, entry_name| {
+                renewals += 1;
+                assert_eq!(key, "test-rejected-key");
+                std::future::ready(super::read_rejected_credential_with_renewal(
+                    &path,
+                    &key,
+                    entry_name.as_deref(),
+                    || {
+                        std::fs::write(
+                            &path,
+                            json!({"entry": {
+                                "key": "test-renewed-key", "expires_at": "2099-01-01T00:00:00Z",
+                                "user_id": "test-user-new", "email": "test@example.invalid"
+                            }})
+                            .to_string(),
+                        )
+                        .unwrap();
+                        Ok(())
+                    },
+                ))
+            },
+        ));
+        let requests = server.join().unwrap();
+        std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
+        assert!(
+            result.is_ok(),
+            "HTTP {status} should renew and retry billing"
+        );
+        let (response, credential) = result.unwrap_or_else(|_| unreachable!());
+        assert_eq!(response.status(), reqwest::StatusCode::OK);
+        let payload = tauri::async_runtime::block_on(response.json::<serde_json::Value>()).unwrap();
+        assert_eq!(renewals, 1);
+        assert_eq!(requests.len(), 2);
+        assert!(requests[0].contains("authorization: bearer test-rejected-key"));
+        assert!(requests[1].contains("authorization: bearer test-renewed-key"));
+        assert!(requests[1].contains("x-userid: test-user-new"));
+        assert_eq!(credential.email.as_deref(), Some("test@example.invalid"));
+        assert_eq!(payload["config"]["creditUsagePercent"], 12.5);
+    }
+
+    #[test]
+    fn unexpired_401_renews_and_retries_billing() {
+        rejected_unexpired_billing_renews(401);
+    }
+
+    #[test]
+    fn unexpired_403_renews_and_retries_billing() {
+        rejected_unexpired_billing_renews(403);
+    }
+
+    #[test]
+    fn billing_retry_is_bounded_and_renewal_errors_disconnect() {
+        for (statuses, renewal_error, expected_requests) in [
+            (vec![401, 403], None, 2),
+            (vec![403], Some("Grok session renewal timed out"), 1),
+            (
+                vec![401],
+                Some("Grok session renewal is waiting to retry"),
+                1,
+            ),
+            (
+                vec![401],
+                Some("Grok session renewal could not start the Grok CLI"),
+                1,
+            ),
+            (vec![429], None, 1),
+            (vec![500], None, 1),
+            (vec![200], None, 1),
+        ] {
+            let status = statuses[0];
+            let credential = pick_credential(&json!({"key": "test-key"}))
+                .unwrap_or_else(|_| panic!("credential"));
+            let (url, server) = billing_server(statuses);
+            let mut renewals = 0;
+            let result = tauri::async_runtime::block_on(super::fetch_grok_billing(
+                credential,
+                &url,
+                |_, _| {
+                    renewals += 1;
+                    std::future::ready(match renewal_error {
+                        Some(error) => Err(error.to_string()),
+                        None => pick_credential(&json!({"key": "test-key"})),
+                    })
+                },
+            ));
+            assert_eq!(server.join().unwrap().len(), expected_requests);
+            assert_eq!(renewals, usize::from(status == 401 || status == 403));
+            match renewal_error {
+                Some(error) => {
+                    let data = result.err().expect("failed renewal must disconnect");
+                    assert!(!data.connected);
+                    assert_eq!(data.percentage, None);
+                    assert_eq!(data.error.as_deref(), Some(error));
+                }
+                None => {
+                    let (response, _) = result.unwrap_or_else(|_| panic!("HTTP response"));
+                    assert_eq!(
+                        response.status().as_u16(),
+                        if status == 401 { 403 } else { status }
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn rejected_credential_requires_its_own_refresh_token() {
+        let path = auth_test_path();
+        for refresh in [serde_json::Value::Null, json!(""), json!("   ")] {
+            std::fs::write(
+                &path,
+                json!({
+                    "selected": {"key": "test-rejected-key", "refresh_token": refresh,
+                        "expires_at": "2099-01-01T00:00:00Z"},
+                    "other": {"key": "test-other-key", "refresh_token": "test-other-refresh",
+                        "expires_at": "2020-01-01T00:00:00Z"}
+                })
+                .to_string(),
+            )
+            .unwrap();
+            let result = super::read_rejected_credential_with_renewal(
+                &path,
+                "test-rejected-key",
+                Some("selected"),
+                || panic!("another entry's refresh token must not renew the rejected key"),
+            );
+            assert!(result.err().unwrap().contains("authentication failed"));
+        }
+        std::fs::write(
+            &path,
+            json!({"key": "test-rejected-key", "refresh_token": "test-refresh"}).to_string(),
+        )
+        .unwrap();
+        let failure =
+            super::read_rejected_credential_with_renewal(&path, "test-rejected-key", None, || {
+                Err("test renewal failure".to_string())
+            });
+        assert_eq!(failure.err().as_deref(), Some("test renewal failure"));
+        let credential =
+            super::read_rejected_credential_with_renewal(&path, "test-rejected-key", None, || {
+                std::fs::write(&path, json!({"key": "test-new-key"}).to_string()).unwrap();
+                Ok(())
+            })
+            .unwrap_or_else(|_| panic!("flat auth renewal"));
+        assert_eq!(credential.key, "test-new-key");
+        let replaced =
+            super::read_rejected_credential_with_renewal(&path, "test-rejected-key", None, || {
+                panic!("already replaced flat credentials do not need renewal")
+            });
+        assert_eq!(
+            replaced.unwrap_or_else(|_| panic!("same flat entry")).key,
+            "test-new-key"
+        );
+        let removed = super::read_rejected_credential_with_renewal(
+            &path,
+            "test-rejected-key",
+            Some("removed"),
+            || panic!("removed rejected entries must not renew another credential"),
+        );
+        assert!(removed.err().unwrap().contains("authentication failed"));
+        std::fs::write(&path, "{").unwrap();
+        assert!(
+            super::read_rejected_credential_with_renewal(&path, "test-key", None, || panic!(
+                "malformed auth"
+            ))
+            .err()
+            .unwrap()
+            .contains("Failed to parse Grok auth")
+        );
+        std::fs::remove_file(&path).unwrap();
+        assert!(
+            super::read_rejected_credential_with_renewal(&path, "test-key", None, || panic!(
+                "missing auth"
+            ))
+            .err()
+            .unwrap()
+            .contains("not configured")
+        );
+        std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
+    }
+
+    #[test]
+    fn early_invalidation_honors_env_without_affecting_other_tests() {
+        for value in [
+            None,
+            Some("0"),
+            Some("60"),
+            Some("300"),
+            Some("600"),
+            Some("invalid"),
+            Some("-1"),
+            Some(""),
+        ] {
+            let mut command = std::process::Command::new(std::env::current_exe().unwrap());
+            command.args([
+                "--exact",
+                "services::grok::tests::early_invalidation_env_fixture",
+                "--ignored",
+            ]);
+            match value {
+                Some(value) => {
+                    command.env("GROK_AUTH_EARLY_INVALIDATION_SECS", value);
+                }
+                None => {
+                    command.env_remove("GROK_AUTH_EARLY_INVALIDATION_SECS");
+                }
+            }
+            assert!(command.status().unwrap().success());
+        }
+    }
+
+    #[test]
+    fn rejected_entry_renewal_never_selects_another_account() {
+        let path = auth_test_path();
+        for other_expiry in [serde_json::Value::Null, json!("2199-01-01T00:00:00Z")] {
+            let mut auth = json!({
+                "rejected": {"key": "test-rejected-key", "refresh_token": "test-refresh",
+                    "expires_at": "2020-01-01T00:00:00Z", "user_id": "test-original-user"},
+                "other": {"key": "test-other-key", "expires_at": other_expiry,
+                    "user_id": "test-unrelated-user"}
+            });
+            std::fs::write(&path, auth.to_string()).unwrap();
+            let mut renewals = 0;
+            let credential = super::read_rejected_credential_with_renewal(
+                &path,
+                "test-rejected-key",
+                Some("rejected"),
+                || {
+                    renewals += 1;
+                    auth["rejected"]["key"] = json!("test-renewed-key");
+                    auth["rejected"]["expires_at"] = json!("2099-01-01T00:00:00Z");
+                    std::fs::write(&path, auth.to_string()).unwrap();
+                    Ok(())
+                },
+            )
+            .unwrap_or_else(|_| panic!("rejected entry renewal"));
+            assert_eq!(renewals, 1);
+            assert_eq!(credential.key, "test-renewed-key");
+            assert_eq!(credential.user_id.as_deref(), Some("test-original-user"));
+        }
+        std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
+    }
+
+    #[test]
+    fn concurrent_same_entry_replacement_retries_without_renewal() {
+        let path = auth_test_path();
+        let mut auth = json!({
+            "issuer": {"key": "test-rejected-key", "refresh_token": "test-refresh",
+                "expires_at": "2999-01-01T00:00:00Z", "user_id": "test-original-user"},
+            "other": {"key": "test-other-key", "expires_at": "2199-01-01T00:00:00Z",
+                "user_id": "test-unrelated-user"}
+        });
+        let selected = pick_credential(&auth).unwrap_or_else(|_| panic!("selected credential"));
+        assert_eq!(selected.key, "test-rejected-key");
+        auth["issuer"]["key"] = json!("test-concurrently-renewed-key");
+        auth["issuer"]["expires_at"] =
+            json!((Utc::now() + chrono::Duration::seconds(120)).to_rfc3339());
+        auth["issuer"]
+            .as_object_mut()
+            .unwrap()
+            .remove("refresh_token");
+        std::fs::write(&path, auth.to_string()).unwrap();
+        let result = super::read_rejected_credential_with_renewal(
+            &path,
+            &selected.key,
+            selected.entry_name.as_deref(),
+            || panic!("the same entry already has a renewed token"),
+        );
+        std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
+        assert!(
+            result.is_ok(),
+            "retry with the same entry's already renewed credential"
+        );
+        let credential = result.unwrap_or_else(|_| unreachable!());
+        assert_eq!(credential.key, "test-concurrently-renewed-key");
+        assert_eq!(credential.user_id.as_deref(), Some("test-original-user"));
+    }
+
+    #[test]
+    #[ignore = "isolated environment fixture executed by parent regression"]
+    fn early_invalidation_env_fixture() {
+        let buffer = std::env::var("GROK_AUTH_EARLY_INVALIDATION_SECS")
+            .ok()
+            .and_then(|value| value.parse::<u64>().ok())
+            .unwrap_or(300);
+        for seconds in [30, 120, 450, 900] {
+            let expires = (Utc::now() + chrono::Duration::seconds(seconds)).to_rfc3339();
+            assert_eq!(super::is_expired(&json!(expires)), seconds as u64 <= buffer);
+        }
+        assert!(super::is_expired(&json!("2020-01-01T00:00:00Z")));
+        assert!(!super::is_expired(&json!("invalid")));
+        assert!(!super::is_expired(&serde_json::Value::Null));
     }
 
     #[test]
@@ -1440,6 +2185,46 @@ mod tests {
                 assert!(data.error.is_some());
             }
         }
+    }
+
+    #[test]
+    fn proactive_timeout_retains_only_recent_matching_account_quota() {
+        let _cache_lock = LAST_GOOD_TEST_LOCK.lock().unwrap();
+        let path = auth_test_path();
+        let previous = super::last_good().lock().unwrap().take();
+        for email in [
+            Some("synthetic@example.invalid"),
+            Some("other@example.invalid"),
+            None,
+        ] {
+            for age in [Duration::ZERO, MAX_STALE_GROK_AGE] {
+                let mut auth = json!({"entry": {
+                    "key": "synthetic-near-key", "refresh_token": "synthetic-refresh",
+                    "expires_at": (Utc::now() + chrono::Duration::seconds(120)).to_rfc3339()
+                }});
+                if let Some(email) = email {
+                    auth["entry"]["email"] = json!(email);
+                }
+                std::fs::write(&path, auth.to_string()).unwrap();
+                *super::last_good().lock().unwrap() = Some(super::CachedGrok {
+                    data: sample_connected_grok(),
+                    cached_at: std::time::Instant::now() - age,
+                    account_id: super::grok_account_id(None, Some("synthetic@example.invalid")),
+                });
+                let data = super::read_credential_with_renewal(&path, || {
+                    Err("synthetic renewal timeout".into())
+                })
+                .err()
+                .unwrap();
+                let retained =
+                    email == Some("synthetic@example.invalid") && age < MAX_STALE_GROK_AGE;
+                assert_eq!(data.connected, retained);
+                assert_eq!(data.percentage, retained.then_some(4.0));
+                assert_eq!(data.error.as_deref(), Some("synthetic renewal timeout"));
+            }
+        }
+        *super::last_good().lock().unwrap() = previous;
+        std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
     }
 
     #[test]

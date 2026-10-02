@@ -24,4 +24,4 @@ Tests: grok parser unit tests; provider-map fixtures add `grok`; Grok panel race
 
 ## Security
 
-Read-only credentials. No refresh. Errors must not include tokens, paths to auth.json contents, or raw JSON bodies.
+QuotaBar only reads credentials. It delegates renewal to the official `grok models` command, which owns auth-file writes; it makes no direct refresh-token request. Validate the selected auth record after renewal. Proactive renewal uses the CLI's early-invalidation buffer; billing 401/403 triggers at most one renewal and one retry. Keep the automatic retry cooldown until the saved credential is valid or any billing response succeeds. Errors must not include tokens, paths to auth.json contents, or raw JSON bodies.

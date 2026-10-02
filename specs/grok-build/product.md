@@ -6,7 +6,7 @@ QuotaBar tracks Claude Code, Codex, Cursor, and Antigravity. SuperGrok / X Premi
 
 ## Goals
 
-- Read-only reuse of `~/.grok/auth.json` (or `$GROK_HOME/auth.json`). Never write, refresh, or log the token.
+- Reuse `~/.grok/auth.json` (or `$GROK_HOME/auth.json`) and delegate renewal to the official CLI. Never write or log the token from QuotaBar.
 - Fetch `GET https://cli-chat-proxy.grok.com/v1/billing?format=credits` with the same CLI headers Grok Build uses.
 - Show the unified weekly/monthly pool used percent and reset time as the tray value and primary panel bar.
 - Show `productUsage` as a composition of that same pool (not independent remaining quotas).
@@ -19,14 +19,14 @@ QuotaBar tracks Claude Code, Codex, Cursor, and Antigravity. SuperGrok / X Premi
 - Calendar CostSummarySection (Today/This Week/This Month) for Grok.
 - xAI Management API / prepaid API-team spend.
 - grok.com gRPC-web / browser cookies / WKE.
-- Token refresh or `grok login` orchestration.
+- Interactive `grok login` orchestration or direct refresh-token requests.
 - Landing-page copy.
 
 ## Behavior
 
 1. Missing auth → disconnected, tell the user to run `grok login`.
-2. Expired local token is not sent → disconnected, tell the user to re-login.
-3. 401/403 → session expired, same recovery.
+2. A token within `GROK_AUTH_EARLY_INVALIDATION_SECS` of expiry (300 seconds by default) → run the official CLI's non-interactive `grok models` command when a saved refresh token is available, then reread and validate the selected auth record. Without a refresh token, keep using the selected credential until actual expiry. Proactive renewal errors retain a matching identified account's quota younger than 15 minutes as last known data with the error attached; otherwise disconnect. A completed renewal without a usable saved credential disconnects.
+3. 401/403 → renew the rejected auth record through the official CLI when its refresh token is available, reread that record, and retry billing once. Renewal failure or a second 401/403 → disconnected with re-login recovery text. Failed automatic renewal retains a five-minute retry cooldown; a validated renewal or any successful billing response clears it. Manual retry can bypass the cooldown after the active helper exits.
 4. Transient OS errors reuse last-good data when present.
 5. `productUsage` omitted `usagePercent` is 0 (proto3).
 6. Tray and overview use the shared pool percent, not a product row.
