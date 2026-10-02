@@ -471,7 +471,7 @@ function append_unsafe_registration(source: string, registration: string): strin
 }
 
 describe('focus callback source gate', () => {
-  const source = readFileSync(new URL('../src/hooks/use_popover_window.ts', import.meta.url), 'utf8');
+  const source = readFileSync(new URL('../src/hooks/use_popover_window.ts', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 
   it('accepts the real mounted-first callback', () => {
     expect(() => validate_focus_guard(source)).not.toThrow();

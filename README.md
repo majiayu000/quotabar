@@ -7,13 +7,43 @@
   <img src="src-tauri/icons/app-icon.svg" alt="QuotaBar logo" width="128" />
 </p>
 
-QuotaBar is a Tauri v2 menubar app for monitoring Claude Code, Codex, Cursor, Grok Build, and Antigravity usage. It shows live quota windows, per-provider tray indicators, and local cost estimates from on-device logs.
+See which AI coding quota is closest to its limit, when it resets, and where
+your local usage went. QuotaBar combines a tray monitor and desktop analysis
+for Claude Code, Codex, Cursor and Grok Build. Antigravity currently reports
+availability only; quota tracking is pending.
 
 [Website](https://majiayu000.github.io/quotabar/) ·
 [Download installers](https://github.com/majiayu000/quotabar/releases/latest) ·
 [Installation and first run](#install--run) · [Build from source](#development)
 
 Antigravity currently reports provider availability; its quota tracking is pending.
+
+## Download and first run
+
+1. Download the installer for your OS and CPU from
+   [the latest release](https://github.com/majiayu000/quotabar/releases/latest).
+   Normal use does not require Node.js or Rust.
+2. Open QuotaBar and click its tray icon. Sign in through your provider's own
+   application/CLI, then use **Check connection**. QuotaBar reads existing
+   sign-ins and delegates expired Grok session renewal to the installed Grok
+   CLI. Interactive sign-in stays with the provider.
+3. Overview shows remaining quota and reset windows. Open **Usage analysis**
+   for local projects, sessions and history. Unavailable or stale readings stay
+   labeled; API-equivalent values are estimates, not subscription bills.
+
+See the release's installation/signing notes for that exact build. Interface
+scaling is available since v0.5.6. The original Windows 10 / 27-inch 2K case
+still needs confirmation in [GH186](specs/GH186/tasks.md).
+
+## How the projects fit together
+
+[agent-sessions](https://github.com/majiayu000/agent-sessions) reads native
+session records and preserves provenance.
+[ccstats](https://github.com/majiayu000/ccstats) handles local accounting,
+pricing and CLI/SDK/machine interfaces. QuotaBar uses its published SDK and owns
+the tray, desktop analysis, alerts and settings. Install QuotaBar to use the app;
+you do not need to install those libraries or the separate ccstats desktop.
+See [product boundaries](PRODUCT.md) and [delivery status](docs/product/delivery-status.md).
 
 ## Features
 
@@ -133,7 +163,7 @@ animation. Invalid Claude credentials require login before a quota request;
 failed reads wait for a manual recheck, with rate-limit deadlines still applied.
 
 The repositories remain separate. QuotaBar depends on the published ccstats
-0.9.0 SDK from crates.io; Cargo.lock pins the resolved version. Claude/Codex
+0.9.1 SDK from crates.io; Cargo.lock pins the resolved version. Claude/Codex
 parsing is shared through
 agent-sessions. The SDK excludes the independent gpt-reserve pool from subscription
 week estimates while retaining it in general usage, and includes Grok 4.7 pricing.
