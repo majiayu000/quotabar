@@ -13,6 +13,20 @@ supports comparing costs and trends and finding projects and sessions.
 
 ## Confirmed direction
 
+QuotaBar is the primary user-facing application in the usage toolchain:
+tray, desktop analysis, notifications and settings belong here. The repositories
+stay separate. Use the published ccstats SDK for local statistics, deduplication,
+pricing and report contracts; it uses agent-sessions for Claude/Codex native
+parsing and provenance. Do not copy those parsers or price tables into the UI.
+
+Provider quota percentages remain provider-reported, with freshness and failures
+visible. Local API-equivalent usage is a separate measurement, not the account's
+bill or an official quota allowance. Provider auth and quota transport stay here.
+
+The existing ccstats desktop is maintained until its source diagnostics,
+investigation and device workflows have a verified handover. This direction
+does not establish feature parity or authorize removing those workflows.
+
 Use a unified visual language while optimizing each surface for its task.
 Keep desktop analysis fully available. Prefer direct task labels over repeated
 promotional headings. Use consistent quota terminology, service names, status

@@ -5,7 +5,7 @@ All notable QuotaBar changes should be summarized here before a release is cut.
 ## Unreleased
 
 - Let Grok session renewal finish saving credentials after the 20-second request deadline, prevent overlapping helpers, and retain matching-account last-known quota for up to 15 minutes with renewal errors shown. Reap completed helpers before applying the current refresh request’s retry policy.
-
+- Adopt ccstats 0.9.1 for stable model-alias price precedence and lock agent-sessions 0.2.1. SDK-versioned caches discard previous estimates after the upgrade.
 - Make macOS startup scripts target the installed app explicitly. Stage complete bundles before shutdown, wait for exit, and replace rather than merge app contents; propagate stop and install failures.
 - Show a status recheck when Launch at Login cannot be confirmed, instead of claiming the system setting stayed unchanged.
 

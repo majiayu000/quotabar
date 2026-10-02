@@ -10,7 +10,7 @@ Linked issue: https://github.com/majiayu000/quotabar/issues/186
 
 ## Non-Goals
 
-- Font size changes for 27" 2K screens (tracked separately in the same issue).
+- Font size changes for 27" 2K screens are a separate [text-size follow-up](text-size.md) within the same issue.
 - Tray icons collapsed into the Windows overflow flyout (the OS reports the flyout rect).
 
 ## Behavior Invariants

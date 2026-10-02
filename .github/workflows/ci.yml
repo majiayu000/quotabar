@@ -8,8 +8,12 @@ on:
 
 jobs:
   verify:
-    name: Verify
-    runs-on: macos-15
+    name: Verify (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-15, windows-latest]
+    runs-on: ${{ matrix.os }}
 
     steps:
       - name: Check out repository
@@ -45,8 +49,7 @@ jobs:
         run: cargo fmt --manifest-path src-tauri/Cargo.toml --check
 
       - name: Check Rust crate
-        run: cargo check --manifest-path src-tauri/Cargo.toml
+        run: cargo check --locked --manifest-path src-tauri/Cargo.toml
 
       - name: Run Rust tests
-        run: cargo test --manifest-path src-tauri/Cargo.toml
-
+        run: cargo test --locked --manifest-path src-tauri/Cargo.toml
