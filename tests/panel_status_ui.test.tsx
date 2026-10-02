@@ -344,24 +344,32 @@ describe('provider status UI', () => {
     await act(async () => renderer.unmount());
   });
 
-  it('labels connected Grok last-good fallback as stale', async () => {
+  it.each([
+    'Too many open files (os error 24)',
+    'Grok session renewal timed out; waiting for the CLI to finish.',
+    'Grok session renewal is still running; waiting for the CLI to finish.',
+    'Grok session renewal is waiting to retry.',
+  ])('labels connected Grok last-good fallback as stale: %s', async (error) => {
+    const usage = vi.fn();
     vi.spyOn(backend, 'getGrokInfo').mockResolvedValue({
       connected: true,
       percentage: 4,
       products: [],
-      error: 'Too many open files (os error 24)',
+      error,
     });
     let renderer!: ReactTestRenderer;
     await act(async () => {
       renderer = create(createElement(GrokPanel, {
         autoRefreshIntervalMs: 0,
         sections: hiddenSections,
+        onUsageChange: usage,
       }));
       await Promise.resolve();
     });
 
     const text = renderedText(renderer);
-    expect(text).toContain('Too many open files');
+    expect(text).toContain(error);
+    expect(usage).toHaveBeenLastCalledWith(4);
     expect(renderer.root.findAllByProps({ className: 'error-banner' })).toHaveLength(1);
     expect(text).toContain('Showing last known data');
     expect(text).toContain('96%');
