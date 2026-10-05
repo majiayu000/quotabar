@@ -1,7 +1,8 @@
 import { createElement } from 'react';
 import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import OverviewPanel, { AnalysisApp, AnalysisSessionName, analysisCostLabel } from '../src/components/OverviewPanel';
+import OverviewPanel, { AnalysisApp, AnalysisSessionName, analysisCostLabel, dailyInsight } from '../src/components/OverviewPanel';
+import { setLanguagePreference } from '../src/i18n';
 import { backend, type AnalysisReport, type AnalysisSession } from '../src/services/backend';
 import type { CostDailySeries, CostOverview } from '../src/types/models';
 import ActionButtons from '../src/components/ActionButtons';
@@ -105,7 +106,22 @@ function analysisReport(total: number): AnalysisReport {
   return { since: "2026-09-01", until: "2026-09-02", timezone: "UTC", generated_at: "2026-09-02T10:00:00Z", available_models: [], available_projects: [], hourly: [], summaries: [{ source: 'claude', summary: { ...analysisSession.metrics, tokens: { ...analysisSession.metrics.tokens, total_tokens: total }, valid_entries: 1, parse_error_entries: 0, skipped_entries: 0, models: [] } }], projects: [], history: [], errors: [] };
 }
 
+function textOf(node: ReactTestRenderer['root'] | string): string {
+  return typeof node === 'string' ? node : node.children.map((child) => textOf(child as ReactTestRenderer['root'] | string)).join('');
+}
+
 describe('Analysis window', () => {
+  it('renders the overview when the backend reports the local timezone', async () => {
+    vi.stubGlobal('window', { addEventListener: vi.fn(), removeEventListener: vi.fn() });
+    vi.spyOn(backend, 'analysisSource').mockResolvedValue('all');
+    vi.spyOn(backend, 'analysisCatalog').mockResolvedValue({ sources: [], diagnostics: [] });
+    vi.spyOn(backend, 'analysisReport').mockResolvedValue({ ...analysisReport(120), timezone: 'local' });
+    let renderer!: ReactTestRenderer;
+    await act(async () => { renderer = create(createElement(AnalysisApp)); });
+    expect(renderer.root.findByType('main')).toBeDefined();
+    await act(async () => renderer.unmount());
+  });
+
   it('shows real model rows for sources without project support and preserves raw token totals', async () => {
     vi.stubGlobal('window', { addEventListener: vi.fn(), removeEventListener: vi.fn() });
     vi.spyOn(backend, 'analysisSource').mockResolvedValue('codex');
@@ -219,25 +235,71 @@ describe('Analysis window', () => {
     await act(async () => renderer.unmount());
   });
 
-  it('switches workspace theme through its existing owner and drills into a real history day', async () => {
+  it('selects a day in place before explicitly drilling into its history', async () => {
     vi.stubGlobal('window', { addEventListener: vi.fn(), removeEventListener: vi.fn() });
     vi.spyOn(backend, 'analysisSource').mockResolvedValue('claude');
     vi.spyOn(backend, 'analysisCatalog').mockResolvedValue({ sources: [], diagnostics: [] });
     const report = analysisReport(120);
     report.history = [{ source_name: 'claude', display_name: 'Claude', currency: 'USD', points: ['2026-09-01', '2026-09-02'].map((date) => ({ ...analysisSession.metrics, date, cost_status: 'known', records: 1 })) }];
-    vi.spyOn(backend, 'analysisReport').mockResolvedValue(report);
+    const read = vi.spyOn(backend, 'analysisReport').mockResolvedValue(report);
     const changeTheme = vi.fn();
     let renderer!: ReactTestRenderer;
     await act(async () => { renderer = create(createElement(AnalysisApp, { theme: 'light', onThemeChange: changeTheme })); });
     await act(async () => renderer.root.findByProps({ 'aria-label': 'Toggle light / dark theme' }).props.onClick());
     expect(changeTheme).toHaveBeenCalledWith('dark');
-    await act(async () => renderer.root.findByProps({ 'aria-label': '2026-09-02 · 120 Tokens' }).props.onClick());
-    expect(backend.analysisReport).toHaveBeenLastCalledWith('claude', 'last_30_days', { model: null, project: null, since: '2026-09-02', until: '2026-09-02' }, expect.any(AbortSignal), expect.any(Function));
+    expect(renderer.root.findByProps({ 'aria-label': '2026-09-02 usage summary' })).toBeDefined();
+    const initialReads = read.mock.calls.length;
+    await act(async () => renderer.root.findByProps({ 'aria-label': '2026-09-01 · 120 Tokens' }).props.onClick());
+    expect(read).toHaveBeenCalledTimes(initialReads);
+    const summary = renderer.root.findByProps({ 'aria-label': '2026-09-01 usage summary' });
+    expect(textOf(summary)).toContain('Back to latest date');
+    await act(async () => summary.findAllByType('button').find((button) => button.children.includes('View day details →'))!.props.onClick());
+    expect(backend.analysisReport).toHaveBeenLastCalledWith('claude', 'last_30_days', { model: null, project: null, since: '2026-09-01', until: '2026-09-01' }, expect.any(AbortSignal), expect.any(Function));
     expect(renderer.root.findAllByType('tbody')[0].findAllByType('tr')).toHaveLength(1);
-    expect(renderer.root.findAllByType('tbody')[0].findAllByType('td')[0].children[0]).toBe('2026-09-02');
+    expect(renderer.root.findAllByType('tbody')[0].findAllByType('td')[0].children[0]).toBe('2026-09-01');
     await act(async () => renderer.root.findAllByType('button').find((button) => button.children.includes('Clear selected date ×'))!.props.onClick());
     expect(renderer.root.findAllByType('tbody')[0].findAllByType('tr')).toHaveLength(2);
     await act(async () => renderer.unmount());
+  });
+
+  it('keeps partial daily API-equivalent cost distinct from zero spend', () => {
+    const report = analysisReport(120);
+    report.history = [
+      { source_name: 'codex', display_name: 'Codex', currency: 'USD', points: [{ ...analysisSession.metrics, date: '2026-09-02', cost: 1, cost_usd: 1, cost_status: 'known', records: 2 }] },
+      { source_name: 'claude', display_name: 'Claude', currency: 'USD', points: [{ ...analysisSession.metrics, date: '2026-09-02', cost: null, cost_usd: null, cost_status: 'unknown', records: 1 }, { ...analysisSession.metrics, date: '2026-09-01', cost: null, cost_usd: null, cost_status: 'unknown', records: 1 }] },
+    ];
+    const insight = dailyInsight(report, '2026-09-02');
+    expect(insight.costLabel).toBe('≥ $1.00');
+    expect(insight.costStatus).toBe('partial');
+    expect(insight.totalTokens).toBe(240);
+    expect(insight.records).toBe(3);
+    expect(dailyInsight(report, '2026-09-01')).toMatchObject({ costLabel: '—', costStatus: 'unknown', costUsd: null });
+    expect(dailyInsight(report, '2026-08-31')).toMatchObject({ costLabel: '$0.00', costStatus: 'none', totalTokens: 0 });
+  });
+
+  it('renders the daily summary copy in English and Simplified Chinese', async () => {
+    vi.stubGlobal('window', { addEventListener: vi.fn(), removeEventListener: vi.fn() });
+    vi.spyOn(backend, 'analysisSource').mockResolvedValue('all');
+    vi.spyOn(backend, 'analysisCatalog').mockResolvedValue({ sources: [], diagnostics: [] });
+    const report = analysisReport(120);
+    report.history = [
+      { source_name: 'codex', display_name: 'Codex', currency: 'USD', points: [{ ...analysisSession.metrics, date: '2026-09-02', cost: 1, cost_usd: 1, cost_status: 'known', records: 2 }] },
+      { source_name: 'claude', display_name: 'Claude', currency: 'USD', points: [{ ...analysisSession.metrics, date: '2026-09-02', cost: null, cost_usd: null, cost_status: 'unknown', records: 1 }] },
+    ];
+    vi.spyOn(backend, 'analysisReport').mockResolvedValue(report);
+    let renderer!: ReactTestRenderer;
+    try {
+      await act(async () => { renderer = create(createElement(AnalysisApp)); });
+      const en = textOf(renderer.root.findByProps({ 'aria-label': '2026-09-02 usage summary' }));
+      for (const copy of ['API equivalent', '≥ $1.00', '3 records', 'Partially covered', 'Not a subscription bill', 'View day details →']) expect(en).toContain(copy);
+      await act(async () => { setLanguagePreference('zh-CN'); });
+      const zh = textOf(renderer.root.findByProps({ 'aria-label': '2026-09-02 用量摘要' }));
+      for (const copy of ['API 等价', '≥ ', '3 条记录', '部分已覆盖', '不是订阅账单', '查看当天详情 →']) expect(zh).toContain(copy);
+      expect(zh).not.toMatch(/Partially covered|Not a subscription bill/);
+    } finally {
+      await act(async () => { setLanguagePreference('en'); });
+      await act(async () => renderer?.unmount());
+    }
   });
 
   it('saves a private summary through native IPC and reports failed writes', async () => {

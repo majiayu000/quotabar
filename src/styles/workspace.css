@@ -609,6 +609,14 @@
 .analysis-chart > button[aria-pressed="true"] {
   background: var(--a-selected);
 }
+.analysis-chart > button.incomplete::after {
+  position: absolute;
+  right: 2px;
+  bottom: -4px;
+  left: 2px;
+  border-bottom: 2px dashed var(--a-clay);
+  content: "";
+}
 .analysis-chart .analysis-bar {
   height: 100%;
   width: 75%;
@@ -662,6 +670,103 @@
 .workspace-chart-note {
   font-size: 11px !important;
   padding: 0 20px 15px;
+}
+.workspace-daily-insight {
+  margin: 0 20px;
+  padding: 12px 14px 10px;
+  border: 1px solid var(--a-line);
+  border-radius: 7px;
+  background: var(--a-bg);
+}
+.workspace-daily-title,
+.workspace-daily-title > div,
+.workspace-daily-metrics > div,
+.workspace-daily-sources,
+.workspace-daily-sources > span {
+  display: flex;
+}
+.workspace-daily-title,
+.workspace-daily-sources {
+  align-items: center;
+}
+.workspace-daily-title {
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 9px;
+}
+.workspace-daily-title > div {
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 8px;
+}
+.workspace-daily-title small {
+  color: var(--a-text);
+  font-size: 13px;
+  font-weight: 650;
+}
+.workspace-daily-title span,
+.workspace-daily-metrics small,
+.workspace-daily-metrics span,
+.workspace-daily-sources {
+  color: var(--a-muted);
+  font-size: 11px;
+}
+.workspace-daily-title button,
+.workspace-daily-sources button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--a-blue);
+  font-size: 11px;
+  white-space: nowrap;
+}
+.workspace-daily-metrics {
+  display: grid;
+  grid-template-columns: 1.1fr 1fr 1fr;
+  gap: 10px;
+}
+.workspace-daily-metrics > div {
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+.workspace-daily-metrics strong {
+  overflow: hidden;
+  color: var(--a-text);
+  font: 600 18px/1.2 var(--a-num);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.workspace-daily-metrics > div:first-child strong {
+  color: var(--a-teal);
+}
+.workspace-daily-metrics strong.incomplete {
+  color: var(--a-clay);
+  font: 600 13px/1.65 var(--a-font);
+}
+.workspace-daily-sources {
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  margin-top: 9px;
+  padding-top: 8px;
+  border-top: 1px solid var(--a-line);
+}
+.workspace-daily-sources > span {
+  align-items: center;
+  gap: 4px;
+}
+.workspace-daily-sources i {
+  width: 6px;
+  height: 6px;
+  border-radius: 2px;
+}
+.workspace-daily-sources b {
+  color: var(--a-text);
+  font: 500 11px var(--a-num);
+}
+.workspace-daily-sources button {
+  margin-left: auto;
 }
 .workspace-day-filter {
   display: flex;
