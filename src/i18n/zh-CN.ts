@@ -739,4 +739,8 @@ export const zhCN = {
   "Subscription plan prices": "订阅套餐价格",
   "{p0} monthly plan price in USD": "{p0} 每月套餐价格（美元）",
   "Optional. Compares this month's API-equivalent estimate with what you pay; leave blank if unsure. No plan is assumed.": "可选。用于对比本月 API 等价估算与实际支付的价格；不确定时请留空。QuotaBar 不会假定任何套餐。",
+
+  "Estimate: at this pace, runs out ~{p0} (before {p1} reset)": "估算：按当前速度约 {p0} 用完（{p1} 重置之前）",
+  "Estimate: pace OK, resets first ({p0})": "估算：按当前速度可撑到重置（{p0}）",
+  "Est. runs out ~{p0}, before reset": "预计约 {p0} 用完，早于重置",
 } satisfies Record<keyof typeof en, string>;

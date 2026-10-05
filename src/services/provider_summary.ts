@@ -127,7 +127,7 @@ export function buildClaudeQuotaWindows(quota: QuotaData | null): QuotaWindowSum
   ].filter((item): item is QuotaWindowSummary => item !== null);
 }
 
-function codexWindowLabel(minutes?: number): string {
+export function codexWindowLabel(minutes?: number): string {
   if (!minutes) return 'Usage limit';
   if (minutes >= 1440) {
     const days = Math.round(minutes / 1440);

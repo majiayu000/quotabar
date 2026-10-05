@@ -11,6 +11,8 @@ import { getHighUsageTip } from '../services/detail_helpers';
 import { remainingPercent, getRemainingProgressStyle } from '../utils/quota_format';
 import { defaultPanelSections, type PanelSectionVisibility } from '../services/panel_sections';
 import { useLatestRequestGeneration } from '../hooks/use_latest_request_generation';
+import { getQuotaForecast, type QuotaForecastMap } from '../services/quota_forecast';
+import QuotaForecastLine from './QuotaForecastLine';
 
 interface CursorPanelProps {
   onConnectionChange?: (connected: boolean) => void;
@@ -22,6 +24,7 @@ interface CursorPanelProps {
   onReadResult?: (error: string | null) => void;
   showCostSummary?: boolean;
   sections?: PanelSectionVisibility;
+  forecasts?: QuotaForecastMap;
 }
 
 function windowHint(label: string, onDemandEnabled?: boolean): string | undefined {
@@ -69,6 +72,7 @@ export default function CursorPanel({
   onReadResult,
   showCostSummary = true,
   sections = defaultPanelSections(),
+  forecasts,
 }: CursorPanelProps) {
   useLocale();
   const [cursorData, setCursorData] = useState<CursorData | null>(null);
@@ -184,6 +188,7 @@ export default function CursorPanel({
                     {resetLabel && window.label === windows[0]?.label && (
                       <div className="reset-time">{resetLabel}</div>
                     )}
+                    <QuotaForecastLine forecast={getQuotaForecast(forecasts, window)} />
                   </div>
                 );
               })}
@@ -210,6 +215,7 @@ export default function CursorPanel({
                     </div>
                   )}
                   {resetLabel && <div className="reset-time">{resetLabel}</div>}
+                  <QuotaForecastLine forecast={getQuotaForecast(forecasts, { provider: 'cursor', label: 'Usage' })} />
                 </div>
               )}
 
