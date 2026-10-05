@@ -1,35 +1,53 @@
 # Demo Proof
 
-The committed visual proof asset is:
+The committed README screenshots are:
 
 ```text
-docs/assets/quotabar-no-provider-preview.png
+docs/assets/quotabar-demo-tray-overview-light.png   menu bar overview, light, 340x582
+docs/assets/quotabar-demo-tray-overview-dark.png    menu bar overview, dark, 340x582
+docs/assets/quotabar-demo-tray-codex-light.png      Codex provider detail, light, 340x582
+docs/assets/quotabar-demo-workspace-light.png       desktop workspace overview, light, 1280x800
+docs/assets/quotabar-demo-workspace-dark.png        desktop workspace overview, dark, 1280x800
 ```
 
-The current capture was refreshed for QuotaBar `v0.4.0` on 2026-08-31 from
-the production React UI in browser preview at `http://127.0.0.1:1420` with a
-`340x580` viewport.
+All are captured at device scale factor 2.
+
+The current set was captured on 2026-10-05 for QuotaBar `v0.5.9` from a
+production Vite build of the React UI served by `vite preview` and rendered in
+headless Chromium.
 
 Scope:
 
-- It does not run inside the Tauri desktop shell or desktop backend.
-- It captures the default Claude tab browser-preview state, where backend
-  calls are expected to show the unavailable-backend banner.
-- It does not use provider credentials, cookies, sessions, or local auth files.
-- It does not seed or fake provider quota percentages.
-- It should show the popover shell, provider switcher, backend-unavailable
-  banner, and footer action buttons.
-- It is not proof of signed or notarized desktop artifacts.
+- The data is illustrative. `scripts/demo/mock_backend.mjs` replaces the Tauri
+  IPC bridge (`window.__TAURI_INTERNALS__`) with fixed, invented responses for
+  quota, cost and usage-analysis commands. The page clock is pinned to
+  `2026-10-05T09:30:00Z` and the timezone to UTC, so reset countdowns and
+  charts are deterministic.
+- No provider credentials, cookies, sessions, local auth files, account ids,
+  emails or local usage records are read or shown. Project paths and session
+  titles are placeholders.
+- The mock is injected only by the capture script through Playwright
+  `addInitScript`. Nothing under `src/` imports it, so it is not in the
+  application bundle. Check with `npm run build && grep -r "Illustrative demo source" dist`
+  (expect no matches).
+- The Codex "Weekly token capacity" card uses the community reference data
+  bundled with the app (`src/services/codex_weekly_reference.json`), not the
+  mock.
+- It does not run inside the Tauri desktop shell or exercise the Rust backend,
+  native tray icon, provider connectivity, or signed/notarized artifacts.
 - Desktop widget and notification artwork in redesign docs is static preview
   material, not current runtime functionality.
 
-Refresh command:
+Refresh command (requires `npm ci`; Playwright uses its Chromium build, install
+it once with `npx playwright install chromium` if missing):
 
 ```bash
-npm run dev -- --host 127.0.0.1
-npx playwright screenshot --wait-for-timeout=3500 --viewport-size=340,580 http://127.0.0.1:1420 docs/assets/quotabar-no-provider-preview.png
+npm run demo:screenshots
 ```
 
+The script builds the frontend into a temporary directory, serves it on
+`127.0.0.1:1460`, and overwrites the files above. Review the images before
+committing, and keep the README "Demo Proof" date and version in sync.
 
 ## Current landing preview
 
