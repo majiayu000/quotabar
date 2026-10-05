@@ -58,7 +58,9 @@ stale data is dimmed, explicitly marked, and links to recovery. Pending provider
 detection remains visible until it completes.
 
 The overview is intentionally limited to quota readings, reset times and read/recovery
-states. Provider details start directly with quota and usage content, without a
+states. Two quota-derived additions stay inside that scope: a labeled
+before-reset exhaustion estimate under the headline, and at most one headroom
+hint pointing to another fresh account. Provider details start directly with quota and usage content, without a
 repeated account-identity header. Plans, estimates and bonus information remain
 in their respective detail sections.
 

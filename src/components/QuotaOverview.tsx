@@ -8,7 +8,8 @@ import { formatResetTime, getProgressStyle, remainingPercent } from '../utils/qu
 import ProviderIcon from './ProviderIcon';
 import ProviderSetup from './ProviderSetup';
 import { quotaRecovery } from './QuotaRecovery';
-import { formatForecastHeadline, getQuotaForecast, type QuotaForecastMap } from '../services/quota_forecast';
+import { formatForecastClock, formatForecastHeadline, getQuotaForecast, type QuotaForecastMap } from '../services/quota_forecast';
+import { selectHeadroomHint, type HeadroomHint } from '../services/headroom_hint';
 
 function windowName(label: string): string {
   return label === '5h' ? t("5-hour quota") : localizeLabel(label);
@@ -18,6 +19,18 @@ function isWeekly(window: QuotaWindowSummary): boolean {
   return window.label === 'Weekly' || window.label.endsWith('7-day') || window.label === '7-day usage' || window.label === 'Weekly pool';
 }
 
+function headroomText({ constrained, alternative }: HeadroomHint): string {
+  const values = {
+    p0: constrained.providerLabel,
+    p1: windowName(constrained.label),
+    p2: remainingPercent(constrained.usedPercent),
+    p3: alternative.providerLabel,
+    p4: remainingPercent(alternative.usedPercent),
+  };
+  return alternative.resetAtMs != null && alternative.resetAtMs > Date.now()
+    ? t("{p0} {p1}: {p2}% left. {p3} still has {p4}% (resets {p5}).", { ...values, p5: formatForecastClock(alternative.resetAtMs) })
+    : t("{p0} {p1}: {p2}% left. {p3} still has {p4}%.", values);
+}
 
 export default function QuotaOverview({ summaries, windows, forecasts, display, onProviderSelect, onRefresh, onSettings }: {
   summaries: ProviderSummary[];
@@ -36,7 +49,9 @@ export default function QuotaOverview({ summaries, windows, forecasts, display, 
     return () => clearInterval(timer);
   }, []);
   const caption = t("Remaining");
+  const headroom = selectHeadroomHint(summaries, windows, forecasts);
   return <div className="quota-overview" aria-label={t("Account quota overview")}>
+    {headroom && <p className="quota-headroom-hint" role="status">{headroomText(headroom)}</p>}
     {summaries.map((summary) => {
       const providerWindows = windows.filter((window) => window.provider === summary.id && Number.isFinite(window.usedPercent));
       // Visibility never changes which limit is most constrained.

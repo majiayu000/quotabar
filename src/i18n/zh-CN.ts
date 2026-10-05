@@ -743,4 +743,6 @@ export const zhCN = {
   "Estimate: at this pace, runs out ~{p0} (before {p1} reset)": "估算：按当前速度约 {p0} 用完（{p1} 重置之前）",
   "Estimate: pace OK, resets first ({p0})": "估算：按当前速度可撑到重置（{p0}）",
   "Est. runs out ~{p0}, before reset": "预计约 {p0} 用完，早于重置",
+  "{p0} {p1}: {p2}% left. {p3} still has {p4}% (resets {p5}).": "{p0} {p1}剩 {p2}%；{p3} 还剩 {p4}%（{p5} 重置）",
+  "{p0} {p1}: {p2}% left. {p3} still has {p4}%.": "{p0} {p1}剩 {p2}%；{p3} 还剩 {p4}%",
 } satisfies Record<keyof typeof en, string>;
