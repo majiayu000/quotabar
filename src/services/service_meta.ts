@@ -10,9 +10,12 @@ export interface ServiceMeta {
   connectedHint?: string;
   disconnectedHint: string;
   setupHint: string;
+  /** Provider code stays, but it is left out of every user-facing list and tray. */
+  hidden?: boolean;
 }
 
-export const SERVICES: TrayServiceName[] = ['claude', 'codex', 'cursor', 'grok', 'antigravity'];
+/** Every provider the code knows about, including hidden ones. Use for complete state maps. */
+export const ALL_SERVICES: TrayServiceName[] = ['claude', 'codex', 'cursor', 'grok', 'antigravity'];
 
 export const SERVICE_META: Record<TrayServiceName, ServiceMeta> = {
   claude: {
@@ -65,5 +68,15 @@ export const SERVICE_META: Record<TrayServiceName, ServiceMeta> = {
     accent: '#0A84FF',
     connectedHint: 'Preview',
     disconnectedHint: 'Quota tracking pending - see panel',
+    // Hidden until real quota tracking exists; it would only ever show a placeholder.
+    hidden: true,
   },
 };
+
+/** Providers shown to users: switcher, overview, settings, favorites and trays. */
+export const SERVICES: TrayServiceName[] = ALL_SERVICES.filter((service) => !SERVICE_META[service].hidden);
+
+/** True for a known provider id that is currently hidden, so stale saved preferences can be ignored. */
+export function isHiddenService(value: unknown): boolean {
+  return ALL_SERVICES.includes(value as TrayServiceName) && !SERVICES.includes(value as TrayServiceName);
+}

@@ -28,7 +28,7 @@ describe('planProviderPreset', () => {
       codex: true,
       cursor: true,
       grok: true,
-      antigravity: true,
+      antigravity: false,
     });
     expect(plan.trays).toEqual(currentTrays);
   });

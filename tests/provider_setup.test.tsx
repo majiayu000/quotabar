@@ -32,7 +32,7 @@ describe('first connection', () => {
     expect(html).toContain('codex login');
     expect(html).toContain('grok login');
     expect(html).toContain('Open Cursor');
-    expect(html).toContain('Coming later');
+    expect(html).not.toContain('Antigravity');
     expect(html).toContain('does not manage your login');
   });
 
