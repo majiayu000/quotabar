@@ -784,5 +784,5 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
       </div>
     </div>
   );
-  return workspace ? <AnalysisApp visible={windowVisible} onRefreshProvider={handleProviderRefresh} providerContent={content} providerView={activeView} theme={theme} summaries={providerSummaries} quotaWindows={allQuotaWindows} onProviderView={setActiveView} onThemeChange={handleThemeChange} /> : content;
+  return workspace ? <AnalysisApp visible={windowVisible} onRefreshProvider={handleProviderRefresh} providerContent={content} providerView={activeView} theme={theme} summaries={providerSummaries} quotaWindows={allQuotaWindows} onProviderView={setActiveView} onOpenSettingsPage={setSettingsPage} onThemeChange={handleThemeChange} /> : content;
 }

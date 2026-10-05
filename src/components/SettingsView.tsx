@@ -25,6 +25,8 @@ import {
   type NotificationSettings,
 } from '../services/notifications';
 import type { CostSource } from '../types/models';
+import { PLAN_PRICE_PROVIDERS, withPlanPrice } from '../services/plan_prices';
+import { usePlanPrices } from '../hooks/use_plan_prices';
 import {
   PANEL_SECTION_ORDER,
   type PanelSectionKey,
@@ -100,6 +102,7 @@ export default function SettingsView({
   const language = useLanguagePreference();
   const [tab, setTab] = useState(initialPage);
     const [budgets, setBudgets] = useState<MonthlyBudgets>(getSavedMonthlyBudgets);
+  const [planPrices, setPlanPrices] = usePlanPrices();
   const [launchAtLogin, setLaunchAtLogin] = useState<boolean | null>(null);
   const [autostartError, setAutostartError] = useState<string | null>(null);
   const [autostartBusy, setAutostartBusy] = useState(true);
@@ -360,6 +363,28 @@ export default function SettingsView({
         )}
 
         <div className="settings-hint">{t("Hidden panel providers still refresh in the background.")}</div>
+        <details className="settings-disclosure" open={Object.keys(planPrices).length > 0 ? true : undefined}>
+          <summary>{t("Subscription plan prices")}</summary>
+          {PLAN_PRICE_PROVIDERS.map((provider) => (
+            <label className="settings-line" key={provider}>
+              <span>{SERVICE_META[provider].label}</span>
+              <span className="budget-input-wrap">
+                $
+                <input
+                  className="budget-input"
+                  type="number"
+                  min="0"
+                  step="1"
+                  placeholder={t("none")}
+                  value={planPrices[provider] ?? ''}
+                  onChange={(event) => setPlanPrices(withPlanPrice(planPrices, provider, event.target.value))}
+                  aria-label={t("{p0} monthly plan price in USD", { p0: SERVICE_META[provider].label })}
+                />
+              </span>
+            </label>
+          ))}
+          <div className="settings-hint">{t("Optional. Compares this month's API-equivalent estimate with what you pay; leave blank if unsure. No plan is assumed.")}</div>
+        </details>
       </section>
 
       <section className="settings-group" hidden={tab !== 'display'} aria-labelledby="settings-sections-title">

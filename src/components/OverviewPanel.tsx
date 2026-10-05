@@ -22,6 +22,9 @@ import QuotaRecovery, { quotaRecovery, useQuotaCooldown } from './QuotaRecovery'
 import ResetTimeline from './ResetTimeline';
 import { calendarDays, HourlyPlot, PeriodComparison, TokenComposition, UsageActivity } from './UsageExtras';
 import { defaultPanelSections, type PanelSectionVisibility } from '../services/panel_sections';
+import { SubscriptionValueSection, useSubscriptionValueReport, valuePeriodLabel, type ValueMonth } from './SubscriptionValue';
+import { usePlanPrices } from '../hooks/use_plan_prices';
+import { buildValueExport, renderValueCardSvg, subscriptionValueRows } from '../services/subscription_value';
 
 // Log-backed CostSource values only. Grok and Antigravity are not merged here.
 const ALL_COST_SOURCES = ['claude', 'codex', 'cursor'] as const;
@@ -296,8 +299,9 @@ export function AnalysisLoading({ progress }: { progress: string }) {
   </div>;
 }
 
-export function AnalysisApp({ visible = true, providerContent, providerView, theme: workspaceTheme, summaries = [], quotaWindows = [], onProviderView, onThemeChange, onRefreshProvider }: {
+export function AnalysisApp({ visible = true, providerContent, providerView, theme: workspaceTheme, summaries = [], quotaWindows = [], onProviderView, onThemeChange, onRefreshProvider, onOpenSettingsPage }: {
   onRefreshProvider?: (provider: TrayServiceName) => void;
+  onOpenSettingsPage?: (page: 'display' | 'accounts') => void;
   providerContent?: ReactNode; providerView?: AppViewName; theme?: ThemeName;
   visible?: boolean;
   summaries?: ProviderSummary[]; quotaWindows?: QuotaWindowSummary[]; onProviderView?: (view: AppViewName) => void; onThemeChange?: (theme: ThemeName) => void;
@@ -322,6 +326,9 @@ export function AnalysisApp({ visible = true, providerContent, providerView, the
   const [overviewDate, setOverviewDate] = useState<string | null>(null);
   const [shareOpen, setShareOpen] = useState(false);
   const [hideSource, setHideSource] = useState(false);
+  const [shareKind, setShareKind] = useState<'usage' | 'value'>('usage');
+  const [valueMonth, setValueMonth] = useState<ValueMonth>('current');
+  const [planPrices] = usePlanPrices();
   const [savedExport, setSavedExport] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
   const shareDialog = useRef<HTMLDialogElement>(null);
@@ -415,6 +422,8 @@ export function AnalysisApp({ visible = true, providerContent, providerView, the
     const interval = window.setInterval(() => { if (!document.hidden && loadingKey === null) setRefresh((value) => value + 1); }, 60_000);
     return () => window.clearInterval(interval);
   }, [visible, providerPage, view, loadingKey]);
+  // Read the calendar-month value report after the main scan settles so the two scans do not compete.
+  const valueState = useSubscriptionValueReport(valueMonth, refresh, visible && loadingKey === null && !!(report || error) && (view === 'overview' || shareOpen && shareKind === 'value'));
   const sourceLabel = source === 'all' ? t("All available sources") : catalog?.sources.find((item) => item.name === source)?.display_name ?? source ?? t("Waiting to connect");
   const tokens = report?.summaries.reduce((sum, row) => sum + row.summary.tokens.total_tokens, 0) ?? 0;
   const costs = report?.summaries.map((row) => row.summary.cost_usd) ?? [];
@@ -442,6 +451,18 @@ export function AnalysisApp({ visible = true, providerContent, providerView, the
     finally { setExporting(false); }
   }
 
+  async function exportValue(format: 'json' | 'svg') {
+    const valueReport = valueState.report;
+    if (!valueReport || exporting) return;
+    setExporting(true); setSavedExport(null); setActionError(null);
+    try {
+      const data = buildValueExport(valueReport, subscriptionValueRows(valueReport, planPrices), { hideSource, monthToDate: valueMonth === 'current' });
+      const path = format === 'svg' ? await backend.saveAnalysisCard(renderValueCardSvg(data)) : await backend.saveAnalysisSummary(data as unknown as Record<string, unknown>, 'json');
+      setSavedExport(path);
+    } catch (reason) { setActionError(message("Could not save summary: {p0}", { p0: String(reason) })); setShareOpen(false); }
+    finally { setExporting(false); }
+  }
+
   const records = report?.summaries.reduce((sum, row) => sum + row.summary.valid_entries, 0) ?? 0;
   const readySources = catalog?.diagnostics.filter((item) => item.status !== 'missing') ?? [];
   const modelOptions = report?.available_models ?? [];
@@ -455,7 +476,7 @@ export function AnalysisApp({ visible = true, providerContent, providerView, the
       <div className="workspace-source-nav"><small className="analysis-nav-label">{t("Record sources")}<span>{readySources.length}</span></small><button aria-pressed={source === 'all'} onClick={() => { chooseSource('all'); navigate('overview'); }}><WorkspaceIcon name="sources" />{t("All sources")}</button>{readySources.map((item) => <button key={item.name} aria-pressed={source === item.name} onClick={() => { chooseSource(item.name); navigate('overview'); }}><span className="workspace-source-glyph"><SourceIcon source={item.name} /></span>{item.display_name}</button>)}</div>
       <div className="analysis-management"><nav aria-label={t("Management navigation")}>{ANALYSIS_VIEWS().filter(([value]) => value === 'sources' || value === 'settings').map(([value, label]) => <button key={value} title={label} aria-current={view === value ? 'page' : undefined} onClick={() => navigate(value)}><WorkspaceIcon name={value} />{label}</button>)}</nav><div className="analysis-local"><WorkspaceIcon name="shield" /><span>{t("Local workspace")}<small>{t("Local records read automatically")}</small></span></div></div>
     </aside>
-    <main><header className="workspace-topbar"><div className="workspace-location"><WorkspaceIcon name={view} /><h1>{title}</h1></div><div><button aria-label={t("Open menu bar panel")} title={t("Open menu bar panel")} onClick={() => void backend.openQuotaPopover().catch((reason) => setActionError(message("Could not open menu bar panel: {p0}", { p0: String(reason) })))}><WorkspaceIcon name="quota" /><span>{t("Menu bar")}</span></button><button aria-label={t("Toggle light / dark theme")} title={dark ? t("Switch to light appearance") : t("Switch to dark appearance")} onClick={changeTheme}><WorkspaceIcon name="theme" /></button>{!providerPage && view !== 'sources' && <button disabled={!report} onClick={() => { setSavedExport(null); setShareOpen(true); }}><WorkspaceIcon name="share" />{t("Export summary")}</button>}</div></header>
+    <main><header className="workspace-topbar"><div className="workspace-location"><WorkspaceIcon name={view} /><h1>{title}</h1></div><div><button aria-label={t("Open menu bar panel")} title={t("Open menu bar panel")} onClick={() => void backend.openQuotaPopover().catch((reason) => setActionError(message("Could not open menu bar panel: {p0}", { p0: String(reason) })))}><WorkspaceIcon name="quota" /><span>{t("Menu bar")}</span></button><button aria-label={t("Toggle light / dark theme")} title={dark ? t("Switch to light appearance") : t("Switch to dark appearance")} onClick={changeTheme}><WorkspaceIcon name="theme" /></button>{!providerPage && view !== 'sources' && <button disabled={!report && !valueState.report} onClick={() => { setSavedExport(null); if (!report) setShareKind('value'); setShareOpen(true); }}><WorkspaceIcon name="share" />{t("Export summary")}</button>}</div></header>
     <div className="analysis-content" ref={contentRef}>
     {view === 'overview' && <div className="workspace-page-heading"><div><h2>{t("Usage and cost")}</h2></div><p>{report ? `${report.since} — ${report.until}` : rangeLabel}<br />{sourceLabel}</p></div>}
     <div className="analysis-toolbar" hidden={providerPage || view === 'sources'}>
@@ -478,6 +499,7 @@ export function AnalysisApp({ visible = true, providerContent, providerView, the
           {view === 'usage' ? <><div className="analysis-list-toolbar"><div className="analysis-ranges" aria-label={t("Usage grouping")}><button aria-pressed={grouping === 'session'} onClick={() => { setGrouping('session'); setSearch(''); }}>{t("Sessions")}</button><button aria-pressed={grouping === 'project'} onClick={() => { setGrouping('project'); setSearch(''); }}>{t("Projects and sessions")}</button><button aria-pressed={grouping === 'model'} onClick={() => { setGrouping('model'); setSearch(''); }}>{t("Models")}</button></div><input aria-label={t("Search usage")} placeholder={t("Search names or sources…")} value={search} onChange={(event) => setSearch(event.target.value)} /></div>{grouping === 'session' ? <SessionLedger key={key} report={report} search={search} /> : grouping === 'project' ? <AnalysisProjects key={key} report={report} catalog={catalog} search={search} /> : <AnalysisModels report={report} search={search} />}<details className="workspace-supplement"><summary>{t("View token composition")}</summary><TokenComposition report={report} /></details></> : <>
             <div className={view === 'overview' ? 'workspace-overview-grid' : undefined}><AnalysisHistory report={report} compact={view === 'overview'} selectedDate={view === 'overview' ? overviewDate : selectedDate} onSelectDate={view === 'overview' ? setOverviewDate : setSelectedDate} onExploreDate={(date) => { setSelectedDate(date); setView('history'); }} />{view === 'overview' && <CurrentQuotaRail summaries={summaries} windows={quotaWindows} onAll={() => navigate('quota')} onSelect={(provider) => { setView('quota'); onProviderView?.(provider); }} />}</div>
             {view === 'history' && <><PeriodComparison key={key} report={report} source={source!} query={query} /><UsageActivity report={report} onDate={(date) => setSelectedDate(date)} /><details className="workspace-supplement"><summary>{t("View token composition")}</summary><TokenComposition report={report} /></details><SessionLedger key={key} report={report} /></>}
+            {view === 'overview' && <SubscriptionValueSection month={valueMonth} onMonthChange={setValueMonth} state={valueState} prices={planPrices} onSetPrices={() => { onOpenSettingsPage?.('accounts'); navigate('settings'); }} />}
             {view === 'overview' && <SessionLedger report={report} compact onExplore={() => { setGrouping('session'); navigate('usage'); }} />}
             {view === 'overview' && <section className="analysis-section"><header><h2>{t("Sources and models")}</h2><button onClick={() => setView('usage')}>{t("View projects and sessions →")}</button></header><div className="analysis-table-wrap"><table><thead><tr><th>{t("Source / model")}</th><th>Tokens</th><th>{t("Cost reference")}</th><th>{t("Basis")}</th></tr></thead><tbody>{report.summaries.map(({ source: name, summary }) => <tr key={name}><td><button className="analysis-text-button" onClick={() => { setSource(name); setView('usage'); }}>{catalog?.sources.find((item) => item.name === name)?.display_name ?? name}</button><small>{summary.models.map((model) => model.model).join(' · ') || t("No usage in this range")}</small></td><td>{number(summary.tokens.total_tokens)}</td><td>{analysisCostLabel(summary)}</td><td>{localizeLabel(summary.cost_kind)}<small>{localizeLabel(summary.pricing_source)}</small></td></tr>)}</tbody></table></div>{report.summaries.length === 0 && <p className="analysis-empty">{t("No records found. Check data sources first.")}</p>}</section>}
           </>}
@@ -485,7 +507,19 @@ export function AnalysisApp({ visible = true, providerContent, providerView, the
       </>}
     </div><footer className="analysis-footer"><span>{malformedRecords > 0 ? <span className="workspace-quality" role="alert"><button onClick={() => setInfo('quality')}>{t("Incomplete records ·")}{" "}{number(malformedRecords)} {t("parse failures; view details ↗")}</button></span> : t("Local statistics")}</span><span>{report ? t("Last read {p0} · {p1}", { p0: new Date(report.generated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), p1: report.timezone }) : rangeLabel} {t("· Quota is independent of historical usage")}</span></footer></main>
     <dialog ref={infoDialog} className="workspace-dialog" aria-label={t("About the data")} onCancel={() => setInfo(null)}><button className="workspace-close" aria-label={t("Close data explanation")} onClick={() => setInfo(null)}>×</button><span className="workspace-eyebrow">{t("About the data")}</span><h2>{info === 'quality' ? t("Record completeness") : t("What do these numbers mean?")}</h2>{info === 'quality' ? <><p>{t("Some records could not be parsed, so usage may be incomplete. Check and fix the source records, then refresh.")}</p>{report?.summaries.filter((row) => row.summary.parse_error_entries > 0).map((row) => <p key={row.source}>{row.source} · {number(row.summary.parse_error_entries)} {t("parse failures")}</p>)}<button className="workspace-primary" onClick={() => { setInfo(null); navigate('sources'); }}>{t("View data sources")}</button></> : <><p>{t("Token totals use source-reported values without counting reasoning or cache subtotals twice.")}</p><p>{t("API-equivalent estimates express the reference value of usage, not subscription bills. ≈ means reference pricing, ≥ means the known portion, and — means no price is available.")}</p><p>{t("Cache hit rate includes sources with cache statistics and is weighted by input volume.")}</p><p>{t("Parsed records count successfully read usage entries, not sessions or hours worked.")}</p></>}</dialog>
-    <dialog ref={shareDialog} className="workspace-dialog" aria-label={t("Usage summary")} onCancel={() => setShareOpen(false)}><button className="workspace-close" aria-label={t("Close summary")} onClick={() => setShareOpen(false)}>×</button><span className="workspace-eyebrow">{t("Export preview")}</span><h2>{t("Your usage summary")}</h2><p>{t("Saved locally without publishing. Summaries exclude session titles, project paths and account details.")}</p><div className="workspace-share-card"><b>QuotaBar</b><strong>{compactNumber(tokens)} <small>Tokens</small></strong><p>{rangeLabel} {t("· Selected dates")}</p>{!hideSource && <p>{sourceLabel}</p>}<p>{partialCost ? '≥ ' : estimatedCost ? '≈ ' : ''}{money(knownCosts.length ? knownCosts.reduce((sum, value) => sum + value, 0) : null)} {t("· Cost reference")}</p><small>{partialCost || incompleteData ? t("Incomplete data · ") : ''}{t("API-equivalent estimates are not subscription bills")}</small></div><label><input type="checkbox" checked={hideSource} onChange={(event) => setHideSource(event.target.checked)} /> {t("Hide source names")}</label><button className="workspace-primary" disabled={exporting} onClick={() => void exportSummary()}>{exporting ? t("Saving…") : t("Save JSON to Downloads")}</button><button disabled={exporting || !report?.since || !report?.until} onClick={() => void exportSummary('svg')}>{t("Save image card (SVG)")}</button>{savedExport && <p role="status" className="analysis-path">{t("Saved:")}{" "}{savedExport}</p>}</dialog>
+    <dialog ref={shareDialog} className="workspace-dialog" aria-label={t("Usage summary")} onCancel={() => setShareOpen(false)}><button className="workspace-close" aria-label={t("Close summary")} onClick={() => setShareOpen(false)}>×</button><span className="workspace-eyebrow">{t("Export preview")}</span><h2>{shareKind === 'value' ? t("Your subscription value") : t("Your usage summary")}</h2><p>{t("Saved locally without publishing. Summaries exclude session titles, project paths and account details.")}</p>
+      <div className="analysis-ranges workspace-share-kind" aria-label={t("Summary type")}><button aria-pressed={shareKind === 'usage'} disabled={!report} onClick={() => { setShareKind('usage'); setSavedExport(null); }}>{t("Usage summary")}</button><button aria-pressed={shareKind === 'value'} onClick={() => { setShareKind('value'); setSavedExport(null); }}>{t("Subscription value")}</button></div>
+      {shareKind === 'usage' ? <>
+        <div className="workspace-share-card"><b>QuotaBar</b><strong>{compactNumber(tokens)} <small>Tokens</small></strong><p>{rangeLabel} {t("· Selected dates")}</p>{!hideSource && <p>{sourceLabel}</p>}<p>{partialCost ? '≥ ' : estimatedCost ? '≈ ' : ''}{money(knownCosts.length ? knownCosts.reduce((sum, value) => sum + value, 0) : null)} {t("· Cost reference")}</p><small>{partialCost || incompleteData ? t("Incomplete data · ") : ''}{t("API-equivalent estimates are not subscription bills")}</small></div>
+        <label><input type="checkbox" checked={hideSource} onChange={(event) => setHideSource(event.target.checked)} /> {t("Hide source names")}</label><button className="workspace-primary" disabled={exporting || !report} onClick={() => void exportSummary()}>{exporting ? t("Saving…") : t("Save JSON to Downloads")}</button><button disabled={exporting || !report?.since || !report?.until} onClick={() => void exportSummary('svg')}>{t("Save image card (SVG)")}</button>
+      </> : <>
+        {valueState.report ? (() => {
+          const preview = buildValueExport(valueState.report, subscriptionValueRows(valueState.report, planPrices), { hideSource, monthToDate: valueMonth === 'current' });
+          return <div className="workspace-share-card"><b>QuotaBar</b><strong>{preview.totals.basis === 'priced_plans' ? preview.totals.multiple_label : preview.totals.value_label}</strong><p>{valuePeriodLabel(valueState.report, valueMonth)}</p><p>{preview.totals.basis === 'priced_plans' ? t("{p0} of API-equivalent usage from {p1} / month in plans", { p0: preview.totals.value_label, p1: preview.totals.plan_price_label }) : t("API-equivalent usage · Add plan prices in QuotaBar to see the multiple")}</p>{preview.providers?.map((row) => <p key={row.provider}>{row.name} · {row.value_label} · {row.multiple_label}</p>)}<small>{preview.note}</small></div>;
+        })() : <p role="status">{valueState.error ? t("Could not read this month's local usage: {p0}", { p0: valueState.error }) : t("Reading local usage for this month…")}</p>}
+        <label><input type="checkbox" checked={hideSource} onChange={(event) => setHideSource(event.target.checked)} /> {t("Hide source names")}</label><button className="workspace-primary" disabled={exporting || !valueState.report} onClick={() => void exportValue('json')}>{exporting ? t("Saving…") : t("Save JSON to Downloads")}</button><button disabled={exporting || !valueState.report?.since} onClick={() => void exportValue('svg')}>{t("Save image card (SVG)")}</button>
+      </>}
+      {savedExport && <p role="status" className="analysis-path">{t("Saved:")}{" "}{savedExport}</p>}</dialog>
   </div>;
 }
 

@@ -51,6 +51,7 @@ pub fn run() {
             commands::cached_analysis_report,
             commands::cancel_analysis,
             commands::save_analysis_summary,
+            commands::save_analysis_card,
             commands::get_quota,
             commands::get_codex_info,
             commands::get_codex_rate_limits,

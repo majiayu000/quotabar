@@ -55,6 +55,7 @@ See [product boundaries](PRODUCT.md) and [delivery status](docs/product/delivery
 - Grok quota: SuperGrok weekly (or monthly) credits pool, product mix for Build/Chat/Imagine/Voice/API, extra credits, and an API-equivalent value estimate from ccstats' durable inference ledger.
 - Antigravity: hidden from the switcher, overview, settings, favorites and menu bar until quota tracking exists. Saved preferences that mention it are ignored.
 - Local cost tracking: today, week, and month estimates for Claude Code, Codex, and Cursor.
+- Subscription value: optional monthly plan prices (Settings → Accounts, empty by default) let the desktop workspace compare this or last calendar month's local API-equivalent estimate with what you pay per Claude, Codex, Cursor and Grok plan, as a value multiple. Incomplete pricing shows `≥`, estimates `≈`, unavailable values `—`; GPT-Reserve complimentary usage is excluded from Codex. Export it as JSON or a light SVG share card; hiding source names leaves only combined totals. It is an estimate from local logs, not a bill.
 - Per-provider tray icons: independent menu bar indicators for supported providers.
 - Tray controls: enable or hide each tray while keeping at least one entry point.
 - Settings view: Display / Alerts / Accounts pages, with quota display preferences, theme, macOS Hide Dock, Launch at Login, All / single-service presets, and per-provider tray controls. Launch at Login uses the OS login item rather than a local storage key.

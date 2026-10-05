@@ -15,14 +15,22 @@ fn write_analysis_summary(
     summary: &serde_json::Value,
     format: &str,
 ) -> Result<String, String> {
-    use std::io::Write;
     let content = match format {
         "json" => serde_json::to_vec_pretty(summary).map_err(|e| e.to_string())?,
         "svg" => analysis_summary_svg(summary)?.into_bytes(),
         _ => return Err(format!("不支持的摘要格式：{format}")),
     };
+    write_export_file(directory, format, &content)
+}
+
+fn write_export_file(
+    directory: &std::path::Path,
+    extension: &str,
+    content: &[u8],
+) -> Result<String, String> {
+    use std::io::Write;
     let path = directory.join(format!(
-        "QuotaBar-{}.{format}",
+        "QuotaBar-{}.{extension}",
         chrono::Local::now().format("%Y%m%d-%H%M%S-%f")
     ));
     let mut file = std::fs::OpenOptions::new()
@@ -30,7 +38,7 @@ fn write_analysis_summary(
         .create_new(true)
         .open(&path)
         .map_err(|e| format!("无法创建摘要文件：{e}"))?;
-    file.write_all(&content)
+    file.write_all(content)
         .and_then(|_| file.sync_all())
         .map_err(|e| format!("摘要写入失败：{e}"))?;
     Ok(path.to_string_lossy().into_owned())
@@ -71,6 +79,57 @@ fn analysis_summary_svg(summary: &serde_json::Value) -> Result<String, String> {
         escape(cost),
         escape(source)
     ))
+}
+
+/// Share cards are rendered by the localized frontend. Accept only a static,
+/// self-contained SVG so a saved card cannot carry scripts or external links.
+fn validate_share_card(svg: &str) -> Result<(), String> {
+    const MAX_CARD_BYTES: usize = 256 * 1024;
+    if svg.len() > MAX_CARD_BYTES {
+        return Err("分享卡片过大".to_string());
+    }
+    if !svg.starts_with("<svg xmlns=\"http://www.w3.org/2000/svg\"") || !svg.ends_with("</svg>") {
+        return Err("分享卡片不是有效的 SVG".to_string());
+    }
+    let lower = svg.to_ascii_lowercase();
+    let forbidden = [
+        "<script",
+        "<foreignobject",
+        "<image",
+        "<use",
+        "<!",
+        "<?",
+        "href",
+        "javascript:",
+        "url(",
+    ];
+    if forbidden.iter().any(|needle| lower.contains(needle)) {
+        return Err("分享卡片包含不允许的内容".to_string());
+    }
+    let bytes = lower.as_bytes();
+    let has_event_handler = lower.match_indices(" on").any(|(index, _)| {
+        let rest = &bytes[index + 3..];
+        let name = rest
+            .iter()
+            .take_while(|byte| byte.is_ascii_alphabetic())
+            .count();
+        name > 0 && rest.get(name) == Some(&b'=')
+    });
+    if has_event_handler {
+        return Err("分享卡片包含不允许的内容".to_string());
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn save_analysis_card(svg: String) -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        validate_share_card(&svg)?;
+        let directory = dirs::download_dir().ok_or("无法找到下载文件夹")?;
+        write_export_file(&directory, "svg", svg.as_bytes())
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
@@ -604,6 +663,35 @@ mod analysis_tests {
         assert!(!card.contains("PRIVATE"));
         assert!(card.contains("不代表订阅账单"));
         assert!(analysis_summary_svg(&serde_json::json!({})).is_err());
+    }
+
+    #[test]
+    fn share_card_accepts_static_svg_and_rejects_active_content() {
+        let card = r#"<svg xmlns="http://www.w3.org/2000/svg" width="960" height="540"><text x="1" y="2">Codex on track &amp; 6.4×</text></svg>"#;
+        assert!(validate_share_card(card).is_ok());
+        for bad in [
+            r#"<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>"#,
+            r#"<svg xmlns="http://www.w3.org/2000/svg"><rect onload="x()"/></svg>"#,
+            r#"<svg xmlns="http://www.w3.org/2000/svg"><a href="https://example.com">x</a></svg>"#,
+            r#"<svg xmlns="http://www.w3.org/2000/svg"><foreignObject/></svg>"#,
+            r#"<?xml version="1.0"?><svg xmlns="http://www.w3.org/2000/svg"></svg>"#,
+            "<html></html>",
+        ] {
+            assert!(validate_share_card(bad).is_err(), "{bad}");
+        }
+        let directory = std::env::temp_dir().join(format!(
+            "quotabar-card-{}-{}",
+            std::process::id(),
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        fs::create_dir_all(&directory).unwrap();
+        let path = write_export_file(&directory, "svg", card.as_bytes()).unwrap();
+        assert!(path.ends_with(".svg"));
+        assert_eq!(fs::read_to_string(&path).unwrap(), card);
+        fs::remove_dir_all(directory).unwrap();
     }
 
     #[test]
