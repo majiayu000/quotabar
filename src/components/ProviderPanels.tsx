@@ -8,11 +8,13 @@ import type { AppViewName, QuotaWindowSummary } from '../services/provider_summa
 import type { PanelSectionVisibility } from '../services/panel_sections';
 import { SERVICE_META } from '../services/service_meta';
 
+import type { QuotaForecastMap } from '../services/quota_forecast';
+
 /** Keep polling owners mounted while navigating between the overview and details. */
 export default function ProviderPanels({
   activeView, workspace, windowVisible, trayEnabled, refreshNonces, sections,
   connectionSetters, usageSetters, loadingSetters, quotaWindowSetters, readResultSetters,
-  onBonusExpiring, onBonusReadyChange, onOpenDashboard,
+  onBonusExpiring, onBonusReadyChange, onOpenDashboard, forecasts,
 }: {
   activeView: AppViewName;
   workspace: boolean;
@@ -28,6 +30,7 @@ export default function ProviderPanels({
   onBonusExpiring: ComponentProps<typeof CodexPanel>['onBonusExpiring'];
   onBonusReadyChange: ComponentProps<typeof CodexPanel>['onBonusReadyChange'];
   onOpenDashboard: () => void;
+  forecasts?: QuotaForecastMap;
 }) {
   function props(service: 'codex' | 'cursor' | 'grok') {
     return {
@@ -39,6 +42,7 @@ export default function ProviderPanels({
       manualRefreshNonce: refreshNonces[service],
       autoRefreshIntervalMs: workspace ? windowVisible ? AUTO_REFRESH_INTERVAL_MS : 0 : providerRefreshIntervalMs(windowVisible, trayEnabled[service]),
       sections,
+      forecasts,
     };
   }
   return <>

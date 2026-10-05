@@ -737,4 +737,8 @@ export const en = {
   "Subscription plan prices": "Subscription plan prices",
   "{p0} monthly plan price in USD": "{p0} monthly plan price in USD",
   "Optional. Compares this month's API-equivalent estimate with what you pay; leave blank if unsure. No plan is assumed.": "Optional. Compares this month's API-equivalent estimate with what you pay; leave blank if unsure. No plan is assumed.",
+
+  "Estimate: at this pace, runs out ~{p0} (before {p1} reset)": "Estimate: at this pace, runs out ~{p0} (before {p1} reset)",
+  "Estimate: pace OK, resets first ({p0})": "Estimate: pace OK, resets first ({p0})",
+  "Est. runs out ~{p0}, before reset": "Est. runs out ~{p0}, before reset",
 } as const;

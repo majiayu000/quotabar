@@ -12,6 +12,8 @@ import { formatResetTime, getProgressStyle, getRemainingProgressStyle, remaining
 import { defaultPanelSections, type PanelSectionVisibility } from '../services/panel_sections';
 import { useLatestRequestGeneration } from '../hooks/use_latest_request_generation';
 import { validateGrokValueEstimate, grokCoverageLabel } from '../services/grok_value_estimate';
+import { getQuotaForecast, type QuotaForecastMap } from '../services/quota_forecast';
+import QuotaForecastLine from './QuotaForecastLine';
 
 interface GrokPanelProps {
   workspace?: boolean;
@@ -23,6 +25,7 @@ interface GrokPanelProps {
   onQuotaWindowsChange?: (windows: QuotaWindowSummary[]) => void;
   onReadResult?: (error: string | null) => void;
   sections?: PanelSectionVisibility;
+  forecasts?: QuotaForecastMap;
 }
 
 function formatCents(cents: number): string {
@@ -80,6 +83,7 @@ export default function GrokPanel({
   onQuotaWindowsChange,
   onReadResult,
   sections = defaultPanelSections(),
+  forecasts,
 }: GrokPanelProps) {
   useLocale();
   const [grokData, setGrokData] = useState<GrokData | null>(null);
@@ -201,6 +205,7 @@ export default function GrokPanel({
                       {t("Resets in")} {resetLabel}
                     </div>
                   )}
+                  <QuotaForecastLine forecast={getQuotaForecast(forecasts, { provider: 'grok', label: grokPoolWindowLabel(grokData) })} />
                 </div>
               )}
 

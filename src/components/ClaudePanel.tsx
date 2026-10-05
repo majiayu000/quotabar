@@ -11,6 +11,7 @@ import { formatPaceText, formatResetTime } from '../utils/quota_format';
 import { buildClaudeQuotaWindows } from '../services/provider_summary';
 import { getHighUsageTip } from '../services/detail_helpers';
 import { defaultPanelSections, type PanelSectionVisibility } from '../services/panel_sections';
+import { formatForecastText, getQuotaForecast, type QuotaForecastMap } from '../services/quota_forecast';
 
 interface ClaudePanelProps {
   workspace?: boolean;
@@ -22,6 +23,7 @@ interface ClaudePanelProps {
   costRefreshKey: number;
   onRetry: () => void;
   sections?: PanelSectionVisibility;
+  forecasts?: QuotaForecastMap;
 }
 
 const SESSION_WINDOW_MINUTES = 5 * 60;
@@ -54,11 +56,19 @@ export default function ClaudePanel({
   costRefreshKey,
   onRetry,
   sections = defaultPanelSections(),
+  forecasts,
 }: ClaudePanelProps) {
   useLocale();
   const cooling = useQuotaCooldown(retryAt);
   const loginNeeded = quotaRecovery('claude', error)?.requiresLogin === true;
   const windows = buildClaudeQuotaWindows(quota);
+  const forecastPace = (label: string) => {
+    const forecast = getQuotaForecast(forecasts, { provider: 'claude', label });
+    return forecast
+      ? { pace: formatForecastText(forecast), paceWarning: forecast.kind === 'before_reset' }
+      : {};
+  };
+  const sessionForecast = forecastPace('5-hour usage');
 
   return (
     <>
@@ -86,7 +96,8 @@ export default function ClaudePanel({
                   label={t("5-hour quota")}
                   percentage={Math.round(quota.session.percentage)}
                   resetsIn={formatClaudeResetTime(quota.session.resetTime)}
-                  pace={formatPaceText(quota.session.percentage, quota.session.resetTime, SESSION_WINDOW_MINUTES)}
+                  pace={sessionForecast.pace ?? formatPaceText(quota.session.percentage, quota.session.resetTime, SESSION_WINDOW_MINUTES)}
+                  paceWarning={sessionForecast.paceWarning}
                 />
               ) : (
                 <div className="no-data">{t("No current window data")}</div>
@@ -102,6 +113,7 @@ export default function ClaudePanel({
                   label={t("All models")}
                   percentage={Math.round(quota.weeklyTotal.percentage)}
                   resetsIn={formatClaudeResetTime(quota.weeklyTotal.resetTime)}
+                  {...forecastPace('7-day usage')}
                   featured
                 />
               )}
@@ -111,6 +123,7 @@ export default function ClaudePanel({
                   label="Opus"
                   percentage={Math.round(quota.weeklyOpus.percentage)}
                   resetsIn={formatClaudeResetTime(quota.weeklyOpus.resetTime)}
+                  {...forecastPace('Opus 7-day')}
                 />
               )}
 
@@ -119,6 +132,7 @@ export default function ClaudePanel({
                   label="Sonnet"
                   percentage={Math.round(quota.weeklySonnet.percentage)}
                   resetsIn={formatClaudeResetTime(quota.weeklySonnet.resetTime)}
+                  {...forecastPace('Sonnet 7-day')}
                 />
               )}
 
@@ -127,6 +141,7 @@ export default function ClaudePanel({
                   label="Claude Design"
                   percentage={Math.round(quota.weeklyDesign.percentage)}
                   resetsIn={formatClaudeResetTime(quota.weeklyDesign.resetTime)}
+                  {...forecastPace('Design 7-day')}
                 />
               )}
 
@@ -135,6 +150,7 @@ export default function ClaudePanel({
                   label="Fable 5"
                   percentage={Math.round(quota.weeklyFable5.percentage)}
                   resetsIn={formatClaudeResetTime(quota.weeklyFable5.resetTime)}
+                  {...forecastPace('Fable 5 7-day')}
                 />
               )}
 

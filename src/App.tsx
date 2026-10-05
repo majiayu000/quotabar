@@ -99,6 +99,7 @@ import { usePopoverWindow } from './hooks/use_popover_window';
 import { useLatestRequestGeneration } from './hooks/use_latest_request_generation';
 import { useFooterStatus } from './hooks/use_footer_status';
 import { useProviderNavigation } from './hooks/use_provider_navigation';
+import { useQuotaForecasts } from './hooks/use_quota_forecasts';
 
 // Re-exported for existing tests/importers.
 export {
@@ -660,6 +661,7 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
     ...providerQuotaWindows.cursor,
     ...providerQuotaWindows.grok,
   ];
+  const quotaForecasts = useQuotaForecasts(allQuotaWindows, providerReads);
   const providerSummaries = buildProviderSummaries(tabConnected, serviceLoading, serviceUsage, providerReads).map((summary) => ({
     ...summary, lastSuccessAt: providerReads[summary.id].readAt, failed: Boolean(providerReads[summary.id].error),
     usageLabel: summaryUsageLabel(summary.id, allQuotaWindows, summary.usedPercent),
@@ -736,6 +738,7 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
                   costRefreshKey={claudeCostRefreshNonce}
                   onRetry={handleRefresh}
                   sections={panelSections}
+                  forecasts={quotaForecasts}
                 />
               )}
 
@@ -744,11 +747,12 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
                 connectionSetters={connectionSetters} usageSetters={usageSetters} loadingSetters={loadingSetters}
                 quotaWindowSetters={quotaWindowSetters} readResultSetters={readResultSetters}
                 onBonusExpiring={handleBonusExpiring} onBonusReadyChange={handleBonusReadyChange}
-                onOpenDashboard={handleOpenDashboard} />
+                onOpenDashboard={handleOpenDashboard} forecasts={quotaForecasts} />
 
               {activeView === 'all' && !workspace && <QuotaOverview
                 summaries={overviewSummaries.length > 0 ? overviewSummaries : providerSummaries}
                 windows={allQuotaWindows}
+                forecasts={quotaForecasts}
                 display={quotaDisplay}
                 onProviderSelect={handleTabChange}
                 onRefresh={handleProviderRefresh}

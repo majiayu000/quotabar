@@ -47,6 +47,7 @@ See [product boundaries](PRODUCT.md) and [delivery status](docs/product/delivery
 
 - Overview: large account rings and quota windows, with remaining quota and optional weekly detail. The headline always identifies the most constrained window; stale readings stay marked and provider details remain one click away.
 - High-usage tips explain remaining quota and reset timing; stale data does not produce usage advice.
+- Exhaustion estimate: each quota window with a reset time shows whether it runs out before the reset at the recent pace (for example "Estimate: at this pace, runs out ~15:40 (before 18:00 reset)"); the overview headline shows only the before-reset case. The burn rate is a least-squares fit over the last 60 minutes of successful reads, kept in memory; it needs at least 4 readings spanning 15 minutes and a rising slope. A usage drop or a moved reset time starts a new history. Flat or falling usage, readings older than 10 minutes, and failed reads show no estimate. Where the estimate is unavailable, the Claude 5-hour and Codex short windows keep their whole-window average pace.
 - Provider switcher: overview, up to three saved favorites, and an All picker with search and connection/usage status. The picker follows account visibility settings.
 - Claude quota: 5-hour, 7-day, Opus, Sonnet, and Claude Design windows.
 - Codex quota: short and weekly ChatGPT usage windows, local weekly pace and API-equivalent value estimates, and an exhausted-week layout that keeps the last estimate and a clickable bonus reset.
