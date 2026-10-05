@@ -70,6 +70,8 @@ let analysisRequestSequence = 0;
 
 export const backend = {
   saveAnalysisSummary(summary: Record<string, unknown>, format: 'json' | 'svg' = 'json') { return invokeBackend<string>('save_analysis_summary', { summary, format }); },
+  /** Save a pre-rendered share card SVG to Downloads; the backend rejects active content. */
+  saveAnalysisCard(svg: string) { return invokeBackend<string>('save_analysis_card', { svg }); },
   cachedAnalysisReport(source: string, range: AnalysisRange, query: AnalysisQuery) { return invokeBackend<AnalysisReport | null>('cached_analysis_report', { source, range, query }); },
   analysisCatalog() { return invokeBackend<AnalysisCatalog>('analysis_catalog'); },
   analysisSource() { return invokeBackend<string>('analysis_source'); },

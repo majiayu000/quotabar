@@ -136,7 +136,9 @@ describe('Analysis window', () => {
     await act(async () => renderer.root.findAllByType('button').find((button) => button.children.includes('Models'))!.props.onClick());
     expect(renderer.root.findAllByType('td').some((cell) => cell.children.includes('test-model'))).toBe(true);
     expect(renderer.root.findAllByType('td').some((cell) => cell.children.includes('120'))).toBe(true);
-    expect(backend.analysisReport).toHaveBeenLastCalledWith('codex', 'last_30_days', { model: null, project: null, since: null, until: null }, expect.any(AbortSignal), expect.any(Function));
+    expect(backend.analysisReport).toHaveBeenCalledWith('codex', 'last_30_days', { model: null, project: null, since: null, until: null }, expect.any(AbortSignal), expect.any(Function));
+    // The subscription value section reads the unfiltered calendar month after the main scan.
+    expect(backend.analysisReport).toHaveBeenLastCalledWith('all', 'this_month', { model: null, project: null, since: null, until: null }, expect.any(AbortSignal));
     await act(async () => renderer.root.findByProps({ 'aria-label': 'Search usage' }).props.onChange({ target: { value: 'no match' } }));
     expect(JSON.stringify(renderer.toJSON())).toContain('No matching models');
     await act(async () => renderer.unmount());

@@ -9,6 +9,8 @@ All notable QuotaBar changes should be summarized here before a release is cut.
 - Separate the "Last successful read" label from its time in quota cards (previously rendered as "read09:30 AM").
 
 - Keep today's API-equivalent cost, tokens and pricing status visible beside the overview trend in Chinese and English. Selecting a bar updates that summary in place; opening the day's filtered history now takes an explicit action. Unknown prices stay `—`, partial totals show `≥`, and days with incomplete pricing are marked on the cost chart.
+
+- Add a subscription value report: optional per-provider monthly plan prices in Settings → Accounts (never assumed), a desktop workspace section comparing this or last calendar month's local API-equivalent estimate with those prices as a value multiple, and JSON / SVG share-card exports that honor the hide-source toggle. Keep `≥` / `≈` / `—` cost semantics and exclude GPT-Reserve complimentary usage from Codex value.
 - Renew Grok credentials inside the official CLI's early-invalidation window and retry billing once after 401/403 when the rejected credential has a refresh token. Keep the selected account through renewal, allow immediate authentication recovery after successful renewal, and preserve disconnected errors when renewal or the retried authentication fails.
 
 - Let Grok session renewal finish saving credentials after the 20-second request deadline, prevent overlapping helpers, and retain matching-account last-known quota for up to 15 minutes with renewal errors shown. Reap completed helpers before applying the current refresh request’s retry policy.
