@@ -6,6 +6,7 @@ import { setLanguagePreference } from '../src/i18n';
 import { backend, type AnalysisReport, type AnalysisSession } from '../src/services/backend';
 import type { CostDailySeries, CostOverview } from '../src/types/models';
 import ActionButtons from '../src/components/ActionButtons';
+import { clearSubscriptionValueCache } from '../src/components/SubscriptionValue';
 
 const overview: CostOverview = {
   source: 'claude',
@@ -41,6 +42,7 @@ beforeAll(() => {
 });
 
 beforeEach(() => {
+  clearSubscriptionValueCache();
   vi.useFakeTimers();
   vi.spyOn(backend, 'cachedAnalysisReport').mockResolvedValue(null);
   const values = new Map<string, string>();
@@ -402,7 +404,12 @@ describe('coherent workspace queries', () => {
     vi.spyOn(backend, 'analysisSource').mockResolvedValue('claude');
     vi.spyOn(backend, 'analysisCatalog').mockResolvedValue({ sources: [], diagnostics: [] });
     let reject!: (reason: Error) => void;
-    vi.spyOn(backend, 'analysisReport').mockResolvedValueOnce(analysisReport(321)).mockImplementationOnce(() => new Promise((_resolve, fail) => { reject = fail; }));
+    // Route by range: the subscription value month read must not consume the workspace refresh response.
+    let workspaceReads = 0;
+    vi.spyOn(backend, 'analysisReport').mockImplementation((_source, range) => {
+      if (range === 'this_month') return Promise.resolve(analysisReport(0));
+      return workspaceReads++ === 0 ? Promise.resolve(analysisReport(321)) : new Promise((_resolve, fail) => { reject = fail; });
+    });
     let renderer!: ReactTestRenderer;
     await act(async () => { renderer = create(createElement(AnalysisApp)); });
     await act(async () => renderer.root.findByProps({ 'aria-label': 'Refresh' }).props.onClick());

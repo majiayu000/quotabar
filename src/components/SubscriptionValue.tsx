@@ -13,6 +13,11 @@ export interface ValueReportState { report?: AnalysisReport; error?: string; loa
 const FRESH_MS = 60_000;
 const valueCache = new Map<string, { report: AnalysisReport; fetchedAt: number; refresh: number }>();
 
+/** Drops cached month reports so each test starts without a module-level hit. */
+export function clearSubscriptionValueCache() {
+  valueCache.clear();
+}
+
 export function valueReportRequest(month: ValueMonth, today: Date = new Date()): { range: AnalysisRange; query: AnalysisQuery } {
   if (month === 'current') return { range: 'this_month', query: { model: null, project: null, since: null, until: null } };
   return { range: 'custom', query: { model: null, project: null, ...previousMonthRange(today) } };
