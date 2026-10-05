@@ -195,7 +195,7 @@ function QuotaReadStatus({ provider }: { provider: ProviderSummary }) {
   const recovery = quotaRecovery(provider.id, read?.error);
   return <span className="workspace-quota-freshness">
     {recovery && <span className="workspace-quota-error" role="alert">{recovery.title}{provider.connected ? t(" · Showing stale data") : ''}</span>}
-    {read?.readAt && <small>{t("Last successful read")}{new Date(read.readAt).toLocaleTimeString(getLocale(), { hour: '2-digit', minute: '2-digit' })}</small>}
+    {read?.readAt && <small>{t("Last successful read {time}", { time: new Date(read.readAt).toLocaleTimeString(getLocale(), { hour: '2-digit', minute: '2-digit' }) })}</small>}
   </span>;
 }
 
@@ -228,7 +228,7 @@ export function WorkspaceQuotaCard({ provider, windows, onSelect, onRefresh }: {
     <header><div className="analysis-provider-icon"><SourceIcon source={provider.id} /></div><div><h2>{provider.label}</h2><small>{recovery ? recovery.title : provider.loading ? t("Loading…") : !supported ? t("Local detection only") : provider.connected ? t("Quota synced") : t("No account detected")}</small></div></header>
     {ownWindows.map((item) => <div className="analysis-quota-window" key={item.label}><div><span>{localizeLabel(item.label)}</span><strong>{remainingPercent(item.usedPercent)}% <small>{t("Remaining")}</small></strong></div><progress max={100} value={remainingPercent(item.usedPercent)} /><small>{item.resetAtMs ? formatResetTime(item.resetAtMs / 1000) : t("Reset time unavailable")}</small></div>)}
     {recovery ? <QuotaRecovery provider={provider.id} read={provider.readState} hasData={ownWindows.length > 0} /> : !ownWindows.length && <p className="analysis-quota-unavailable">{!supported ? t("This version detects installations; subscription quota is not available yet.") : provider.loading ? t("Loading account quota…") : provider.connected ? t("Account connected; the provider did not supply quota windows.") : t("Sign in with the provider, then check account quota again.")}</p>}
-    {provider.readState?.readAt && <small className="workspace-quota-read-time">{t("Last successful read")}{new Date(provider.readState.readAt).toLocaleTimeString(getLocale(), { hour: '2-digit', minute: '2-digit' })}{" "}{recovery ? t(" · Data may be stale") : ''}</small>}
+    {provider.readState?.readAt && <small className="workspace-quota-read-time">{t("Last successful read {time}", { time: new Date(provider.readState.readAt).toLocaleTimeString(getLocale(), { hour: '2-digit', minute: '2-digit' }) })}{" "}{recovery ? t(" · Data may be stale") : ''}</small>}
     <div className="workspace-quota-card-actions"><button className="analysis-text-button" onClick={() => onSelect(provider.id)}>{t("Account details →")}</button><button disabled={!onRefresh || provider.loading || cooling} onClick={() => onRefresh?.(provider.id)}>{cooling ? t("Waiting to retry") : provider.loading ? t("Loading…") : !supported ? t("Check again") : loginNeeded ? t("Signed in, check again") : t("Refresh quota")}</button></div>
   </section>;
 }
@@ -519,7 +519,7 @@ export default function OverviewPanel({
               </div>
               {summary?.failed && <div className="error-context">{t("Stale data · Refresh or check your connection")}</div>}
               <div className="overview-timing">
-                {summary?.lastSuccessAt != null && <span>{t("Last successful read")}{new Date(summary.lastSuccessAt).toLocaleTimeString(getLocale(), { hour: '2-digit', minute: '2-digit' })}</span>}
+                {summary?.lastSuccessAt != null && <span>{t("Last successful read {time}", { time: new Date(summary.lastSuccessAt).toLocaleTimeString(getLocale(), { hour: '2-digit', minute: '2-digit' }) })}</span>}
                 {window.resetLabel && <span>{window.resetAtMs ? formatResetTime(window.resetAtMs / 1000) : undefined} {t("until reset")}</span>}
               </div>
             </button>

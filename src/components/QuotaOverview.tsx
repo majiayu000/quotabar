@@ -80,7 +80,7 @@ export default function QuotaOverview({ summaries, windows, display, onProviderS
         </div>}
         {stale && <div className="quota-account-notice" role="status">
           <span>{recovery?.title ?? t("Quota update failed")}{percentage !== null ? t(" · Showing stale data") : ''}</span>
-          {readingAt != null && <small>{t("Last successful read")}{new Date(readingAt).toLocaleString(getLocale(), { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</small>}
+          {readingAt != null && <small>{t("Last successful read {time}", { time: new Date(readingAt).toLocaleString(getLocale(), { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) })}</small>}
           <button type="button" onClick={() => onProviderSelect(summary.id)}>{t("View cause and recovery steps ›")}</button>
         </div>}
         {percentage === null && !summary.loading && !summary.connected && !stale && <ProviderSetup service={summary.id} loading={false} onRetry={() => onRefresh(summary.id)} />}
