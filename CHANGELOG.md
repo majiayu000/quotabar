@@ -5,6 +5,8 @@ All notable QuotaBar changes should be summarized here before a release is cut.
 ## Unreleased
 
 - Hide Antigravity from the switcher, overview, desktop quota views, settings, favorites and menu bar until its quota can be tracked; it only ever showed a placeholder. Saved favorites, tabs, panel and tray preferences that mention it are ignored, and one menu bar icon always stays enabled.
+
+- Separate the "Last successful read" label from its time in quota cards (previously rendered as "read09:30 AM").
 - Renew Grok credentials inside the official CLI's early-invalidation window and retry billing once after 401/403 when the rejected credential has a refresh token. Keep the selected account through renewal, allow immediate authentication recovery after successful renewal, and preserve disconnected errors when renewal or the retried authentication fails.
 
 - Let Grok session renewal finish saving credentials after the 20-second request deadline, prevent overlapping helpers, and retain matching-account last-known quota for up to 15 minutes with renewal errors shown. Reap completed helpers before applying the current refresh request’s retry policy.
