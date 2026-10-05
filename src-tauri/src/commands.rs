@@ -107,13 +107,16 @@ fn validate_share_card(svg: &str) -> Result<(), String> {
         return Err("分享卡片包含不允许的内容".to_string());
     }
     let bytes = lower.as_bytes();
-    let has_event_handler = lower.match_indices(" on").any(|(index, _)| {
-        let rest = &bytes[index + 3..];
+    let has_event_handler = lower.match_indices("on").any(|(index, _)| {
+        if index == 0 || !bytes[index - 1].is_ascii_whitespace() {
+            return false;
+        }
+        let rest = &bytes[index + 2..];
         let name = rest
             .iter()
             .take_while(|byte| byte.is_ascii_alphabetic())
             .count();
-        name > 0 && rest.get(name) == Some(&b'=')
+        name > 0 && rest[name..].iter().find(|byte| !byte.is_ascii_whitespace()) == Some(&b'=')
     });
     if has_event_handler {
         return Err("分享卡片包含不允许的内容".to_string());
@@ -669,9 +672,15 @@ mod analysis_tests {
     fn share_card_accepts_static_svg_and_rejects_active_content() {
         let card = r#"<svg xmlns="http://www.w3.org/2000/svg" width="960" height="540"><text x="1" y="2">Codex on track &amp; 6.4×</text></svg>"#;
         assert!(validate_share_card(card).is_ok());
+        let spaced_card = "<svg xmlns=\"http://www.w3.org/2000/svg\"\nwidth =\"960\"\theight\t= \"540\"><text\nx=\"1\"\ty = \"2\">Codex on track</text></svg>";
+        assert!(validate_share_card(spaced_card).is_ok());
         for bad in [
             r#"<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>"#,
             r#"<svg xmlns="http://www.w3.org/2000/svg"><rect onload="x()"/></svg>"#,
+            r#"<svg xmlns="http://www.w3.org/2000/svg" onload ="alert(1)"></svg>"#,
+            "<svg xmlns=\"http://www.w3.org/2000/svg\"><rect\nonload=\"x()\"/></svg>",
+            "<svg xmlns=\"http://www.w3.org/2000/svg\"><rect\tonload\t=\"x()\"/></svg>",
+            "<svg xmlns=\"http://www.w3.org/2000/svg\"><rect\rONCLICK\r\n=\"x()\"/></svg>",
             r#"<svg xmlns="http://www.w3.org/2000/svg"><a href="https://example.com">x</a></svg>"#,
             r#"<svg xmlns="http://www.w3.org/2000/svg"><foreignObject/></svg>"#,
             r#"<?xml version="1.0"?><svg xmlns="http://www.w3.org/2000/svg"></svg>"#,
