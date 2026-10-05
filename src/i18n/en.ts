@@ -741,4 +741,6 @@ export const en = {
   "Estimate: at this pace, runs out ~{p0} (before {p1} reset)": "Estimate: at this pace, runs out ~{p0} (before {p1} reset)",
   "Estimate: pace OK, resets first ({p0})": "Estimate: pace OK, resets first ({p0})",
   "Est. runs out ~{p0}, before reset": "Est. runs out ~{p0}, before reset",
+  "{p0} {p1}: {p2}% left. {p3} still has {p4}% (resets {p5}).": "{p0} {p1}: {p2}% left. {p3} still has {p4}% (resets {p5}).",
+  "{p0} {p1}: {p2}% left. {p3} still has {p4}%.": "{p0} {p1}: {p2}% left. {p3} still has {p4}%.",
 } as const;

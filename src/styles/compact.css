@@ -37,6 +37,7 @@ html:not(.analysis-document) .app.quota-popover:is(.theme-dark,.theme-claude-dar
 .quota-popover-header button:hover { background: var(--hover); color: var(--text); }
 .quota-popover-header svg { width: 21px; height: 21px; }
 html:not(.analysis-document) .app.quota-home .panel-scroll { padding: 0; }
+.quota-headroom-hint { margin: 10px 20px 0; padding-left: 10px; border-left: 2px solid var(--quota-warning); color: var(--sub); font-size: 11px; line-height: 1.5; }
 .quota-account { padding: 14px 20px; border-bottom: 1px solid var(--line); }
 .quota-account-header { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .quota-account-header h2 { font-size: 15px; font-weight: 600; margin: 0; }
