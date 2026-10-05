@@ -1,4 +1,4 @@
-import { SERVICE_META, SERVICES } from './service_meta';
+import { ALL_SERVICES, SERVICE_META, SERVICES } from './service_meta';
 import type { SwitcherVisibility } from './switcher_providers';
 import type { TrayServiceName } from './tray_visibility';
 
@@ -15,15 +15,15 @@ export function planProviderPreset(
   preset: ProviderPreset,
 ): ProviderPresetPlan {
   if (preset === 'all') {
-    const switcher = SERVICES.reduce((acc, service) => {
-      acc[service] = true;
+    const switcher = ALL_SERVICES.reduce((acc, service) => {
+      acc[service] = SERVICES.includes(service);
       return acc;
     }, {} as SwitcherVisibility);
     return { switcher, trays: { ...currentTrays } };
   }
 
-  const switcher = SERVICES.reduce((acc, service) => {
-    acc[service] = service === preset;
+  const switcher = ALL_SERVICES.reduce((acc, service) => {
+    acc[service] = service === preset && SERVICES.includes(service);
     return acc;
   }, {} as SwitcherVisibility);
 

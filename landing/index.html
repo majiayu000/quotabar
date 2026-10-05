@@ -313,7 +313,7 @@
         QuotaBar is a lightweight Tauri menubar app that watches your Claude Code,
         Codex, Cursor, and Grok usage — live quota windows, per-provider tray
         indicators, and local cost estimates computed on-device. Antigravity
-        currently reports provider availability; quota tracking is pending.
+        is hidden until its quota can be tracked.
       </p>
       <div class="cta-row">
         <a class="btn btn-primary" href="https://github.com/majiayu000/quotabar/releases/latest">
@@ -451,10 +451,10 @@
         <div class="head">
           <div class="p-ico bg-anti">✦</div>
           <h3>Antigravity</h3>
-          <span class="tag">Status preview</span>
+          <span class="tag">Hidden for now</span>
         </div>
         <ul>
-          <li>Reports provider availability from your local install</li>
+          <li>Hidden in the app until quota tracking exists</li>
           <li>Quota window tracking ships in a future release</li>
         </ul>
       </div>
@@ -518,7 +518,7 @@
       </div>
       <div class="card">
         <h3>Why is a provider blank or showing stale data?</h3>
-        <p>A missing connection or failed provider request is not zero usage. Check your provider's sign-in and retry Check connection. QuotaBar backs off after authentication errors or rate limits and may show a marked cached reading. Antigravity currently shows availability only. See <a href="https://github.com/majiayu000/quotabar#troubleshooting">provider limitations</a> before reporting an issue.</p>
+        <p>A missing connection or failed provider request is not zero usage. Check your provider's sign-in and retry Check connection. QuotaBar backs off after authentication errors or rate limits and may show a marked cached reading. Antigravity is hidden until its quota can be tracked. See <a href="https://github.com/majiayu000/quotabar#troubleshooting">provider limitations</a> before reporting an issue.</p>
       </div>
       <div class="card">
         <h3>Is the local cost estimate my subscription bill?</h3>

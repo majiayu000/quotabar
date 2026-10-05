@@ -140,7 +140,7 @@ describe('tray icon sync', () => {
     expect(visible.get('grok')).toBe(true);
     expect(visible.get('claude')).toBe(false);
     expect(visible.get('cursor')).toBe(false);
-    expect(visible.get('antigravity')).toBe(false);
+    expect(visible.has('antigravity')).toBe(false);
     expect(SERVICES.every((service) => visible.has(service))).toBe(true);
 
     await unmount(renderer);

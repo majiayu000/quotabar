@@ -9,14 +9,12 @@
 
 See which AI coding quota is closest to its limit, when it resets, and where
 your local usage went. QuotaBar combines a tray monitor and desktop analysis
-for Claude Code, Codex, Cursor and Grok Build. Antigravity currently reports
-availability only; quota tracking is pending.
+for Claude Code, Codex, Cursor and Grok Build. Antigravity is hidden until
+QuotaBar can track its quota.
 
 [Website](https://majiayu000.github.io/quotabar/) ·
 [Download installers](https://github.com/majiayu000/quotabar/releases/latest) ·
 [Installation and first run](#install--run) · [Build from source](#development)
-
-Antigravity currently reports provider availability; its quota tracking is pending.
 
 ## Download and first run
 
@@ -49,13 +47,13 @@ See [product boundaries](PRODUCT.md) and [delivery status](docs/product/delivery
 
 - Overview: large account rings and quota windows, with remaining quota and optional weekly detail. The headline always identifies the most constrained window; stale readings stay marked and provider details remain one click away.
 - High-usage tips explain remaining quota and reset timing; stale data does not produce usage advice.
-- Provider switcher: overview, up to three saved favorites, and an All picker with search and connection/usage status. The picker follows account visibility settings; Antigravity quota integration remains pending.
+- Provider switcher: overview, up to three saved favorites, and an All picker with search and connection/usage status. The picker follows account visibility settings.
 - Claude quota: 5-hour, 7-day, Opus, Sonnet, and Claude Design windows.
 - Codex quota: short and weekly ChatGPT usage windows, local weekly pace and API-equivalent value estimates, and an exhausted-week layout that keeps the last estimate and a clickable bonus reset.
   Observed usage is valued at standard API token prices; the full-week value is a rough extrapolation from an official quota snapshot, not a bill or an official dollar allowance. Fast-mode premiums and purchased credits are not represented by this estimate.
 - Cursor quota: signed-in Cursor usage and request-limit windows when session data is available.
 - Grok quota: SuperGrok weekly (or monthly) credits pool, product mix for Build/Chat/Imagine/Voice/API, extra credits, and an API-equivalent value estimate from ccstats' durable inference ledger.
-- Antigravity panel: placeholder provider status while quota tracking is pending.
+- Antigravity: hidden from the switcher, overview, settings, favorites and menu bar until quota tracking exists. Saved preferences that mention it are ignored.
 - Local cost tracking: today, week, and month estimates for Claude Code, Codex, and Cursor.
 - Per-provider tray icons: independent menu bar indicators for supported providers.
 - Tray controls: enable or hide each tray while keeping at least one entry point.
@@ -86,8 +84,7 @@ This `v0.4.0` screenshot was refreshed on 2026-08-31 from the production React U
   - falls back to the overall Cursor quota percentage
 - Grok tray value:
   - uses the shared SuperGrok credits pool percent (`creditUsagePercent`)
-- Antigravity tray value:
-  - shows provider availability while usage tracking is pending
+- Antigravity has no tray icon while it is hidden.
 - Tray percentages and rings represent remaining quota.
 - All quota numbers, rings, and bars consistently display remaining quota. Hiding weekly detail does not remove a weekly limit from headline selection. Low remaining quota retains warning and critical colors.
 
@@ -128,7 +125,6 @@ This `v0.4.0` screenshot was refreshed on 2026-08-31 from the production React U
 - Codex login for Codex quota and cost data
 - Cursor sign-in or `CURSOR_SESSION_TOKEN` for Cursor quota data
 - Grok Build login (`grok login`) for Grok quota data
-- Antigravity installed for Antigravity provider status
 
 ## Language
 
@@ -339,7 +335,7 @@ npm run tauri build -- --bundles app
 - Claude quota depends on Claude Code OAuth credentials and Anthropic's current usage response shape.
 - Codex quota depends on `~/.codex/auth.json` and ChatGPT usage windows returned by the current backend API.
 - Cursor quota requires Cursor sign-in or `CURSOR_SESSION_TOKEN`.
-- Antigravity support currently reports provider availability only; quota windows are not exposed yet.
+- Antigravity is hidden until QuotaBar can read its quota windows.
 - Cost estimates are derived from local logs and may be empty until provider tools have written usage history.
 
 ## Troubleshooting
@@ -357,8 +353,8 @@ npm run tauri build -- --bundles app
 - No Cursor quota data:
   - sign in to Cursor
   - or set `CURSOR_SESSION_TOKEN`
-- Antigravity quota is pending:
-  - Antigravity support currently exposes provider status, not quota windows
+- Antigravity does not appear:
+  - it is hidden until QuotaBar can track Antigravity quota
 - Persistent 429 rate limiting:
   - QuotaBar uses a Claude Code user agent and serves stale cached data when available
   - polling backs off to 5 minutes after 429 responses

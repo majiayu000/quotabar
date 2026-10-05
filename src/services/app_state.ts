@@ -1,6 +1,6 @@
 import type { ThemeName } from '../components/ThemeSelector';
 import type { QuotaData } from '../types/models';
-import { SERVICES } from './service_meta';
+import { ALL_SERVICES, SERVICES, isHiddenService } from './service_meta';
 import { buildClaudeQuotaWindows, sortMostConstrained, type AppTabName } from './provider_summary';
 import { readStorageValue, writeStorageItem } from './storage';
 import { getSavedTrayEnabled, saveTrayEnabled, type TrayServiceName } from './tray_visibility';
@@ -41,7 +41,7 @@ export function isStaleTrayPercent(error: string | null | undefined, percent: nu
 }
 
 export function defaultServiceMap<T>(value: T): ServiceMap<T> {
-  return SERVICES.reduce((acc, svc) => {
+  return ALL_SERVICES.reduce((acc, svc) => {
     acc[svc] = value;
     return acc;
   }, {} as ServiceMap<T>);
@@ -56,6 +56,7 @@ export function isMacOSPlatform(): boolean {
 
 export function getSavedTab(): AppTabName {
   const result = readStorageValue(TAB_STORAGE_KEY, (raw) => {
+    if (isHiddenService(raw)) return 'all';
     if (!VALID_TABS.has(raw)) throw new Error('Invalid saved tab');
     return raw as AppTabName;
   }, { notifyUser: true });
