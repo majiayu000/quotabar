@@ -50,16 +50,16 @@ cargo test --manifest-path src-tauri/Cargo.toml
 npm run tauri build -- --bundles app
 ```
 
-Refresh the browser-preview visual proof only when the UI has changed:
+Refresh the README demo screenshots only when the UI has changed:
 
 ```bash
-npm run dev -- --host 127.0.0.1
-npx playwright screenshot --wait-for-timeout=3500 --viewport-size=340,580 http://127.0.0.1:1420 docs/assets/quotabar-no-provider-preview.png
+npm run demo:screenshots
 ```
 
-This captures the default browser-preview state without a Tauri desktop
-backend. Do not seed local storage, provider credentials, sessions, or fake
-quota percentages for this proof.
+This captures a production build of the React UI with the illustrative mock
+backend in `scripts/demo/mock_backend.mjs`. Keep every value invented; never
+use provider credentials, sessions, account identifiers or real local records.
+See `docs/demo-proof.md` for scope.
 
 ## Artifact Workflow
 

@@ -66,9 +66,15 @@ See [product boundaries](PRODUCT.md) and [delivery status](docs/product/delivery
 
 ## Demo Proof
 
-![QuotaBar browser preview without provider credentials](docs/assets/quotabar-no-provider-preview.png)
+<p>
+  <img src="docs/assets/quotabar-demo-tray-overview-light.png" width="260" alt="QuotaBar menu bar overview with illustrative quota data">
+  <img src="docs/assets/quotabar-demo-tray-codex-light.png" width="260" alt="QuotaBar Codex detail with illustrative quota data">
+  <img src="docs/assets/quotabar-demo-tray-overview-dark.png" width="260" alt="QuotaBar menu bar overview in dark mode with illustrative quota data">
+</p>
 
-This `v0.4.0` screenshot was refreshed on 2026-08-31 from the production React UI in browser preview without a Tauri desktop backend. It intentionally shows the default unavailable-backend state and includes no provider quota values, account identifiers, tokens, cookies, or sessions. Desktop widget and notification visuals are static design previews only until a runtime implementation ships. See `docs/demo-proof.md` for the capture scope and refresh steps.
+![QuotaBar desktop workspace overview with illustrative usage data](docs/assets/quotabar-demo-workspace-light.png)
+
+These screenshots show **illustrative data**. They were captured on 2026-10-05 from a production build of the QuotaBar `v0.5.9` React UI in Chromium, with a deterministic mock desktop backend injected by `scripts/capture_demo_screenshots.mjs`. The quota percentages, token totals, costs, projects and session titles are invented; no provider account, email, account id, token, cookie or local record was read. The mock only exists in that capture script and is not part of the app bundle. The screenshots show the interface, not native backend connectivity or signed/notarized artifacts. A dark workspace variant is in `docs/assets/quotabar-demo-workspace-dark.png`. See `docs/demo-proof.md` for the capture scope and refresh steps.
 
 ## Quota Semantics
 
