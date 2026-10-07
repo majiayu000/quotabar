@@ -287,6 +287,7 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
     force = false,
     style: TrayStyle = 'percent',
     stale = false,
+    keepAlive = false,
   ) => {
     const previous = lastTrayIconRequestRef.current[service];
     if (
@@ -294,7 +295,8 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
       previous?.percentage === percentage &&
       previous.visible === visible &&
       previous.style === style &&
-      previous.stale === stale
+      previous.stale === stale &&
+      previous.keepAlive === keepAlive
     ) {
       return;
     }
@@ -303,9 +305,9 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
     trayIconGenerationRef.current[service] = generation;
 
     try {
-      await backend.updateTrayIcon(service, percentage, visible, force, style, stale);
+      await backend.updateTrayIcon(service, percentage, visible, force, style, stale, keepAlive);
       if (trayIconGenerationRef.current[service] !== generation) return;
-      lastTrayIconRequestRef.current[service] = { percentage, visible, style, stale };
+      lastTrayIconRequestRef.current[service] = { percentage, visible, style, stale, keepAlive };
     } catch (err) {
       console.error(`Failed to update ${service} tray icon:`, err);
     }
@@ -385,7 +387,9 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
       const pct = svc === 'claude' ? getClaudeTrayUsedPercent(quota) : usedPercent[svc];
       const visible = resolveTrayVisible(svc, candidates, trayCycle, trayCycleIndex);
       const stale = isStaleTrayPercent(providerReads[svc].error, pct);
-      updateTrayIcon(svc, pct, visible, force, trayStyle, stale);
+      // Trays hidden only by cycling stay parked; disabled ones are removed.
+      const keepAlive = !visible && candidates.includes(svc);
+      updateTrayIcon(svc, pct, visible, force, trayStyle, stale, keepAlive);
     }
   }, [quota, connected, usedPercent, providerReads, trayEnabled, trayCycle, trayCycleIndex, trayStyle, updateTrayIcon, workspace]);
 

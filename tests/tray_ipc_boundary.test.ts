@@ -27,6 +27,7 @@ describe('tray IPC percentage boundary', () => {
       force: false,
       style: 'percent',
       stale: false,
+      keepAlive: false,
     });
   });
 
@@ -42,6 +43,7 @@ describe('tray IPC percentage boundary', () => {
       force: false,
       style: 'percent',
       stale: true,
+      keepAlive: false,
     });
   });
 

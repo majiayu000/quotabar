@@ -34,6 +34,7 @@ export type TrayIconRequest = {
   visible: boolean;
   style: TrayStyle;
   stale: boolean;
+  keepAlive: boolean;
 };
 
 export function isStaleTrayPercent(error: string | null | undefined, percent: number | null): boolean {
