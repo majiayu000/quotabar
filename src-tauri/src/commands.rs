@@ -288,20 +288,35 @@ fn load_analysis_report_cancellable(
     } else if range == "custom" {
         return Err("请选择自定义日期范围".to_string());
     }
-    let sources = if source == "all" {
-        ccstats::diagnose_usage_sources()
-            .map_err(|e| e.to_string())?
-            .into_iter()
-            .filter(|item| item.status != ccstats::SourceDiagnosticStatus::Missing)
-            .map(|item| item.name)
-            .collect::<Vec<_>>()
-    } else {
-        vec![source.to_owned()]
-    };
+    let diagnostics = ccstats::diagnose_usage_sources().map_err(|e| e.to_string())?;
     let mut report = AnalysisReport {
         generated_at: chrono::Utc::now().to_rfc3339(),
         ..AnalysisReport::default()
     };
+    let mut sources = Vec::new();
+    for item in diagnostics {
+        if source != "all" && source != item.name {
+            continue;
+        }
+        match item.status {
+            ccstats::SourceDiagnosticStatus::Error => {
+                report
+                    .errors
+                    .push(format!("{} · {}", item.name, item.detail));
+            }
+            ccstats::SourceDiagnosticStatus::Missing if source == "all" => {}
+            ccstats::SourceDiagnosticStatus::Missing => {
+                report
+                    .errors
+                    .push(format!("{} · {}", item.name, item.detail));
+            }
+            _ => sources.push(item.name),
+        }
+    }
+    // Preserve the invalid-source error rather than returning a successful empty report.
+    if source != "all" {
+        source.parse::<UsageSource>().map_err(|e| e.to_string())?;
+    }
     let total_sources = sources.len();
     for (index, source) in sources.into_iter().enumerate() {
         progress(&source, index + 1, total_sources);

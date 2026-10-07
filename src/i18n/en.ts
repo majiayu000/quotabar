@@ -1,4 +1,9 @@
 export const en = {
+  "Original usage sources": "Original usage sources",
+  "The statistics SDK did not provide a file location for this session.": "The statistics SDK did not provide a file location for this session.",
+  "Only files contributing usage in the selected range and filters are listed; transcripts stay local.": "Only files contributing usage in the selected range and filters are listed; transcripts stay local.",
+  "Read failed": "Read failed",
+
   "At least one provider must stay in the switcher": "At least one provider must stay in the switcher",
   "Quota unavailable": "Quota unavailable",
   "Unknown error": "Unknown error",

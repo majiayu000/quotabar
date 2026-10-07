@@ -21,7 +21,7 @@ export type AnalysisView = 'overview' | 'usage' | 'history' | 'sources';
 export interface AnalysisSource { name: string; display_name: string; has_projects: boolean; has_cache_read: boolean }
 export interface AnalysisCatalog {
   sources: AnalysisSource[];
-  diagnostics: { name: string; display_name: string; status: 'detected' | 'configured' | 'missing'; files: number; detail: string; setup: string }[];
+  diagnostics: { name: string; display_name: string; status: 'detected' | 'configured' | 'missing' | 'error'; files: number; detail: string; setup: string }[];
 }
 export interface AnalysisMetrics {
   currency: string; cost: number | null; cost_usd: number | null; cost_kind: string; pricing_source: string;
@@ -29,7 +29,9 @@ export interface AnalysisMetrics {
   tokens: { reasoning_tokens: number; reported_total_adjustment: number; total_tokens: number; input_tokens: number; output_tokens: number; cache_creation_tokens: number; cache_read_tokens: number; cache_hit_rate: number | null };
 }
 export interface AnalysisTitle { text: string; origin: 'source_title' | 'source_summary' }
-export interface AnalysisSession { session_id: string; first_timestamp: string; last_timestamp: string; metrics: AnalysisMetrics }
+export interface AnalysisSession {
+  source_paths?: string[];
+  session_id: string; first_timestamp: string; last_timestamp: string; metrics: AnalysisMetrics }
 export interface AnalysisProject { project_path: string; project_name: string; session_count: number; metrics: AnalysisMetrics; sessions: AnalysisSession[] }
 export interface AnalysisProgress { requestId: string; source: string; current: number; total: number }
 export interface AnalysisQuery { model: string | null; project: string | null; since: string | null; until: string | null }

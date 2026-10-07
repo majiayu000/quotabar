@@ -205,6 +205,10 @@
   color: var(--a-blue);
   font-size: 11px;
 }
+.analysis-status.error {
+  color: var(--error, #b9423a);
+  background: var(--a-control);
+}
 .analysis-status.missing {
   background: var(--a-control);
   color: var(--a-muted);

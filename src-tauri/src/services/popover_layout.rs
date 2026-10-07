@@ -484,6 +484,31 @@ mod tests {
     }
 
     #[test]
+    fn issue_186_2k_monitor_combines_font_zoom_and_system_dpi() {
+        for dpi in [1.0, 1.25, 1.5, 2.0] {
+            let screen = Screen {
+                width: 2560,
+                height: 1440,
+                scale: dpi,
+            };
+            for zoom in [1.0, 1.25, 1.5] {
+                for height in HEIGHTS {
+                    let area = screen.work_area();
+                    let frame = place_popover(
+                        screen.tray_icon(),
+                        area,
+                        dpi,
+                        POPOVER_WIDTH * zoom,
+                        height * zoom,
+                    );
+                    assert!(inside(frame, area));
+                    assert_eq!(frame.width, (POPOVER_WIDTH * zoom * dpi).round() as u32);
+                }
+            }
+        }
+    }
+
+    #[test]
     fn invalid_scale_falls_back_to_one() {
         let area = Rect {
             x: 0,

@@ -1,6 +1,11 @@
 import type { en } from './en';
 
 export const zhCN = {
+  "Original usage sources": "原始用量来源",
+  "The statistics SDK did not provide a file location for this session.": "统计 SDK 未提供此会话的文件位置。",
+  "Only files contributing usage in the selected range and filters are listed; transcripts stay local.": "仅列出当前时间和筛选范围内贡献用量的文件；会话原文保留在本机。",
+  "Read failed": "读取失败",
+
   "At least one provider must stay in the switcher": "至少保留一个服务入口",
   "Quota unavailable": "额度不可用",
   "Unknown error": "未知错误",
