@@ -242,6 +242,7 @@ export const zhCN = {
   "Price unknown": "价格未知",
   "Covered by reference prices": "参考价格已覆盖",
   "No local usage records for this day": "当天没有本地用量记录",
+  "Usage for this day is incomplete.": "当天的用量数据不完整。",
   "View day details →": "查看当天详情 →",
   "Daily source details ·": "每日来源明细 ·",
   "records": "条",

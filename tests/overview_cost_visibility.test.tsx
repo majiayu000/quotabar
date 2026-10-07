@@ -513,6 +513,21 @@ it('marks known daily amounts as partial when another source failed', () => {
   expect(dailyInsight(report, '2026-09-02')).toMatchObject({ costLabel: '≥ $1.00', costStatus: 'partial' });
 });
 
+it('does not describe a failed empty day as having no records', async () => {
+  vi.stubGlobal('window', { addEventListener: vi.fn(), removeEventListener: vi.fn() });
+  vi.spyOn(backend, 'analysisSource').mockResolvedValue('all');
+  vi.spyOn(backend, 'analysisCatalog').mockResolvedValue({ sources: [], diagnostics: [] });
+  const report = analysisReport(0);
+  report.errors = ['codex · permission denied'];
+  vi.spyOn(backend, 'analysisReport').mockResolvedValue(report);
+  let renderer!: ReactTestRenderer;
+  await act(async () => { renderer = create(createElement(AnalysisApp)); });
+  const daily = renderer.root.findByProps({ 'aria-label': '2026-09-02 usage summary' });
+  expect(textOf(daily)).toContain('Usage for this day is incomplete.');
+  expect(textOf(daily)).not.toContain('No local usage records');
+  await act(async () => renderer.unmount());
+});
+
 it('shows SDK source locations and an explicit unavailable state', async () => {
   let renderer!: ReactTestRenderer;
   await act(async () => { renderer = create(createElement(SessionSourceEvidence, { session: { ...analysisSession, source_paths: ['/logs/one.jsonl', '/logs/two.jsonl'] } })); });

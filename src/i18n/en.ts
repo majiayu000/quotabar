@@ -240,6 +240,7 @@ export const en = {
   "Price unknown": "Price unknown",
   "Covered by reference prices": "Covered by reference prices",
   "No local usage records for this day": "No local usage records for this day",
+  "Usage for this day is incomplete.": "Usage for this day is incomplete.",
   "View day details →": "View day details →",
   "Daily source details ·": "Daily source details ·",
   "records": "records",
