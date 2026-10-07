@@ -37,6 +37,7 @@ struct TraySnapshot {
     visible: bool,
     style: tray_icon::TrayIconStyle,
     stale: bool,
+    keep_alive: bool,
 }
 
 #[derive(Default)]
@@ -412,8 +413,37 @@ fn seed_status_item_defaults(service: TrayService) {
     let autosave = service.tray_id();
     let position_key = NSString::from_str(&format!("NSStatusItem Preferred Position {autosave}"));
     let visible_key = NSString::from_str(&format!("NSStatusItem Visible {autosave}"));
-    defaults.setDouble_forKey(service.preferred_position(), &position_key);
+    // Keep a slot the user dragged the item to; only seed the default order once.
+    if defaults.objectForKey(&position_key).is_none() {
+        defaults.setDouble_forKey(service.preferred_position(), &position_key);
+    }
     defaults.setBool_forKey(true, &visible_key);
+}
+
+#[cfg(target_os = "macos")]
+fn remove_service_tray(app: &AppHandle, service: TrayService) {
+    use objc2_foundation::{NSString, NSUserDefaults};
+
+    let defaults = NSUserDefaults::standardUserDefaults();
+    let position_key = NSString::from_str(&format!(
+        "NSStatusItem Preferred Position {}",
+        service.tray_id()
+    ));
+    let position = defaults
+        .objectForKey(&position_key)
+        .map(|_| defaults.doubleForKey(&position_key));
+    // Dropping the returned tray releases the NSStatusItem right here.
+    drop(app.remove_tray_by_id(service.tray_id()));
+    // removeStatusItem deletes the autosaved position; restore it so a rebuilt
+    // item returns to its old slot instead of a fresh one under the notch.
+    if let Some(position) = position {
+        defaults.setDouble_forKey(position, &position_key);
+    }
+}
+
+#[cfg(not(target_os = "macos"))]
+fn remove_service_tray(app: &AppHandle, service: TrayService) {
+    let _ = app.remove_tray_by_id(service.tray_id());
 }
 
 #[cfg(target_os = "macos")]
@@ -433,8 +463,11 @@ fn apply_status_item_autosave(app: AppHandle, tray_id: &'static str) {
     });
 }
 
-fn destroy_hidden_tray() -> bool {
-    !cfg!(target_os = "macos")
+fn destroy_hidden_tray(keep_alive: bool) -> bool {
+    // Cycling hides trays every few seconds; collapse those on macOS instead of
+    // recreating NSStatusItems (#105). Disabled trays are removed so they free
+    // their menu bar slot.
+    !(keep_alive && cfg!(target_os = "macos"))
 }
 
 #[cfg(target_os = "macos")]
@@ -605,6 +638,7 @@ pub async fn update_tray_icon(
     force: bool,
     style: Option<tray_icon::TrayIconStyle>,
     stale: bool,
+    keep_alive: bool,
 ) -> Result<(), String> {
     let runtime = tray_state.runtime.clone();
     let style = style.unwrap_or_default();
@@ -613,6 +647,7 @@ pub async fn update_tray_icon(
         visible,
         style,
         stale,
+        keep_alive: keep_alive && !visible,
     };
     let request_generation = {
         let mut state = runtime
@@ -640,8 +675,8 @@ pub async fn update_tray_icon(
             }
 
             if !visible {
-                if destroy_hidden_tray() {
-                    let _ = app_handle.remove_tray_by_id(service.tray_id());
+                if destroy_hidden_tray(keep_alive) {
+                    remove_service_tray(&app_handle, service);
                 } else {
                     #[cfg(target_os = "macos")]
                     set_status_item_collapsed(&app_handle, service.tray_id(), true);
@@ -745,6 +780,7 @@ mod tests {
             visible: true,
             style: TrayIconStyle::Percent,
             stale: false,
+            keep_alive: false,
         };
 
         assert_eq!(state.snapshot(TrayService::Claude), None);
@@ -764,6 +800,7 @@ mod tests {
             visible: true,
             style: TrayIconStyle::Percent,
             stale: false,
+            keep_alive: false,
         };
 
         state.set_snapshot(TrayService::Claude, snapshot);
@@ -787,8 +824,9 @@ mod tests {
     }
 
     #[test]
-    fn macos_keeps_hidden_status_items_alive() {
-        assert_eq!(destroy_hidden_tray(), !cfg!(target_os = "macos"));
+    fn macos_keeps_only_cycling_status_items_alive() {
+        assert_eq!(destroy_hidden_tray(true), !cfg!(target_os = "macos"));
+        assert!(destroy_hidden_tray(false));
     }
 
     #[test]

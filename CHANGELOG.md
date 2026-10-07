@@ -14,6 +14,7 @@ All notable QuotaBar changes should be summarized here before a release is cut.
 
 - Estimate whether each quota window runs out before its reset from the last hour of successful reads, in provider details and on the overview headline. Unknown or stale pace shows no estimate.
 - Show one overview hint pointing to another connected account with substantially more remaining quota when the most constrained window is low or estimated to run out before reset. Stale or failed readings never produce the hint.
+- Remove a disabled provider's macOS menu bar item instead of collapsing it to zero width, and restore its saved position when it is turned back on. Trays hidden by cycling stay collapsed.
 - Renew Grok credentials inside the official CLI's early-invalidation window and retry billing once after 401/403 when the rejected credential has a refresh token. Keep the selected account through renewal, allow immediate authentication recovery after successful renewal, and preserve disconnected errors when renewal or the retried authentication fails.
 
 - Let Grok session renewal finish saving credentials after the 20-second request deadline, prevent overlapping helpers, and retain matching-account last-known quota for up to 15 minutes with renewal errors shown. Reap completed helpers before applying the current refresh request’s retry policy.
