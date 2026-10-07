@@ -288,28 +288,46 @@ fn load_analysis_report_cancellable(
     } else if range == "custom" {
         return Err("请选择自定义日期范围".to_string());
     }
-    let sources = if source == "all" {
-        ccstats::diagnose_usage_sources()
-            .map_err(|e| e.to_string())?
-            .into_iter()
-            .filter(|item| item.status != ccstats::SourceDiagnosticStatus::Missing)
-            .map(|item| item.name)
-            .collect::<Vec<_>>()
+    let selected_source = if source == "all" {
+        None
     } else {
-        vec![source.to_owned()]
+        Some(source.parse::<UsageSource>().map_err(|e| e.to_string())?)
     };
+    let diagnostics = ccstats::diagnose_usage_sources().map_err(|e| e.to_string())?;
     let mut report = AnalysisReport {
         generated_at: chrono::Utc::now().to_rfc3339(),
         ..AnalysisReport::default()
     };
+    let mut sources = Vec::new();
+    for item in diagnostics {
+        if selected_source.is_some_and(|selected| selected != item.source) {
+            continue;
+        }
+        match item.status {
+            ccstats::SourceDiagnosticStatus::Error => {
+                report
+                    .errors
+                    .push(format!("{} · {}", item.name, item.detail));
+                // Keep any readable portion while marking the source incomplete.
+                sources.push((item.name, item.source));
+            }
+            ccstats::SourceDiagnosticStatus::Missing if source == "all" => {}
+            ccstats::SourceDiagnosticStatus::Missing => {
+                report
+                    .errors
+                    .push(format!("{} · {}", item.name, item.detail));
+            }
+            _ => sources.push((item.name, item.source)),
+        }
+    }
     let total_sources = sources.len();
-    for (index, source) in sources.into_iter().enumerate() {
+    for (index, (source, usage_source)) in sources.into_iter().enumerate() {
         progress(&source, index + 1, total_sources);
         if cancelled() {
             return Err("Analysis cancelled".to_string());
         }
         let mut options = base_options.clone();
-        options.source = source.parse::<UsageSource>().map_err(|e| e.to_string())?;
+        options.source = usage_source;
         let filter = AnalysisFilter {
             model: query.model.clone(),
             project: query.project.clone(),
@@ -982,6 +1000,13 @@ mod analysis_tests {
         let warm = load_analysis_report("codex", "custom", &query).unwrap();
         assert_eq!(
             warm.summaries[0].summary.metrics,
+            report.summaries[0].summary.metrics
+        );
+        let alias = load_analysis_report(" CX ", "custom", &query).unwrap();
+        assert!(alias.errors.is_empty(), "{:?}", alias.errors);
+        assert_eq!(alias.summaries[0].source, "codex");
+        assert_eq!(
+            alias.summaries[0].summary.metrics,
             report.summaries[0].summary.metrics
         );
         let catalog = AnalysisCatalog {

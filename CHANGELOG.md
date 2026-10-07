@@ -4,6 +4,10 @@ All notable QuotaBar changes should be summarized here before a release is cut.
 
 ## Unreleased
 
+- Keep failed source reads visible in desktop analysis and avoid displaying unknown daily usage as zero.
+- Show contributing native session files when the statistics SDK supplies provenance, with an explicit unavailable state otherwise.
+
+
 - Hide Antigravity from the switcher, overview, desktop quota views, settings, favorites and menu bar until its quota can be tracked; it only ever showed a placeholder. Saved favorites, tabs, panel and tray preferences that mention it are ignored, and one menu bar icon always stays enabled.
 
 - Separate the "Last successful read" label from its time in quota cards (previously rendered as "read09:30 AM").

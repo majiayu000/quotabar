@@ -1,7 +1,7 @@
 import { createElement } from 'react';
 import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import OverviewPanel, { AnalysisApp, AnalysisSessionName, analysisCostLabel, dailyInsight } from '../src/components/OverviewPanel';
+import OverviewPanel, { AnalysisApp, AnalysisSessionName, SessionSourceEvidence, analysisCostLabel, dailyInsight } from '../src/components/OverviewPanel';
 import { setLanguagePreference } from '../src/i18n';
 import { backend, type AnalysisReport, type AnalysisSession } from '../src/services/backend';
 import type { CostDailySeries, CostOverview } from '../src/types/models';
@@ -494,4 +494,60 @@ describe('history cost completeness presentation', () => {
     expect(labels[2]).toBe('2026-09-03 · ≥ $2.00 USD cost reference · Incomplete pricing');
     await act(async () => renderer.unmount());
   });
+});
+
+
+it('keeps a failed source or malformed read unknown even on an empty day', () => {
+  const report = analysisReport(0);
+  report.errors = ['codex · permission denied'];
+  expect(dailyInsight(report, '2026-09-02')).toMatchObject({ costUsd: null, costStatus: 'unknown', incomplete: true, readIncomplete: true });
+  report.errors = [];
+  report.summaries[0].summary.parse_error_entries = 1;
+  expect(dailyInsight(report, '2026-09-02').costLabel).toBe('—');
+});
+
+it('marks known daily amounts as partial when another source failed', () => {
+  const report = analysisReport(120);
+  report.history = [{ source_name: 'claude', display_name: 'Claude', currency: 'USD', points: [{ ...analysisSession.metrics, date: '2026-09-02', cost_status: 'known', records: 1 }] }];
+  report.errors = ['codex · read failed'];
+  expect(dailyInsight(report, '2026-09-02')).toMatchObject({ costLabel: '≥ $1.00', costStatus: 'partial' });
+});
+
+it('does not describe a failed empty day as having no records', async () => {
+  vi.stubGlobal('window', { addEventListener: vi.fn(), removeEventListener: vi.fn() });
+  vi.spyOn(backend, 'analysisSource').mockResolvedValue('all');
+  vi.spyOn(backend, 'analysisCatalog').mockResolvedValue({ sources: [], diagnostics: [] });
+  const report = analysisReport(0);
+  report.errors = ['codex · permission denied'];
+  vi.spyOn(backend, 'analysisReport').mockResolvedValue(report);
+  let renderer!: ReactTestRenderer;
+  await act(async () => { renderer = create(createElement(AnalysisApp)); });
+  const daily = renderer.root.findByProps({ 'aria-label': '2026-09-02 usage summary' });
+  expect(textOf(daily)).toContain('Usage for this day is incomplete.');
+  expect(textOf(daily)).not.toContain('No local usage records');
+  await act(async () => renderer.unmount());
+});
+
+it('shows SDK source locations and an explicit unavailable state', async () => {
+  let renderer!: ReactTestRenderer;
+  await act(async () => { renderer = create(createElement(SessionSourceEvidence, { session: { ...analysisSession, source_paths: ['/logs/one.jsonl', '/logs/two.jsonl'] } })); });
+  expect(JSON.stringify(renderer.toJSON())).toContain('/logs/one.jsonl');
+  expect(JSON.stringify(renderer.toJSON())).toContain('/logs/two.jsonl');
+  await act(async () => { renderer.update(createElement(SessionSourceEvidence, { session: analysisSession })); });
+  expect(JSON.stringify(renderer.toJSON())).toContain('did not provide a file location');
+  await act(async () => renderer.unmount());
+});
+
+
+it('labels failed source diagnostics as read failures', async () => {
+  vi.stubGlobal('window', { addEventListener: vi.fn(), removeEventListener: vi.fn() });
+  vi.spyOn(backend, 'analysisSource').mockResolvedValue('all');
+  vi.spyOn(backend, 'analysisCatalog').mockResolvedValue({ sources: [], diagnostics: [{ name: 'codex', display_name: 'Codex', status: 'error', files: 0, detail: 'Cannot read sessions', setup: 'Check permissions' }] });
+  vi.spyOn(backend, 'analysisReport').mockResolvedValue(analysisReport(0));
+  let renderer!: ReactTestRenderer;
+  await act(async () => { renderer = create(createElement(AnalysisApp)); });
+  await act(async () => renderer.root.findAllByType('button').find(button => button.children.includes('Data sources'))!.props.onClick());
+  const state = renderer.root.findByProps({ className: 'analysis-status error' });
+  expect(state.children).toEqual(['Read failed']);
+  await act(async () => renderer.unmount());
 });
