@@ -124,3 +124,9 @@ Tailscale SSH was retried through the same access path and timed out after 15
 seconds. No remote command, host-trust change or alternate access method was used.
 Physical Windows 10/27-inch 2K, system text scaling, mixed-DPI display testing and
 complete desktop workflow parity remain unverified. Desktop workflows stay available.
+
+A fresh temporary consumer of the published registry SDK reconciled this week's
+summary, session and daily token totals: 51 priced Codex sessions, 120 contributing
+files, 2,454,566,858 tokens and 0 parse errors. Every source file exists; no paths
+or transcript content were printed. Claude had no records in this range, so no
+non-empty Claude acceptance is claimed.
