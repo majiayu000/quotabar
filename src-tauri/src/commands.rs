@@ -995,6 +995,12 @@ mod analysis_tests {
             report.projects[0].usage.projects[0].sessions[0].session_id,
             "codex-one"
         );
+        let paths = &report.projects[0].usage.projects[0].sessions[0].source_paths;
+        assert_eq!(paths.len(), 1);
+        assert_eq!(
+            std::path::Path::new(&paths[0]),
+            root.join("codex/sessions/2026/09/02/rollout-unrelated-filename-codex-one.jsonl")
+        );
         assert_eq!(report.history[0].points[0].tokens.total_tokens, 100);
         assert_eq!(report.hourly[0].points[0].tokens.total_tokens, 100);
         let warm = load_analysis_report("codex", "custom", &query).unwrap();

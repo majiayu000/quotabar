@@ -18,11 +18,11 @@ or pricing table.
 - Missing file provenance is explicit. Other adapters lacking reliable locations
   are not assigned guessed paths. This is usage provenance, not invoice proof.
 
-The provenance and additional native discovery diagnostics are implemented in the
-parallel ccstats change. This checkout keeps its published SDK dependency; its
-lockfile currently resolves ccstats 0.9.1. The new SDK must be released and the
-lockfile refreshed before installed QuotaBar receives these additions. Local
-Cargo overrides are verification only and must not be shipped as dependencies.
+The provenance and additional native discovery diagnostics are supplied by
+[ccstats 0.11.0](https://github.com/majiayu000/ccstats/releases/tag/v0.11.0).
+This checkout resolves that published crate and agent-sessions 0.2.2 directly
+from crates.io. Its package VCS record matches release commit 971a146; its checksum
+matches the published Homebrew source. No local Cargo override is shipped.
 
 ## Windows feedback #186
 
@@ -65,10 +65,11 @@ the platform Tauri prerequisites. Local builds are separate from signed release
 artifacts. Provider login uses the existing CLI/provider setup; after signing in,
 use the recovery action to check again.
 
-These task branches have no newly published release. Publish the ccstats SDK
-change first, refresh QuotaBar's lockfile, repeat the integration checks, then
-prepare the normal version/changelog/artifact/signing review described in
-[release.md](release.md). Failed source reads must remain visible through that
+The ccstats SDK and its retained five-platform desktop installers are published
+at 0.11.0. QuotaBar 0.6.0 is prepared with the registry SDK, matching manifests
+and a regression that requires the actual contributing Codex file after filtering.
+Its own public release still requires the candidate/signing approval in
+[release.md](release.md). Failed source reads remain visible through that
 sequence. No real-user confirmation or Windows 10 result is claimed.
 
 ## Verification
@@ -102,3 +103,30 @@ filesystem, without printing paths or transcript content. Codex: 32 sessions,
 57 contributing files, 487,730,985 tokens, 0 parse errors. Claude: no records in
 Today, so this observation provides no non-empty Claude acceptance. This is a
 local data observation, not Windows UI acceptance or subscription-bill verification.
+
+## Follow-up — 2026-10-08
+
+QuotaBar #211 and ccstats #207 are merged. ccstats final-head CI and its full
+0.11.0 release workflow succeeded, including both hosted native IPC tests,
+five CLI archives, five desktop installers, macOS signing/notarization and the
+Homebrew update. The release has 20 files including checksum sidecars; the
+downloaded Apple Silicon CLI archive matches the public release digest and runs
+as 0.11.0. These results do not establish physical Windows 10 display acceptance.
+
+Fresh QuotaBar checks use the production registry dependency: 166 Rust tests
+passed (10 existing manual/ignored), including session identity, exact native
+source location, filters and SDK aliases. Frontend: 675 tests passed. Build,
+Rust formatting, release-version checks and 15 lifecycle tests passed.
+An additional Clippy check reported seven warnings in unchanged tray/Cursor/Grok
+code; it is not a required CI check and no unrelated cleanup is included.
+
+Tailscale SSH was retried through the same access path and timed out after 15
+seconds. No remote command, host-trust change or alternate access method was used.
+Physical Windows 10/27-inch 2K, system text scaling, mixed-DPI display testing and
+complete desktop workflow parity remain unverified. Desktop workflows stay available.
+
+A fresh temporary consumer of the published registry SDK reconciled this week's
+summary, session and daily token totals: 51 priced Codex sessions, 120 contributing
+files, 2,454,566,858 tokens and 0 parse errors. Every source file exists; no paths
+or transcript content were printed. Claude had no records in this range, so no
+non-empty Claude acceptance is claimed.
