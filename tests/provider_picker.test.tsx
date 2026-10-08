@@ -64,7 +64,7 @@ it('preserves an intentionally empty favorite list and excludes hidden providers
   saveProviderFavorites([]); await mount();
   expect(navButtons()).toHaveLength(2);
   await act(async () => renderer!.update(<TabSwitcher summaries={summaries.filter((summary) => summary.id !== 'grok')} activeTab="all" onTabChange={vi.fn()} />));
-  await act(async () => byLabel('All services (4)').props.onClick());
+  await act(async () => byLabel(`All services (${summaries.length - 1})`).props.onClick());
   expect(renderer!.root.findAllByProps({ 'aria-label': 'Favorite Grok' })).toHaveLength(0);
 });
 

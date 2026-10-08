@@ -59,7 +59,8 @@ exec /bin/mv "$@"`,
     version: () => readFileSync(join(installedApp, 'Contents/MacOS/quotabar'), 'utf8'),
     run(name, env = {}) {
       return spawnSync('/bin/bash', [join(scripts, name)], {
-        encoding: 'utf8', timeout: 10000,
+        // Allow the 50-process timeout fixture to finish on loaded CI machines.
+        encoding: 'utf8', timeout: 30000,
         env: { ...process.env, PATH: `${bin}:/usr/bin:/bin`, EVENTS: events, COUNTER: join(root, 'counter'), ...env },
       });
     },

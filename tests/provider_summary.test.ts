@@ -24,18 +24,17 @@ describe('provider summary helpers', () => {
     expect(summaries.find((summary) => summary.id === 'claude')?.statusText).toBe('Ready');
     expect(summaries.find((summary) => summary.id === 'codex')?.statusText).toBe('100% remaining');
     expect(summaries.find((summary) => summary.id === 'cursor')?.statusText).toBe('Offline');
-    expect(summaries.find((summary) => summary.id === 'antigravity')?.statusText).toBe('Syncing');
     expect(summaries.find((summary) => summary.id === 'grok')?.statusText).toBe('88% remaining');
   });
 
-  test('shows Antigravity Preview instead of Offline for the placeholder', () => {
+  test('leaves hidden Antigravity out of summaries while keeping the preview status helper', () => {
     const summaries = buildProviderSummaries(
       { claude: false, codex: false, cursor: false, grok: false, antigravity: false },
       { claude: false, codex: false, cursor: false, grok: false, antigravity: false },
       { claude: null, codex: null, cursor: null, grok: null, antigravity: null },
     );
 
-    expect(summaries.find((summary) => summary.id === 'antigravity')?.statusText).toBe('Preview');
+    expect(summaries.map((summary) => summary.id)).toEqual(['claude', 'codex', 'cursor', 'grok']);
     expect(summaries.find((summary) => summary.id === 'cursor')?.statusText).toBe('Offline');
     expect(getProviderStatusText(false, false, null, { status: 'preview' })).toBe('Preview');
     expect(getProviderStatusText(false, false, null, { status: 'placeholder' })).toBe('Preview');

@@ -21,7 +21,7 @@ export type AnalysisView = 'overview' | 'usage' | 'history' | 'sources';
 export interface AnalysisSource { name: string; display_name: string; has_projects: boolean; has_cache_read: boolean }
 export interface AnalysisCatalog {
   sources: AnalysisSource[];
-  diagnostics: { name: string; display_name: string; status: 'detected' | 'configured' | 'missing'; files: number; detail: string; setup: string }[];
+  diagnostics: { name: string; display_name: string; status: 'detected' | 'configured' | 'missing' | 'error'; files: number; detail: string; setup: string }[];
 }
 export interface AnalysisMetrics {
   currency: string; cost: number | null; cost_usd: number | null; cost_kind: string; pricing_source: string;
@@ -29,7 +29,9 @@ export interface AnalysisMetrics {
   tokens: { reasoning_tokens: number; reported_total_adjustment: number; total_tokens: number; input_tokens: number; output_tokens: number; cache_creation_tokens: number; cache_read_tokens: number; cache_hit_rate: number | null };
 }
 export interface AnalysisTitle { text: string; origin: 'source_title' | 'source_summary' }
-export interface AnalysisSession { session_id: string; first_timestamp: string; last_timestamp: string; metrics: AnalysisMetrics }
+export interface AnalysisSession {
+  source_paths?: string[];
+  session_id: string; first_timestamp: string; last_timestamp: string; metrics: AnalysisMetrics }
 export interface AnalysisProject { project_path: string; project_name: string; session_count: number; metrics: AnalysisMetrics; sessions: AnalysisSession[] }
 export interface AnalysisProgress { requestId: string; source: string; current: number; total: number }
 export interface AnalysisQuery { model: string | null; project: string | null; since: string | null; until: string | null }
@@ -70,6 +72,8 @@ let analysisRequestSequence = 0;
 
 export const backend = {
   saveAnalysisSummary(summary: Record<string, unknown>, format: 'json' | 'svg' = 'json') { return invokeBackend<string>('save_analysis_summary', { summary, format }); },
+  /** Save a pre-rendered share card SVG to Downloads; the backend rejects active content. */
+  saveAnalysisCard(svg: string) { return invokeBackend<string>('save_analysis_card', { svg }); },
   cachedAnalysisReport(source: string, range: AnalysisRange, query: AnalysisQuery) { return invokeBackend<AnalysisReport | null>('cached_analysis_report', { source, range, query }); },
   analysisCatalog() { return invokeBackend<AnalysisCatalog>('analysis_catalog'); },
   analysisSource() { return invokeBackend<string>('analysis_source'); },
@@ -164,6 +168,7 @@ export const backend = {
     force = false,
     style: 'percent' | 'ring' | 'icon' = 'percent',
     stale = false,
+    keepAlive = false,
   ) {
     return invokeBackend<void>('update_tray_icon', {
       service,
@@ -172,6 +177,7 @@ export const backend = {
       force,
       style,
       stale,
+      keepAlive,
     });
   },
 

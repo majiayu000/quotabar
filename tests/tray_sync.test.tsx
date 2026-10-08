@@ -140,8 +140,32 @@ describe('tray icon sync', () => {
     expect(visible.get('grok')).toBe(true);
     expect(visible.get('claude')).toBe(false);
     expect(visible.get('cursor')).toBe(false);
-    expect(visible.get('antigravity')).toBe(false);
+    expect(visible.has('antigravity')).toBe(false);
     expect(SERVICES.every((service) => visible.has(service))).toBe(true);
+
+    await unmount(renderer);
+  });
+
+  test('parks trays hidden by cycling but removes disabled trays', async () => {
+    (globalThis as Record<string, unknown>).localStorage = memoryStorage({
+      'claude-tray-enabled': 'false',
+      'codex-tray-enabled': 'true',
+      'cursor-tray-enabled': 'false',
+      'grok-tray-enabled': 'true',
+      'antigravity-tray-enabled': 'false',
+      'claude-quota-tray-cycle': 'true',
+    });
+    const renderer = await render_app();
+    const last = new Map<string, unknown[]>();
+    for (const args of (backend.updateTrayIcon as unknown as Mock).mock.calls) {
+      last.set(args[0] as string, args);
+    }
+
+    const cycledOut = ['codex', 'grok'].find((service) => last.get(service)?.[2] === false);
+    expect(cycledOut).toBeDefined();
+    expect(last.get(cycledOut!)?.[6]).toBe(true);
+    expect(last.get('claude')?.[6]).toBe(false);
+    expect(last.get('cursor')?.[6]).toBe(false);
 
     await unmount(renderer);
   });

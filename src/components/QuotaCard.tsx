@@ -7,6 +7,8 @@ interface QuotaCardProps {
   percentage: number;
   resetsIn: string;
   pace?: string | null;
+  /** Overrides the usage-based pace tone, e.g. for exhaustion forecasts. */
+  paceWarning?: boolean;
   featured?: boolean;
 }
 
@@ -16,7 +18,7 @@ function getStatusColor(percentage: number): string {
   return 'good';
 }
 
-export default function QuotaCard({ label, percentage, resetsIn, pace, featured = false }: QuotaCardProps) {
+export default function QuotaCard({ label, percentage, resetsIn, pace, paceWarning, featured = false }: QuotaCardProps) {
   useLocale();
   const status = getStatusColor(percentage);
 
@@ -48,7 +50,7 @@ export default function QuotaCard({ label, percentage, resetsIn, pace, featured 
       </div>
 
       {pace && (
-        <span className={`quota-pace ${percentage >= 50 ? 'warning' : ''}`}>{pace}</span>
+        <span className={`quota-pace ${(paceWarning ?? percentage >= 50) ? 'warning' : ''}`}>{pace}</span>
       )}
     </div>
   );

@@ -8,6 +8,8 @@ import { formatResetTime, getProgressStyle, remainingPercent } from '../utils/qu
 import ProviderIcon from './ProviderIcon';
 import ProviderSetup from './ProviderSetup';
 import { quotaRecovery } from './QuotaRecovery';
+import { formatForecastClock, formatForecastHeadline, getQuotaForecast, type QuotaForecastMap } from '../services/quota_forecast';
+import { selectHeadroomHint, type HeadroomHint } from '../services/headroom_hint';
 
 function windowName(label: string): string {
   return label === '5h' ? t("5-hour quota") : localizeLabel(label);
@@ -17,10 +19,23 @@ function isWeekly(window: QuotaWindowSummary): boolean {
   return window.label === 'Weekly' || window.label.endsWith('7-day') || window.label === '7-day usage' || window.label === 'Weekly pool';
 }
 
+function headroomText({ constrained, alternative }: HeadroomHint): string {
+  const values = {
+    p0: constrained.providerLabel,
+    p1: windowName(constrained.label),
+    p2: remainingPercent(constrained.usedPercent),
+    p3: alternative.providerLabel,
+    p4: remainingPercent(alternative.usedPercent),
+  };
+  return alternative.resetAtMs != null && alternative.resetAtMs > Date.now()
+    ? t("{p0} {p1}: {p2}% left. {p3} still has {p4}% (resets {p5}).", { ...values, p5: formatForecastClock(alternative.resetAtMs) })
+    : t("{p0} {p1}: {p2}% left. {p3} still has {p4}%.", values);
+}
 
-export default function QuotaOverview({ summaries, windows, display, onProviderSelect, onRefresh, onSettings }: {
+export default function QuotaOverview({ summaries, windows, forecasts, display, onProviderSelect, onRefresh, onSettings }: {
   summaries: ProviderSummary[];
   windows: QuotaWindowSummary[];
+  forecasts?: QuotaForecastMap;
   display: QuotaDisplay;
   onProviderSelect: (provider: TrayServiceName) => void;
   onRefresh: (provider: TrayServiceName) => void;
@@ -34,7 +49,9 @@ export default function QuotaOverview({ summaries, windows, display, onProviderS
     return () => clearInterval(timer);
   }, []);
   const caption = t("Remaining");
+  const headroom = selectHeadroomHint(summaries, windows, forecasts);
   return <div className="quota-overview" aria-label={t("Account quota overview")}>
+    {headroom && <p className="quota-headroom-hint" role="status">{headroomText(headroom)}</p>}
     {summaries.map((summary) => {
       const providerWindows = windows.filter((window) => window.provider === summary.id && Number.isFinite(window.usedPercent));
       // Visibility never changes which limit is most constrained.
@@ -46,6 +63,7 @@ export default function QuotaOverview({ summaries, windows, display, onProviderS
       const recovery = quotaRecovery(summary.id, summary.readState?.error);
       const stale = Boolean(summary.failed || recovery);
       const readingAt = summary.lastSuccessAt ?? summary.readState?.readAt;
+      const headlineForecast = headline && !stale ? formatForecastHeadline(getQuotaForecast(forecasts, headline)) : null;
       return <section className={`quota-account${stale ? ' is-stale' : ''}`} key={summary.id} aria-label={t("{p0} quota", { p0: summary.label })}>
         <header className="quota-account-header">
           <h2>{summary.label}</h2>
@@ -63,6 +81,7 @@ export default function QuotaOverview({ summaries, windows, display, onProviderS
             <strong>{percentage === null ? '—' : `${percentage}%`}</strong>
             <span>{percentage === null ? summary.loading ? t("Loading quota…") : t("No quota data") : t("Remaining quota")}</span>
             {headline && <small>{windowName(headline.label)}{providerWindows.length > 1 ? t(" · Closest to limit") : ''}</small>}
+            {headlineForecast && <small className="quota-account-forecast">{headlineForecast}</small>}
           </div>
         </div>
         {visibleWindows.length > 0 && <div className="quota-account-windows">
@@ -80,7 +99,7 @@ export default function QuotaOverview({ summaries, windows, display, onProviderS
         </div>}
         {stale && <div className="quota-account-notice" role="status">
           <span>{recovery?.title ?? t("Quota update failed")}{percentage !== null ? t(" · Showing stale data") : ''}</span>
-          {readingAt != null && <small>{t("Last successful read")}{new Date(readingAt).toLocaleString(getLocale(), { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</small>}
+          {readingAt != null && <small>{t("Last successful read {time}", { time: new Date(readingAt).toLocaleString(getLocale(), { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) })}</small>}
           <button type="button" onClick={() => onProviderSelect(summary.id)}>{t("View cause and recovery steps ›")}</button>
         </div>}
         {percentage === null && !summary.loading && !summary.connected && !stale && <ProviderSetup service={summary.id} loading={false} onRetry={() => onRefresh(summary.id)} />}

@@ -4,7 +4,27 @@ All notable QuotaBar changes should be summarized here before a release is cut.
 
 ## Unreleased
 
-- Hide macOS tray items through native visibility while retaining their identity, instead of leaving zero-width visible slots. Apply autosave identity synchronously, preserve saved positions, and propagate native visibility errors.
+- Hide macOS tray items retained by cycling through native visibility instead of leaving zero-width slots. Configure autosave synchronously and propagate native visibility errors; retain the disabled-item removal and saved-position behavior.
+
+## 0.6.0 - 2026-10-08
+
+- Connect the published ccstats 0.11 SDK so desktop session provenance and native source read errors reach installed builds.
+
+- Keep failed source reads visible in desktop analysis and avoid displaying unknown daily usage as zero.
+- Show contributing native session files when the statistics SDK supplies provenance, with an explicit unavailable state otherwise.
+
+
+- Hide Antigravity from the switcher, overview, desktop quota views, settings, favorites and menu bar until its quota can be tracked; it only ever showed a placeholder. Saved favorites, tabs, panel and tray preferences that mention it are ignored, and one menu bar icon always stays enabled.
+
+- Separate the "Last successful read" label from its time in quota cards (previously rendered as "read09:30 AM").
+
+- Keep today's API-equivalent cost, tokens and pricing status visible beside the overview trend in Chinese and English. Selecting a bar updates that summary in place; opening the day's filtered history now takes an explicit action. Unknown prices stay `—`, partial totals show `≥`, and days with incomplete pricing are marked on the cost chart.
+
+- Add a subscription value report: optional per-provider monthly plan prices in Settings → Accounts (never assumed), a desktop workspace section comparing this or last calendar month's local API-equivalent estimate with those prices as a value multiple, and JSON / SVG share-card exports that honor the hide-source toggle. Keep `≥` / `≈` / `—` cost semantics and exclude GPT-Reserve complimentary usage from Codex value.
+
+- Estimate whether each quota window runs out before its reset from the last hour of successful reads, in provider details and on the overview headline. Unknown or stale pace shows no estimate.
+- Show one overview hint pointing to another connected account with substantially more remaining quota when the most constrained window is low or estimated to run out before reset. Stale or failed readings never produce the hint.
+- Remove a disabled provider's macOS menu bar item instead of collapsing it to zero width, and restore its saved position when it is turned back on. Trays hidden by cycling stay collapsed.
 - Renew Grok credentials inside the official CLI's early-invalidation window and retry billing once after 401/403 when the rejected credential has a refresh token. Keep the selected account through renewal, allow immediate authentication recovery after successful renewal, and preserve disconnected errors when renewal or the retried authentication fails.
 
 - Let Grok session renewal finish saving credentials after the 20-second request deadline, prevent overlapping helpers, and retain matching-account last-known quota for up to 15 minutes with renewal errors shown. Reap completed helpers before applying the current refresh request’s retry policy.

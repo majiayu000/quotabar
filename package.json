@@ -1,13 +1,14 @@
 {
   "name": "quotabar",
   "private": true,
-  "version": "0.5.9",
+  "version": "0.6.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
     "release:check": "node scripts/check_release_version.mjs",
+    "demo:screenshots": "node scripts/capture_demo_screenshots.mjs",
     "test": "vitest run",
     "tauri": "tauri"
   },
@@ -26,6 +27,7 @@
     "@types/react-test-renderer": "19.1.0",
     "@vitejs/plugin-react": "^4.6.0",
     "@vitest/coverage-v8": "4.1.6",
+    "playwright": "^1.60.0",
     "react-test-renderer": "19.2.6",
     "typescript": "~5.8.3",
     "vite": "^7.0.4",

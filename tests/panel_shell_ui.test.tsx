@@ -177,7 +177,7 @@ describe('panel shell UI', () => {
     expect(html).toContain('theme-option-label">Light');
     expect(html).toContain('>Connected<');
     expect(html).toContain('>Sign-in required<');
-    expect(html).toContain('>Preview<');
+    expect(html).not.toContain('Antigravity');
     expect(html).toContain('>Launch at Login<');
     expect(html).toContain('<button type="button" disabled="">Check again</button>');
     expect(html).not.toContain('aria-label="Launch at Login"');

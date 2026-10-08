@@ -1,4 +1,4 @@
-import { SERVICES } from './service_meta';
+import { ALL_SERVICES, isHiddenService } from './service_meta';
 import type { TrayServiceName } from './tray_visibility';
 import { readStorageValue, writeStorageItem } from './storage';
 
@@ -10,8 +10,9 @@ export function getSavedProviderFavorites(): TrayServiceName[] | null {
   const result = readStorageValue(KEY, (raw) => {
     const value: unknown = JSON.parse(raw);
     if (!Array.isArray(value) || value.length > MAX_PROVIDER_FAVORITES || new Set(value).size !== value.length
-      || !value.every((id) => SERVICES.includes(id))) throw new Error('Invalid saved provider favorites');
-    return value as TrayServiceName[];
+      || !value.every((id) => ALL_SERVICES.includes(id))) throw new Error('Invalid saved provider favorites');
+    // Favorites saved before a provider was hidden are ignored rather than treated as corrupt.
+    return (value as TrayServiceName[]).filter((id) => !isHiddenService(id));
   }, { notifyUser: true });
   return result.status === 'value' ? result.value : null;
 }

@@ -15,14 +15,22 @@ fn write_analysis_summary(
     summary: &serde_json::Value,
     format: &str,
 ) -> Result<String, String> {
-    use std::io::Write;
     let content = match format {
         "json" => serde_json::to_vec_pretty(summary).map_err(|e| e.to_string())?,
         "svg" => analysis_summary_svg(summary)?.into_bytes(),
         _ => return Err(format!("不支持的摘要格式：{format}")),
     };
+    write_export_file(directory, format, &content)
+}
+
+fn write_export_file(
+    directory: &std::path::Path,
+    extension: &str,
+    content: &[u8],
+) -> Result<String, String> {
+    use std::io::Write;
     let path = directory.join(format!(
-        "QuotaBar-{}.{format}",
+        "QuotaBar-{}.{extension}",
         chrono::Local::now().format("%Y%m%d-%H%M%S-%f")
     ));
     let mut file = std::fs::OpenOptions::new()
@@ -30,7 +38,7 @@ fn write_analysis_summary(
         .create_new(true)
         .open(&path)
         .map_err(|e| format!("无法创建摘要文件：{e}"))?;
-    file.write_all(&content)
+    file.write_all(content)
         .and_then(|_| file.sync_all())
         .map_err(|e| format!("摘要写入失败：{e}"))?;
     Ok(path.to_string_lossy().into_owned())
@@ -71,6 +79,60 @@ fn analysis_summary_svg(summary: &serde_json::Value) -> Result<String, String> {
         escape(cost),
         escape(source)
     ))
+}
+
+/// Share cards are rendered by the localized frontend. Accept only a static,
+/// self-contained SVG so a saved card cannot carry scripts or external links.
+fn validate_share_card(svg: &str) -> Result<(), String> {
+    const MAX_CARD_BYTES: usize = 256 * 1024;
+    if svg.len() > MAX_CARD_BYTES {
+        return Err("分享卡片过大".to_string());
+    }
+    if !svg.starts_with("<svg xmlns=\"http://www.w3.org/2000/svg\"") || !svg.ends_with("</svg>") {
+        return Err("分享卡片不是有效的 SVG".to_string());
+    }
+    let lower = svg.to_ascii_lowercase();
+    let forbidden = [
+        "<script",
+        "<foreignobject",
+        "<image",
+        "<use",
+        "<!",
+        "<?",
+        "href",
+        "javascript:",
+        "url(",
+    ];
+    if forbidden.iter().any(|needle| lower.contains(needle)) {
+        return Err("分享卡片包含不允许的内容".to_string());
+    }
+    let bytes = lower.as_bytes();
+    let has_event_handler = lower.match_indices("on").any(|(index, _)| {
+        if index == 0 || !bytes[index - 1].is_ascii_whitespace() {
+            return false;
+        }
+        let rest = &bytes[index + 2..];
+        let name = rest
+            .iter()
+            .take_while(|byte| byte.is_ascii_alphabetic())
+            .count();
+        name > 0 && rest[name..].iter().find(|byte| !byte.is_ascii_whitespace()) == Some(&b'=')
+    });
+    if has_event_handler {
+        return Err("分享卡片包含不允许的内容".to_string());
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn save_analysis_card(svg: String) -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        validate_share_card(&svg)?;
+        let directory = dirs::download_dir().ok_or("无法找到下载文件夹")?;
+        write_export_file(&directory, "svg", svg.as_bytes())
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
@@ -226,28 +288,46 @@ fn load_analysis_report_cancellable(
     } else if range == "custom" {
         return Err("请选择自定义日期范围".to_string());
     }
-    let sources = if source == "all" {
-        ccstats::diagnose_usage_sources()
-            .map_err(|e| e.to_string())?
-            .into_iter()
-            .filter(|item| item.status != ccstats::SourceDiagnosticStatus::Missing)
-            .map(|item| item.name)
-            .collect::<Vec<_>>()
+    let selected_source = if source == "all" {
+        None
     } else {
-        vec![source.to_owned()]
+        Some(source.parse::<UsageSource>().map_err(|e| e.to_string())?)
     };
+    let diagnostics = ccstats::diagnose_usage_sources().map_err(|e| e.to_string())?;
     let mut report = AnalysisReport {
         generated_at: chrono::Utc::now().to_rfc3339(),
         ..AnalysisReport::default()
     };
+    let mut sources = Vec::new();
+    for item in diagnostics {
+        if selected_source.is_some_and(|selected| selected != item.source) {
+            continue;
+        }
+        match item.status {
+            ccstats::SourceDiagnosticStatus::Error => {
+                report
+                    .errors
+                    .push(format!("{} · {}", item.name, item.detail));
+                // Keep any readable portion while marking the source incomplete.
+                sources.push((item.name, item.source));
+            }
+            ccstats::SourceDiagnosticStatus::Missing if source == "all" => {}
+            ccstats::SourceDiagnosticStatus::Missing => {
+                report
+                    .errors
+                    .push(format!("{} · {}", item.name, item.detail));
+            }
+            _ => sources.push((item.name, item.source)),
+        }
+    }
     let total_sources = sources.len();
-    for (index, source) in sources.into_iter().enumerate() {
+    for (index, (source, usage_source)) in sources.into_iter().enumerate() {
         progress(&source, index + 1, total_sources);
         if cancelled() {
             return Err("Analysis cancelled".to_string());
         }
         let mut options = base_options.clone();
-        options.source = source.parse::<UsageSource>().map_err(|e| e.to_string())?;
+        options.source = usage_source;
         let filter = AnalysisFilter {
             model: query.model.clone(),
             project: query.project.clone(),
@@ -540,6 +620,7 @@ pub async fn update_tray_icon(
     force: Option<bool>,
     style: Option<tray_icon::TrayIconStyle>,
     stale: Option<bool>,
+    keep_alive: Option<bool>,
 ) -> Result<(), String> {
     tray::update_tray_icon(
         app,
@@ -550,6 +631,7 @@ pub async fn update_tray_icon(
         force.unwrap_or(false),
         style,
         stale.unwrap_or(false),
+        keep_alive.unwrap_or(false),
     )
     .await
 }
@@ -604,6 +686,41 @@ mod analysis_tests {
         assert!(!card.contains("PRIVATE"));
         assert!(card.contains("不代表订阅账单"));
         assert!(analysis_summary_svg(&serde_json::json!({})).is_err());
+    }
+
+    #[test]
+    fn share_card_accepts_static_svg_and_rejects_active_content() {
+        let card = r#"<svg xmlns="http://www.w3.org/2000/svg" width="960" height="540"><text x="1" y="2">Codex on track &amp; 6.4×</text></svg>"#;
+        assert!(validate_share_card(card).is_ok());
+        let spaced_card = "<svg xmlns=\"http://www.w3.org/2000/svg\"\nwidth =\"960\"\theight\t= \"540\"><text\nx=\"1\"\ty = \"2\">Codex on track</text></svg>";
+        assert!(validate_share_card(spaced_card).is_ok());
+        for bad in [
+            r#"<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>"#,
+            r#"<svg xmlns="http://www.w3.org/2000/svg"><rect onload="x()"/></svg>"#,
+            r#"<svg xmlns="http://www.w3.org/2000/svg" onload ="alert(1)"></svg>"#,
+            "<svg xmlns=\"http://www.w3.org/2000/svg\"><rect\nonload=\"x()\"/></svg>",
+            "<svg xmlns=\"http://www.w3.org/2000/svg\"><rect\tonload\t=\"x()\"/></svg>",
+            "<svg xmlns=\"http://www.w3.org/2000/svg\"><rect\rONCLICK\r\n=\"x()\"/></svg>",
+            r#"<svg xmlns="http://www.w3.org/2000/svg"><a href="https://example.com">x</a></svg>"#,
+            r#"<svg xmlns="http://www.w3.org/2000/svg"><foreignObject/></svg>"#,
+            r#"<?xml version="1.0"?><svg xmlns="http://www.w3.org/2000/svg"></svg>"#,
+            "<html></html>",
+        ] {
+            assert!(validate_share_card(bad).is_err(), "{bad}");
+        }
+        let directory = std::env::temp_dir().join(format!(
+            "quotabar-card-{}-{}",
+            std::process::id(),
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        fs::create_dir_all(&directory).unwrap();
+        let path = write_export_file(&directory, "svg", card.as_bytes()).unwrap();
+        assert!(path.ends_with(".svg"));
+        assert_eq!(fs::read_to_string(&path).unwrap(), card);
+        fs::remove_dir_all(directory).unwrap();
     }
 
     #[test]
@@ -878,11 +995,24 @@ mod analysis_tests {
             report.projects[0].usage.projects[0].sessions[0].session_id,
             "codex-one"
         );
+        let paths = &report.projects[0].usage.projects[0].sessions[0].source_paths;
+        assert_eq!(paths.len(), 1);
+        assert_eq!(
+            std::path::Path::new(&paths[0]),
+            root.join("codex/sessions/2026/09/02/rollout-unrelated-filename-codex-one.jsonl")
+        );
         assert_eq!(report.history[0].points[0].tokens.total_tokens, 100);
         assert_eq!(report.hourly[0].points[0].tokens.total_tokens, 100);
         let warm = load_analysis_report("codex", "custom", &query).unwrap();
         assert_eq!(
             warm.summaries[0].summary.metrics,
+            report.summaries[0].summary.metrics
+        );
+        let alias = load_analysis_report(" CX ", "custom", &query).unwrap();
+        assert!(alias.errors.is_empty(), "{:?}", alias.errors);
+        assert_eq!(alias.summaries[0].source, "codex");
+        assert_eq!(
+            alias.summaries[0].summary.metrics,
             report.summaries[0].summary.metrics
         );
         let catalog = AnalysisCatalog {

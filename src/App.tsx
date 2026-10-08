@@ -14,7 +14,7 @@ import ClaudePanel from './components/ClaudePanel';
 import ProviderPanels from './components/ProviderPanels';
 import { buildTrayEntries } from './components/TrayToggles';
 import { backend, hasTauriBackend } from './services/backend';
-import { SERVICES } from './services/service_meta';
+import { ALL_SERVICES, SERVICES } from './services/service_meta';
 import { resolveTrayVisible, saveTrayEnabled, shouldShowTray, type TrayServiceName } from './services/tray_visibility';
 import {
   getSavedPanelSections,
@@ -99,6 +99,7 @@ import { usePopoverWindow } from './hooks/use_popover_window';
 import { useLatestRequestGeneration } from './hooks/use_latest_request_generation';
 import { useFooterStatus } from './hooks/use_footer_status';
 import { useProviderNavigation } from './hooks/use_provider_navigation';
+import { useQuotaForecasts } from './hooks/use_quota_forecasts';
 
 // Re-exported for existing tests/importers.
 export {
@@ -136,7 +137,7 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
   );
   const [panelLoading, setPanelLoading] = useState<ServiceMap<boolean>>(() => defaultServiceMap(false));
   const [providerReads, setProviderReads] = useState<ServiceMap<ProviderReadState>>(() => defaultServiceMap({ error: null, readAt: null }));
-  const readResultSetters = useMemo<ServiceMap<(error: string | null, retryAt?: number | null) => void>>(() => Object.fromEntries(SERVICES.map((service) => [service, (error: string | null, retryAt?: number | null) => {
+  const readResultSetters = useMemo<ServiceMap<(error: string | null, retryAt?: number | null) => void>>(() => Object.fromEntries(ALL_SERVICES.map((service) => [service, (error: string | null, retryAt?: number | null) => {
     setProviderReads((previous) => ({ ...previous, [service]: { error, retryAt, readAt: error ? previous[service].readAt : Date.now() } }));
   }])) as ServiceMap<(error: string | null, retryAt?: number | null) => void>, []);
   const [providerQuotaWindows, setProviderQuotaWindows] = useState<ServiceMap<QuotaWindowSummary[]>>(() =>
@@ -216,7 +217,7 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
 
   const connectionSetters = useMemo<ServiceMap<(value: boolean) => void>>(() => {
     const setters = {} as ServiceMap<(value: boolean) => void>;
-    for (const svc of SERVICES) {
+    for (const svc of ALL_SERVICES) {
       setters[svc] = (value) => setServiceConnected(svc, value);
     }
     return setters;
@@ -224,7 +225,7 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
 
   const usageSetters = useMemo<ServiceMap<(value: number | null) => void>>(() => {
     const setters = {} as ServiceMap<(value: number | null) => void>;
-    for (const svc of SERVICES) {
+    for (const svc of ALL_SERVICES) {
       setters[svc] = (value) => setServiceUsedPercent(svc, value);
     }
     return setters;
@@ -232,7 +233,7 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
 
   const loadingSetters = useMemo<ServiceMap<(value: boolean) => void>>(() => {
     const setters = {} as ServiceMap<(value: boolean) => void>;
-    for (const svc of SERVICES) {
+    for (const svc of ALL_SERVICES) {
       setters[svc] = (value) => setServiceLoading(svc, value);
     }
     return setters;
@@ -240,7 +241,7 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
 
   const quotaWindowSetters = useMemo<ServiceMap<(windows: QuotaWindowSummary[]) => void>>(() => {
     const setters = {} as ServiceMap<(windows: QuotaWindowSummary[]) => void>;
-    for (const svc of SERVICES) {
+    for (const svc of ALL_SERVICES) {
       setters[svc] = (windows) => {
         setProviderQuotaWindows((prev) => ({ ...prev, [svc]: windows }));
       };
@@ -286,6 +287,7 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
     force = false,
     style: TrayStyle = 'percent',
     stale = false,
+    keepAlive = false,
   ) => {
     const previous = lastTrayIconRequestRef.current[service];
     if (
@@ -293,7 +295,8 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
       previous?.percentage === percentage &&
       previous.visible === visible &&
       previous.style === style &&
-      previous.stale === stale
+      previous.stale === stale &&
+      previous.keepAlive === keepAlive
     ) {
       return;
     }
@@ -302,9 +305,9 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
     trayIconGenerationRef.current[service] = generation;
 
     try {
-      await backend.updateTrayIcon(service, percentage, visible, force, style, stale);
+      await backend.updateTrayIcon(service, percentage, visible, force, style, stale, keepAlive);
       if (trayIconGenerationRef.current[service] !== generation) return;
-      lastTrayIconRequestRef.current[service] = { percentage, visible, style, stale };
+      lastTrayIconRequestRef.current[service] = { percentage, visible, style, stale, keepAlive };
     } catch (err) {
       console.error(`Failed to update ${service} tray icon:`, err);
     }
@@ -384,7 +387,9 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
       const pct = svc === 'claude' ? getClaudeTrayUsedPercent(quota) : usedPercent[svc];
       const visible = resolveTrayVisible(svc, candidates, trayCycle, trayCycleIndex);
       const stale = isStaleTrayPercent(providerReads[svc].error, pct);
-      updateTrayIcon(svc, pct, visible, force, trayStyle, stale);
+      // Trays hidden only by cycling stay parked; disabled ones are removed.
+      const keepAlive = !visible && candidates.includes(svc);
+      updateTrayIcon(svc, pct, visible, force, trayStyle, stale, keepAlive);
     }
   }, [quota, connected, usedPercent, providerReads, trayEnabled, trayCycle, trayCycleIndex, trayStyle, updateTrayIcon, workspace]);
 
@@ -660,6 +665,7 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
     ...providerQuotaWindows.cursor,
     ...providerQuotaWindows.grok,
   ];
+  const quotaForecasts = useQuotaForecasts(allQuotaWindows, providerReads);
   const providerSummaries = buildProviderSummaries(tabConnected, serviceLoading, serviceUsage, providerReads).map((summary) => ({
     ...summary, lastSuccessAt: providerReads[summary.id].readAt, failed: Boolean(providerReads[summary.id].error),
     usageLabel: summaryUsageLabel(summary.id, allQuotaWindows, summary.usedPercent),
@@ -736,6 +742,7 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
                   costRefreshKey={claudeCostRefreshNonce}
                   onRetry={handleRefresh}
                   sections={panelSections}
+                  forecasts={quotaForecasts}
                 />
               )}
 
@@ -744,11 +751,12 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
                 connectionSetters={connectionSetters} usageSetters={usageSetters} loadingSetters={loadingSetters}
                 quotaWindowSetters={quotaWindowSetters} readResultSetters={readResultSetters}
                 onBonusExpiring={handleBonusExpiring} onBonusReadyChange={handleBonusReadyChange}
-                onOpenDashboard={handleOpenDashboard} />
+                onOpenDashboard={handleOpenDashboard} forecasts={quotaForecasts} />
 
               {activeView === 'all' && !workspace && <QuotaOverview
                 summaries={overviewSummaries.length > 0 ? overviewSummaries : providerSummaries}
                 windows={allQuotaWindows}
+                forecasts={quotaForecasts}
                 display={quotaDisplay}
                 onProviderSelect={handleTabChange}
                 onRefresh={handleProviderRefresh}
@@ -784,5 +792,5 @@ export default function App({ workspace = false }: { workspace?: boolean }) {
       </div>
     </div>
   );
-  return workspace ? <AnalysisApp visible={windowVisible} onRefreshProvider={handleProviderRefresh} providerContent={content} providerView={activeView} theme={theme} summaries={providerSummaries} quotaWindows={allQuotaWindows} onProviderView={setActiveView} onThemeChange={handleThemeChange} /> : content;
+  return workspace ? <AnalysisApp visible={windowVisible} onRefreshProvider={handleProviderRefresh} providerContent={content} providerView={activeView} theme={theme} summaries={providerSummaries} quotaWindows={allQuotaWindows} onProviderView={setActiveView} onOpenSettingsPage={setSettingsPage} onThemeChange={handleThemeChange} /> : content;
 }

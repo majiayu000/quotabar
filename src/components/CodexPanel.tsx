@@ -16,7 +16,9 @@ import type {
   CodexWeeklyValueEstimate,
   CodexWeeklyValueError,
 } from '../types/models';
-import { buildCodexQuotaWindows, type QuotaWindowSummary } from '../services/provider_summary';
+import { buildCodexQuotaWindows, codexWindowLabel, type QuotaWindowSummary } from '../services/provider_summary';
+import { getQuotaForecast, type QuotaForecastMap } from '../services/quota_forecast';
+import QuotaForecastLine from './QuotaForecastLine';
 import { canReportBonusReady } from '../services/bonus_ready';
 import {
   checkWeeklyQuotaWindow,
@@ -46,6 +48,7 @@ interface CodexPanelProps {
   onBonusExpiring?: (daysLeft: number) => void;
   onBonusReadyChange?: (ready: { exhausted: boolean; availableCount: number }) => void;
   onOpenDashboard?: () => void;
+  forecasts?: QuotaForecastMap;
 }
 
 function formatSubscriptionDate(dateStr?: string): string {
@@ -209,6 +212,7 @@ export default function CodexPanel({
   onBonusExpiring,
   onBonusReadyChange,
   onOpenDashboard,
+  forecasts,
 }: CodexPanelProps) {
   useLocale();
   const [codexData, setCodexData] = useState<CodexData | null>(null);
@@ -433,6 +437,10 @@ export default function CodexPanel({
     }
     return null;
   };
+  const renderForecast = (window: CodexRateLimitWindow) => {
+    const forecast = getQuotaForecast(forecasts, { provider: 'codex', label: codexWindowLabel(window.windowMinutes) });
+    return forecast ? <QuotaForecastLine forecast={forecast} /> : null;
+  };
   const exhaustedTip = weeklyExhausted
     ? getExhaustedWeekTip(formatResetAt(officialWeeklyLimit?.resetsAt), availableResetCredits.length)
     : null;
@@ -534,7 +542,7 @@ export default function CodexPanel({
                         <span>{formatResetAt(rateLimits.primary.resetsAt)}</span>
                       </div>
                     )}
-                    {!weeklyExhausted && (() => {
+                    {!weeklyExhausted && (renderForecast(rateLimits.primary) ?? (() => {
                       const pace = formatPaceText(
                         rateLimits.primary.usedPercent,
                         rateLimits.primary.resetsAt,
@@ -545,7 +553,7 @@ export default function CodexPanel({
                           {pace}
                         </span>
                       ) : null;
-                    })()}
+                    })())}
                     {renderWeeklyPace(rateLimits.primary)}
                   </div>
                 )}
@@ -579,6 +587,7 @@ export default function CodexPanel({
                         <span>{formatResetAt(rateLimits.secondary.resetsAt)}</span>
                       </div>
                     )}
+                    {!weeklyExhausted && renderForecast(rateLimits.secondary)}
                     {renderWeeklyPace(rateLimits.secondary)}
                   </div>
                 )}
