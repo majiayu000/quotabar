@@ -10,9 +10,9 @@ checksum = "320119579fcad9c21884f5c4861d16174d0e06250625266f50fe6898340abefa"
 
 [[package]]
 name = "agent-sessions"
-version = "0.2.1"
+version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c078a983ce703c27069e826d9558d56b06c92723bb3480db526edbc3b4f89908"
+checksum = "664a6e8412440713e77bf4c811fa88cf9b41b0fa29edad14532e958b53bd1aaf"
 dependencies = [
  "chrono",
  "memchr",
@@ -494,9 +494,9 @@ dependencies = [
 
 [[package]]
 name = "ccstats"
-version = "0.9.1"
+version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "69a59db45c3aebcea3568ea596bb9b73edbb244faf09c17f750169b4acf592ba"
+checksum = "a6b2bd252c92ca62ca03980cbcb7505bdfb13d26571117df97c325793ffcf258"
 dependencies = [
  "agent-sessions",
  "base64 0.23.1",
@@ -3429,7 +3429,7 @@ dependencies = [
 
 [[package]]
 name = "quotabar"
-version = "0.5.9"
+version = "0.6.0"
 dependencies = [
  "base64 0.22.1",
  "ccstats",

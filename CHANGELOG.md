@@ -4,6 +4,10 @@ All notable QuotaBar changes should be summarized here before a release is cut.
 
 ## Unreleased
 
+## 0.6.0 - 2026-10-08
+
+- Connect the published ccstats 0.11 SDK so desktop session provenance and native source read errors reach installed builds.
+
 - Keep failed source reads visible in desktop analysis and avoid displaying unknown daily usage as zero.
 - Show contributing native session files when the statistics SDK supplies provenance, with an explicit unavailable state otherwise.
 
