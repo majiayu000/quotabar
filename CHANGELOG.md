@@ -4,6 +4,8 @@ All notable QuotaBar changes should be summarized here before a release is cut.
 
 ## Unreleased
 
+- Hide macOS tray items retained by cycling through native visibility instead of leaving zero-width slots. Configure autosave synchronously and propagate native visibility errors; retain the disabled-item removal and saved-position behavior.
+
 ## 0.6.0 - 2026-10-08
 
 - Connect the published ccstats 0.11 SDK so desktop session provenance and native source read errors reach installed builds.
