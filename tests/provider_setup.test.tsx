@@ -28,7 +28,7 @@ describe('first connection', () => {
       onProviderSelect={() => {}} onRetry={() => {}}
     />);
     expect(html).toContain('Connect your first service');
-    expect(html).toContain('claude login');
+    expect(html).toContain('Open Claude Code on this computer');
     expect(html).toContain('codex login');
     expect(html).toContain('grok login');
     expect(html).toContain('Open Cursor');

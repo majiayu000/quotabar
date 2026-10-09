@@ -4,6 +4,8 @@ All notable QuotaBar changes should be summarized here before a release is cut.
 
 ## Unreleased
 
+- Read native Windows Claude Code subscription credentials from the user profile or `CLAUDE_CONFIG_DIR`, without refreshing or writing tokens. Distinguish file-read failures from expired logins and localize the recovery guidance.
+
 ## 0.6.0 - 2026-10-08
 
 - Connect the published ccstats 0.11 SDK so desktop session provenance and native source read errors reach installed builds.

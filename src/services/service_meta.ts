@@ -20,7 +20,7 @@ export const ALL_SERVICES: TrayServiceName[] = ['claude', 'codex', 'cursor', 'gr
 export const SERVICE_META: Record<TrayServiceName, ServiceMeta> = {
   claude: {
     id: 'claude',
-    setupHint: 'Sign in with Claude Code using claude login in Terminal, then check again. If your session expired, sign in again.',
+    setupHint: 'Open Claude Code on this computer to check your login, then check again. Sign in only if Claude Code asks you to.',
     label: 'Claude',
     shortLabel: 'Claude',
     initials: 'C',

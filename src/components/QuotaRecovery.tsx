@@ -25,6 +25,11 @@ export function quotaRecovery(provider: TrayServiceName, error?: string | null) 
     description: t("Sign in to Grok in Terminal. QuotaBar will reconnect automatically, or select “Signed in, check again” to check now. Existing local usage records remain available."),
     command: 'grok login',
   };
+  if (provider === 'claude' && error.startsWith('Claude Code credential ')) return {
+    title: t("Could not read Claude Code credentials"),
+    description: localizeLabel(error),
+    command: null,
+  };
   if (provider === 'claude' && isClaudeAuthError(error)) return {
     requiresLogin: true,
     title: /expired|invalid|401|403/i.test(error) ? t("Sign in again") : t("Sign in first"),
