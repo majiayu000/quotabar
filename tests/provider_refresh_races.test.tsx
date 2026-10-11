@@ -387,7 +387,7 @@ describe('Codex weekly pace', () => {
     expect(rendered_text(renderer)).toContain('$200.00');
     expect(rendered_text(renderer)).toContain('4M tokens / week');
     expect(rendered_text(renderer)).toContain('Astra');
-    expect(rendered_text(renderer)).toContain('GPT-5.6 Sol');
+    expect(rendered_text(renderer)).toContain('GPT-6.1 Sol');
     expect(rendered_text(renderer)).toContain('Local estimate');
     expect(rendered_text(renderer)).toContain('Based on 60% remaining');
     expect(renderer.root.findByType('details').findAllByType('p')[0].children.join('')).toBe('≈$200.00');
@@ -460,7 +460,7 @@ describe('Codex weekly pace', () => {
     }, null, { usedPercent: 5, windowMinutes: 10_080, resetsAt: 1_787_961_600 });
     expect(renderer.root.findByType('details').findAllByType('p')[0].children.join('')).toBe('≈$2,469.12');
     expect(renderer.root.findAllByProps({ className: 'weekly-model-estimate' })[0].findByType('strong').children.join('')).toBe('≈16M tokens / week');
-    expect(renderer.root.findAllByProps({ className: 'weekly-model-estimate' })[1].findByType('strong').children.join('')).toBe('≈40M tokens / week');
+    expect(renderer.root.findAllByProps({ className: 'weekly-model-estimate' })[1].findByType('strong').children.join('')).toBe('≈80M tokens / week');
     expect(rendered_text(renderer)).not.toContain('≈20M');
     expect(rendered_text(renderer)).toContain('$123.46 local');
     expect(rendered_text(renderer)).toContain('1M observed tokens');
@@ -504,8 +504,8 @@ describe('Codex weekly pace', () => {
     expect(rendered_text(renderer)).not.toContain('Last estimate');
     expect(rendered_text(renderer)).not.toContain('Weekly value unavailable');
     expect(rendered_text(renderer)).toContain('Community reference');
-    expect(rendered_text(renderer)).toContain('≈853.5M tokens / week');
-    expect(rendered_text(renderer)).toContain('≈3.6B tokens / week');
+    expect(rendered_text(renderer)).toContain('≈914.8M tokens / week');
+    expect(rendered_text(renderer)).toContain('≈4.6B tokens / week');
     expect(renderer.root.findByProps({ className: 'weekly-value-gauge-center' }).findByType('strong').children.join('')).toBe('60%');
     await unmount(renderer);
   });

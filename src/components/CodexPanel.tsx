@@ -652,9 +652,9 @@ export default function CodexPanel({
                         <strong>{t("≈{tokens} tokens / week", { tokens: COMPACT_TOKEN_FORMAT().format(weeklyTokenCapacity.astraTokens) })}</strong>
                       </div>
                       <div className="weekly-model-estimate">
-                        <span>GPT-5.6 Sol</span>
+                        <span>{weeklyReference.pricing.solLabel}</span>
                         <strong>{t("≈{tokens} tokens / week", { tokens: COMPACT_TOKEN_FORMAT().format(weeklyTokenCapacity.solTokens) })}</strong>
-                        {!usesCommunityCapacity && <small>{t("Price conversion from Astra · {ratio}× tokens", { ratio: weeklyReference.pricing.solTokensPerAstraToken })}</small>}
+                        <small>{t("Price conversion from Astra · {ratio}× tokens", { ratio: weeklyReference.pricing.solTokensPerAstraToken })}</small>
                       </div>
                     </div>
                     <div

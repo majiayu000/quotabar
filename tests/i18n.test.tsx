@@ -131,7 +131,7 @@ describe('live bilingual rendering', () => {
         astraEquivalentWeeklyTokens: astraEquivalent,
         modelEstimates: [
           ...(astraTokens === undefined ? [] : [{ model: 'gpt-6-astra', estimatedWeeklyTokens: astraTokens, sampleTokens: 90_000_000, sampleUsedPct: 10 }]),
-          { model: 'gpt-5.6-sol', estimatedWeeklyTokens: 2_000_000_000, sampleTokens: 200_000_000, sampleUsedPct: 10 },
+          { model: 'gpt-6.1-sol', estimatedWeeklyTokens: 2_000_000_000, sampleTokens: 200_000_000, sampleUsedPct: 10 },
           { model: 'gpt-5.6-luna', estimatedWeeklyTokens: null, sampleTokens: 0, sampleUsedPct: 0 },
           { model: 'codex-auto-review', estimatedWeeklyTokens: 12_000_000_000, sampleTokens: 1_200_000_000, sampleUsedPct: 10 },
         ],
@@ -149,42 +149,42 @@ describe('live bilingual rendering', () => {
       expect(toggles()[0].props['aria-pressed']).toBeUndefined();
     }
     expect(rows()).toHaveLength(2);
-    expect(rows().map((row) => row.findByType('span').children.join(''))).toEqual(['Astra', 'GPT-5.6 Sol']);
-    expect(rows()[0].findByType('strong').children.join('')).toBe(isLocal ? '≈900M tokens / week' : '≈853.5M tokens / week');
-    expect(rows()[1].findByType('strong').children.join('')).toBe(isLocal ? '≈2.3B tokens / week' : '≈3.6B tokens / week');
-    expect(JSON.stringify(renderer!.toJSON())).toContain(isLocal ? 'Price conversion from Astra · 2.5× tokens' : 'Community reference');
+    expect(rows().map((row) => row.findByType('span').children.join(''))).toEqual(['Astra', 'GPT-6.1 Sol']);
+    expect(rows()[0].findByType('strong').children.join('')).toBe(isLocal ? '≈900M tokens / week' : '≈914.8M tokens / week');
+    expect(rows()[1].findByType('strong').children.join('')).toBe(isLocal ? '≈4.5B tokens / week' : '≈4.6B tokens / week');
+    expect(JSON.stringify(renderer!.toJSON())).toContain(isLocal ? 'Price conversion from Astra · 5× tokens' : 'Community reference');
     for (const unwanted of ['codex-auto-review', 'gpt-5.6-luna', 'If only', 'Insufficient sample']) {
       expect(JSON.stringify(renderer!.toJSON())).not.toContain(unwanted);
     }
     expect(JSON.stringify(renderer!.toJSON())).toContain('These alternatives cannot be added together');
     await act(async () => { setLanguagePreference('zh-CN'); });
     expect(rows()[0].findByType('span').children.join('')).toBe('Astra');
-    expect(rows()[0].findByType('strong').children.join('')).toBe(isLocal ? '≈9亿 Token / 周' : '≈8.5亿 Token / 周');
-    expect(rows()[1].findByType('strong').children.join('')).toBe(isLocal ? '≈22.5亿 Token / 周' : '≈36亿 Token / 周');
+    expect(rows()[0].findByType('strong').children.join('')).toBe(isLocal ? '≈9亿 Token / 周' : '≈9.1亿 Token / 周');
+    expect(rows()[1].findByType('strong').children.join('')).toBe(isLocal ? '≈45亿 Token / 周' : '≈45.7亿 Token / 周');
     const chinese = JSON.stringify(renderer!.toJSON());
-    expect(chinese).toContain(isLocal ? '按 Astra 价格折算 · 2.5 倍 Token' : '社区参考');
+    expect(chinese).toContain(isLocal ? '按 Astra 价格折算 · 5 倍 Token' : '社区参考');
     expect(chinese).not.toContain('样本不足');
     expect(chinese).not.toContain('若全用');
     if (!isLocal) {
       expect(chinese).toContain('Pro 20×');
       expect(chinese).toContain('非当前账户额度');
       expect(chinese).toContain('codex-quota.manetli.com');
-      expect(chinese).toContain('2026-09-16');
+      expect(chinese).toContain('2026-10-11');
     }
     expect(JSON.stringify(renderer!.toJSON())).toContain('同一份周额度的不同用法，不能相加');
     if (isLocal) {
       expect(toggles()[0].props['aria-label']).toBe('切换到社区参考');
       await act(async () => { toggles()[0].props.onClick(); });
-      expect(rows()[0].findByType('strong').children.join('')).toBe('≈8.5亿 Token / 周');
-      expect(rows()[1].findByType('strong').children.join('')).toBe('≈36亿 Token / 周');
+      expect(rows()[0].findByType('strong').children.join('')).toBe('≈9.1亿 Token / 周');
+      expect(rows()[1].findByType('strong').children.join('')).toBe('≈45.7亿 Token / 周');
       expect(toggles()[0].props['aria-label']).toBe('切换到本机估算');
       expect(toggles()[0].props['aria-pressed']).toBe(false);
       await act(async () => { setLanguagePreference('en'); });
       expect(toggles()[0].props['aria-label']).toBe('Switch to local estimate');
-      expect(rows()[0].findByType('strong').children.join('')).toBe('≈853.5M tokens / week');
+      expect(rows()[0].findByType('strong').children.join('')).toBe('≈914.8M tokens / week');
       await act(async () => { toggles()[0].props.onClick(); });
       expect(rows()[0].findByType('strong').children.join('')).toBe('≈900M tokens / week');
-      expect(rows()[1].findByType('strong').children.join('')).toBe('≈2.3B tokens / week');
+      expect(rows()[1].findByType('strong').children.join('')).toBe('≈4.5B tokens / week');
       expect(renderer!.root.findByProps({ className: 'weekly-value-gauge-center' }).findByType('strong').children.join('')).toBe('60%');
       expect(fetch).toHaveBeenCalledTimes(1);
     } else {

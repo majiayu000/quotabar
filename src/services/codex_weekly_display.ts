@@ -11,10 +11,11 @@ export function getWeeklyTokenCapacity(estimate: CodexWeeklyValueEstimate | null
       solTokens: astraTokens * weeklyReference.pricing.solTokensPerAstraToken,
     };
   }
+  const communityAstra = weeklyReference.community.astraWeeklyTokens;
   return {
     source: 'community' as const,
-    astraTokens: weeklyReference.community.astraWeeklyTokens,
-    solTokens: weeklyReference.community.solWeeklyTokens,
+    astraTokens: communityAstra,
+    solTokens: communityAstra * weeklyReference.pricing.solTokensPerAstraToken,
   };
 }
 
