@@ -12,7 +12,7 @@ docs/assets/quotabar-demo-workspace-dark.png        desktop workspace overview, 
 
 All are captured at device scale factor 2.
 
-The current set was captured on 2026-10-05 for QuotaBar `v0.5.9` from a
+The current set was captured on 2026-10-11 for QuotaBar `v0.6.0` from a
 production Vite build of the React UI served by `vite preview` and rendered in
 headless Chromium.
 

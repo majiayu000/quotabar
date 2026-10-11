@@ -4,11 +4,11 @@ All notable QuotaBar changes should be summarized here before a release is cut.
 
 ## Unreleased
 
+## 0.6.0 - 2026-10-11
+
 - Show Codex weekly token capacity as Astra and GPT-6.1 Sol. Convert Sol at the standard API input/output/cache-write price ratio (5×) in both the local and community views. Community Astra comes from the 2026-10-11 observatory snapshot (≈914.8M observed); community Sol is that same 5× conversion.
 - Hide macOS tray items retained by cycling through native visibility instead of leaving zero-width slots. Configure autosave synchronously and propagate native visibility errors; retain the disabled-item removal and saved-position behavior.
 - Read native Windows Claude Code subscription credentials from the user profile or `CLAUDE_CONFIG_DIR`, without refreshing or writing tokens. Distinguish file-read failures from expired logins and localize the recovery guidance.
-
-## 0.6.0 - 2026-10-08
 
 - Connect the published ccstats 0.11 SDK so desktop session provenance and native source read errors reach installed builds.
 

@@ -77,7 +77,7 @@ See [product boundaries](PRODUCT.md) and [delivery status](docs/product/delivery
 
 ![QuotaBar desktop workspace overview with illustrative usage data](docs/assets/quotabar-demo-workspace-light.png)
 
-These screenshots show **illustrative data**. They were captured on 2026-10-05 from a production build of the QuotaBar `v0.5.9` React UI in Chromium, with a deterministic mock desktop backend injected by `scripts/capture_demo_screenshots.mjs`. The quota percentages, token totals, costs, projects and session titles are invented; no provider account, email, account id, token, cookie or local record was read. The mock only exists in that capture script and is not part of the app bundle. The screenshots show the interface, not native backend connectivity or signed/notarized artifacts. A dark workspace variant is in `docs/assets/quotabar-demo-workspace-dark.png`. See `docs/demo-proof.md` for the capture scope and refresh steps.
+These screenshots show **illustrative data**. They were captured on 2026-10-11 from a production build of the QuotaBar `v0.6.0` React UI in Chromium, with a deterministic mock desktop backend injected by `scripts/capture_demo_screenshots.mjs`. The quota percentages, token totals, costs, projects and session titles are invented; no provider account, email, account id, token, cookie or local record was read. The mock only exists in that capture script and is not part of the app bundle. The screenshots show the interface, not native backend connectivity or signed/notarized artifacts. A dark workspace variant is in `docs/assets/quotabar-demo-workspace-dark.png`. See `docs/demo-proof.md` for the capture scope and refresh steps.
 
 ## Quota Semantics
 
