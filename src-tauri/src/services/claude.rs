@@ -8,6 +8,8 @@ use std::process::Command;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant};
+#[cfg(any(target_os = "windows", test))]
+use std::{ffi::OsStr, path::PathBuf};
 
 const TOKEN_CACHE_TTL: Duration = Duration::from_secs(300);
 const QUOTA_CACHE_TTL: Duration = Duration::from_secs(120);
@@ -17,6 +19,7 @@ const CLAUDE_AUTH_RELOGIN_MESSAGE: &str =
     "Claude OAuth token expired or invalid. Please re-login to Claude Code, then click Refresh.";
 const MAX_LOG_BYTES: u64 = 2 * 1024 * 1024;
 
+#[cfg(target_os = "macos")]
 const CREDENTIAL_NAMES: [&str; 4] = [
     "Claude Code-credentials",
     "claude-credentials",
@@ -152,14 +155,14 @@ fn read_oauth_token_from_env() -> Option<String> {
         .filter(|v| !v.is_empty())
 }
 
-struct KeychainCredentials {
+struct SystemCredentials {
     access_token: String,
     expires_at_ms: Option<u64>,
     cred_name: String,
 }
 
 #[cfg(target_os = "macos")]
-fn read_credentials_from_system() -> Result<KeychainCredentials, String> {
+fn read_credentials_from_system() -> Result<SystemCredentials, String> {
     let username = std::env::var("USER").unwrap_or_default();
 
     for cred_name in CREDENTIAL_NAMES {
@@ -183,7 +186,7 @@ fn read_credentials_from_system() -> Result<KeychainCredentials, String> {
                     let oauth = &creds["claudeAiOauth"];
                     if let Some(access_token) = oauth["accessToken"].as_str() {
                         let expires_at_ms = oauth["expiresAt"].as_u64();
-                        return Ok(KeychainCredentials {
+                        return Ok(SystemCredentials {
                             access_token: access_token.to_string(),
                             expires_at_ms,
                             cred_name: cred_name.to_string(),
@@ -199,8 +202,61 @@ fn read_credentials_from_system() -> Result<KeychainCredentials, String> {
     ))
 }
 
-#[cfg(not(target_os = "macos"))]
-fn read_credentials_from_system() -> Result<KeychainCredentials, String> {
+#[cfg(any(target_os = "windows", test))]
+fn credential_file_path(
+    config_dir: Option<&OsStr>,
+    home_dir: Option<PathBuf>,
+) -> Result<PathBuf, String> {
+    let directory = match config_dir.filter(|dir| !dir.is_empty()) {
+        Some(directory) => PathBuf::from(directory),
+        None => home_dir
+            .ok_or(
+                "Claude Code credential directory unavailable. Check your Windows user profile.",
+            )?
+            .join(".claude"),
+    };
+    Ok(directory.join(".credentials.json"))
+}
+
+#[cfg(any(target_os = "windows", test))]
+fn read_credentials_from_file(path: &Path) -> Result<SystemCredentials, String> {
+    let content = std::fs::read(path).map_err(|error| match error.kind() {
+        std::io::ErrorKind::NotFound => "Claude Code credential file not found. Open Claude Code on Windows and sign in; if you use CLAUDE_CONFIG_DIR, start QuotaBar with the same directory.".to_string(),
+        std::io::ErrorKind::PermissionDenied => "Claude Code credential file access denied. Check its file permissions for your Windows user.".to_string(),
+        _ => format!("Claude Code credential file could not be read: {error}"),
+    })?;
+    // Do not include parser diagnostics: unexpected JSON values can contain secrets.
+    let credentials: serde_json::Value = serde_json::from_slice(&content)
+        .map_err(|_| "Claude Code credential file contains invalid JSON.")?;
+    let oauth = &credentials["claudeAiOauth"];
+    let access_token = oauth["accessToken"]
+        .as_str()
+        .filter(|token| !token.trim().is_empty())
+        .ok_or("Claude Code credential file has no subscription access token. Open Claude Code and check your subscription login.")?;
+    let expires_at_ms = match oauth.get("expiresAt") {
+        None | Some(serde_json::Value::Null) => None,
+        Some(value) => Some(
+            value
+                .as_u64()
+                .ok_or("Claude Code credential file contains an invalid expiry timestamp.")?,
+        ),
+    };
+    Ok(SystemCredentials {
+        access_token: access_token.to_string(),
+        expires_at_ms,
+        cred_name: ".credentials.json".to_string(),
+    })
+}
+
+#[cfg(target_os = "windows")]
+fn read_credentials_from_system() -> Result<SystemCredentials, String> {
+    let config_dir = std::env::var_os("CLAUDE_CONFIG_DIR");
+    let path = credential_file_path(config_dir.as_deref(), dirs::home_dir())?;
+    read_credentials_from_file(&path)
+}
+
+#[cfg(not(any(target_os = "macos", target_os = "windows")))]
+fn read_credentials_from_system() -> Result<SystemCredentials, String> {
     Err(format!(
         "OAuth token not configured for this OS. Set {CLAUDE_TOKEN_ENV_KEY}."
     ))
@@ -242,13 +298,13 @@ fn oauth_env_source_diagnostic(access_token: &str) -> String {
     )
 }
 
-fn oauth_keychain_source_diagnostic(
+fn oauth_system_source_diagnostic(
     cred_name: &str,
     access_token: &str,
     expires_at_ms: Option<u64>,
 ) -> String {
     format!(
-        "[OAuth] keychain read ok: cred_name={cred_name}, credential={}, expires_at={expires_at_ms:?}",
+        "[OAuth] system credential read ok: cred_name={cred_name}, credential={}, expires_at={expires_at_ms:?}",
         RedactedCredential::new(access_token)
     )
 }
@@ -311,31 +367,31 @@ fn get_oauth_token(force_refresh: bool) -> Result<String, String> {
         return Ok(token);
     }
 
-    log_msg("[OAuth] reading from keychain...");
-    let keychain = read_credentials_from_system()?;
-    if keychain.access_token.trim().is_empty()
+    log_msg("[OAuth] reading system credentials...");
+    let credentials = read_credentials_from_system()?;
+    if credentials.access_token.trim().is_empty()
         || credential_expired(
-            keychain.expires_at_ms,
+            credentials.expires_at_ms,
             chrono::Utc::now().timestamp_millis(),
         )
     {
         log_msg("[OAuth] local credential expired or empty; login required, no quota request");
         return Err(CLAUDE_AUTH_RELOGIN_MESSAGE.to_string());
     }
-    log_msg(&oauth_keychain_source_diagnostic(
-        &keychain.cred_name,
-        &keychain.access_token,
-        keychain.expires_at_ms,
+    log_msg(&oauth_system_source_diagnostic(
+        &credentials.cred_name,
+        &credentials.access_token,
+        credentials.expires_at_ms,
     ));
 
     if let Ok(mut guard) = credentials_cache().lock() {
         *guard = Some(CachedCredentials {
-            access_token: keychain.access_token.clone(),
+            access_token: credentials.access_token.clone(),
             cached_at: Instant::now(),
-            expires_at_ms: keychain.expires_at_ms,
+            expires_at_ms: credentials.expires_at_ms,
         });
     }
-    Ok(keychain.access_token)
+    Ok(credentials.access_token)
 }
 
 async fn request_quota(access_token: &str) -> Result<reqwest::Response, String> {
@@ -666,13 +722,15 @@ async fn fetch_quota_with_cooldown(path: &Path, manual: bool, access_token: &str
 
     if is_auth_error(status) {
         log_msg(&format!(
-            "[Quota] auth error ({status}), step 1: force re-read from keychain"
+            "[Quota] auth error ({status}), step 1: force re-read system credentials"
         ));
         let fresh_access_token =
             match tauri::async_runtime::spawn_blocking(|| get_oauth_token(true)).await {
                 Ok(Ok(token)) => token,
                 Ok(Err(error)) => {
-                    log_msg(&format!("[Quota] keychain re-read failed: {error}"));
+                    log_msg(&format!(
+                        "[Quota] system credential re-read failed: {error}"
+                    ));
                     return fallback_or_disconnected(error);
                 }
                 Err(error) => {
@@ -687,16 +745,14 @@ async fn fetch_quota_with_cooldown(path: &Path, manual: bool, access_token: &str
         response = match request_quota(&fresh_access_token).await {
             Ok(resp) => resp,
             Err(error) => {
-                log_msg(&format!(
-                    "[Quota] retry with keychain token failed: {error}"
-                ));
+                log_msg(&format!("[Quota] retry with system token failed: {error}"));
                 return fallback_or_disconnected(error);
             }
         };
 
         let status2 = response.status();
         log_msg(&format!(
-            "[Quota] keychain retry response: status={status2}"
+            "[Quota] system credential retry response: status={status2}"
         ));
 
         if is_rate_limited(status2) {
@@ -705,7 +761,7 @@ async fn fetch_quota_with_cooldown(path: &Path, manual: bool, access_token: &str
 
         if is_auth_error(status2) {
             log_msg(&format!(
-                "[Quota] auth error ({status2}) after keychain re-read; stopping until Claude Code login is refreshed"
+                "[Quota] auth error ({status2}) after system credential re-read; stopping until Claude Code login is refreshed"
             ));
             return QuotaData::disconnected(CLAUDE_AUTH_RELOGIN_MESSAGE);
         }
@@ -787,7 +843,7 @@ async fn fetch_quota_with_cooldown(path: &Path, manual: bool, access_token: &str
 mod tests {
     use super::{
         mark_quota_fetch_error, oauth_cache_hit_diagnostic, oauth_env_source_diagnostic,
-        oauth_keychain_source_diagnostic, parse_first_quota_window, parse_quota_window,
+        oauth_system_source_diagnostic, parse_first_quota_window, parse_quota_window,
         parse_weekly_scoped_model_quota, request_quota_diagnostic, stale_quota_usable,
         FABLE5_QUOTA_KEYS, MAX_STALE_QUOTA_AGE,
     };
@@ -795,6 +851,152 @@ mod tests {
     use std::time::Duration;
 
     const SENTINEL_TOKEN: &str = "secret-prefix-sensitive-value-secret-suffix";
+
+    struct CredentialFixture(std::path::PathBuf);
+
+    impl CredentialFixture {
+        fn new() -> Self {
+            let directory = std::env::temp_dir().join(format!(
+                "quotabar-credential-test-{}-{}",
+                std::process::id(),
+                chrono::Utc::now().timestamp_nanos_opt().unwrap()
+            ));
+            std::fs::create_dir_all(&directory).unwrap();
+            Self(directory)
+        }
+
+        fn path(&self) -> std::path::PathBuf {
+            self.0.join(".credentials.json")
+        }
+
+        fn write(&self, value: &serde_json::Value) {
+            std::fs::write(self.path(), serde_json::to_vec(value).unwrap()).unwrap();
+        }
+    }
+
+    impl Drop for CredentialFixture {
+        fn drop(&mut self) {
+            std::fs::remove_dir_all(&self.0).unwrap();
+        }
+    }
+
+    #[test]
+    fn windows_credential_path_honors_explicit_directory_without_account_fallback() {
+        let home = std::path::PathBuf::from("user-profile");
+        let default_path = home.join(".claude/.credentials.json");
+        assert_eq!(
+            super::credential_file_path(None, Some(home.clone())).unwrap(),
+            default_path
+        );
+        assert_eq!(
+            super::credential_file_path(Some(std::ffi::OsStr::new("")), Some(home)).unwrap(),
+            default_path
+        );
+        let fixture = CredentialFixture::new();
+        fixture.write(&json!({"claudeAiOauth": {"accessToken": SENTINEL_TOKEN}}));
+        let missing_directory = fixture.0.join("other-account");
+        let path = super::credential_file_path(
+            Some(missing_directory.as_os_str()),
+            Some(fixture.0.clone()),
+        )
+        .unwrap();
+        assert_eq!(path, missing_directory.join(".credentials.json"));
+        assert!(super::read_credentials_from_file(&path)
+            .err()
+            .unwrap()
+            .contains("file not found"));
+        assert_eq!(
+            super::credential_file_path(Some(fixture.0.as_os_str()), None).unwrap(),
+            fixture.path()
+        );
+        assert!(super::credential_file_path(None, None).is_err());
+    }
+
+    #[test]
+    fn credential_file_reads_current_token_and_expiry_without_writing() {
+        let fixture = CredentialFixture::new();
+        let initial = json!({"claudeAiOauth": {
+            "accessToken": SENTINEL_TOKEN,
+            "refreshToken": "unused-refresh-token",
+            "expiresAt": 1000
+        }});
+        fixture.write(&initial);
+        let before = std::fs::read(fixture.path()).unwrap();
+        let credentials = super::read_credentials_from_file(&fixture.path()).unwrap();
+        assert_eq!(credentials.access_token, SENTINEL_TOKEN);
+        assert_eq!(credentials.expires_at_ms, Some(1000));
+        assert!(super::credential_expired(credentials.expires_at_ms, 1000));
+        assert_eq!(std::fs::read(fixture.path()).unwrap(), before);
+
+        fixture.write(&json!({"claudeAiOauth": {
+            "accessToken": "replacement-test-token",
+            "expiresAt": 2000
+        }}));
+        let credentials = super::read_credentials_from_file(&fixture.path()).unwrap();
+        assert_eq!(credentials.access_token, "replacement-test-token");
+        assert!(!super::credential_expired(credentials.expires_at_ms, 1000));
+
+        fixture.write(&json!({"claudeAiOauth": {"accessToken": SENTINEL_TOKEN}}));
+        let credentials = super::read_credentials_from_file(&fixture.path()).unwrap();
+        assert_eq!(credentials.expires_at_ms, None);
+    }
+
+    #[test]
+    fn credential_file_errors_distinguish_missing_invalid_and_non_subscription_login() {
+        let fixture = CredentialFixture::new();
+        assert!(super::read_credentials_from_file(&fixture.path())
+            .err()
+            .unwrap()
+            .contains("file not found"));
+        std::fs::write(fixture.path(), format!("{{{SENTINEL_TOKEN}")).unwrap();
+        let error = super::read_credentials_from_file(&fixture.path())
+            .err()
+            .unwrap();
+        assert!(error.contains("invalid JSON"));
+        assert!(!error.contains(SENTINEL_TOKEN));
+
+        for value in [
+            json!({}),
+            json!({"claudeAiOauth": {"accessToken": "  "}}),
+            json!({"claudeAiOauth": {"accessToken": 123}}),
+            json!({"apiKey": SENTINEL_TOKEN}),
+        ] {
+            fixture.write(&value);
+            let error = super::read_credentials_from_file(&fixture.path())
+                .err()
+                .unwrap();
+            assert!(error.contains("no subscription access token"));
+            assert!(!error.contains(SENTINEL_TOKEN));
+        }
+        fixture.write(&json!({"claudeAiOauth": {
+            "accessToken": SENTINEL_TOKEN,
+            "expiresAt": SENTINEL_TOKEN
+        }}));
+        let error = super::read_credentials_from_file(&fixture.path())
+            .err()
+            .unwrap();
+        assert!(error.contains("invalid expiry timestamp"));
+        assert!(!error.contains(SENTINEL_TOKEN));
+        std::fs::remove_file(fixture.path()).unwrap();
+        std::fs::create_dir(fixture.path()).unwrap();
+        assert!(super::read_credentials_from_file(&fixture.path()).is_err());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn credential_file_permission_error_does_not_claim_login_expired() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let fixture = CredentialFixture::new();
+        fixture.write(&json!({"claudeAiOauth": {"accessToken": SENTINEL_TOKEN}}));
+        std::fs::set_permissions(fixture.path(), std::fs::Permissions::from_mode(0o000)).unwrap();
+        let result = super::read_credentials_from_file(&fixture.path());
+        std::fs::set_permissions(fixture.path(), std::fs::Permissions::from_mode(0o600)).unwrap();
+        let error = result.err().unwrap();
+        assert!(error.contains("access denied"));
+        assert!(!error.contains("expired"));
+        assert!(!error.contains(SENTINEL_TOKEN));
+    }
 
     fn assert_excludes_token_fragments(diagnostic: &str) {
         assert!(SENTINEL_TOKEN.is_ascii());
@@ -883,11 +1085,12 @@ mod tests {
                 Some(1_800_000_000_000),
             ),
             oauth_env_source_diagnostic(SENTINEL_TOKEN),
-            oauth_keychain_source_diagnostic(
+            oauth_system_source_diagnostic(
                 "Claude Code-credentials",
                 SENTINEL_TOKEN,
                 Some(1_800_000_000_000),
             ),
+            oauth_system_source_diagnostic(".credentials.json", SENTINEL_TOKEN, None),
         ];
 
         for diagnostic in diagnostics {
