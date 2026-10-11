@@ -40,4 +40,13 @@ libc = "0.2"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2-app-kit = { version = "0.3.2", default-features = false, features = ["NSStatusItem", "objc2-core-foundation"] }
-objc2-foundation = { version = "0.3.2", default-features = false, features = ["NSString", "NSUserDefaults"] }
+objc2-foundation = { version = "0.3.2", default-features = false, features = ["NSString", "NSUserDefaults", "NSKeyValueCoding"] }
+
+# Opt-in AppKit regression: requires an interactive macOS login session.
+[[test]]
+name = "macos_tray_visibility"
+harness = false
+
+[target.'cfg(target_os = "macos")'.dev-dependencies]
+objc2-app-kit = { version = "0.3.2", default-features = false, features = ["NSApplication", "NSStatusBar", "NSStatusBarButton", "NSButton", "NSControl", "NSResponder", "NSView", "NSWindow"] }
+objc2-foundation = { version = "0.3.2", default-features = false, features = ["NSDate", "NSRunLoop"] }
