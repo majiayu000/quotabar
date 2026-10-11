@@ -354,8 +354,10 @@ npm run tauri build -- --bundles app
   - ensure the app is not auto-grouped into hidden extras
 - No Claude quota data:
   - macOS: ensure Claude Code login exists in Keychain with `claude login`
-  - Windows/Linux: set `CLAUDE_CODE_OAUTH_TOKEN`
-  - if Claude auth fails, re-login with Claude Code and click Refresh
+  - Windows: QuotaBar reads `%USERPROFILE%\.claude\.credentials.json` from a native Windows Claude Code login, or `.credentials.json` under `CLAUDE_CONFIG_DIR` when set in the QuotaBar process. A variable set only inside your terminal is not automatically available to an app launched from Explorer. A WSL-only login is not read by the Windows app.
+  - Linux: set `CLAUDE_CODE_OAUTH_TOKEN`
+  - if a credential file cannot be read, check the directory, permissions, or file format shown in the error; this does not mean your login expired
+  - if Claude auth fails, open Claude Code to check or renew the login, then click Refresh; QuotaBar never refreshes or writes OAuth tokens
 - No Codex quota data:
   - ensure `~/.codex/auth.json` is valid
   - run the `codex` login flow again if the token expired

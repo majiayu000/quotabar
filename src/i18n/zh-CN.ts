@@ -1,6 +1,14 @@
 import type { en } from './en';
 
 export const zhCN = {
+  "Could not read Claude Code credentials": "无法读取 Claude Code 凭据",
+  "Claude Code credential directory unavailable. Check your Windows user profile.": "无法确定 Claude Code 凭据目录，请检查 Windows 用户目录。",
+  "Claude Code credential file not found. Open Claude Code on Windows and sign in; if you use CLAUDE_CONFIG_DIR, start QuotaBar with the same directory.": "未找到 Claude Code 凭据文件。请在 Windows 原生环境打开 Claude Code 并登录；若使用 CLAUDE_CONFIG_DIR，请让 QuotaBar 使用相同目录。",
+  "Claude Code credential file access denied. Check its file permissions for your Windows user.": "没有权限读取 Claude Code 凭据文件，请检查当前 Windows 用户的文件访问权限。",
+  "Claude Code credential file contains invalid JSON.": "Claude Code 凭据文件的 JSON 格式无效。",
+  "Claude Code credential file has no subscription access token. Open Claude Code and check your subscription login.": "Claude Code 凭据文件中没有订阅访问令牌，请打开 Claude Code 检查订阅账号登录状态。",
+  "Claude Code credential file contains an invalid expiry timestamp.": "Claude Code 凭据文件中的过期时间格式无效。",
+  "Open Claude Code on this computer to check your login, then check again. Sign in only if Claude Code asks you to.": "请在这台电脑上打开 Claude Code 检查登录状态，然后重新检测。仅在 Claude Code 提示需要登录时重新登录。",
   "Original usage sources": "原始用量来源",
   "The statistics SDK did not provide a file location for this session.": "统计 SDK 未提供此会话的文件位置。",
   "Only files contributing usage in the selected range and filters are listed; transcripts stay local.": "仅列出当前时间和筛选范围内贡献用量的文件；会话原文保留在本机。",
@@ -646,7 +654,6 @@ export const zhCN = {
   "Monthly pool": "每月额度池",
   "Weekly pool": "每周额度池",
   "Usage pool": "额度池",
-  "Sign in with Claude Code using claude login in Terminal, then check again. If your session expired, sign in again.": "在终端运行 claude login 登录 Claude Code，然后重新检测。若登录过期，请重新登录。",
   "Claude Tray": "Claude 菜单栏",
   "Requires Claude Code login": "需要登录 Claude Code",
   "Open Codex and sign in, or run codex login in Terminal, then check again.": "打开 Codex 登录，或在终端运行 codex login，然后重新检测。",

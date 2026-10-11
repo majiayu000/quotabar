@@ -5,6 +5,7 @@ All notable QuotaBar changes should be summarized here before a release is cut.
 ## Unreleased
 
 - Hide macOS tray items retained by cycling through native visibility instead of leaving zero-width slots. Configure autosave synchronously and propagate native visibility errors; retain the disabled-item removal and saved-position behavior.
+- Read native Windows Claude Code subscription credentials from the user profile or `CLAUDE_CONFIG_DIR`, without refreshing or writing tokens. Distinguish file-read failures from expired logins and localize the recovery guidance.
 
 ## 0.6.0 - 2026-10-08
 

@@ -2,7 +2,9 @@ import { createElement } from 'react';
 import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { WorkspaceQuotaCard } from '../src/components/OverviewPanel';
+import ClaudePanel from '../src/components/ClaudePanel';
 import { quotaRecovery } from '../src/components/QuotaRecovery';
+import { setLanguagePreference } from '../src/i18n';
 import type { ProviderSummary } from '../src/services/provider_summary';
 
 let renderer: ReactTestRenderer | undefined;
@@ -14,6 +16,7 @@ beforeEach(() => {
 afterEach(async () => {
   if (renderer) await act(async () => renderer?.unmount());
   renderer = undefined;
+  setLanguagePreference('en');
   vi.useRealTimers(); vi.restoreAllMocks(); vi.unstubAllGlobals();
 });
 const provider = (id: 'claude' | 'grok', error: string, retryAt?: number): ProviderSummary => ({
@@ -81,4 +84,23 @@ it('distinguishes Grok local expiry from API auth rejection and describes automa
   expect(rejected?.command).toBe('grok login');
   expect(rejected?.description).toContain('reconnect automatically');
   expect(quotaRecovery('grok', 'Grok billing API error: 429')?.description).toContain('retry on the refresh schedule');
+});
+
+it.each(['en', 'zh-CN'] as const)('shows Windows credential read failures without asking for re-login in %s', async (locale) => {
+  setLanguagePreference(locale);
+  const error = 'Claude Code credential file access denied. Check its file permissions for your Windows user.';
+  const recovery = quotaRecovery('claude', error);
+  expect(recovery?.title).toBe(locale === 'en' ? 'Could not read Claude Code credentials' : '无法读取 Claude Code 凭据');
+  expect(recovery?.description).toContain(locale === 'en' ? 'file permissions' : '文件访问权限');
+  expect(recovery).not.toHaveProperty('requiresLogin', true);
+  const refresh = vi.fn();
+  await act(async () => { renderer = create(createElement(ClaudePanel, {
+    quota: null, loading: false, error, workspace: true, windowVisible: true, costRefreshKey: 0, onRetry: refresh,
+  })); });
+  const root = renderer!.root;
+  const retry = root.findAllByType('button').find(node => node.children.includes(locale === 'en' ? 'Read again' : '重新读取'))!;
+  expect(retry.props.disabled).toBe(false);
+  await act(async () => retry.props.onClick());
+  expect(refresh).toHaveBeenCalledOnce();
+  expect(JSON.stringify(renderer!.toJSON())).not.toContain(locale === 'en' ? 'Sign in again' : '需要重新登录');
 });
