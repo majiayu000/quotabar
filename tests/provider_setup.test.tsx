@@ -33,7 +33,9 @@ describe('first connection', () => {
     expect(html).toContain('grok login');
     expect(html).toContain('Open Cursor');
     expect(html).not.toContain('Antigravity');
-    expect(html).toContain('does not manage your login');
+    expect(html).toContain('Interactive sign-in stays with the provider');
+    expect(html).toContain('Grok session renewal is delegated to the installed Grok CLI');
+    expect(html).toContain('QuotaBar does not write tokens itself');
   });
 
   it('checks again after login and disables the check while loading', async () => {
