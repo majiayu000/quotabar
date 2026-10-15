@@ -564,7 +564,7 @@ export default function OverviewPanel({
     <div className="overview-panel">
       {(connectedCount === 0 || setupOpen) && <details className="setup-services" open={connectedCount === 0 || setupOpen ? true : undefined}>
         <summary>{connectedCount === 0 ? t("Connect your first service") : t("Add or reconnect a service")}</summary>
-        <p className="setup-privacy">{t("QuotaBar reads existing local sign-ins to request usage from each service. It does not manage your login or refresh your tokens. Cost estimates use local usage logs.")}</p>
+        <p className="setup-privacy">{t("QuotaBar reads existing local sign-ins to request usage from each service. Interactive sign-in stays with the provider; Grok session renewal is delegated to the installed Grok CLI. QuotaBar does not write tokens itself. Cost estimates use local usage logs.")}</p>
         {summaries.map((summary) => (
           <details className="setup-service" key={summary.id}>
             <summary>{summary.label} · {summary.loading ? t("Checking…") : summary.failed && summary.lastSuccessAt != null ? t("Needs attention") : summary.connected ? t("Connected") : summary.id === 'antigravity' ? t("Coming later") : t("Not connected")}</summary>

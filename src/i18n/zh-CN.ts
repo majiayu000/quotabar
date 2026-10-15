@@ -418,7 +418,7 @@ export const zhCN = {
   "Saved:": "已保存：",
   "Connect your first service": "连接你的第一个服务",
   "Add or reconnect a service": "添加或重新连接服务",
-  "QuotaBar reads existing local sign-ins to request usage from each service. It does not manage your login or refresh your tokens. Cost estimates use local usage logs.": "QuotaBar 通过已有的本地登录读取各服务用量，不管理登录或刷新令牌。费用估算使用本地用量记录。",
+  "QuotaBar reads existing local sign-ins to request usage from each service. Interactive sign-in stays with the provider; Grok session renewal is delegated to the installed Grok CLI. QuotaBar does not write tokens itself. Cost estimates use local usage logs.": "QuotaBar 通过已有的本地登录读取各服务用量。交互登录由服务商工具处理；Grok 会话续期委托给已安装的 Grok CLI。QuotaBar 本身不写入令牌。费用估算使用本地用量记录。",
   "Checking…": "正在检测…",
   "Needs attention": "需要处理",
   "Coming later": "即将支持",
