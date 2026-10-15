@@ -416,7 +416,7 @@ export const en = {
   "Saved:": "Saved:",
   "Connect your first service": "Connect your first service",
   "Add or reconnect a service": "Add or reconnect a service",
-  "QuotaBar reads existing local sign-ins to request usage from each service. It does not manage your login or refresh your tokens. Cost estimates use local usage logs.": "QuotaBar reads existing local sign-ins to request usage from each service. It does not manage your login or refresh your tokens. Cost estimates use local usage logs.",
+  "QuotaBar reads existing local sign-ins to request usage from each service. Interactive sign-in stays with the provider; Grok session renewal is delegated to the installed Grok CLI. QuotaBar does not write tokens itself. Cost estimates use local usage logs.": "QuotaBar reads existing local sign-ins to request usage from each service. Interactive sign-in stays with the provider; Grok session renewal is delegated to the installed Grok CLI. QuotaBar does not write tokens itself. Cost estimates use local usage logs.",
   "Checking…": "Checking…",
   "Needs attention": "Needs attention",
   "Coming later": "Coming later",

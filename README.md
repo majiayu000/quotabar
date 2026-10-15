@@ -127,9 +127,6 @@ These screenshots show **illustrative data**. They were captured on 2026-10-11 f
 ## Requirements
 
 - macOS, Windows, or Linux
-- Node.js with npm
-- Rust toolchain
-- Tauri prerequisites installed
 - Claude Code login for Claude quota and cost data
 - Codex login for Codex quota and cost data
 - Cursor sign-in or `CURSOR_SESSION_TOKEN` for Cursor quota data
@@ -149,6 +146,9 @@ UI messages live in `src/i18n/en.ts` and `src/i18n/zh-CN.ts`. See [the i18n arch
 for rendering, stored messages, formatting and extension rules.
 
 ## Development
+
+Building from source requires Node.js with npm, the Rust toolchain, and the
+Tauri prerequisites for your OS. These tools are not required to run an installer.
 
 QuotaBar starts as a menu bar app. Click a tray icon for the quota popover.
 A resizable desktop workspace (Overview, Quota, Usage, History, Sources, and
@@ -292,6 +292,13 @@ For normal use, download the current installer from [GitHub Releases](https://gi
 
 macOS:
 
+- Download the `.dmg` for Apple Silicon (`aarch64`) or Intel (`x64`).
+- Open the disk image, copy QuotaBar to Applications, then open QuotaBar.
+- Click its menu bar icon. Use **Check connection** after provider sign-in;
+  open **Usage analysis** for the desktop workspace, which stays closed at launch.
+
+For developers installing a local build:
+
 ```bash
 ./scripts/install_app.sh
 ./scripts/run_app.sh
@@ -318,8 +325,8 @@ not certify that the app stayed running.
 Windows:
 
 - Download the `.msi` or `.exe` from GitHub Releases.
-- Build installer: `npm run tauri build -- --bundles msi,nsis`
-- Install from the generated `.msi` or `.exe`
+- Run the downloaded installer, then open QuotaBar from the Start menu.
+- For developers building an installer: `npm run tauri build -- --bundles msi,nsis`.
 
 Linux x64:
 
