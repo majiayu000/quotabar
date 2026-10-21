@@ -4,6 +4,8 @@ All notable QuotaBar changes should be summarized here before a release is cut.
 
 ## Unreleased
 
+- Read Claude's native JSONL session titles in Usage details, including sessions without a title index. Keep explicit renamed titles ahead of generated titles and leave untitled sessions on the project/session fallback (#215).
+
 ## 0.6.0 - 2026-10-11
 
 - Show Codex weekly token capacity as Astra and GPT-6.1 Sol. Convert Sol at the standard API input/output/cache-write price ratio (5×) in both the local and community views. Community Astra comes from the 2026-10-11 observatory snapshot (≈914.8M observed); community Sol is that same 5× conversion.

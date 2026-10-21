@@ -338,18 +338,8 @@ fn load_analysis_report_cancellable(
             cancelled,
         ) {
             Ok(result) => {
-                let ids = result
-                    .projects
-                    .projects
-                    .iter()
-                    .flat_map(|project| &project.sessions)
-                    .map(|session| session.session_id.clone())
-                    .collect::<Vec<_>>();
                 let (session_titles, session_titles_error) =
-                    match ccstats::load_session_titles(options.source, &ids) {
-                        Ok(titles) => (titles, None),
-                        Err(error) => (HashMap::new(), Some(error.to_string())),
-                    };
+                    crate::services::session_titles::load(&result.projects);
                 report.since = result.since;
                 report.until = result.until;
                 report.timezone = result.timezone;
@@ -877,6 +867,19 @@ mod analysis_tests {
             r#"{"entries":[{"sessionId":"session-one","summary":"完善用量聚合"}]}"#,
         )
         .unwrap();
+        // Native Windows project keys are lossy encodings, not paths to decode.
+        // Current Claude titles live in the JSONL even without a session index.
+        let windows_project = root.join("claude/projects/D--work----");
+        fs::create_dir_all(&windows_project).unwrap();
+        let windows_event = serde_json::json!({"type":"assistant","sessionId":"windows-session","cwd":r"D:\work\中文项目","timestamp":chrono::Utc::now().to_rfc3339(),"message":{"id":"windows-message","model":"claude-sonnet-4-20250514","usage":{"input_tokens":30,"output_tokens":10}}});
+        let windows_transcript = format!(
+            "{windows_event}\n{{\"type\":\"ai-title\",\"sessionId\":\"windows-session\",\"aiTitle\":\"修复 Windows 标题\"}}\n"
+        );
+        fs::write(
+            windows_project.join("windows-session.jsonl"),
+            &windows_transcript,
+        )
+        .unwrap();
         let codex = root.join("codex/sessions/2026/09/02");
         fs::create_dir_all(&codex).unwrap();
         for (id, project, model, tokens, timestamp) in [
@@ -929,7 +932,7 @@ mod analysis_tests {
             serde_json::from_slice(&fs::read(root.join("usage.json")).unwrap()).unwrap();
         assert_eq!(
             usage["summaries"][0]["summary"]["tokens"]["total_tokens"],
-            120
+            160
         );
         assert_eq!(
             usage["projects"][0]["projects"][0]["sessions"][0]["session_id"],
@@ -938,6 +941,14 @@ mod analysis_tests {
         assert_eq!(
             usage["projects"][0]["session_titles"]["session-one"]["text"],
             "完善用量聚合"
+        );
+        assert_eq!(
+            usage["projects"][0]["session_titles"]["windows-session"]["text"],
+            "修复 Windows 标题"
+        );
+        assert_eq!(
+            fs::read_to_string(windows_project.join("windows-session.jsonl")).unwrap(),
+            format!("{windows_transcript}{{\"type\":\"custom-title\",\"sessionId\":\"windows-session\",\"customTitle\":\"重命名后的会话\"}}\n")
         );
         assert_eq!(
             fs::read_to_string(project.join("session-one.jsonl")).unwrap(),
@@ -949,6 +960,10 @@ mod analysis_tests {
             .as_str()
             .unwrap()
             .contains("Malformed"));
+        assert_eq!(
+            failed["projects"][0]["session_titles"]["windows-session"]["text"],
+            "重命名后的会话"
+        );
         // Query duration is observation metadata, not an accounting result.
         usage["summaries"][0]["summary"]
             .as_object_mut()
@@ -1029,6 +1044,8 @@ mod analysis_tests {
             "malformed",
         )
         .unwrap();
+        use std::io::Write;
+        writeln!(fs::OpenOptions::new().append(true).open(root.join("claude/projects/D--work----/windows-session.jsonl")).unwrap(), "{{\"type\":\"custom-title\",\"sessionId\":\"windows-session\",\"customTitle\":\"重命名后的会话\"}}").unwrap();
         fs::write(
             root.join("title-error.json"),
             serde_json::to_vec(
