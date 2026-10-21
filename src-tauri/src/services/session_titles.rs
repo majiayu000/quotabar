@@ -9,7 +9,13 @@ use std::{
     path::Path,
 };
 
-pub fn load(projects: &ProjectDrilldownSummary) -> (HashMap<String, SessionTitle>, Option<String>) {
+pub fn load(
+    projects: &ProjectDrilldownSummary,
+    cancelled: &dyn Fn() -> bool,
+) -> (HashMap<String, SessionTitle>, Option<String>) {
+    if cancelled() {
+        return (HashMap::new(), None);
+    }
     let sessions = projects
         .projects
         .iter()
@@ -33,7 +39,16 @@ pub fn load(projects: &ProjectDrilldownSummary) -> (HashMap<String, SessionTitle
         // Append order is meaningful within a file. Untimestamped titles in
         // different files have no reliable global order; keep traversal deterministic.
         for path in paths {
-            if let Err(error) = read_claude(Path::new(path), &ids, &mut custom, &mut generated) {
+            if cancelled() {
+                break;
+            }
+            if let Err(error) = read_claude(
+                Path::new(path),
+                cancelled,
+                &ids,
+                &mut custom,
+                &mut generated,
+            ) {
                 errors.push(error.to_string());
             }
         }
@@ -62,10 +77,14 @@ struct ClaudeRecord {
 
 fn read_claude(
     path: &Path,
+    cancelled: &dyn Fn() -> bool,
     ids: &HashSet<&str>,
     custom: &mut HashMap<String, String>,
     generated: &mut HashMap<String, String>,
 ) -> io::Result<()> {
+    if cancelled() {
+        return Ok(());
+    }
     let file = File::open(path).map_err(|e| {
         io::Error::new(
             e.kind(),
@@ -74,21 +93,32 @@ fn read_claude(
     })?;
     // Capture the current prefix so an active session cannot extend this scan indefinitely.
     let size = file.metadata()?.len();
-    for (index, line) in BufReader::new(file.take(size)).lines().enumerate() {
+    let mut lines = BufReader::new(file.take(size)).split(b'\n').enumerate();
+    let mut malformed = None;
+    while !cancelled() {
+        let Some((index, line)) = lines.next() else {
+            break;
+        };
         let line = line?;
-        if line.trim().is_empty() {
+        if line.iter().all(u8::is_ascii_whitespace) {
             continue;
         }
-        let row: ClaudeRecord = serde_json::from_str(&line).map_err(|_| {
-            io::Error::new(
-                io::ErrorKind::InvalidData,
-                format!(
-                    "Malformed title records {} at line {}",
-                    path.display(),
-                    index + 1
-                ),
-            )
-        })?;
+        let row: ClaudeRecord = match serde_json::from_slice(&line) {
+            Ok(row) => row,
+            Err(_) => {
+                malformed.get_or_insert_with(|| {
+                    io::Error::new(
+                        io::ErrorKind::InvalidData,
+                        format!(
+                            "Malformed title records {} at line {}",
+                            path.display(),
+                            index + 1
+                        ),
+                    )
+                });
+                continue;
+            }
+        };
         let Some(id) = row.session_id.filter(|id| ids.contains(id.as_str())) else {
             continue;
         };
@@ -102,7 +132,7 @@ fn read_claude(
             target.insert(id, title.trim().to_owned());
         }
     }
-    Ok(())
+    malformed.map_or(Ok(()), Err)
 }
 
 #[cfg(test)]
@@ -139,6 +169,7 @@ mod tests {
         let (mut custom, mut generated) = (HashMap::new(), HashMap::new());
         read_claude(
             &path,
+            &|| false,
             &HashSet::from(["one", "two", "untitled", "generated"]),
             &mut custom,
             &mut generated,
@@ -161,6 +192,7 @@ mod tests {
         let mut custom = HashMap::new();
         read_claude(
             &path,
+            &|| false,
             &HashSet::from(["one"]),
             &mut custom,
             &mut HashMap::new(),
@@ -183,6 +215,7 @@ mod tests {
         for path in [&first, &second] {
             read_claude(
                 path,
+                &|| false,
                 &HashSet::from(["one", "two"]),
                 &mut custom,
                 &mut HashMap::new(),
@@ -205,6 +238,7 @@ mod tests {
         let path = fixture("{\"type\":\"user\",\"message\":\"PRIVATE PROMPT\"\n");
         let error = read_claude(
             &path,
+            &|| false,
             &HashSet::from(["one"]),
             &mut HashMap::new(),
             &mut HashMap::new(),
@@ -217,6 +251,7 @@ mod tests {
         assert_eq!(
             read_claude(
                 &path,
+                &|| false,
                 &HashSet::from(["one"]),
                 &mut HashMap::new(),
                 &mut HashMap::new()
@@ -227,20 +262,84 @@ mod tests {
         );
     }
 
-    #[cfg(unix)]
     #[test]
-    fn title_file_permission_errors_remain_visible() {
-        use std::os::unix::fs::PermissionsExt;
-        let path = fixture("{}\n");
-        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o000)).unwrap();
+    fn malformed_rows_do_not_hide_later_explicit_titles() {
+        let path = fixture(concat!(
+            "{\"type\":\"user\",\"message\":\"PRIVATE PROMPT\"\n",
+            "{\"type\":\"custom-title\",\"sessionId\":\"one\",\"customTitle\":\"Recovered title\"}\n",
+        ));
+        let mut custom = HashMap::new();
         let result = read_claude(
             &path,
+            &|| false,
+            &HashSet::from(["one"]),
+            &mut custom,
+            &mut HashMap::new(),
+        );
+        std::fs::remove_file(path).unwrap();
+        assert_eq!(
+            custom.get("one").map(String::as_str),
+            Some("Recovered title")
+        );
+        let error = result.unwrap_err().to_string();
+        assert!(error.contains("line 1"));
+        assert!(!error.contains("PRIVATE PROMPT"));
+    }
+
+    #[test]
+    fn unreadable_title_paths_remain_errors_without_relying_on_permissions() {
+        let path = fixture("{}\n");
+        // A regular file cannot be a parent directory, even when running as root.
+        let invalid = path.join("not-a-file.jsonl");
+        let result = read_claude(
+            &invalid,
+            &|| false,
             &HashSet::from(["one"]),
             &mut HashMap::new(),
             &mut HashMap::new(),
         );
-        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600)).unwrap();
         std::fs::remove_file(path).unwrap();
-        assert_eq!(result.unwrap_err().kind(), io::ErrorKind::PermissionDenied);
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Cannot read title records"));
+    }
+
+    #[test]
+    fn cancelled_title_reads_do_not_open_files_or_parse_later_records() {
+        use std::cell::Cell;
+        let path = fixture(concat!(
+            "{\"type\":\"custom-title\",\"sessionId\":\"one\",\"customTitle\":\"Read before cancellation\"}\n",
+            "{\"type\":\"custom-title\",\"sessionId\":\"two\",\"customTitle\":\"Do not read after cancellation\"}\n",
+        ));
+        let ids = HashSet::from(["one", "two"]);
+        let mut custom = HashMap::new();
+        let checks = Cell::new(0);
+        read_claude(
+            &path,
+            &|| {
+                let count = checks.get();
+                checks.set(count + 1);
+                count >= 2 // Open, read the first record, then cancel before the next.
+            },
+            &ids,
+            &mut custom,
+            &mut HashMap::new(),
+        )
+        .unwrap();
+        assert_eq!(
+            custom,
+            HashMap::from([("one".into(), "Read before cancellation".into())])
+        );
+        assert_eq!(checks.get(), 3);
+        read_claude(
+            &path.join("not-a-file.jsonl"),
+            &|| true,
+            &ids,
+            &mut custom,
+            &mut HashMap::new(),
+        )
+        .unwrap();
+        std::fs::remove_file(path).unwrap();
     }
 }

@@ -339,7 +339,7 @@ fn load_analysis_report_cancellable(
         ) {
             Ok(result) => {
                 let (session_titles, session_titles_error) =
-                    crate::services::session_titles::load(&result.projects);
+                    crate::services::session_titles::load(&result.projects, cancelled);
                 report.since = result.since;
                 report.until = result.until;
                 report.timezone = result.timezone;
@@ -873,7 +873,7 @@ mod analysis_tests {
         fs::create_dir_all(&windows_project).unwrap();
         let windows_event = serde_json::json!({"type":"assistant","sessionId":"windows-session","cwd":r"D:\work\中文项目","timestamp":chrono::Utc::now().to_rfc3339(),"message":{"id":"windows-message","model":"claude-sonnet-4-20250514","usage":{"input_tokens":30,"output_tokens":10}}});
         let windows_transcript = format!(
-            "{windows_event}\n{{\"type\":\"ai-title\",\"sessionId\":\"windows-session\",\"aiTitle\":\"修复 Windows 标题\"}}\n"
+            "{windows_event}\n{{PRIVATE MALFORMED FIXTURE\n{{\"type\":\"ai-title\",\"sessionId\":\"windows-session\",\"aiTitle\":\"修复 Windows 标题\"}}\n"
         );
         fs::write(
             windows_project.join("windows-session.jsonl"),
@@ -946,6 +946,12 @@ mod analysis_tests {
             usage["projects"][0]["session_titles"]["windows-session"]["text"],
             "修复 Windows 标题"
         );
+        let title_error = usage["projects"][0]["session_titles_error"]
+            .as_str()
+            .unwrap();
+        assert!(title_error.contains("Malformed title records"));
+        assert!(!title_error.contains("PRIVATE MALFORMED FIXTURE"));
+        assert_eq!(usage["summaries"][0]["summary"]["parse_error_entries"], 1);
         assert_eq!(
             fs::read_to_string(windows_project.join("windows-session.jsonl")).unwrap(),
             format!("{windows_transcript}{{\"type\":\"custom-title\",\"sessionId\":\"windows-session\",\"customTitle\":\"重命名后的会话\"}}\n")
@@ -987,12 +993,19 @@ mod analysis_tests {
             let report =
                 load_analysis_report("claude", "this_week", &AnalysisQuery::default()).unwrap();
             assert!(report.errors.is_empty(), "{:?}", report.errors);
+            let cancelled_titles =
+                crate::services::session_titles::load(&report.projects[0].usage, &|| true);
+            assert!(cancelled_titles.0.is_empty());
+            assert!(cancelled_titles.1.is_none());
             fs::write(
                 root.join(format!("{view}.json")),
                 serde_json::to_vec(&report).unwrap(),
             )
             .unwrap();
         }
+        assert!(
+            matches!(load_analysis_report_cancellable("claude", "this_week", &AnalysisQuery::default(), &|| true, &|_, _, _| {}), Err(error) if error == "Analysis cancelled")
+        );
         let query = AnalysisQuery {
             model: Some("gpt-5".into()),
             project: Some("/work/app".into()),
