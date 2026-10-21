@@ -159,7 +159,10 @@ Local analytics use one filtered ccstats report for summaries, projects,
 sessions, daily/hourly history, activity, and period comparisons. Missing source
 data and incomplete pricing are shown explicitly. API-equivalent estimates are
 not subscription bills. Session titles come from existing source metadata or
-local manual names, with no model summarization. JSON/SVG summary exports omit
+local manual names, with no model summarization. Claude's explicit JSONL custom
+and generated titles are read from the contributing session files even when a
+session index is missing; prompt/response text is never used as a title fallback.
+Sessions with no recorded title keep their project and session ID. JSON/SVG summary exports omit
 session titles and paths.
 
 The latest matching report is cached locally for quick startup while fresh
