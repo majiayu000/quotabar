@@ -329,6 +329,8 @@ export const zhCN = {
   "Management navigation": "管理导航",
   "Local workspace": "本机工作区",
   "Local records read automatically": "自动读取本地记录",
+  "Show sidebar": "显示侧栏",
+  "Hide sidebar": "隐藏侧栏",
   "Open menu bar panel": "打开菜单栏面板",
   "Could not open menu bar panel: {p0}": "无法打开菜单栏面板：{p0}",
   "Menu bar": "菜单栏",

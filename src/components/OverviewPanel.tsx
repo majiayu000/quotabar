@@ -3,6 +3,7 @@ import { localizeLabel, message, renderText, type DisplayText, getLocale, t } fr
 import { useLocale } from '../i18n/react';
 import { useEffect, useState, useId, useRef, useMemo, type ReactNode } from 'react';
 import { listen } from '@tauri-apps/api/event';
+import { isMacOSPlatform } from '../services/app_state';
 import { backend, hasTauriBackend, type AnalysisCatalog, type AnalysisMetrics, type AnalysisRange, type AnalysisReport, type AnalysisSession, type AnalysisTitle, type AnalysisView } from '../services/backend';
 import { getSavedTheme, saveTheme } from '../services/app_state';
 import { sortMostConstrained } from '../services/provider_summary';
@@ -37,6 +38,13 @@ const ANALYSIS_RANGES: () => [AnalysisRange, string][] = () => ([['today', t("To
 const number = (value: number) => new Intl.NumberFormat(getLocale()).format(value);
 const compactNumber = (value: number) => new Intl.NumberFormat(getLocale(), { notation: 'compact', maximumFractionDigits: 1 }).format(value);
 const sourceColor = (source: string) => ({ codex: 'var(--a-blue)', claude: 'var(--a-clay)', cursor: 'var(--a-teal)', grok: '#8874b5', antigravity: '#ba935b', gemini: '#5380ba', opencode: '#899767' } as Record<string, string>)[source] ?? 'var(--a-slate)';
+const SIDEBAR_COLLAPSED_KEY = 'quotabar.workspace-sidebar-collapsed';
+function readSidebarCollapsed() {
+  try { return localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === '1'; } catch { return false; }
+}
+function writeSidebarCollapsed(collapsed: boolean) {
+  try { localStorage.setItem(SIDEBAR_COLLAPSED_KEY, collapsed ? '1' : '0'); } catch { /* per-viewer convenience only */ }
+}
 function SourceIcon({ source }: { source: string }) {
   return ['claude', 'codex', 'cursor', 'grok', 'antigravity'].includes(source) ? <ProviderIcon service={source as TrayServiceName} /> : <span>{source.slice(0, 2).toUpperCase()}</span>;
 }
@@ -52,6 +60,7 @@ function WorkspaceIcon({ name }: { name: string }) {
     refresh: 'M20 7v5h-5 M4 17v-5h5 M5 8a8 8 0 0 1 13-3l2 3 M4 16l2 3a8 8 0 0 0 13-3',
     share: 'M12 15V3 M8 7l4-4 4 4 M5 12v9h14v-9',
     shield: 'M12 3l8 3v6c0 5-8 9-8 9s-8-4-8-9V6z M8 12l3 3 5-6',
+    sidebar: 'M4 4h16v16H4z M9.5 4v16 M6.5 8h1 M6.5 11h1',
   };
   return <svg className="workspace-icon" viewBox="0 0 24 24" aria-hidden="true"><path d={paths[name]} /></svg>;
 }
@@ -321,6 +330,18 @@ export function AnalysisApp({ visible = true, providerContent, providerView, the
   const [catalogError, setCatalogError] = useState<string | null>(null);
   const [source, setSource] = useState<string | null>(null);
   const [view, setView] = useState<WorkspaceView>('overview');
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(readSidebarCollapsed);
+  const macOverlay = useMemo(() => hasTauriBackend() && isMacOSPlatform(), []);
+  function toggleSidebar() {
+    setSidebarCollapsed((current) => { const next = !current; writeSidebarCollapsed(next); return next; });
+  }
+  useEffect(() => {
+    const shortcut = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && !event.altKey && !event.shiftKey && event.key.toLowerCase() === 'b') { event.preventDefault(); toggleSidebar(); }
+    };
+    window.addEventListener('keydown', shortcut);
+    return () => window.removeEventListener('keydown', shortcut);
+  }, []);
   const [range, setRange] = useState<AnalysisRange>('last_30_days');
   const [customDates, setCustomDates] = useState({ since: '', until: '' });
   const [appliedDates, setAppliedDates] = useState({ since: '', until: '' });
@@ -478,15 +499,19 @@ export function AnalysisApp({ visible = true, providerContent, providerView, the
   const modelOptions = report?.available_models ?? [];
   const rangeLabel = selectedDate ?? (range === 'custom' ? `${appliedDates.since} — ${appliedDates.until}` : ANALYSIS_RANGES().find(([value]) => value === range)![1]);
   const projectOptions = (report?.available_projects ?? []).map((path) => [path, path.split(/[\\/]/).filter(Boolean).slice(-2).join('/') || path]);
-  return <div className={`analysis-app ${dark ? 'analysis-dark' : ''}`}>
-    <aside className="analysis-sidebar">
-      <div className="analysis-brand"><b className="quota-mark">Q</b><strong>QuotaBar</strong></div>
+  const sidebarLabel = sidebarCollapsed ? t("Show sidebar") : t("Hide sidebar");
+  return <div className={`analysis-app ${dark ? 'analysis-dark' : ''}${macOverlay ? ' mac-overlay' : ''}${sidebarCollapsed ? ' sidebar-collapsed' : ''}`}>
+    <div className="workspace-window-controls" data-tauri-drag-region>
+      <button type="button" className="workspace-sidebar-toggle" aria-label={sidebarLabel} title={`${sidebarLabel} (${macOverlay ? '⌘' : 'Ctrl+'}B)`} aria-expanded={!sidebarCollapsed} aria-controls="analysis-sidebar" onClick={toggleSidebar}><WorkspaceIcon name="sidebar" /></button>
+      <strong className="workspace-window-title" data-tauri-drag-region>QuotaBar</strong>
+    </div>
+    <aside id="analysis-sidebar" className="analysis-sidebar" aria-hidden={sidebarCollapsed || undefined} inert={sidebarCollapsed || undefined}>
       <small className="analysis-nav-label">{t("Workspace")}</small>
       <nav aria-label={t("Analysis navigation")}>{ANALYSIS_VIEWS().filter(([value]) => value !== 'sources' && value !== 'settings').map(([value, label], index) => <button key={value} title={label} aria-current={view === value ? 'page' : undefined} onClick={() => navigate(value)}><WorkspaceIcon name={value} />{label}<kbd>{index + 1}</kbd></button>)}</nav>
       <div className="workspace-source-nav"><small className="analysis-nav-label">{t("Record sources")}<span>{readySources.length}</span></small><button aria-pressed={source === 'all'} onClick={() => { chooseSource('all'); navigate('overview'); }}><WorkspaceIcon name="sources" />{t("All sources")}</button>{readySources.map((item) => <button key={item.name} aria-pressed={source === item.name} onClick={() => { chooseSource(item.name); navigate('overview'); }}><span className="workspace-source-glyph"><SourceIcon source={item.name} /></span>{item.display_name}</button>)}</div>
       <div className="analysis-management"><nav aria-label={t("Management navigation")}>{ANALYSIS_VIEWS().filter(([value]) => value === 'sources' || value === 'settings').map(([value, label]) => <button key={value} title={label} aria-current={view === value ? 'page' : undefined} onClick={() => navigate(value)}><WorkspaceIcon name={value} />{label}</button>)}</nav><div className="analysis-local"><WorkspaceIcon name="shield" /><span>{t("Local workspace")}<small>{t("Local records read automatically")}</small></span></div></div>
     </aside>
-    <main><header className="workspace-topbar"><div className="workspace-location"><WorkspaceIcon name={view} /><h1>{title}</h1></div><div><button aria-label={t("Open menu bar panel")} title={t("Open menu bar panel")} onClick={() => void backend.openQuotaPopover().catch((reason) => setActionError(message("Could not open menu bar panel: {p0}", { p0: String(reason) })))}><WorkspaceIcon name="quota" /><span>{t("Menu bar")}</span></button><button aria-label={t("Toggle light / dark theme")} title={dark ? t("Switch to light appearance") : t("Switch to dark appearance")} onClick={changeTheme}><WorkspaceIcon name="theme" /></button>{!providerPage && view !== 'sources' && <button disabled={!report && !valueState.report} onClick={() => { setSavedExport(null); if (!report) setShareKind('value'); setShareOpen(true); }}><WorkspaceIcon name="share" />{t("Export summary")}</button>}</div></header>
+    <main><header className="workspace-topbar" data-tauri-drag-region><div className="workspace-location" data-tauri-drag-region><WorkspaceIcon name={view} /><h1>{title}</h1></div><div><button aria-label={t("Open menu bar panel")} title={t("Open menu bar panel")} onClick={() => void backend.openQuotaPopover().catch((reason) => setActionError(message("Could not open menu bar panel: {p0}", { p0: String(reason) })))}><WorkspaceIcon name="quota" /><span>{t("Menu bar")}</span></button><button aria-label={t("Toggle light / dark theme")} title={dark ? t("Switch to light appearance") : t("Switch to dark appearance")} onClick={changeTheme}><WorkspaceIcon name="theme" /></button>{!providerPage && view !== 'sources' && <button disabled={!report && !valueState.report} onClick={() => { setSavedExport(null); if (!report) setShareKind('value'); setShareOpen(true); }}><WorkspaceIcon name="share" />{t("Export summary")}</button>}</div></header>
     <div className="analysis-content" ref={contentRef}>
     {view === 'overview' && <div className="workspace-page-heading"><div><h2>{t("Usage and cost")}</h2></div><p>{report ? `${report.since} — ${report.until}` : rangeLabel}<br />{sourceLabel}</p></div>}
     <div className="analysis-toolbar" hidden={providerPage || view === 'sources'}>

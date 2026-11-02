@@ -33,9 +33,6 @@
 .analysis-app main { display:flex; flex-direction:column; min-width:0; min-height:0; overflow:hidden; }
 .analysis-sidebar { display:flex; flex-direction:column; padding:24px 12px 14px; background:var(--a-side); border-right:1px solid var(--a-line); min-height:0; overflow-y:auto; }
 .analysis-sidebar > * { flex-shrink:0; }
-.analysis-brand { display:flex; align-items:center; gap:9px; padding:0 8px 28px; min-height:0; }
-.analysis-brand strong { font-size:17px; font-weight:600; letter-spacing:-.5px; }
-.analysis-brand .quota-mark { border:0; width:26px; height:26px; background:#5e6ad2; }
 .analysis-nav-label { display:flex; justify-content:space-between; margin:10px 10px 8px; font-size:11px; color:var(--a-muted); }
 .analysis-sidebar nav { display:grid; gap:3px; }
 .analysis-sidebar nav button { display:flex; align-items:center; gap:9px; width:100%; min-height:36px; padding:8px 10px; border:0; border-radius:6px; background:transparent; color:var(--a-muted); text-align:left; font-size:12px; }
@@ -188,8 +185,6 @@
 @media (max-width:850px) {
   .analysis-app { grid-template-columns:140px minmax(0,1fr); }
   .analysis-sidebar { padding:18px 8px; }
-  .analysis-brand { gap:7px; padding-inline:4px; }
-  .analysis-brand strong { font-size:14px; }
   .analysis-sidebar kbd { display:none; }
   .workspace-source-nav { margin-top:18px; }
   .workspace-page-heading { align-items:flex-start; }
@@ -268,3 +263,31 @@ html:not(.analysis-document) .app .section-title { margin:0; }
 html:not(.analysis-document) .app .overview-timing { display:flex; flex-wrap:wrap; justify-content:space-between; gap:4px 8px; color:var(--sub); font-size:10px; line-height:1.5; }
 html:not(.analysis-document) .app .overview-quota-row { padding:12px 14px; }
 html:not(.analysis-document) .app .overview-quota-row.primary { padding:12px 14px; }
+
+/* Workspace window chrome: sidebar toggle beside the traffic lights (T3 Code style). */
+.analysis-app { position:relative; transition:grid-template-columns .2s ease; }
+.analysis-app .analysis-sidebar { padding-top:64px; transition:opacity .16s ease; }
+.workspace-window-controls { position:absolute; top:0; left:12px; z-index:5; display:flex; align-items:center; gap:6px; height:56px; user-select:none; -webkit-user-select:none; }
+.workspace-window-title { font-size:14px; font-weight:600; letter-spacing:-.2px; color:var(--a-text); white-space:nowrap; cursor:default; }
+.analysis-app .workspace-sidebar-toggle { display:grid; place-items:center; width:28px; height:28px; min-height:28px; padding:0; border:0; border-radius:6px; background:transparent; color:var(--a-muted); cursor:pointer; }
+.analysis-app .workspace-sidebar-toggle:hover { background:var(--a-control); color:var(--a-text); }
+.analysis-app .workspace-sidebar-toggle:focus-visible { outline:2px solid var(--a-blue); outline-offset:1px; }
+.analysis-app .workspace-sidebar-toggle .workspace-icon { width:17px; height:17px; }
+.analysis-app.mac-overlay { grid-template-columns:216px minmax(0,1fr); }
+.analysis-app.mac-overlay .workspace-window-controls { left:80px; }
+.analysis-app.sidebar-collapsed { grid-template-columns:0 minmax(0,1fr); }
+.analysis-app.sidebar-collapsed .analysis-sidebar { visibility:hidden; opacity:0; overflow:hidden; border-right:0; }
+.analysis-app.sidebar-collapsed .workspace-window-title { display:none; }
+.analysis-app.sidebar-collapsed .workspace-topbar { padding-left:56px; }
+.analysis-app.mac-overlay.sidebar-collapsed .workspace-topbar { padding-left:124px; }
+@media (max-width:1100px) {
+  .analysis-app.mac-overlay:not(.sidebar-collapsed) { grid-template-columns:200px minmax(0,1fr); }
+}
+@media (max-width:850px) {
+  .analysis-app.mac-overlay:not(.sidebar-collapsed) { grid-template-columns:160px minmax(0,1fr); }
+  .analysis-app.mac-overlay .workspace-window-title { display:none; }
+  .analysis-app .analysis-sidebar { padding-top:58px; }
+}
+@media (prefers-reduced-motion:reduce) {
+  .analysis-app, .analysis-app .analysis-sidebar { transition:none; }
+}

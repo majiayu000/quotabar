@@ -327,6 +327,8 @@ export const en = {
   "Management navigation": "Management navigation",
   "Local workspace": "Local workspace",
   "Local records read automatically": "Local records read automatically",
+  "Show sidebar": "Show sidebar",
+  "Hide sidebar": "Hide sidebar",
   "Open menu bar panel": "Open menu bar panel",
   "Could not open menu bar panel: {p0}": "Could not open menu bar panel: {p0}",
   "Menu bar": "Menu bar",
