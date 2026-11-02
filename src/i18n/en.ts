@@ -327,6 +327,8 @@ export const en = {
   "Management navigation": "Management navigation",
   "Local workspace": "Local workspace",
   "Local records read automatically": "Local records read automatically",
+  "Back": "Back",
+  "Forward": "Forward",
   "Show sidebar": "Show sidebar",
   "Hide sidebar": "Hide sidebar",
   "Open menu bar panel": "Open menu bar panel",

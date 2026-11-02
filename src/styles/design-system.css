@@ -264,28 +264,32 @@ html:not(.analysis-document) .app .overview-timing { display:flex; flex-wrap:wra
 html:not(.analysis-document) .app .overview-quota-row { padding:12px 14px; }
 html:not(.analysis-document) .app .overview-quota-row.primary { padding:12px 14px; }
 
-/* Workspace window chrome: sidebar toggle beside the traffic lights (T3 Code style). */
+/* Workspace window chrome: sidebar toggle and history arrows beside the traffic lights (T3 Code style). */
 .analysis-app { position:relative; transition:grid-template-columns .2s ease; }
 .analysis-app .analysis-sidebar { padding-top:64px; transition:opacity .16s ease; }
-.workspace-window-controls { position:absolute; top:0; left:12px; z-index:5; display:flex; align-items:center; gap:6px; height:56px; user-select:none; -webkit-user-select:none; }
-.workspace-window-title { font-size:14px; font-weight:600; letter-spacing:-.2px; color:var(--a-text); white-space:nowrap; cursor:default; }
-.analysis-app .workspace-sidebar-toggle { display:grid; place-items:center; width:28px; height:28px; min-height:28px; padding:0; border:0; border-radius:6px; background:transparent; color:var(--a-muted); cursor:pointer; }
-.analysis-app .workspace-sidebar-toggle:hover { background:var(--a-control); color:var(--a-text); }
-.analysis-app .workspace-sidebar-toggle:focus-visible { outline:2px solid var(--a-blue); outline-offset:1px; }
+.workspace-window-controls { position:absolute; top:0; left:12px; z-index:5; display:flex; align-items:center; gap:2px; height:56px; user-select:none; -webkit-user-select:none; }
+.workspace-window-title { margin:0 6px 0 4px; font-size:14px; font-weight:600; letter-spacing:-.2px; color:var(--a-text); white-space:nowrap; cursor:default; }
+.analysis-app :is(.workspace-sidebar-toggle,.workspace-history-button) { display:grid; place-items:center; width:28px; height:28px; min-height:28px; padding:0; border:0; border-radius:6px; background:transparent; color:var(--a-muted); cursor:pointer; }
+.analysis-app .workspace-history-button { width:24px; }
+.analysis-app :is(.workspace-sidebar-toggle,.workspace-history-button):hover:not(:disabled) { background:var(--a-control); color:var(--a-text); }
+.analysis-app :is(.workspace-sidebar-toggle,.workspace-history-button):disabled { opacity:.35; cursor:default; background:transparent; }
+.analysis-app :is(.workspace-sidebar-toggle,.workspace-history-button):focus-visible { outline:2px solid var(--a-blue); outline-offset:1px; }
 .analysis-app .workspace-sidebar-toggle .workspace-icon { width:17px; height:17px; }
-.analysis-app.mac-overlay { grid-template-columns:216px minmax(0,1fr); }
+.analysis-app .workspace-history-button .workspace-icon { width:16px; height:16px; }
+.analysis-app.mac-overlay { grid-template-columns:248px minmax(0,1fr); }
 .analysis-app.mac-overlay .workspace-window-controls { left:80px; }
 .analysis-app.sidebar-collapsed { grid-template-columns:0 minmax(0,1fr); }
 .analysis-app.sidebar-collapsed .analysis-sidebar { visibility:hidden; opacity:0; overflow:hidden; border-right:0; }
 .analysis-app.sidebar-collapsed .workspace-window-title { display:none; }
-.analysis-app.sidebar-collapsed .workspace-topbar { padding-left:56px; }
-.analysis-app.mac-overlay.sidebar-collapsed .workspace-topbar { padding-left:124px; }
+.analysis-app.sidebar-collapsed .workspace-topbar { padding-left:112px; }
+.analysis-app.mac-overlay.sidebar-collapsed .workspace-topbar { padding-left:180px; }
 @media (max-width:1100px) {
-  .analysis-app.mac-overlay:not(.sidebar-collapsed) { grid-template-columns:200px minmax(0,1fr); }
+  .analysis-app.mac-overlay:not(.sidebar-collapsed) { grid-template-columns:220px minmax(0,1fr); }
+  .analysis-app .workspace-window-title { display:none; }
+  .analysis-app .workspace-window-controls { gap:4px; }
 }
 @media (max-width:850px) {
-  .analysis-app.mac-overlay:not(.sidebar-collapsed) { grid-template-columns:160px minmax(0,1fr); }
-  .analysis-app.mac-overlay .workspace-window-title { display:none; }
+  .analysis-app.mac-overlay:not(.sidebar-collapsed) { grid-template-columns:180px minmax(0,1fr); }
   .analysis-app .analysis-sidebar { padding-top:58px; }
 }
 @media (prefers-reduced-motion:reduce) {

@@ -61,6 +61,8 @@ function WorkspaceIcon({ name }: { name: string }) {
     share: 'M12 15V3 M8 7l4-4 4 4 M5 12v9h14v-9',
     shield: 'M12 3l8 3v6c0 5-8 9-8 9s-8-4-8-9V6z M8 12l3 3 5-6',
     sidebar: 'M4 4h16v16H4z M9.5 4v16 M6.5 8h1 M6.5 11h1',
+    back: 'M19 12H5 M11 6l-6 6 6 6',
+    forward: 'M5 12h14 M13 6l6 6-6 6',
   };
   return <svg className="workspace-icon" viewBox="0 0 24 24" aria-hidden="true"><path d={paths[name]} /></svg>;
 }
@@ -335,9 +337,23 @@ export function AnalysisApp({ visible = true, providerContent, providerView, the
   function toggleSidebar() {
     setSidebarCollapsed((current) => { const next = !current; writeSidebarCollapsed(next); return next; });
   }
+  const [viewHistory, setViewHistory] = useState<{ stack: WorkspaceView[]; index: number }>({ stack: ['overview'], index: 0 });
+  const travelling = useRef(false);
+  useEffect(() => {
+    if (travelling.current) { travelling.current = false; return; }
+    setViewHistory((current) => {
+      if (current.stack[current.index] === view) return current;
+      const stack = [...current.stack.slice(0, current.index + 1), view].slice(-50);
+      return { stack, index: stack.length - 1 };
+    });
+  }, [view]);
+  const historyActions = useRef({ back: () => {}, forward: () => {} });
   useEffect(() => {
     const shortcut = (event: KeyboardEvent) => {
-      if ((event.metaKey || event.ctrlKey) && !event.altKey && !event.shiftKey && event.key.toLowerCase() === 'b') { event.preventDefault(); toggleSidebar(); }
+      if (!(event.metaKey || event.ctrlKey) || event.altKey || event.shiftKey) return;
+      if (event.key.toLowerCase() === 'b') { event.preventDefault(); toggleSidebar(); }
+      else if (event.key === '[') { event.preventDefault(); historyActions.current.back(); }
+      else if (event.key === ']') { event.preventDefault(); historyActions.current.forward(); }
     };
     window.addEventListener('keydown', shortcut);
     return () => window.removeEventListener('keydown', shortcut);
@@ -376,6 +392,17 @@ export function AnalysisApp({ visible = true, providerContent, providerView, the
       onProviderView?.(next);
     }
   }
+  function travel(step: -1 | 1) {
+    const index = viewHistory.index + step;
+    const target = viewHistory.stack[index];
+    if (!target) return;
+    setViewHistory((current) => ({ ...current, index }));
+    if (target !== view) { travelling.current = true; navigate(target); }
+  }
+  historyActions.current = { back: () => travel(-1), forward: () => travel(1) };
+  const canGoBack = viewHistory.index > 0;
+  const canGoForward = viewHistory.index < viewHistory.stack.length - 1;
+
   useEffect(() => {
     if (providerView !== previousProviderView.current) {
       previousProviderView.current = providerView;
@@ -504,6 +531,8 @@ export function AnalysisApp({ visible = true, providerContent, providerView, the
     <div className="workspace-window-controls" data-tauri-drag-region>
       <button type="button" className="workspace-sidebar-toggle" aria-label={sidebarLabel} title={`${sidebarLabel} (${macOverlay ? '⌘' : 'Ctrl+'}B)`} aria-expanded={!sidebarCollapsed} aria-controls="analysis-sidebar" onClick={toggleSidebar}><WorkspaceIcon name="sidebar" /></button>
       <strong className="workspace-window-title" data-tauri-drag-region>QuotaBar</strong>
+      <button type="button" className="workspace-history-button" aria-label={t("Back")} title={`${t("Back")} (${macOverlay ? '⌘' : 'Ctrl+'}[)`} disabled={!canGoBack} onClick={() => travel(-1)}><WorkspaceIcon name="back" /></button>
+      <button type="button" className="workspace-history-button" aria-label={t("Forward")} title={`${t("Forward")} (${macOverlay ? '⌘' : 'Ctrl+'}])`} disabled={!canGoForward} onClick={() => travel(1)}><WorkspaceIcon name="forward" /></button>
     </div>
     <aside id="analysis-sidebar" className="analysis-sidebar" aria-hidden={sidebarCollapsed || undefined} inert={sidebarCollapsed || undefined}>
       <small className="analysis-nav-label">{t("Workspace")}</small>
