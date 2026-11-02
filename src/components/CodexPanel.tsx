@@ -16,7 +16,7 @@ import type {
   CodexWeeklyValueEstimate,
   CodexWeeklyValueError,
 } from '../types/models';
-import { buildCodexQuotaWindows, codexWindowLabel, type QuotaWindowSummary } from '../services/provider_summary';
+import { buildCodexQuotaWindows, codexWindowLabel, getCodexTrayUsedPercent, type QuotaWindowSummary } from '../services/provider_summary';
 import { getQuotaForecast, type QuotaForecastMap } from '../services/quota_forecast';
 import QuotaForecastLine from './QuotaForecastLine';
 import { canReportBonusReady } from '../services/bonus_ready';
@@ -189,16 +189,6 @@ function buildBonusGrantGroups(credits: CodexResetCredit[]): BonusGrantGroup[] {
   return Array.from(groups.values());
 }
 
-function getTrayUsedPercent(limits: CodexRateLimits): number | null {
-  if (limits.secondary?.usedPercent != null) {
-    return limits.secondary.usedPercent;
-  }
-  if (limits.primary?.usedPercent != null) {
-    return limits.primary.usedPercent;
-  }
-  return null;
-}
-
 export default function CodexPanel({
   onConnectionChange,
   onUsageChange,
@@ -298,8 +288,8 @@ export default function CodexPanel({
       const isConnected = limits.connected || info.connected;
       onConnectionChange?.(isConnected);
 
-      // Use weekly usage for tray when available (secondary window).
-      onUsageChange?.(getTrayUsedPercent(limits));
+      // Tray and 80/95 alerts follow the most constrained window, same as Claude.
+      onUsageChange?.(getCodexTrayUsedPercent(limits));
     } catch (err) {
       if (!request_generation.isCurrent(generation)) return;
       const message = err instanceof Error ? err.message : "Failed to fetch Codex data";

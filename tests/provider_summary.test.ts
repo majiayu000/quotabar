@@ -7,6 +7,7 @@ import {
   buildCursorQuotaWindows,
   buildGrokQuotaWindows,
   getCursorAlertUsedPercent,
+  getCodexTrayUsedPercent,
   getCursorTrayUsedPercent,
   sortMostConstrained,
   sortUpcomingResets,
@@ -85,6 +86,22 @@ describe('provider summary helpers', () => {
       ['Cursor Models', 3],
       ['Other Models', 91],
     ]);
+  });
+
+  test('drives the Codex tray from the most constrained window, not always weekly', () => {
+    expect(getCodexTrayUsedPercent({
+      connected: true,
+      primary: { usedPercent: 97, windowMinutes: 300 },
+      secondary: { usedPercent: 30, windowMinutes: 10080 },
+    })).toBe(97);
+    expect(getCodexTrayUsedPercent({
+      connected: true,
+      primary: { usedPercent: 12, windowMinutes: 300 },
+      secondary: { usedPercent: 64, windowMinutes: 10080 },
+    })).toBe(64);
+    expect(getCodexTrayUsedPercent({ connected: true, primary: { usedPercent: 41, windowMinutes: 300 } })).toBe(41);
+    expect(getCodexTrayUsedPercent({ connected: true })).toBeNull();
+    expect(getCodexTrayUsedPercent(null)).toBeNull();
   });
 
   test('drives the Cursor tray from Cursor Models, not Other Models', () => {
