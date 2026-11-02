@@ -184,6 +184,7 @@ fn read_auth_json(auth_file: &Path) -> Result<serde_json::Value, String> {
     serde_json::from_str(&content).map_err(|err| format!("Failed to parse Grok auth: {err}"))
 }
 
+#[allow(clippy::result_large_err)] // Err carries the GrokData snapshot to render.
 fn read_credential_with_renewal(
     auth_file: &Path,
     renew: impl FnOnce() -> Result<(), String>,
@@ -196,9 +197,9 @@ fn read_credential_with_renewal(
                 Some(name) => &auth[name],
                 None => &auth,
             };
-            if !entry["refresh_token"]
+            if entry["refresh_token"]
                 .as_str()
-                .is_some_and(|value| !value.trim().is_empty())
+                .is_none_or(|value| value.trim().is_empty())
             {
                 return Ok(credential);
             }
@@ -298,12 +299,12 @@ fn read_rejected_credential_with_renewal(
             return Ok(credential);
         }
     }
-    if !entry["key"]
+    if entry["key"]
         .as_str()
-        .is_some_and(|value| !value.trim().is_empty())
-        || !entry["refresh_token"]
+        .is_none_or(|value| value.trim().is_empty())
+        || entry["refresh_token"]
             .as_str()
-            .is_some_and(|value| !value.trim().is_empty())
+            .is_none_or(|value| value.trim().is_empty())
     {
         return Err(auth_error());
     }
@@ -425,6 +426,7 @@ fn renew_session(home: &Path, manual: bool) -> Result<(), String> {
     run_renewal_command(command, &mut state, manual, RENEWAL_TIMEOUT)
 }
 
+#[allow(clippy::result_large_err)] // Err carries the GrokData snapshot to render.
 async fn read_credential(manual: bool) -> Result<GrokCredential, GrokData> {
     let home =
         grok_home().ok_or_else(|| GrokData::disconnected("Could not find home directory"))?;
