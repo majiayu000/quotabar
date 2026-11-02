@@ -390,6 +390,7 @@ npm run tauri build -- --bundles app
 - Security or credential exposure: use GitHub private security advisories. Do not paste provider tokens, cookies, session files, or local auth material into public issues.
 - Contributor setup and expectations: see [CONTRIBUTING.md](CONTRIBUTING.md).
 - Security scope and reporting: see [SECURITY.md](SECURITY.md).
+- What QuotaBar sends, reads and stores: see [PRIVACY.md](PRIVACY.md).
 
 ## License
 
