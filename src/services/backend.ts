@@ -29,6 +29,10 @@ export interface AnalysisMetrics {
   tokens: { reasoning_tokens: number; reported_total_adjustment: number; total_tokens: number; input_tokens: number; output_tokens: number; cache_creation_tokens: number; cache_read_tokens: number; cache_hit_rate: number | null };
 }
 export interface AnalysisTitle { text: string; origin: 'source_title' | 'source_summary' }
+export interface AnalysisSpeed {
+  median_tokens_per_second: number | null; measured_responses: number; excluded_responses: number;
+  models: { model: string; median_tokens_per_second: number; measured_responses: number }[];
+}
 export interface AnalysisSession {
   source_paths?: string[];
   session_id: string; first_timestamp: string; last_timestamp: string; metrics: AnalysisMetrics }
@@ -41,7 +45,7 @@ export interface AnalysisReport {
   available_models: string[]; available_projects: string[];
   hourly: { source_name: string; points: { hour: string; tokens: { total_tokens: number }; records: number }[] }[];
   summaries: { source: string; summary: AnalysisMetrics & { valid_entries: number; parse_error_entries: number; skipped_entries: number; models: (AnalysisMetrics & { model: string })[] } }[];
-  projects: { source_name: string; display_name: string; projects: AnalysisProject[]; session_titles: Record<string, AnalysisTitle>; session_titles_error: string | null }[];
+  projects: { source_name: string; display_name: string; projects: AnalysisProject[]; session_titles: Record<string, AnalysisTitle>; session_titles_error: string | null; session_speeds?: Record<string, AnalysisSpeed>; session_speeds_error?: string | null }[];
   history: { source_name: string; display_name: string; currency: string; points: { date: string; tokens: { total_tokens: number }; cost: number | null; cost_usd: number | null; cost_status: string; cost_kind: string; pricing_source: string; api_equivalent_cost_coverage: AnalysisMetrics['api_equivalent_cost_coverage']; records: number }[] }[];
   errors: string[];
 }

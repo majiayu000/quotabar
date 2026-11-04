@@ -760,4 +760,12 @@ export const en = {
   "Est. runs out ~{p0}, before reset": "Est. runs out ~{p0}, before reset",
   "{p0} {p1}: {p2}% left. {p3} still has {p4}% (resets {p5}).": "{p0} {p1}: {p2}% left. {p3} still has {p4}% (resets {p5}).",
   "{p0} {p1}: {p2}% left. {p3} still has {p4}%.": "{p0} {p1}: {p2}% left. {p3} still has {p4}%.",
+  "Output speed": "Output speed",
+  "Output speed (median)": "Output speed (median)",
+  "Median output tokens per second per response": "Median output tokens per second per response",
+  "{p0} responses": "{p0} responses",
+  "Measured {p0} responses; {p1} excluded because retries, missing triggers or missing output make their timing unreliable.": "Measured {p0} responses; {p1} excluded because retries, missing triggers or missing output make their timing unreliable.",
+  "No speed records for this session.": "No speed records for this session.",
+  "Speed is output tokens divided by the time from the prompt or tool result to the response's last block, including time to first token.": "Speed is output tokens divided by the time from the prompt or tool result to the response's last block, including time to first token.",
+  "Could not read speed records:": "Could not read speed records:",
 } as const;

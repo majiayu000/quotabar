@@ -224,6 +224,8 @@ pub struct SourceProjects {
     usage: ProjectDrilldownSummary,
     session_titles: HashMap<String, SessionTitle>,
     session_titles_error: Option<String>,
+    session_speeds: HashMap<String, crate::services::session_speed::SessionSpeed>,
+    session_speeds_error: Option<String>,
 }
 
 #[derive(Default, Deserialize, Serialize)]
@@ -340,6 +342,11 @@ fn load_analysis_report_cancellable(
             Ok(result) => {
                 let (session_titles, session_titles_error) =
                     crate::services::session_titles::load(&result.projects, cancelled);
+                let (session_speeds, session_speeds_error) = crate::services::session_speed::load(
+                    &result.projects,
+                    query.model.is_some(),
+                    cancelled,
+                );
                 report.since = result.since;
                 report.until = result.until;
                 report.timezone = result.timezone;
@@ -353,6 +360,8 @@ fn load_analysis_report_cancellable(
                     usage: result.projects,
                     session_titles,
                     session_titles_error,
+                    session_speeds,
+                    session_speeds_error,
                 });
                 report.history.push(result.history);
                 report.hourly.push(SourceHours {
