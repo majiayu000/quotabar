@@ -363,8 +363,14 @@ fn apply_popover_layout(app: &AppHandle) -> Result<(), String> {
         width: area.size.width,
         height: area.size.height,
     };
+    let bounds = Rect {
+        x: monitor.position().x,
+        y: monitor.position().y,
+        width: monitor.size().width,
+        height: monitor.size().height,
+    };
     let frame = popover_layout::place_popover(
-        anchor,
+        popover_layout::taskbar_anchor(anchor, bounds, work_area),
         work_area,
         monitor.scale_factor(),
         stored_width.unwrap_or(POPOVER_WIDTH),
