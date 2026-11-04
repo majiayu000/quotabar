@@ -176,9 +176,7 @@ fn decode_jwt_payload(token: &str) -> Option<serde_json::Value> {
     let mut parts = token.split('.');
     let _header = parts.next()?;
     let payload = parts.next()?;
-    if parts.next().is_none() {
-        return None;
-    }
+    parts.next()?;
     let padded = match payload.len() % 4 {
         2 => format!("{payload}=="),
         3 => format!("{payload}="),

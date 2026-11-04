@@ -153,6 +153,10 @@ export function buildCodexQuotaWindows(rateLimits: CodexRateLimits | null): Quot
     }));
 }
 
+export function getCodexTrayUsedPercent(rateLimits: CodexRateLimits | null): number | null {
+  return sortMostConstrained(buildCodexQuotaWindows(rateLimits))[0]?.usedPercent ?? null;
+}
+
 export function buildCursorQuotaWindows(cursorData: CursorData | null): QuotaWindowSummary[] {
   if (!cursorData?.connected) return [];
   const resetLabel = cursorData.resetAt

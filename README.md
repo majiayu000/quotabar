@@ -86,8 +86,8 @@ These screenshots show **illustrative data**. They were captured on 2026-10-11 f
   - includes the 5-hour session, 7-day All models (`weeklyTotal`), Opus, Sonnet, Design, and Fable 5 windows
   - keeps `weeklyTotal` as a labeled card, not the implicit tray or 80/95 alert headline
 - Codex tray value:
-  - prefers `secondary_window.used_percent`
-  - falls back to `primary_window.used_percent`
+  - uses the hottest Codex window (5-hour `primary_window` or weekly `secondary_window`), same as the overview/header
+  - 80/95 alerts follow the same value, so an exhausted 5-hour window is not hidden behind a low weekly percent
 - Cursor tray value:
   - prefers Cursor Models (`autoPercent`)
   - falls back to the overall Cursor quota percentage
@@ -390,6 +390,7 @@ npm run tauri build -- --bundles app
 - Security or credential exposure: use GitHub private security advisories. Do not paste provider tokens, cookies, session files, or local auth material into public issues.
 - Contributor setup and expectations: see [CONTRIBUTING.md](CONTRIBUTING.md).
 - Security scope and reporting: see [SECURITY.md](SECURITY.md).
+- What QuotaBar sends, reads and stores: see [PRIVACY.md](PRIVACY.md).
 
 ## License
 

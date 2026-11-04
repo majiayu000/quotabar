@@ -601,6 +601,7 @@ pub async fn set_dock_visibility(app: AppHandle, visible: bool) -> Result<(), St
 }
 
 #[tauri::command]
+#[allow(clippy::too_many_arguments)] // Tauri maps each IPC field to an argument.
 pub async fn update_tray_icon(
     app: AppHandle,
     tray_state: State<'_, tray::TrayState>,

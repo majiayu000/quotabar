@@ -60,7 +60,7 @@ struct TrayRuntimeState {
 
 impl TrayRuntimeState {
     fn bump_generation(&mut self, service: TrayService) -> u64 {
-        let generation = match service {
+        match service {
             TrayService::Claude => {
                 self.claude_generation = self.claude_generation.saturating_add(1);
                 self.claude_generation
@@ -81,8 +81,7 @@ impl TrayRuntimeState {
                 self.antigravity_generation = self.antigravity_generation.saturating_add(1);
                 self.antigravity_generation
             }
-        };
-        generation
+        }
     }
 
     fn generation(&self, service: TrayService) -> u64 {
@@ -629,6 +628,7 @@ pub fn setup_tray(app: &AppHandle) -> tauri::Result<()> {
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)] // Mirrors the IPC command's flat arguments.
 pub async fn update_tray_icon(
     app: AppHandle,
     tray_state: State<'_, TrayState>,
@@ -656,8 +656,7 @@ pub async fn update_tray_icon(
         if state.should_skip_update(service, snapshot, force) {
             return Ok(());
         }
-        let generation = state.bump_generation(service);
-        generation
+        state.bump_generation(service)
     };
 
     let (tx, rx) = mpsc::channel();
