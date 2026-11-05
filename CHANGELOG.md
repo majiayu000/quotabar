@@ -5,7 +5,7 @@ All notable QuotaBar changes should be summarized here before a release is cut.
 ## Unreleased
 
 - Read Claude's native JSONL session titles in Usage details, including sessions without a title index. Keep explicit renamed titles ahead of generated titles and leave untitled sessions on the project/session fallback (#215).
-- Show each Claude session's median output speed (tokens/s) in Usage details, with a per-model breakdown. Each response is timed from its prompt or tool result to its last logged block, including time to first token; responses with retries, missing triggers or no output are excluded and sessions without measurable responses show — (#215).
+- Show each session's median output speed (tokens/s) in Usage details, with a per-model breakdown, for every source whose logs time each response: Claude, Codex, Grok, Qwen, Copilot, Pi, Senpi and Kimchi (ccstats 0.12). A response is timed from its prompt or tool result to its last output, including time to first token. Sources that do not log per-response timing, and sessions without measurable responses, show — instead of 0 (#215).
 - Drive the Codex tray and its 80/95 alerts from the most constrained window instead of always preferring weekly, so an exhausted 5-hour window no longer shows as a low weekly percent.
 
 ## 0.6.0 - 2026-10-11

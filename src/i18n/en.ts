@@ -764,8 +764,8 @@ export const en = {
   "Output speed (median)": "Output speed (median)",
   "Median output tokens per second per response": "Median output tokens per second per response",
   "{p0} responses": "{p0} responses",
-  "Measured {p0} responses; {p1} excluded because retries, missing triggers or missing output make their timing unreliable.": "Measured {p0} responses; {p1} excluded because retries, missing triggers or missing output make their timing unreliable.",
+  "Measured {p0} responses; {p1} excluded because their timing or output is incomplete.": "Measured {p0} responses; {p1} excluded because their timing or output is incomplete.",
   "No speed records for this session.": "No speed records for this session.",
-  "Speed is output tokens divided by the time from the prompt or tool result to the response's last block, including time to first token.": "Speed is output tokens divided by the time from the prompt or tool result to the response's last block, including time to first token.",
-  "Could not read speed records:": "Could not read speed records:",
+  "Speed is output tokens divided by the time from the prompt or tool result to the response's last output, including time to first token.": "Speed is output tokens divided by the time from the prompt or tool result to the response's last output, including time to first token.",
+  "This source does not record per-response timing.": "This source does not record per-response timing.",
 } as const;

@@ -102,6 +102,7 @@ describe('Overview cost visibility lifecycle', () => {
 
 const analysisSession: AnalysisSession = {
   session_id: 'shared-id', first_timestamp: '2026-09-02T00:00:00Z', last_timestamp: '2026-09-02T00:10:00Z',
+  output_speed: { status: 'measured', median_tokens_per_second: 42.25, measured_responses: 3, excluded_responses: 1, models: [{ model: 'claude-opus-4-1', median_tokens_per_second: 42.25, measured_responses: 3 }] },
   metrics: { currency: 'USD', cost: 1, cost_usd: 1, cost_kind: 'api_equivalent', pricing_source: 'cache', api_equivalent_cost_coverage: null, tokens: { reasoning_tokens: 0, reported_total_adjustment: 0, total_tokens: 120, input_tokens: 100, output_tokens: 20, cache_creation_tokens: 0, cache_read_tokens: 0, cache_hit_rate: 0 } },
 };
 function analysisReport(total: number): AnalysisReport {
@@ -215,9 +216,9 @@ describe('Analysis window', () => {
     vi.spyOn(backend, 'analysisSource').mockResolvedValue('claude');
     vi.spyOn(backend, 'analysisCatalog').mockResolvedValue({ sources: [{ name: 'claude', display_name: 'Claude Code', has_projects: true, has_cache_read: true }], diagnostics: [] });
     const report = analysisReport(320);
-    report.projects = [{ source_name: 'claude', display_name: 'Claude Code', session_titles_error: null, session_titles: { 'shared-id': { text: '真实来源标题', origin: 'source_title' } }, session_speeds: { 'shared-id': { median_tokens_per_second: 42.25, measured_responses: 3, excluded_responses: 1, models: [{ model: 'claude-opus-4-1', median_tokens_per_second: 42.25, measured_responses: 3 }] } }, projects: [
+    report.projects = [{ source_name: 'claude', display_name: 'Claude Code', session_titles_error: null, session_titles: { 'shared-id': { text: '真实来源标题', origin: 'source_title' } }, projects: [
       { project_path: '/work/one', project_name: 'one', session_count: 1, metrics: analysisSession.metrics, sessions: [analysisSession] },
-      { project_path: '/work/two', project_name: 'two', session_count: 1, metrics: analysisSession.metrics, sessions: [{ ...analysisSession, session_id: 'other', metrics: { ...analysisSession.metrics, tokens: { ...analysisSession.metrics.tokens, total_tokens: 200, cache_hit_rate: null } } }] },
+      { project_path: '/work/two', project_name: 'two', session_count: 1, metrics: analysisSession.metrics, sessions: [{ ...analysisSession, session_id: 'other', output_speed: { status: 'unavailable', reason: 'no_timing' }, metrics: { ...analysisSession.metrics, tokens: { ...analysisSession.metrics.tokens, total_tokens: 200, cache_hit_rate: null } } }] },
     ] }];
     vi.spyOn(backend, 'analysisReport').mockResolvedValue(report);
     let renderer!: ReactTestRenderer;
