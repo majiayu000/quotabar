@@ -762,4 +762,12 @@ export const zhCN = {
   "Est. runs out ~{p0}, before reset": "预计约 {p0} 用完，早于重置",
   "{p0} {p1}: {p2}% left. {p3} still has {p4}% (resets {p5}).": "{p0} {p1}剩 {p2}%；{p3} 还剩 {p4}%（{p5} 重置）",
   "{p0} {p1}: {p2}% left. {p3} still has {p4}%.": "{p0} {p1}剩 {p2}%；{p3} 还剩 {p4}%",
+  "Output speed": "输出速度",
+  "Output speed (median)": "输出速度（中位数）",
+  "Median output tokens per second per response": "每次回复输出 Token/秒 的中位数",
+  "{p0} responses": "{p0} 次回复",
+  "Measured {p0} responses; {p1} excluded because their timing or output is incomplete.": "已测 {p0} 次回复；另有 {p1} 次因计时或输出不完整，已排除。",
+  "No speed records for this session.": "此会话没有速度记录。",
+  "Speed is output tokens divided by the time from the prompt or tool result to the response's last output, including time to first token.": "速度 = 输出 Token ÷ 从提问或工具结果到该回复最后一次输出的时间，含首个 Token 等待时间。",
+  "This source does not record per-response timing.": "此来源没有记录每次回复的耗时。",
 } satisfies Record<keyof typeof en, string>;

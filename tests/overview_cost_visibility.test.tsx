@@ -102,6 +102,7 @@ describe('Overview cost visibility lifecycle', () => {
 
 const analysisSession: AnalysisSession = {
   session_id: 'shared-id', first_timestamp: '2026-09-02T00:00:00Z', last_timestamp: '2026-09-02T00:10:00Z',
+  output_speed: { status: 'measured', median_tokens_per_second: 42.25, measured_responses: 3, excluded_responses: 1, models: [{ model: 'claude-opus-4-1', median_tokens_per_second: 42.25, measured_responses: 3 }] },
   metrics: { currency: 'USD', cost: 1, cost_usd: 1, cost_kind: 'api_equivalent', pricing_source: 'cache', api_equivalent_cost_coverage: null, tokens: { reasoning_tokens: 0, reported_total_adjustment: 0, total_tokens: 120, input_tokens: 100, output_tokens: 20, cache_creation_tokens: 0, cache_read_tokens: 0, cache_hit_rate: 0 } },
 };
 function analysisReport(total: number): AnalysisReport {
@@ -217,7 +218,7 @@ describe('Analysis window', () => {
     const report = analysisReport(320);
     report.projects = [{ source_name: 'claude', display_name: 'Claude Code', session_titles_error: null, session_titles: { 'shared-id': { text: '真实来源标题', origin: 'source_title' } }, projects: [
       { project_path: '/work/one', project_name: 'one', session_count: 1, metrics: analysisSession.metrics, sessions: [analysisSession] },
-      { project_path: '/work/two', project_name: 'two', session_count: 1, metrics: analysisSession.metrics, sessions: [{ ...analysisSession, session_id: 'other', metrics: { ...analysisSession.metrics, tokens: { ...analysisSession.metrics.tokens, total_tokens: 200, cache_hit_rate: null } } }] },
+      { project_path: '/work/two', project_name: 'two', session_count: 1, metrics: analysisSession.metrics, sessions: [{ ...analysisSession, session_id: 'other', output_speed: { status: 'unavailable', reason: 'no_timing' }, metrics: { ...analysisSession.metrics, tokens: { ...analysisSession.metrics.tokens, total_tokens: 200, cache_hit_rate: null } } }] },
     ] }];
     vi.spyOn(backend, 'analysisReport').mockResolvedValue(report);
     let renderer!: ReactTestRenderer;
@@ -227,6 +228,10 @@ describe('Analysis window', () => {
     const detail = renderer.root.findByProps({ 'aria-label': 'Session details' });
     expect(JSON.stringify(detail.findByType('h3').children)).toContain('真实来源标题');
     expect(detail.findByType('code').children).toEqual(['shared-id']);
+    const speed = JSON.stringify(detail.findAllByType('dl').map((list) => list.findAllByType('dd').map((dd) => dd.children)));
+    expect(speed).toContain('42.3 tok/s');
+    expect(speed).toContain('3 responses');
+    expect(JSON.stringify(detail.findAllByType('dt').map((dt) => dt.children))).toContain('claude-opus-4-1');
     await act(async () => renderer.root.findByProps({ 'aria-label': 'Close session details' }).props.onClick());
     await act(async () => click('All sessions ↗'));
     expect(renderer.root.findByProps({ 'aria-label': 'Session sort order' })).toBeDefined();
@@ -234,6 +239,9 @@ describe('Analysis window', () => {
     const body = renderer.root.findByType('tbody');
     expect(JSON.stringify(body.findAllByType('tr')[0].findAllByType('td').map((td) => td.children.filter((child) => typeof child === 'string')))).toContain('200');
     expect(body.findAllByType('tr')[0].findAllByType('td')[3].children).toEqual(['—']);
+    // No measurable responses: the speed cell stays blank instead of reading 0.
+    expect(body.findAllByType('tr')[0].findAllByType('td')[4].children).toEqual(['—']);
+    expect(body.findAllByType('tr')[1].findAllByType('td')[4].children).toEqual(['42.3 tok/s']);
     await act(async () => renderer.root.findByProps({ 'aria-label': 'Filter session projects' }).props.onChange({ target: { value: '/work/one' } }));
     expect(renderer.root.findAllByType('tbody')[0].findAllByType('tr')).toHaveLength(1);
     await act(async () => renderer.unmount());
