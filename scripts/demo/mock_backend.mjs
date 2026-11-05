@@ -229,6 +229,7 @@ export function installMockBackend({ nowIso }) {
             first_timestamp: iso(end - 90 * 60_000),
             last_timestamp: iso(end),
             metrics: metrics(total, Math.round(total / 450_000 * 100) / 100),
+            output_speed: { status: 'measured', median_tokens_per_second: 60 + sourceIndex * 7 + titleIndex * 3, measured_responses: 24 - titleIndex * 4, excluded_responses: titleIndex, models: [{ model: source.model, median_tokens_per_second: 60 + sourceIndex * 7 + titleIndex * 3, measured_responses: 24 - titleIndex * 4 }] },
           };
         });
         const total = sessions.reduce((sum, session) => sum + session.metrics.tokens.total_tokens, 0);

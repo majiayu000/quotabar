@@ -9,7 +9,8 @@ use std::{
 
 pub fn path() -> Result<PathBuf, String> {
     dirs::cache_dir()
-        .map(|dir| dir.join("quotabar/analysis-reports-v1.sqlite3"))
+        // Bump when the report shape changes so older payloads are never painted.
+        .map(|dir| dir.join("quotabar/analysis-reports-v2.sqlite3"))
         .ok_or_else(|| "Cannot locate analysis cache directory".to_string())
 }
 
