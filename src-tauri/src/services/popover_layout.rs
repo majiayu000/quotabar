@@ -76,6 +76,65 @@ pub fn open_direction(anchor: Rect, work_area: Rect) -> OpenToward {
     }
 }
 
+/// Moves an anchor that lies inside the work area onto the nearest taskbar.
+///
+/// Windows reports an icon in the notification overflow flyout (the `^`
+/// button, where Windows 10 puts new icons by default) at its spot in that
+/// flyout, above the taskbar. The flyout closes as soon as the popover takes
+/// focus, so anchoring to it leaves the popover floating in the work area.
+/// Projecting the icon onto the reserved strip (`monitor` minus `work_area`)
+/// docks the popover to the taskbar like a pinned icon. Anchors outside the
+/// work area, and monitors without a reserved strip (auto-hidden taskbar),
+/// are returned unchanged.
+pub fn taskbar_anchor(anchor: Rect, monitor: Rect, work_area: Rect) -> Rect {
+    let (cx, cy) = anchor.center();
+    let inside =
+        cx >= work_area.x && cx < work_area.right() && cy >= work_area.y && cy < work_area.bottom();
+    if !inside {
+        return anchor;
+    }
+    let strip = |start: i32, end: i32| (end - start).max(0) as u32;
+    let candidates = [
+        (
+            work_area.bottom() - cy,
+            Rect {
+                y: work_area.bottom(),
+                height: strip(work_area.bottom(), monitor.bottom()),
+                ..anchor
+            },
+        ),
+        (
+            cy - work_area.y,
+            Rect {
+                y: monitor.y,
+                height: strip(monitor.y, work_area.y),
+                ..anchor
+            },
+        ),
+        (
+            work_area.right() - cx,
+            Rect {
+                x: work_area.right(),
+                width: strip(work_area.right(), monitor.right()),
+                ..anchor
+            },
+        ),
+        (
+            cx - work_area.x,
+            Rect {
+                x: monitor.x,
+                width: strip(monitor.x, work_area.x),
+                ..anchor
+            },
+        ),
+    ];
+    candidates
+        .into_iter()
+        .filter(|(_, bar)| bar.width > 0 && bar.height > 0)
+        .min_by_key(|(distance, _)| *distance)
+        .map_or(anchor, |(_, bar)| bar)
+}
+
 /// Returns the popover frame for a logical size on a monitor with `scale`.
 ///
 /// Invariants (covered by tests):
@@ -506,6 +565,129 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn issue_186_overflow_flyout_icon_docks_to_the_bottom_taskbar() {
+        // Windows 10, 27" 2K, 40 px taskbar at 100%; 50 px at 125%. The icon
+        // is in the overflow flyout, above the taskbar and inside the work area.
+        for (scale, taskbar, icon_size) in [(1.0, 40, 40), (1.25, 50, 50)] {
+            let monitor = Rect {
+                x: 0,
+                y: 0,
+                width: 2560,
+                height: 1440,
+            };
+            let area = Rect {
+                height: 1440 - taskbar,
+                ..monitor
+            };
+            let flyout_icon = Rect {
+                x: 2290,
+                y: area.bottom() - 2 * icon_size as i32,
+                width: icon_size,
+                height: icon_size,
+            };
+            let anchor = taskbar_anchor(flyout_icon, monitor, area);
+            assert_eq!(
+                anchor,
+                Rect {
+                    y: area.bottom(),
+                    height: taskbar,
+                    ..flyout_icon
+                }
+            );
+            let frame = place_popover(anchor, area, scale, POPOVER_WIDTH, 451.0);
+            let gap = (POPOVER_GAP * scale).round() as i32;
+            assert_eq!(frame.bottom(), area.bottom() - gap, "scale {scale}");
+            assert_eq!(
+                frame.x + frame.width as i32 / 2,
+                flyout_icon.center().0,
+                "scale {scale}"
+            );
+            assert!(inside(frame, area));
+        }
+    }
+
+    #[test]
+    fn taskbar_anchor_keeps_pinned_menu_bar_and_auto_hide_anchors() {
+        let monitor = Rect {
+            x: 0,
+            y: 0,
+            width: 3840,
+            height: 2160,
+        };
+        // Pinned icon already in a bottom taskbar.
+        let bottom_area = Rect {
+            height: 2064,
+            ..monitor
+        };
+        let pinned = Rect {
+            x: 3600,
+            y: 2064,
+            width: 48,
+            height: 96,
+        };
+        assert_eq!(taskbar_anchor(pinned, monitor, bottom_area), pinned);
+        // macOS menu bar icon above the work area.
+        let menu_area = Rect {
+            y: 74,
+            height: 2086,
+            ..monitor
+        };
+        let menu_icon = Rect {
+            x: 2400,
+            y: 0,
+            width: 60,
+            height: 74,
+        };
+        assert_eq!(taskbar_anchor(menu_icon, monitor, menu_area), menu_icon);
+        // Auto-hidden taskbar: no reserved strip, keep the reported rect.
+        let hidden = Rect {
+            x: 3600,
+            y: 2110,
+            width: 48,
+            height: 48,
+        };
+        assert_eq!(taskbar_anchor(hidden, monitor, monitor), hidden);
+    }
+
+    #[test]
+    fn overflow_flyout_docks_to_side_and_top_taskbars() {
+        let monitor = Rect {
+            x: -1920,
+            y: 0,
+            width: 1920,
+            height: 1080,
+        };
+        let right_area = Rect {
+            width: 1858,
+            ..monitor
+        };
+        let icon = Rect {
+            x: -140,
+            y: 900,
+            width: 40,
+            height: 40,
+        };
+        let anchor = taskbar_anchor(icon, monitor, right_area);
+        assert_eq!((anchor.x, anchor.width), (right_area.right(), 62));
+        assert_eq!(open_direction(anchor, right_area), OpenToward::Left);
+
+        let top_area = Rect {
+            y: 40,
+            height: 1040,
+            ..monitor
+        };
+        let icon = Rect {
+            x: -300,
+            y: 60,
+            width: 40,
+            height: 40,
+        };
+        let anchor = taskbar_anchor(icon, monitor, top_area);
+        assert_eq!((anchor.y, anchor.height), (0, 40));
+        assert_eq!(open_direction(anchor, top_area), OpenToward::Down);
     }
 
     #[test]

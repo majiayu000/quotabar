@@ -6,6 +6,7 @@ All notable QuotaBar changes should be summarized here before a release is cut.
 
 - Read Claude's native JSONL session titles in Usage details, including sessions without a title index. Keep explicit renamed titles ahead of generated titles and leave untitled sessions on the project/session fallback (#215).
 - Drive the Codex tray and its 80/95 alerts from the most constrained window instead of always preferring weekly, so an exhausted 5-hour window no longer shows as a low weekly percent.
+- Dock the Windows tray popover to the taskbar when its icon sits in the notification overflow flyout (`^`), where Windows 10 puts new icons by default, instead of floating it at the flyout position (#186).
 
 ## 0.6.0 - 2026-10-11
 
