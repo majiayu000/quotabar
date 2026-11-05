@@ -370,7 +370,7 @@ fn apply_popover_layout(app: &AppHandle) -> Result<(), String> {
         height: monitor.size().height,
     };
     let frame = popover_layout::place_popover(
-        popover_layout::taskbar_anchor(anchor, bounds, work_area),
+        popover_layout::platform_anchor(anchor, bounds, work_area),
         work_area,
         monitor.scale_factor(),
         stored_width.unwrap_or(POPOVER_WIDTH),

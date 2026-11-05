@@ -76,6 +76,20 @@ pub fn open_direction(anchor: Rect, work_area: Rect) -> OpenToward {
     }
 }
 
+/// Only Windows overflow icons need projection onto the taskbar. Keep native
+/// menu/status anchors on other platforms, even if the reported work area
+/// includes them (Tauri 2.10 on macOS omits the menu bar's y inset).
+pub fn platform_anchor(anchor: Rect, _monitor: Rect, _work_area: Rect) -> Rect {
+    #[cfg(target_os = "windows")]
+    {
+        taskbar_anchor(anchor, _monitor, _work_area)
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        anchor
+    }
+}
+
 /// Moves an anchor that lies inside the work area onto the nearest taskbar.
 ///
 /// Windows reports an icon in the notification overflow flyout (the `^`
@@ -86,7 +100,8 @@ pub fn open_direction(anchor: Rect, work_area: Rect) -> OpenToward {
 /// docks the popover to the taskbar like a pinned icon. Anchors outside the
 /// work area, and monitors without a reserved strip (auto-hidden taskbar),
 /// are returned unchanged.
-pub fn taskbar_anchor(anchor: Rect, monitor: Rect, work_area: Rect) -> Rect {
+#[cfg(any(target_os = "windows", test))]
+fn taskbar_anchor(anchor: Rect, monitor: Rect, work_area: Rect) -> Rect {
     let (cx, cy) = anchor.center();
     let inside =
         cx >= work_area.x && cx < work_area.right() && cy >= work_area.y && cy < work_area.bottom();
@@ -186,6 +201,36 @@ pub fn place_popover(
 mod tests {
     use super::*;
 
+    #[cfg(not(target_os = "windows"))]
+    #[test]
+    fn macos_menu_icon_stays_at_top_when_work_area_omits_menu_bar_offset() {
+        // NSScreen on the affected 1512x982, 2x display: visible height 888.
+        // Tauri 2.10 reports y=0 rather than the 33-point menu bar inset.
+        let monitor = Rect {
+            x: 0,
+            y: 0,
+            width: 3024,
+            height: 1964,
+        };
+        let work_area = Rect {
+            height: 1776,
+            ..monitor
+        };
+        let icon = Rect {
+            x: 2600,
+            y: 0,
+            width: 60,
+            height: 66,
+        };
+        let anchor = platform_anchor(icon, monitor, work_area);
+        assert_eq!(anchor, icon);
+        let frame = place_popover(anchor, work_area, 2.0, 340.0, 582.0);
+        assert_eq!(
+            frame.y, 82,
+            "popover must open 8 points below the menu icon"
+        );
+        assert!(frame.bottom() <= work_area.bottom());
+    }
     /// A Windows monitor with a bottom taskbar, in physical pixels.
     struct Screen {
         width: u32,

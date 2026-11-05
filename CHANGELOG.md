@@ -4,6 +4,10 @@ All notable QuotaBar changes should be summarized here before a release is cut.
 
 ## Unreleased
 
+## 0.7.1 - 2026-11-06
+
+- Fix the macOS menu-bar popover appearing near the bottom of the screen after upgrading to 0.7.0. Restrict Windows notification-overflow anchoring to Windows; macOS and Linux retain their native tray-icon positions. Windows taskbar positioning is unchanged.
+
 ## 0.7.0 - 2026-11-05
 
 - Read Claude's native JSONL session titles in Usage details, including sessions without a title index. Keep explicit renamed titles ahead of generated titles and leave untitled sessions on the project/session fallback (#215).
