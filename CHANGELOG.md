@@ -4,6 +4,10 @@ All notable QuotaBar changes should be summarized here before a release is cut.
 
 ## Unreleased
 
+## 0.7.2 - 2026-11-06
+
+- Add a hover and keyboard-focus hint beside output speed in session lists and details. Explain that the median includes time to first token and recorded reasoning tokens, and that Claude Code and Codex timings are not a direct model benchmark.
+
 ## 0.7.1 - 2026-11-06
 
 - Fix the macOS menu-bar popover appearing near the bottom of the screen after upgrading to 0.7.0. Restrict Windows notification-overflow anchoring to Windows; macOS and Linux retain their native tray-icon positions. Windows taskbar positioning is unchanged.

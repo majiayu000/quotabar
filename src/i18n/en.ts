@@ -760,6 +760,8 @@ export const en = {
   "Est. runs out ~{p0}, before reset": "Est. runs out ~{p0}, before reset",
   "{p0} {p1}: {p2}% left. {p3} still has {p4}% (resets {p5}).": "{p0} {p1}: {p2}% left. {p3} still has {p4}% (resets {p5}).",
   "{p0} {p1}: {p2}% left. {p3} still has {p4}%.": "{p0} {p1}: {p2}% left. {p3} still has {p4}%.",
+  "About output speed": "About output speed",
+  "Speed is the median of tokens per second for each measured response. It includes time to first token and recorded reasoning tokens. Claude Code and Codex use different log timing, so this is not a direct model benchmark.": "Speed is the median of tokens per second for each measured response. It includes time to first token and recorded reasoning tokens. Claude Code and Codex use different log timing, so this is not a direct model benchmark.",
   "Output speed": "Output speed",
   "Output speed (median)": "Output speed (median)",
   "Median output tokens per second per response": "Median output tokens per second per response",

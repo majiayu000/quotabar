@@ -231,7 +231,7 @@ describe('Analysis window', () => {
     const speed = JSON.stringify(detail.findAllByType('dl').map((list) => list.findAllByType('dd').map((dd) => dd.children)));
     expect(speed).toContain('42.3 tok/s');
     expect(speed).toContain('3 responses');
-    expect(JSON.stringify(detail.findAllByType('dt').map((dt) => dt.children))).toContain('claude-opus-4-1');
+    expect(detail.findAllByType('dt').flatMap((dt) => dt.children.filter((child) => typeof child === 'string'))).toContain('claude-opus-4-1');
     await act(async () => renderer.root.findByProps({ 'aria-label': 'Close session details' }).props.onClick());
     await act(async () => click('All sessions ↗'));
     expect(renderer.root.findByProps({ 'aria-label': 'Session sort order' })).toBeDefined();

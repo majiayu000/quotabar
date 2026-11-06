@@ -1,4 +1,46 @@
 /* Full analysis window. Scoped to avoid changing the provider popover. */
+.output-speed-hint {
+  display: inline-flex;
+  vertical-align: middle;
+}
+.analysis-app .output-speed-hint-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  min-height: 18px;
+  padding: 0;
+  border: 1px solid var(--a-muted);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--a-muted);
+  font-size: 11px;
+  font-weight: 650;
+  cursor: help;
+}
+.analysis-app .output-speed-hint-trigger:hover,
+.analysis-app .output-speed-hint-trigger:focus-visible {
+  color: var(--a-blue);
+  border-color: var(--a-blue);
+}
+.output-speed-tooltip {
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  width: min(300px, calc(100vw - 16px));
+  padding: 12px 14px;
+  border: 1px solid var(--a-line);
+  border-radius: 10px;
+  background: var(--a-surface);
+  color: var(--a-text);
+  box-shadow: 0 8px 24px #0002;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.65;
+  text-align: left;
+  white-space: normal;
+}
 .analysis-app * {
   box-sizing: border-box;
 }

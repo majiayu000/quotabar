@@ -762,6 +762,8 @@ export const zhCN = {
   "Est. runs out ~{p0}, before reset": "预计约 {p0} 用完，早于重置",
   "{p0} {p1}: {p2}% left. {p3} still has {p4}% (resets {p5}).": "{p0} {p1}剩 {p2}%；{p3} 还剩 {p4}%（{p5} 重置）",
   "{p0} {p1}: {p2}% left. {p3} still has {p4}%.": "{p0} {p1}剩 {p2}%；{p3} 还剩 {p4}%",
+  "About output speed": "输出速度说明",
+  "Speed is the median of tokens per second for each measured response. It includes time to first token and recorded reasoning tokens. Claude Code and Codex use different log timing, so this is not a direct model benchmark.": "显示各次有效回复 Token/秒的中位数，包含首个 Token 等待时间和已记录的推理 Token。Claude Code 与 Codex 的日志计时方式不同，不能直接作为模型性能跑分。",
   "Output speed": "输出速度",
   "Output speed (median)": "输出速度（中位数）",
   "Median output tokens per second per response": "每次回复输出 Token/秒 的中位数",
