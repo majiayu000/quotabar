@@ -534,6 +534,13 @@
     url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' fill='none' stroke='%2379818e' stroke-width='1.2'%3E%3Cpath d='m2 4 3 3 3-3'/%3E%3C/svg%3E")
     no-repeat right 8px center;
 }
+.analysis-app .analysis-source-select:has(select:focus-visible) {
+  border-color: var(--a-blue);
+  box-shadow: 0 0 0 1px var(--a-blue);
+}
+.analysis-app .analysis-source-select select:focus-visible {
+  outline: none;
+}
 .analysis-toolbar .analysis-actions > button {
   border: 0;
   background: transparent;

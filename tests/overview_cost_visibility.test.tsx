@@ -387,7 +387,8 @@ describe('workspace quota freshness', () => {
 
 describe('coherent workspace queries', () => {
   it('applies exact model and project filters without changing the page and reuses the report across views', async () => {
-    vi.stubGlobal('window', { addEventListener: vi.fn(), removeEventListener: vi.fn() });
+    vi.stubGlobal('window', { addEventListener: vi.fn(), removeEventListener: vi.fn(), setInterval, clearInterval });
+    vi.stubGlobal('document', { addEventListener: vi.fn(), removeEventListener: vi.fn() });
     vi.spyOn(backend, 'analysisSource').mockResolvedValue('codex');
     vi.spyOn(backend, 'analysisCatalog').mockResolvedValue({ sources: [], diagnostics: [] });
     const read = vi.spyOn(backend, 'analysisReport').mockImplementation(async (_source, _range, query) => ({ ...analysisReport(query.project ? 123 : query.model ? 456 : 999), available_models: ['gpt-5', 'gpt-5-mini'], available_projects: ['/work/app', '/work/app-extra'] }));
@@ -397,13 +398,14 @@ describe('coherent workspace queries', () => {
     expect(read).toHaveBeenLastCalledWith('codex', 'last_30_days', { model: 'gpt-5', project: null, since: null, until: null }, expect.any(AbortSignal), expect.any(Function));
     expect(renderer.root.findByType('h1').children).toEqual(['Quota usage']);
     expect(JSON.stringify(renderer.toJSON())).toContain('456');
-    await act(async () => renderer.root.findByProps({ 'aria-label': 'Filter projects' }).props.onChange({ target: { value: '/work/app' } }));
+    await act(async () => renderer.root.findByProps({ 'aria-label': 'Filter projects' }).props.onClick());
+    await act(async () => renderer.root.findByProps({ title: '/work/app' }).props.onClick());
     expect(read).toHaveBeenLastCalledWith('codex', 'last_30_days', { model: 'gpt-5', project: '/work/app', since: null, until: null }, expect.any(AbortSignal), expect.any(Function));
     expect(JSON.stringify(renderer.toJSON())).toContain('123');
     const count = read.mock.calls.length;
     await act(async () => renderer.root.findAllByType('button').find((button) => button.children.includes('Usage details'))!.props.onClick());
     expect(read).toHaveBeenCalledTimes(count);
-    expect(renderer.root.findByProps({ 'aria-label': 'Filter projects' }).props.value).toBe('/work/app');
+    expect(renderer.root.findByProps({ 'aria-label': 'Filter projects' }).props.title).toBe('/work/app');
     await act(async () => renderer.unmount());
   });
 

@@ -1,0 +1,16 @@
+.project-picker { position: relative; min-width: 0; }
+.project-picker .project-picker-trigger { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 160px; padding: 7px 10px; border: 1px solid var(--a-border); border-radius: 6px; background: var(--a-surface); color: var(--a-text); font: inherit; font-size: 11px; }
+.project-picker-trigger > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.project-picker-trigger:disabled { opacity: .5; }
+.project-picker-popover { position: absolute; top: calc(100% + 6px); right: 0; z-index: 50; width: min(360px, calc(100vw - 32px)); padding: 8px; box-sizing: border-box; border: 1px solid var(--a-border); border-radius: 10px; background: var(--a-surface); color: var(--a-text); box-shadow: 0 12px 32px #0003; }
+.project-picker-popover input { width: 100%; box-sizing: border-box; padding: 9px 10px; margin-bottom: 6px; border: 1px solid var(--a-border); border-radius: 6px; background: var(--a-control); color: var(--a-text); font: inherit; font-size: 12px; }
+.project-picker-list { max-height: min(320px, 45vh); overflow-y: auto; overscroll-behavior: contain; }
+.project-picker .project-picker-option { display: flex; align-items: center; gap: 8px; width: 100%; padding: 9px 6px; border: 0; border-radius: 5px; background: transparent; color: inherit; text-align: left; cursor: pointer; }
+.project-picker-option > span:first-child { flex: 0 0 16px; }
+.project-picker-option > span:last-child { min-width: 0; }
+.project-picker-option strong, .project-picker-option small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.project-picker-option strong { font-size: 12px; font-weight: 500; }
+.project-picker-option small { margin-top: 4px; font-size: 11px; color: var(--a-muted); }
+.project-picker .project-picker-option:hover, .project-picker .project-picker-option[aria-pressed="true"] { background: var(--a-control); }
+.project-picker button:focus-visible, .project-picker input:focus-visible { outline: 2px solid var(--a-blue); outline-offset: -2px; }
+.project-picker-empty { margin: 16px 8px; color: var(--a-muted); font-size: 12px; }

@@ -261,6 +261,8 @@ export const en = {
   "Titles and usage from source records · Custom names stay on this device": "Titles and usage from source records · Custom names stay on this device",
   "All sessions ↗": "All sessions ↗",
   "Filter session projects": "Filter session projects",
+  "Search projects or paths": "Search projects or paths…",
+  "No matching projects": "No matching projects",
   "All projects": "All projects",
   "Session sort order": "Session sort order",
   "Recent activity ↓": "Recent activity ↓",

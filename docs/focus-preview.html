@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>QuotaBar · 下拉框修改对比</title>
+  <style>
+    :root { color-scheme:light; --bg:#f6f7f8; --surface:#fff; --text:#23252a; --muted:#626671; --border:#d5d8df; --line:#e2e4e8; --accent:#5e6ad2; --control:#eceef1; }
+    :root[data-theme="dark"] { color-scheme:dark; --bg:#010102; --surface:#0f1011; --text:#f7f8f8; --muted:#a0a4ae; --border:#34343a; --line:#23252a; --accent:#929bf3; --control:#191a1e; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--bg); color:var(--text); font:14px/1.6 -apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif; -webkit-font-smoothing:antialiased; }
+    main { max-width:1180px; padding:64px 32px; margin:auto; }
+    header { display:flex; align-items:center; justify-content:space-between; gap:24px; margin-bottom:44px; }
+    .eyebrow { color:var(--muted); font-size:12px; letter-spacing:1px; margin:0 0 10px; }
+    h1 { font-size:30px; line-height:1.3; letter-spacing:-1px; margin:0; font-weight:600; }
+    .intro { color:var(--muted); margin:12px 0 0; }
+    button { cursor:pointer; font:inherit; color:inherit; border:1px solid var(--border); border-radius:7px; padding:8px 14px; background:var(--surface); }
+    button:hover { background:var(--control); }
+    #theme { flex-shrink:0; white-space:nowrap; }
+    button:focus-visible,input:focus-visible { outline:2px solid var(--accent); outline-offset:3px; }
+    .compare { display:grid; grid-template-columns:1fr 1fr; gap:24px; }
+    article { overflow:hidden; border:1px solid var(--line); border-radius:14px; background:var(--surface); }
+    .caption { display:flex; justify-content:space-between; align-items:center; padding:20px 24px; border-bottom:1px solid var(--line); }
+    h2 { font-size:15px; margin:0; font-weight:600; }
+    .tag { color:var(--muted); font-size:12px; }
+    .tag.new { color:var(--accent); }
+    .scene { background:var(--bg); padding:34px 24px 28px; }
+    .scene h3 { margin:0 0 24px; font-size:20px; font-weight:600; }
+    .toolbar { display:flex; flex-wrap:wrap; gap:12px; min-height:40px; align-items:center; }
+    .field { display:flex; align-items:center; gap:5px; padding-left:9px; border:1px solid var(--border); border-radius:6px; background:var(--surface); }
+    .field svg { width:15px; height:15px; color:var(--muted); flex:none; }
+    select { appearance:none; font:inherit; font-size:13px; color:var(--text); border:0; border-radius:5px; padding:9px 30px 9px 3px; background:transparent url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='none' stroke='%2379818e' stroke-width='1.5'%3E%3Cpath d='m3 4 3 3 3-3'/%3E%3C/svg%3E") no-repeat right 10px center; cursor:pointer; min-width:142px; }
+    select:focus-visible { outline:2px solid var(--accent); outline-offset:3px; }
+    .after .field:has(select:focus-visible) { border-color:var(--accent); box-shadow:0 0 0 1px var(--accent); }
+    .after .field select:focus-visible { outline:none; }
+    /* 固定展示仅用于并排比较；取消后由真实的 focus-visible 驱动。 */
+    .pinned .before .source select { outline:2px solid var(--accent); outline-offset:3px; }
+    .pinned .after .source { border-color:var(--accent); box-shadow:0 0 0 1px var(--accent); }
+    .metrics { border-top:1px solid var(--line); margin-top:30px; padding-top:22px; display:grid; grid-template-columns:1fr 1fr; gap:20px; }
+    .metrics span { display:block; color:var(--muted); font-size:12px; }
+    .metrics strong { display:block; font-size:29px; line-height:1.5; font-weight:500; letter-spacing:-1px; margin-top:4px; }
+    .note { padding:22px 24px; }
+    .note strong { font-weight:500; }
+    .note p { color:var(--muted); margin:6px 0 0; font-size:13px; }
+    .controls { display:flex; flex-wrap:wrap; align-items:center; gap:12px 24px; margin-top:26px; color:var(--muted); font-size:13px; }
+    .controls label { display:flex; align-items:center; gap:8px; cursor:pointer; color:var(--text); }
+    input { accent-color:var(--accent); width:16px; height:16px; margin:0; }
+    .try { margin-top:26px; padding:20px 24px; border-left:2px solid var(--border); }
+    .try p { margin:0; color:var(--muted); font-size:13px; }
+    footer { margin-top:44px; padding-top:20px; border-top:1px solid var(--line); color:var(--muted); font-size:12px; }
+    @media(max-width:760px) { main { padding:32px 18px; } header { align-items:flex-start; margin-bottom:28px; } h1 { font-size:24px; } .compare { grid-template-columns:1fr; } .scene { padding:28px 20px; } .caption,.note { padding:18px 20px; } }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <div><p class="eyebrow">QUOTABAR / 控件预览</p><h1>焦点框，回到边框上。</h1><p class="intro">同一个下拉框，比较修改前后的焦点状态。</p></div>
+      <button id="theme" type="button" aria-pressed="false">切换深色</button>
+    </header>
+    <div class="compare pinned" id="comparison">
+      <article class="before">
+        <div class="caption"><h2>修改前</h2><span class="tag">内层向外扩</span></div>
+        <div class="scene">
+          <h3>用量与费用</h3>
+          <div class="toolbar">
+            <label class="field source"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="m10 3 7 4-7 4-7-4zM3 10l7 4 7-4M3 13l7 4 7-4"/></svg><select aria-label="修改前：来源"><option>OpenAI Codex</option><option>Claude Code</option><option>全部可用来源</option></select></label>
+            <label class="field"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M3 6h14M3 14h14M7 3v6M13 11v6"/></svg><select aria-label="修改前：模型"><option>所有模型</option><option>示例模型 A</option><option>示例模型 B</option></select></label>
+          </div>
+          <div class="metrics"><div><span>总 Token</span><strong>1200万</strong></div><div><span>缓存命中率</span><strong>92.0%</strong></div></div>
+        </div>
+        <div class="note"><strong>紫框与灰框错开，图标留在外面。</strong><p>焦点轮廓围着内部 select，向外扩出 3px，形成重叠边框。</p></div>
+      </article>
+      <article class="after">
+        <div class="caption"><h2>修改后</h2><span class="tag new">沿完整控件描边</span></div>
+        <div class="scene">
+          <h3>用量与费用</h3>
+          <div class="toolbar">
+            <label class="field source"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="m10 3 7 4-7 4-7-4zM3 10l7 4 7-4M3 13l7 4 7-4"/></svg><select aria-label="修改后：来源"><option>OpenAI Codex</option><option>Claude Code</option><option>全部可用来源</option></select></label>
+            <label class="field"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M3 6h14M3 14h14M7 3v6M13 11v6"/></svg><select aria-label="修改后：模型"><option>所有模型</option><option>示例模型 A</option><option>示例模型 B</option></select></label>
+          </div>
+          <div class="metrics"><div><span>总 Token</span><strong>1200万</strong></div><div><span>缓存命中率</span><strong>92.0%</strong></div></div>
+        </div>
+        <div class="note"><strong>图标、文字、箭头都在同一个框里。</strong><p>外层边框变为强调色，加 1px 描边；内部不再单独画框。</p></div>
+      </article>
+    </div>
+    <div class="controls"><label><input id="pin" type="checkbox" checked>固定展示两边的焦点框</label><span>取消勾选后，点击下拉框或按 Tab 体验真实焦点。</span></div>
+    <div class="try"><p id="status" aria-live="polite">当前为对比模式：两边同时展示来源选择框的焦点外观。</p></div>
+    <footer>独立视觉预览 · 数字为虚构示例，仅作排版示意 · 不连接真实用量数据</footer>
+  </main>
+  <script>
+    const comparison = document.querySelector('#comparison');
+    const status = document.querySelector('#status');
+    const pin = document.querySelector('#pin');
+    pin.addEventListener('change', () => {
+      comparison.classList.toggle('pinned', pin.checked);
+      status.textContent = pin.checked ? '当前为对比模式：两边同时展示来源选择框的焦点外观。' : '当前为交互模式：点击或用 Tab 切换焦点，点击空白处取消焦点。';
+    });
+    document.querySelector('#theme').addEventListener('click', event => {
+      const dark = document.documentElement.dataset.theme !== 'dark';
+      document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+      event.currentTarget.textContent = dark ? '切换浅色' : '切换深色';
+      event.currentTarget.setAttribute('aria-pressed', String(dark));
+    });
+  </script>
+</body>
+</html>

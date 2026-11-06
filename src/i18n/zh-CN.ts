@@ -263,6 +263,8 @@ export const zhCN = {
   "Titles and usage from source records · Custom names stay on this device": "来自真实记录的标题与用量 · 手动名称仅保存在本机",
   "All sessions ↗": "全部会话 ↗",
   "Filter session projects": "筛选会话项目",
+  "Search projects or paths": "搜索项目名称或路径…",
+  "No matching projects": "没有匹配的项目",
   "All projects": "全部项目",
   "Session sort order": "会话排序",
   "Recent activity ↓": "最近活动 ↓",

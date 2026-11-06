@@ -4,6 +4,11 @@ All notable QuotaBar changes should be summarized here before a release is cut.
 
 ## Unreleased
 
+## 0.7.3 - 2026-11-07
+
+- Make the project filter searchable by project name or decoded path, distinguish same-name projects, and keep long paths within the picker. Preserve exact source paths when filtering and support keyboard selection.
+- Align the source and model focus indicators with the complete control border, including its icon, instead of drawing an offset inner outline.
+
 ## 0.7.2 - 2026-11-06
 
 - Add a hover and keyboard-focus hint beside output speed in session lists and details. Explain that the median includes time to first token and recorded reasoning tokens, and that Claude Code and Codex timings are not a direct model benchmark.
