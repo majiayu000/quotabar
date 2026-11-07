@@ -88,6 +88,16 @@ missing. It imports the certificate into an ephemeral runner keychain, asks
 Tauri to sign and notarize the app, verifies the resulting app with `codesign`,
 Gatekeeper, and `stapler`, then removes the temporary certificate and key.
 
+Tauri does not check whether stapling the app succeeded, so
+`scripts/build_notarized_macos_dmg.sh` checks the app inside the DMG. When the
+ticket is missing, it logs a workflow warning, retries the staple for up to ten
+attempts on a writable copy of the DMG, then recompresses and re-signs it. It
+does not bundle or notarize the app again, and each attempt logs the `stapler`
+output, such as CloudKit error 68.
+
+`stapler validate` also queries CloudKit and can fail on a valid ticket, so the
+workflow retries it for up to ten attempts before failing the build.
+
 Required GitHub Actions secrets:
 
 - `APPLE_CERTIFICATE`: base64-encoded Developer ID Application `.p12` from your own Apple Developer team
