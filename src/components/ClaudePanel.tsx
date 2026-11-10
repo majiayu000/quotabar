@@ -147,10 +147,10 @@ export default function ClaudePanel({
 
               {quota.weeklyFable5 && (
                 <QuotaCard
-                  label="Fable 5"
+                  label="Fable"
                   percentage={Math.round(quota.weeklyFable5.percentage)}
                   resetsIn={formatClaudeResetTime(quota.weeklyFable5.resetTime)}
-                  {...forecastPace('Fable 5 7-day')}
+                  {...forecastPace('Fable 7-day')}
                 />
               )}
 

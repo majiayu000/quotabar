@@ -83,7 +83,7 @@ These screenshots show **illustrative data**. They were captured on 2026-11-06 f
 
 - Claude tray value:
   - uses the hottest Claude window (same ranking as the overview/header)
-  - includes the 5-hour session, 7-day All models (`weeklyTotal`), Opus, Sonnet, Design, and Fable 5 windows
+  - includes the 5-hour session, 7-day All models (`weeklyTotal`), Opus, Sonnet, Design, and shared Fable windows (including Fable 5.2)
   - keeps `weeklyTotal` as a labeled card, not the implicit tray or 80/95 alert headline
 - Codex tray value:
   - uses the hottest Codex window (5-hour `primary_window` or weekly `secondary_window`), same as the overview/header

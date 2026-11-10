@@ -24,6 +24,18 @@ const provider = (id: 'claude' | 'grok', error: string, retryAt?: number): Provi
   loading: false, usedPercent: null, statusText: 'Offline', readState: { error, readAt: null, retryAt },
 });
 
+it('shows the shared Fable quota for 5.2 without inventing a separate model allowance', async () => {
+  await act(async () => { renderer = create(<ClaudePanel
+    quota={{ connected: true, weeklyFable5: { used: 30, limit: 100, percentage: 30 } }}
+    loading={false} error={null} windowVisible={false} costRefreshKey={0} onRetry={vi.fn()}
+  />); });
+  const text = JSON.stringify(renderer!.toJSON());
+  expect(text).toContain('Fable');
+  expect(text).not.toContain('Fable 5');
+  expect(text).not.toContain('No weekly data');
+  expect(renderer!.root.findByProps({ role: 'progressbar' }).props['aria-valuenow']).toBe(70);
+});
+
 it('shows a cooldown instead of disconnected, hides raw errors in diagnostics, and re-enables retry at the deadline', async () => {
   const refresh = vi.fn();
   await act(async () => { renderer = create(createElement(WorkspaceQuotaCard, { provider: provider('claude', 'API error: 429 Too Many Requests', Date.now() + 3_458_000), windows: [], onSelect: vi.fn(), onRefresh: refresh })); });

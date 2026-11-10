@@ -4,6 +4,11 @@ All notable QuotaBar changes should be summarized here before a release is cut.
 
 ## Unreleased
 
+## 0.7.4 - 2026-11-10
+
+- Label the shared Claude Fable weekly quota as Fable, including Fable 5.2 usage, instead of implying it belongs only to Fable 5.
+- Verify Fable 5.2 API-equivalent costs through the public price catalog, including separate 5-minute and 1-hour cache writes.
+
 ## 0.7.3 - 2026-11-07
 
 - Make the project filter searchable by project name or decoded path, distinguish same-name projects, and keep long paths within the picker. Preserve exact source paths when filtering and support keyboard selection.

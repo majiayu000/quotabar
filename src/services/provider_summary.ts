@@ -123,7 +123,7 @@ export function buildClaudeQuotaWindows(quota: QuotaData | null): QuotaWindowSum
     quotaWindow('claude', 'Opus 7-day', quota.weeklyOpus),
     quotaWindow('claude', 'Sonnet 7-day', quota.weeklySonnet),
     quotaWindow('claude', 'Design 7-day', quota.weeklyDesign),
-    quotaWindow('claude', 'Fable 5 7-day', quota.weeklyFable5),
+    quotaWindow('claude', 'Fable 7-day', quota.weeklyFable5),
   ].filter((item): item is QuotaWindowSummary => item !== null);
 }
 

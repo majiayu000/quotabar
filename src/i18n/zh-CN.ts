@@ -654,7 +654,7 @@ export const zhCN = {
   "Opus 7-day": "Opus 每周额度",
   "Sonnet 7-day": "Sonnet 每周额度",
   "Design 7-day": "Design 每周额度",
-  "Fable 5 7-day": "Fable 5 每周额度",
+  "Fable 7-day": "Fable 每周额度",
   "Cursor Models": "Cursor 模型",
   "Other Models": "其他模型",
   "Monthly pool": "每月额度池",

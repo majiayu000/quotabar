@@ -652,7 +652,7 @@ export const en = {
   "Opus 7-day": "Opus 7-day",
   "Sonnet 7-day": "Sonnet 7-day",
   "Design 7-day": "Design 7-day",
-  "Fable 5 7-day": "Fable 5 7-day",
+  "Fable 7-day": "Fable 7-day",
   "Cursor Models": "Cursor Models",
   "Other Models": "Other Models",
   "Monthly pool": "Monthly pool",

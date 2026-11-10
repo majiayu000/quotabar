@@ -51,7 +51,7 @@ describe('provider summary helpers', () => {
 
     const windows = sortMostConstrained(buildClaudeQuotaWindows(quota));
 
-    expect(windows.map((window) => window.label)).toEqual(['Fable 5 7-day', '5-hour usage']);
+    expect(windows.map((window) => window.label)).toEqual(['Fable 7-day', '5-hour usage']);
     expect(buildClaudeQuotaWindows({ connected: true })).toEqual([]);
   });
 
