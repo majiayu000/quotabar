@@ -5,6 +5,7 @@ All notable QuotaBar changes should be summarized here before a release is cut.
 ## Unreleased
 
 - Fix choosing a project with the mouse on macOS. The project filter closed on mouse-down before the click reached an option, so only keyboard selection worked there; clicking the filter button a second time now closes the list as well.
+- Keep the output speed hint usable on macOS 13 and older, whose system web view has no Popover API. The hint text no longer stays on screen there, and hovering, focusing or clicking its `!` button no longer replaces the workspace with the fatal error screen.
 
 ## 0.7.4 - 2026-11-10
 
