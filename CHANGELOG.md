@@ -4,6 +4,8 @@ All notable QuotaBar changes should be summarized here before a release is cut.
 
 ## Unreleased
 
+- Fix choosing a project with the mouse on macOS. The project filter closed on mouse-down before the click reached an option, so only keyboard selection worked there; clicking the filter button a second time now closes the list as well.
+
 ## 0.7.4 - 2026-11-10
 
 - Label the shared Claude Fable weekly quota as Fable, including Fable 5.2 usage, instead of implying it belongs only to Fable 5.
