@@ -7,9 +7,12 @@ use std::{
     time::Duration,
 };
 
+/// File names of earlier report shapes. Nothing reads them, and they still hold project paths and session titles.
+const RETIRED_FILES: [&str; 1] = ["analysis-reports-v1.sqlite3"];
+
 pub fn path() -> Result<PathBuf, String> {
     dirs::cache_dir()
-        // Bump when the report shape changes so older payloads are never painted.
+        // Bump when the report shape changes so older payloads are never painted, and retire the old name above.
         .map(|dir| dir.join("quotabar/analysis-reports-v2.sqlite3"))
         .ok_or_else(|| "Cannot locate analysis cache directory".to_string())
 }
@@ -67,7 +70,18 @@ pub fn save(path: &Path, key: &str, report: &impl Serialize) -> Result<(), Strin
         params![key, payload, chrono::Utc::now().timestamp_millis()]).map_err(|error| error.to_string())?;
     transaction.execute("DELETE FROM reports WHERE scope NOT IN (SELECT scope FROM reports ORDER BY saved_ms DESC, rowid DESC LIMIT 8)", [])
         .map_err(|error| error.to_string())?;
-    transaction.commit().map_err(|error| error.to_string())
+    transaction.commit().map_err(|error| error.to_string())?;
+    remove_retired(path);
+    Ok(())
+}
+
+fn remove_retired(current: &Path) {
+    for name in RETIRED_FILES {
+        for suffix in ["", "-journal", "-wal", "-shm"] {
+            // Best effort: a leftover that cannot be deleted must not fail the save that just succeeded.
+            let _ = std::fs::remove_file(current.with_file_name(format!("{name}{suffix}")));
+        }
+    }
 }
 
 #[cfg(test)]
@@ -126,6 +140,34 @@ mod tests {
         .unwrap();
         assert!(read(&path, "scope-7").is_err());
         drop(db);
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn saving_removes_snapshot_files_left_by_older_report_shapes() {
+        let dir = std::env::temp_dir().join(format!(
+            "quota-snapshot-retired-{}-{}",
+            std::process::id(),
+            chrono::Utc::now().timestamp_nanos_opt().unwrap()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        // 0.6.0 and earlier kept reports here; 0.7.0 moved to -v2 and left the file behind.
+        let retired = dir.join("analysis-reports-v1.sqlite3");
+        let retired_journal = dir.join("analysis-reports-v1.sqlite3-journal");
+        let unrelated = dir.join("claude-retry-at");
+        for file in [&retired, &retired_journal, &unrelated] {
+            std::fs::write(file, b"left behind").unwrap();
+        }
+        let current = dir.join(path().unwrap().file_name().unwrap());
+        let report = serde_json::json!({"generated_at":"2026-11-16T00:00:00Z","total":1});
+        save(&current, "scope", &report).unwrap();
+        assert!(!retired.exists(), "retired snapshot is still on disk");
+        assert!(
+            !retired_journal.exists(),
+            "retired journal is still on disk"
+        );
+        assert!(unrelated.exists());
+        assert_eq!(read(&current, "scope").unwrap(), Some(report));
         std::fs::remove_dir_all(dir).unwrap();
     }
 }
