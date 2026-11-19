@@ -187,14 +187,14 @@ catalog is fetched; local usage logs are processed on-device. If the download
 fails, the SDK uses its existing cache or bundled prices; models without a known
 price remain unavailable rather than being shown as free.
 
-For GPT-6.1 Sol, the catalog supplies the
+For GPT-6.2 Sol, the catalog supplies the
 [standard API prices](https://developers.openai.com/api/docs/pricing): $2 input,
 $0.10 cached input, $2.50 cache writes, and $10 output per million tokens.
 Above 272K input tokens, the full request uses $4 input, $0.20 cached input,
 $5 cache writes, and $15 output. These are API-equivalent estimates, not
 subscription charges.
 
-Weekly token capacity shows only **Astra** and **GPT-6.1 Sol**. It defaults to
+Weekly token capacity shows only **Astra** and **GPT-6.2 Sol**. It defaults to
 the local estimate when available. Click the source badge to switch between
 local and community values; the badge flips horizontally and respects reduced
 motion. Switching does not refetch usage or change the official quota percentage.
@@ -207,17 +207,17 @@ tokens`. This works with mixed-model usage and does not require a continuous
 single-model span or five percentage points of usage. Sol shows its API-price
 equivalent: Astra tokens × 5. The
 [Astra](https://openai.com/index/gpt-6-astra/) and
-[GPT-6.1 Sol](https://developers.openai.com/api/docs/models/gpt-6.1-sol) standard API
-input, cache-write, and output prices checked on October 11, 2026 have the same
+[GPT-6.2 Sol](https://developers.openai.com/api/docs/models/gpt-6.2-sol) standard API
+input, cache-write, and output prices checked on November 19, 2026 have the same
 5 ratio. Cached input is 10× ($1.00 / $0.10). Local conversion uses the 5×
 standard-rate ratio. This is price conversion, not a measured Sol subscription allowance.
 
 The **community reference** view shows Astra ≈914.8M observed tokens per full
 week, including cached input, from [Codex Weekly Quota
 Observatory](https://codex-quota.manetli.com/data/), snapshot
-`2026-10-11T14:57:34.375Z`, one Pro 20× account at Standard speed. GPT-6.1 Sol
+`2026-10-11T14:57:34.375Z`, one Pro 20× account at Standard speed. GPT-6.2 Sol
 uses the same 5× API-price conversion as the local view. The observatory does
-not yet publish a dedicated 6.1 Sol week, so QuotaBar does not invent a Sol
+not yet publish a dedicated 6.2 Sol week, so QuotaBar does not invent a Sol
 sample. These values are not the current account's allowance. The source and date
 are shown in the panel; the Astra reference and dated price ratio live in
 `src/services/codex_weekly_reference.json`.
