@@ -6,10 +6,10 @@
     "snapshotAt": "2026-10-11T14:57:34.375Z"
   },
   "pricing": {
-    "solLabel": "GPT-6.1 Sol",
+    "solLabel": "GPT-6.2 Sol",
     "solTokensPerAstraToken": 5,
-    "checkedAt": "2026-10-11",
+    "checkedAt": "2026-11-19",
     "astraUrl": "https://openai.com/index/gpt-6-astra/",
-    "solUrl": "https://developers.openai.com/api/docs/models/gpt-6.1-sol"
+    "solUrl": "https://developers.openai.com/api/docs/models/gpt-6.2-sol"
   }
 }

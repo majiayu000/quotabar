@@ -131,7 +131,7 @@ describe('live bilingual rendering', () => {
         astraEquivalentWeeklyTokens: astraEquivalent,
         modelEstimates: [
           ...(astraTokens === undefined ? [] : [{ model: 'gpt-6-astra', estimatedWeeklyTokens: astraTokens, sampleTokens: 90_000_000, sampleUsedPct: 10 }]),
-          { model: 'gpt-6.1-sol', estimatedWeeklyTokens: 2_000_000_000, sampleTokens: 200_000_000, sampleUsedPct: 10 },
+          { model: 'gpt-6.2-sol', estimatedWeeklyTokens: 2_000_000_000, sampleTokens: 200_000_000, sampleUsedPct: 10 },
           { model: 'gpt-5.6-luna', estimatedWeeklyTokens: null, sampleTokens: 0, sampleUsedPct: 0 },
           { model: 'codex-auto-review', estimatedWeeklyTokens: 12_000_000_000, sampleTokens: 1_200_000_000, sampleUsedPct: 10 },
         ],
@@ -149,7 +149,7 @@ describe('live bilingual rendering', () => {
       expect(toggles()[0].props['aria-pressed']).toBeUndefined();
     }
     expect(rows()).toHaveLength(2);
-    expect(rows().map((row) => row.findByType('span').children.join(''))).toEqual(['Astra', 'GPT-6.1 Sol']);
+    expect(rows().map((row) => row.findByType('span').children.join(''))).toEqual(['Astra', 'GPT-6.2 Sol']);
     expect(rows()[0].findByType('strong').children.join('')).toBe(isLocal ? '≈900M tokens / week' : '≈914.8M tokens / week');
     expect(rows()[1].findByType('strong').children.join('')).toBe(isLocal ? '≈4.5B tokens / week' : '≈4.6B tokens / week');
     expect(JSON.stringify(renderer!.toJSON())).toContain(isLocal ? 'Price conversion from Astra · 5× tokens' : 'Community reference');
