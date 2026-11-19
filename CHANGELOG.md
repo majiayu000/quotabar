@@ -4,6 +4,10 @@ All notable QuotaBar changes should be summarized here before a release is cut.
 
 ## Unreleased
 
+- Fix choosing a project with the mouse on macOS. The project filter closed on mouse-down before the click reached an option, so only keyboard selection worked there; clicking the filter button a second time now closes the list as well.
+- Keep the output speed hint usable on macOS 13 and older, whose system web view has no Popover API. The hint text no longer stays on screen there, and hovering, focusing or clicking its `!` button no longer replaces the workspace with the fatal error screen.
+- Delete the usage-analysis startup snapshot that 0.6.0 and earlier left in the cache directory (`analysis-reports-v1.sqlite3`) the next time a report is saved. Since 0.7.0 nothing read that file, but it stayed on disk with its project paths and session titles.
+
 ## 0.7.4 - 2026-11-10
 
 - Label the shared Claude Fable weekly quota as Fable, including Fable 5.2 usage, instead of implying it belongs only to Fable 5.
