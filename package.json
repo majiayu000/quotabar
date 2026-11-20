@@ -10,6 +10,7 @@
     "release:check": "node scripts/check_release_version.mjs",
     "demo:screenshots": "node scripts/capture_demo_screenshots.mjs",
     "test": "vitest run",
+    "test:handover": "vitest run tests/overview_cost_visibility.test.tsx tests/ui_scale.test.tsx tests/quota_overview.test.tsx tests/quota_recovery.test.tsx tests/budget.test.ts",
     "tauri": "tauri"
   },
   "dependencies": {
