@@ -387,7 +387,7 @@ describe('Codex weekly pace', () => {
     expect(rendered_text(renderer)).toContain('$200.00');
     expect(rendered_text(renderer)).toContain('4M tokens / week');
     expect(rendered_text(renderer)).toContain('Astra');
-    expect(rendered_text(renderer)).toContain('GPT-6.1 Sol');
+    expect(rendered_text(renderer)).toContain('GPT-6.2 Sol');
     expect(rendered_text(renderer)).toContain('Local estimate');
     expect(rendered_text(renderer)).toContain('Based on 60% remaining');
     expect(renderer.root.findByType('details').findAllByType('p')[0].children.join('')).toBe('≈$200.00');
