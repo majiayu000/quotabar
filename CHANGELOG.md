@@ -4,9 +4,14 @@ All notable QuotaBar changes should be summarized here before a release is cut.
 
 ## Unreleased
 
+## 0.7.5 - 2026-11-23
+
+- Open the quota panel again when left-clicking a QuotaBar tray icon on macOS 27, instead of the context menu. Right-click still shows the menu. This comes from updating Tauri to 2.12.6, which includes the upstream tray-icon fix.
+- Label the Codex weekly token estimate's Sol row as GPT-6.2 Sol. Its API prices match 6.1 Sol, so the displayed token numbers are unchanged.
 - Fix choosing a project with the mouse on macOS. The project filter closed on mouse-down before the click reached an option, so only keyboard selection worked there; clicking the filter button a second time now closes the list as well.
 - Keep the output speed hint usable on macOS 13 and older, whose system web view has no Popover API. The hint text no longer stays on screen there, and hovering, focusing or clicking its `!` button no longer replaces the workspace with the fatal error screen.
 - Delete the usage-analysis startup snapshot that 0.6.0 and earlier left in the cache directory (`analysis-reports-v1.sqlite3`) the next time a report is saved. Since 0.7.0 nothing read that file, but it stayed on disk with its project paths and session titles.
+- Update locked npm packages that had high-severity security advisories (including vite and source-map-js).
 
 ## 0.7.4 - 2026-11-10
 
