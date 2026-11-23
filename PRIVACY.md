@@ -41,9 +41,10 @@ delegated to the official `grok` CLI, which saves its own credentials.
 ## What QuotaBar writes locally
 
 - Settings (theme, visible providers, notification thresholds, optional plan
-  prices) in the app's webview storage.
-- Cost snapshots in `<OS cache directory>/quotabar` (`~/Library/Caches/quotabar`
-  on macOS).
+  prices) and custom session names in the app's webview storage.
+- Cost snapshots and recent usage-analysis reports, which include project paths
+  and session titles from your local logs, in `<OS cache directory>/quotabar`
+  (`~/Library/Caches/quotabar` on macOS).
 - The model price cache and a local usage ledger, written by the bundled ccstats
   SDK to `<OS cache directory>/ccstats`. The ledger caches usage parsed from
   your local logs, keyed by log file path, so later scans are faster. It never
@@ -51,9 +52,23 @@ delegated to the official `grok` CLI, which saves its own credentials.
 - Diagnostic logs: `~/Library/Logs/quotabar` on macOS, or the OS cache directory
   on Windows and Linux. They include request status, a few rate-limit response
   headers and error text. Tokens are redacted and never logged.
+- On macOS, the Hide Dock choice in `<OS data directory>/quotabar/dock-hidden`
+  (`~/Library/Application Support/quotabar/dock-hidden`), and the position of
+  each menu bar icon in the app's preferences (the `com.starlight.quotabar`
+  defaults domain).
+- Launch at Login, while it is turned on, as an OS login item: a LaunchAgent
+  plist in `~/Library/LaunchAgents` on macOS, a value under the current user's
+  `Run` registry key on Windows, or a `.desktop` file in `~/.config/autostart`
+  on Linux.
+- Files you export yourself (usage summaries and share cards, named
+  `QuotaBar-<timestamp>.json` or `.svg`) in your Downloads folder.
 
-Deleting those cache and log directories removes everything QuotaBar wrote (the
-`ccstats` directory is shared with the ccstats CLI if you also use it).
+Deleting the cache and log directories removes the snapshots, caches and logs
+(the `ccstats` directory is shared with the ccstats CLI if you also use it).
+It does not remove the rest: turn off Launch at Login before deleting the app,
+then delete the `dock-hidden` file and any exports you no longer need. Settings
+and menu bar positions stay in the webview storage and preferences until those
+are cleared.
 The credentials of your provider tools are not affected.
 
 ## Reporting
