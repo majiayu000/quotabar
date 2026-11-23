@@ -113,21 +113,37 @@ const speedLabel = (value: number) => `${value.toFixed(1)} tok/s`;
 const sessionSpeedLabel = (speed: AnalysisSpeed) => speed.status === 'measured' ? speedLabel(speed.median_tokens_per_second) : '—';
 const unavailableSpeedReason = (speed: AnalysisSpeed) => speed.status === 'unavailable' && speed.reason === 'unsupported_source' ? t("This source does not record per-response timing.") : t("No speed records for this session.");
 
+// WKWebView on macOS 13 and older predates the Popover API (Safari 17). There `popover` is an unknown attribute and
+// showPopover() is undefined, so the tooltip is toggled through `hidden` instead of throwing into the fatal surface.
+const hasPopoverApi = () => typeof HTMLElement !== 'undefined' && typeof HTMLElement.prototype.showPopover === 'function';
+
 function OutputSpeedHint() {
   const id = useId();
   const trigger = useRef<HTMLButtonElement>(null);
   const tooltip = useRef<HTMLSpanElement>(null);
+  const native = hasPopoverApi();
+  const toggle = (open: boolean) => {
+    if (!tooltip.current) return;
+    if (!native) tooltip.current.hidden = !open;
+    else if (open) tooltip.current.showPopover();
+    else tooltip.current.hidePopover();
+  };
   const show = () => {
     if (!trigger.current || !tooltip.current) return;
     const anchor = trigger.current.getBoundingClientRect();
-    tooltip.current.showPopover();
+    toggle(true);
     const box = tooltip.current.getBoundingClientRect();
-    tooltip.current.style.left = `${Math.max(8, Math.min(anchor.right - box.width, window.innerWidth - box.width - 8))}px`;
-    tooltip.current.style.top = `${anchor.bottom + box.height + 8 < window.innerHeight ? anchor.bottom + 6 : Math.max(8, anchor.top - box.height - 6)}px`;
+    // Outside the top layer the transformed session dialog clips fixed boxes and becomes their origin: stay inside it.
+    const frame = (native ? null : tooltip.current.closest('dialog'))?.getBoundingClientRect() ?? { left: 0, top: 0, right: window.innerWidth, bottom: window.innerHeight };
+    const left = Math.max(frame.left + 8, Math.min(anchor.right - box.width, frame.right - box.width - 8));
+    const top = anchor.bottom + box.height + 8 < frame.bottom ? anchor.bottom + 6 : Math.max(frame.top + 8, anchor.top - box.height - 6);
+    const place = (x: number, y: number) => Object.assign(tooltip.current!.style, { left: `${x}px`, top: `${y}px` });
+    place(left, top);
+    if (!native) { const placed = tooltip.current.getBoundingClientRect(); place(2 * left - placed.left, 2 * top - placed.top); }
   };
-  return <span className="output-speed-hint" onMouseEnter={show} onMouseLeave={() => { if (document.activeElement !== trigger.current) tooltip.current?.hidePopover(); }}>
-    <button ref={trigger} type="button" className="output-speed-hint-trigger" aria-label={t("About output speed")} aria-describedby={id} onFocus={show} onBlur={() => tooltip.current?.hidePopover()} onClick={show}>!</button>
-    <span ref={tooltip} id={id} role="tooltip" popover="auto" className="output-speed-tooltip">{t("Speed is the median of tokens per second for each measured response. It includes time to first token and recorded reasoning tokens. Claude Code and Codex use different log timing, so this is not a direct model benchmark.")}</span>
+  return <span className="output-speed-hint" onMouseEnter={show} onMouseLeave={() => { if (document.activeElement !== trigger.current) toggle(false); }}>
+    <button ref={trigger} type="button" className="output-speed-hint-trigger" aria-label={t("About output speed")} aria-describedby={id} onFocus={show} onBlur={() => toggle(false)} onClick={show}>!</button>
+    <span ref={tooltip} id={id} role="tooltip" popover="auto" hidden={!native} className="output-speed-tooltip">{t("Speed is the median of tokens per second for each measured response. It includes time to first token and recorded reasoning tokens. Claude Code and Codex use different log timing, so this is not a direct model benchmark.")}</span>
   </span>;
 }
 

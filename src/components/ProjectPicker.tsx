@@ -42,7 +42,9 @@ export default function ProjectPicker({ report, value, onChange }: {
     .filter((item) => item.path.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()))
     .sort((a, b) => (activity.get(b.raw) ?? 0) - (activity.get(a.raw) ?? 0) || a.path.localeCompare(b.path));
   function choose(raw: string) { onChange(raw); setOpen(false); trigger.current?.focus(); }
-  return <div className="project-picker" ref={root} onKeyDown={(event) => {
+  // WebKit on macOS does not focus a clicked <button>. Without a focusable ancestor the search box would blur
+  // to nothing on mousedown and onBlur would unmount the popover before the click lands.
+  return <div className="project-picker" ref={root} tabIndex={-1} onKeyDown={(event) => {
     if (event.key === 'Escape' && open) { event.preventDefault(); event.stopPropagation(); setOpen(false); trigger.current?.focus(); }
     if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
       if (!open) return;
