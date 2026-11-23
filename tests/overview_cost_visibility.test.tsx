@@ -247,6 +247,32 @@ describe('Analysis window', () => {
     await act(async () => renderer.unmount());
   });
 
+  it('keeps an SDK-provided Windows Claude title and exact file path together in usage details', async () => {
+    vi.stubGlobal('window', { addEventListener: vi.fn(), removeEventListener: vi.fn() });
+    vi.spyOn(backend, 'analysisSource').mockResolvedValue('claude');
+    vi.spyOn(backend, 'analysisCatalog').mockResolvedValue({ sources: [{ name: 'claude', display_name: 'Claude Code', has_projects: true, has_cache_read: true }], diagnostics: [] });
+    const projectPath = String.raw`D:\work\中文项目`;
+    const sourcePath = String.raw`C:\Users\fixture\.claude\projects\D--work----\windows-session.jsonl`;
+    const session = { ...analysisSession, session_id: 'windows-session', source_paths: [sourcePath] };
+    const title = 'Windows 验收会话标题';
+    const report = analysisReport(120);
+    report.projects = [{
+      source_name: 'claude', display_name: 'Claude Code', session_titles_error: null,
+      session_titles: { [session.session_id]: { text: title, origin: 'source_title' } },
+      projects: [{ project_path: projectPath, project_name: '中文项目', session_count: 1, metrics: session.metrics, sessions: [session] }],
+    }];
+    vi.spyOn(backend, 'analysisReport').mockResolvedValue(report);
+    let renderer!: ReactTestRenderer;
+    await act(async () => { renderer = create(createElement(AnalysisApp)); });
+    const openSession = renderer.root.findByProps({ className: 'workspace-session-link' });
+    expect(textOf(openSession)).toBe(title);
+    await act(async () => openSession.props.onClick());
+    const detail = renderer.root.findByProps({ 'aria-label': 'Session details' });
+    expect(textOf(detail.findByType('h3'))).toBe(title);
+    expect(textOf(detail.findByProps({ className: 'analysis-path' }))).toBe(sourcePath);
+    await act(async () => renderer.unmount());
+  });
+
   it('selects a day in place before explicitly drilling into its history', async () => {
     vi.stubGlobal('window', { addEventListener: vi.fn(), removeEventListener: vi.fn() });
     vi.spyOn(backend, 'analysisSource').mockResolvedValue('claude');
